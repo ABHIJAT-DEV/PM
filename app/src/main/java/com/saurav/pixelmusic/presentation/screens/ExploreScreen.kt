@@ -1228,7 +1228,7 @@ private fun ExploreHeroSpotlightPager(
                             drawCircle(color = surfaceCol, radius = r * 0.09f)
                         }
 
-                        SmartImage(
+                        SmartImage(crossfadeDurationMillis = 0, 
                             crossfadeDurationMillis = 0,
                             model = hqThumb,
                             contentDescription = album.title,
@@ -1385,7 +1385,7 @@ private fun ChartsPodiumAndRankedDeck(
                                 .fillMaxWidth()
                                 .height(148.dp)
                         ) {
-                            SmartImage(
+                            SmartImage(crossfadeDurationMillis = 0, 
                                 crossfadeDurationMillis = 0,
                                 model = song.albumArtUriString,
                                 contentDescription = song.title,
@@ -1502,7 +1502,7 @@ private fun ChartsPodiumAndRankedDeck(
                                         modifier = Modifier.width(24.dp)
                                     )
 
-                                    SmartImage(
+                                    SmartImage(crossfadeDurationMillis = 0, 
                                         crossfadeDurationMillis = 0,
                                         model = song.albumArtUriString,
                                         contentDescription = song.title,
@@ -1618,7 +1618,7 @@ private fun VinylAlbumShowcaseCarousel(
                         drawCircle(color = surfaceCol, radius = r * 0.09f)
                     }
 
-                    SmartImage(
+                    SmartImage(crossfadeDurationMillis = 0, 
                         crossfadeDurationMillis = 0,
                         model = hqThumb,
                         contentDescription = album.title,
@@ -1690,7 +1690,7 @@ private fun VideoShowcaseCarousel(
                     .height(148.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    SmartImage(
+                    SmartImage(crossfadeDurationMillis = 0, 
                         crossfadeDurationMillis = 0,
                         model = hqThumb,
                         contentDescription = videoItem.title,
@@ -2152,7 +2152,7 @@ fun ExploreTrendingCarousel(
                     onLongClick = { onMoreOptionsClick(song) }
                 )
         ) {
-            SmartImage(
+            SmartImage(crossfadeDurationMillis = 0, 
                 crossfadeDurationMillis = 0,
                 model = song.albumArtUriString,
                 contentDescription = song.title,
@@ -2313,7 +2313,7 @@ fun ExploreDiscoverCardsCarousel(
                             .height(152.dp)
                             .clip(RoundedCornerShape(18.dp))
                     ) {
-                        SmartImage(
+                        SmartImage(crossfadeDurationMillis = 0, 
                             crossfadeDurationMillis = 0,
                             model = song.albumArtUriString,
                             contentDescription = song.title,
@@ -2457,7 +2457,7 @@ fun ExploreShortsVerticalCardsCarousel(
                 elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    SmartImage(
+                    SmartImage(crossfadeDurationMillis = 0, 
                         crossfadeDurationMillis = 0,
                         model = song.albumArtUriString,
                         contentDescription = song.title,
@@ -2640,7 +2640,7 @@ fun ExploreNostalgiaVinylCarousel(
                             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                         ) {
                             Box(modifier = Modifier.fillMaxSize()) {
-                                SmartImage(
+                                SmartImage(crossfadeDurationMillis = 0, 
                                     crossfadeDurationMillis = 0,
                                     model = song.albumArtUriString,
                                     contentDescription = song.title,
@@ -2783,7 +2783,7 @@ fun ExploreCoversAndRemixesCarousel(
                                     .size(52.dp)
                                     .clip(RoundedCornerShape(14.dp))
                             ) {
-                                SmartImage(
+                                SmartImage(crossfadeDurationMillis = 0, 
                                     crossfadeDurationMillis = 0,
                                     model = song.albumArtUriString,
                                     contentDescription = song.title,
@@ -2915,7 +2915,7 @@ fun ExploreGeneralSongsCarousel(
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    SmartImage(
+                    SmartImage(crossfadeDurationMillis = 0, 
                         crossfadeDurationMillis = 0,
                         model = song.albumArtUriString,
                         contentDescription = song.title,
@@ -3064,7 +3064,7 @@ fun SongPillsCarousel(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            SmartImage(
+                            SmartImage(crossfadeDurationMillis = 0, 
                                 crossfadeDurationMillis = 0,
                                 model = song.albumArtUriString,
                                 contentDescription = null,
@@ -3184,7 +3184,7 @@ private fun SongBigBoxItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SmartImage(
+            SmartImage(crossfadeDurationMillis = 0, 
                 crossfadeDurationMillis = 0,
                 model = song.albumArtUriString,
                 contentDescription = song.title,
@@ -3299,7 +3299,7 @@ fun MixedStationCarousel(
             ) {
                 Column(modifier = Modifier.padding(10.dp)) {
                     Box(modifier = Modifier.size(170.dp)) {
-                        SmartImage(
+                        SmartImage(crossfadeDurationMillis = 0, 
                             crossfadeDurationMillis = 0,
                             model = hqThumb,
                             contentDescription = title,
@@ -3437,7 +3437,7 @@ fun SongCardItem(
             .clip(AbsoluteSmoothCornerShape(20.dp, 60))
             .clickable(onClick = onClick)
     ) {
-        SmartImage(
+        SmartImage(crossfadeDurationMillis = 0, 
             crossfadeDurationMillis = 0,
             model = song.albumArtUriString,
             contentDescription = song.title,
@@ -3687,7 +3687,7 @@ fun AlbumCarouselItem(
             .clip(AbsoluteSmoothCornerShape(22.dp, 60))
             .clickable(onClick = onClick)
     ) {
-        SmartImage(
+        SmartImage(crossfadeDurationMillis = 0, 
             crossfadeDurationMillis = 0,
             model = hqThumb,
             contentDescription = album.title,
@@ -3733,7 +3733,7 @@ fun ArtistCardItem(
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
     ) {
-        SmartImage(
+        SmartImage(crossfadeDurationMillis = 0, 
             crossfadeDurationMillis = 0,
             model = hqThumb,
             contentDescription = artist.title,
@@ -3792,7 +3792,7 @@ fun PlaylistCardItem(
             .clip(AbsoluteSmoothCornerShape(20.dp, 60))
             .clickable(onClick = onClick)
     ) {
-        SmartImage(
+        SmartImage(crossfadeDurationMillis = 0, 
             crossfadeDurationMillis = 0,
             model = hqThumb,
             contentDescription = playlist.title,
@@ -3875,7 +3875,7 @@ fun SimilarArtistCardItem(
                     .padding(4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                SmartImage(
+                SmartImage(crossfadeDurationMillis = 0, 
                     crossfadeDurationMillis = 0,
                     model = hqThumb,
                     contentDescription = artist.title,

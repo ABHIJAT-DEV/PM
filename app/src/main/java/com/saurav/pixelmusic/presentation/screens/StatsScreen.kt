@@ -2018,7 +2018,7 @@ private fun TopAlbumsCard(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                SmartImage(
+                                SmartImage(crossfadeDurationMillis = 0, 
                                     model = albumSummary.albumArtUri,
                                     contentDescription = albumSummary.album,
                                     modifier = Modifier
@@ -2158,7 +2158,7 @@ private fun SongStatsCard(
                                         accentOnColor = accentOnColor,
                                         highlighted = position == 0
                                     )
-                                    SmartImage(
+                                    SmartImage(crossfadeDurationMillis = 0, 
                                         model = songSummary.albumArtUri,
                                         contentDescription = songSummary.title,
                                         modifier = Modifier

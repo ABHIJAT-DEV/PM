@@ -1132,7 +1132,7 @@ private fun NowPlayingAnchorPreviewCard(
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SmartImage(
+            SmartImage(crossfadeDurationMillis = 0, 
                 model = song.albumArtUriString,
                 contentDescription = song.title,
                 shape = RoundedCornerShape(10.dp),

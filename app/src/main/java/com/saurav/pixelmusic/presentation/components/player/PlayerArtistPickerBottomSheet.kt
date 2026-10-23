@@ -197,7 +197,7 @@ private fun PlayerArtistShortcutCard(
                     .background(avatarBackground),
                 contentAlignment = Alignment.Center
             ) {
-                SmartImage(
+                SmartImage(crossfadeDurationMillis = 0, 
                     model = artist.effectiveImageUrl,
                     contentDescription = artist.name,
                     modifier = Modifier.fillMaxSize(),

@@ -401,7 +401,7 @@ fun ChartsScreen(
                                                             color = MaterialTheme.colorScheme.primary,
                                                             modifier = Modifier.width(28.dp)
                                                         )
-                                                        SmartImage(
+                                                        SmartImage(crossfadeDurationMillis = 0, 
                                                             model = nativeSong.albumArtUriString,
                                                             contentDescription = nativeSong.title,
                                                             contentScale = ContentScale.Crop,
@@ -535,7 +535,7 @@ private fun ChartCardItem(
             modifier = Modifier.size(156.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                SmartImage(
+                SmartImage(crossfadeDurationMillis = 0, 
                     model = thumbnail,
                     contentDescription = title,
                     contentScale = ContentScale.Crop,

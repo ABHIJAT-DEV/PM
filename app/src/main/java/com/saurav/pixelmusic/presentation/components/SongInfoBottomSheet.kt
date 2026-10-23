@@ -284,7 +284,7 @@ fun SongInfoBottomSheet(
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            SmartImage(
+                            SmartImage(crossfadeDurationMillis = 0, 
                                 model = song.albumArtUriString,
                                 contentDescription = stringResource(R.string.widget_album_art),
                                 shape = albumArtShape,

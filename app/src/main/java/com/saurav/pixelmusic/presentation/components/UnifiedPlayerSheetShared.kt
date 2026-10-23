@@ -109,7 +109,7 @@ internal fun MiniPlayerContentInternal(
         val albumArtModel = song.albumArtUriString?.takeIf { it.isNotBlank() }
         Box(contentAlignment = Alignment.Center) {
             key(song.id) {
-                SmartImage(
+                SmartImage(crossfadeDurationMillis = 0, 
                     model = albumArtModel,
                     contentDescription = "Carátula de ${song.title}",
                     shape = CircleShape,

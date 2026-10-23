@@ -637,7 +637,7 @@ private fun SongPickerRow(
                     CircleShape
                 )
         ) {
-            SmartImage(
+            SmartImage(crossfadeDurationMillis = 0, 
                 model = song.albumArtUriString,
                 contentDescription = song.title,
                 shape = albumShape,

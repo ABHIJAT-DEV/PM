@@ -323,7 +323,7 @@ fun EnhancedSongListItem(
                             .size(albumArtSize)
                             .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                     ) {
-                        SmartImage(
+                        SmartImage(crossfadeDurationMillis = 0, 
                             model = song.albumArtUriString,
                             contentDescription = song.title,
                             shape = albumShape,

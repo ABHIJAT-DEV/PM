@@ -227,7 +227,7 @@ private fun AlbumGridCard(
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SmartImage(
+            SmartImage(crossfadeDurationMillis = 0, 
                 model = section.albumArtUriString,
                 contentDescription = section.title,
                 modifier = Modifier

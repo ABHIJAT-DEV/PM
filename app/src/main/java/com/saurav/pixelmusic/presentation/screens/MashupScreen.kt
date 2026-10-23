@@ -203,7 +203,7 @@ private fun DeckUi(
                         contentAlignment = Alignment.Center
                     ) {
                         if (deckState.song != null) {
-                            SmartImage(
+                            SmartImage(crossfadeDurationMillis = 0, 
                                 model = deckState.song.albumArtUriString,
                                 contentDescription = stringResource(R.string.cd_song_cover),
                                 modifier = Modifier.fillMaxSize()
@@ -334,7 +334,7 @@ private fun SongPickerItem(song: Song, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        SmartImage(
+        SmartImage(crossfadeDurationMillis = 0, 
             model = song.albumArtUriString,
             contentDescription = stringResource(R.string.cd_song_cover),
             modifier = Modifier.size(40.dp)
