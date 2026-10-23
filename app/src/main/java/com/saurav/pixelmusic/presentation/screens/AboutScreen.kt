@@ -107,6 +107,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.lerp as lerpDp
 import androidx.compose.ui.util.lerp as lerpFloat
 import androidx.core.graphics.drawable.toBitmap
@@ -782,6 +783,81 @@ private fun SocialLinksRow() {
                         )
                     }
                 }
+            }
+        }
+
+        // Telegram Update Bot
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/PixelMusicAppBot"))
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    try { context.startActivity(intent) } catch (e: ActivityNotFoundException) {}
+                },
+            shape = AbsoluteSmoothCornerShape(16.dp, 60),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    modifier = Modifier.size(30.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            painter = painterResource(R.drawable.telegram),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(17.dp),
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "Update Bot",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            maxLines = 1,
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                        ) {
+                            Text(
+                                text = "Latest & Beta APKs",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                    Text(
+                        text = "@PixelMusicAppBot",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
 
