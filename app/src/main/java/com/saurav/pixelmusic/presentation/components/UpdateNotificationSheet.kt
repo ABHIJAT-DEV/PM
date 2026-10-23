@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Warning
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -195,25 +197,26 @@ fun UpdateNotificationSheet(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
-                            .liquidGlassInteractiveSurface(shape = buttonShape),
+                            .height(54.dp),
                         shape = buttonShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f) else MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
+                            contentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onPrimary
                         ),
                         elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
                     ) {
                         Icon(
                             imageVector = if (isUpdateAvailable) Icons.Rounded.Download else Icons.Rounded.Check,
                             contentDescription = null,
+                            tint = if (isDark) Color.White else LocalContentColor.current,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (isUpdateAvailable) "Update Now" else "Awesome",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 16.sp,
+                            color = if (isDark) Color.White else Color.Unspecified
                         )
                     }
 
@@ -292,6 +295,7 @@ fun RichChangelogContent(
         items.forEach { item ->
             when (item) {
                 is ChangelogItem.Notice -> NoticeCard(item)
+                is ChangelogItem.LinkButton -> LinkButtonView(item)
                 is ChangelogItem.VersionHeader -> VersionHeaderView(item)
                 is ChangelogItem.SectionHeader -> SectionHeaderView(item)
                 is ChangelogItem.Bullet -> BulletItemView(item)
@@ -407,6 +411,70 @@ private fun VersionHeaderView(header: ChangelogItem.VersionHeader) {
             modifier = Modifier.weight(1f),
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
         )
+    }
+}
+
+@Composable
+private fun LinkButtonView(button: ChangelogItem.LinkButton) {
+    val uriHandler = LocalUriHandler.current
+    Surface(
+        shape = AbsoluteSmoothCornerShape(16.dp, 60),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable {
+                try {
+                    uriHandler.openUri(button.url)
+                } catch (e: Exception) {
+                    // ignore if invalid
+                }
+            }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Text(text = button.icon, fontSize = 18.sp)
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = button.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                if (!button.subtitle.isNullOrBlank()) {
+                    Text(
+                        text = button.subtitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+        }
     }
 }
 
@@ -769,6 +837,12 @@ private enum class BadgeType {
 
 private sealed class ChangelogItem {
     data class Notice(val icon: String, val title: String, val lines: List<String>) : ChangelogItem()
+    data class LinkButton(
+        val title: String,
+        val url: String,
+        val subtitle: String? = null,
+        val icon: String = "🚀"
+    ) : ChangelogItem()
     data class VersionHeader(val raw: String, val cleanName: String, val badgeColorType: BadgeType) : ChangelogItem()
     data class SectionHeader(val title: String, val level: Int) : ChangelogItem()
     data class Bullet(
@@ -833,6 +907,34 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
             items.add(ChangelogItem.Divider)
             i++
             continue
+        }
+
+        // 2.5 Link Button (e.g. "### 🚀 Official APK Page: [pixelmusic.pages.dev](https://pixelmusic.pages.dev)")
+        val rawUrlMatch = Regex("""(https?://[^\s)]+)""").find(line)
+        if (rawUrlMatch != null) {
+            val lowerLine = line.lowercase()
+            if (lowerLine.contains("official") || lowerLine.contains("page") || lowerLine.contains("website") || lowerLine.contains("apk page") || lowerLine.contains("download page")) {
+                val linkMatch = Regex("""\[(.*?)\]\((https?://[^\s)]+)\)""").find(line)
+                val (title, url, subtitle) = if (linkMatch != null) {
+                    val label = linkMatch.groupValues[1]
+                    val u = linkMatch.groupValues[2]
+                    Triple("Visit Official Page", u, label)
+                } else {
+                    val u = rawUrlMatch.groupValues[1]
+                    Triple("Visit Official Page", u, u.removePrefix("https://").removePrefix("http://").trimEnd('/'))
+                }
+                val icon = if (line.contains("🌐")) "🌐" else "🚀"
+                items.add(
+                    ChangelogItem.LinkButton(
+                        title = title,
+                        url = url,
+                        subtitle = subtitle,
+                        icon = icon
+                    )
+                )
+                i++
+                continue
+            }
         }
 
         // 3. Image & GIF Detection:

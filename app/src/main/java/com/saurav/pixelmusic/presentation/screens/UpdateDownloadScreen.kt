@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
 import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -344,8 +345,7 @@ private fun DownloadingView(
                 onClick = onCancel,
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp)
-                    .liquidGlassInteractiveSurface(shape = buttonShape),
+                    .height(52.dp),
                 shape = buttonShape,
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.errorContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.errorContainer,
@@ -362,21 +362,25 @@ private fun DownloadingView(
                 onClick = onPauseResume,
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp)
-                    .liquidGlassInteractiveSurface(shape = buttonShape),
+                    .height(52.dp),
                 shape = buttonShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary
+                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary,
+                    contentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onPrimary
                 ),
                 elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
             ) {
                 Icon(
                     imageVector = if (isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, 
                     contentDescription = null, 
+                    tint = if (isDark) Color.White else LocalContentColor.current,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(if (isPaused) "Resume" else "Pause")
+                Text(
+                    text = if (isPaused) "Resume" else "Pause",
+                    color = if (isDark) Color.White else Color.Unspecified
+                )
             }
         }
     }
@@ -452,17 +456,26 @@ private fun FinishedView(
             onClick = onInstall,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
-                .liquidGlassInteractiveSurface(shape = installShape),
+                .height(56.dp),
             shape = installShape,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isLiquidGlassInstall) MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkInstall) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary
+                containerColor = if (isLiquidGlassInstall) MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkInstall) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary,
+                contentColor = if (isDarkInstall) Color.White else MaterialTheme.colorScheme.onPrimary
             ),
             elevation = if (isLiquidGlassInstall) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
         ) {
-            Icon(Icons.Rounded.Download, contentDescription = null)
+            Icon(
+                Icons.Rounded.Download, 
+                contentDescription = null,
+                tint = if (isDarkInstall) Color.White else LocalContentColor.current
+            )
             Spacer(Modifier.width(8.dp))
-            Text("Install Update", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Install Update", 
+                fontSize = 16.sp, 
+                fontWeight = FontWeight.Bold,
+                color = if (isDarkInstall) Color.White else Color.Unspecified
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

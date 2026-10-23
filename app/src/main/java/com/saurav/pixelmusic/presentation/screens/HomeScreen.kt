@@ -786,9 +786,10 @@ fun HomeScreen(
                     painter = painterResource(R.drawable.pixelmusic_base_monochrome),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             },
+            pillTextSize = 28.sp,
             isLiquidGlass = isLiquidGlassOnHeader,
             backdrop = null,
             alpha = homeTitleAlpha,
