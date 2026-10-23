@@ -63,7 +63,7 @@ val SmartImageListTargetSize = Size(128, 128)
 private val DefaultSmartImageSize = Size(300, 300)
 
 @Composable
-fun SmartImage(crossfadeDurationMillis = 0, 
+fun SmartImage(
     model: Any?,
     contentDescription: String?,
     modifier: Modifier = Modifier,

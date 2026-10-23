@@ -42,7 +42,8 @@ object ThumbnailUrlUtils {
         if (LocalArtworkUri.isLocalArtworkUri(url) ||
             url.startsWith("content://") ||
             url.startsWith("file://") ||
-            url.startsWith("android.resource://")
+            url.startsWith("android.resource://") ||
+            url.contains("sqp=")
         ) {
             return url
         }
@@ -65,6 +66,7 @@ object ThumbnailUrlUtils {
             if (!videoId.isNullOrBlank() && !videoId.contains("http")) {
                 return "yt_thumb_$videoId"
             }
+            return url
         }
 
         return url.substringBefore("?")
@@ -81,7 +83,8 @@ object ThumbnailUrlUtils {
         if (LocalArtworkUri.isLocalArtworkUri(url) ||
             url.startsWith("content://") ||
             url.startsWith("file://") ||
-            url.startsWith("android.resource://")
+            url.startsWith("android.resource://") ||
+            url.contains("sqp=")
         ) {
             return url
         }
@@ -104,6 +107,9 @@ object ThumbnailUrlUtils {
 
         // 2. YouTube Video Thumbnails (i.ytimg.com)
         if (transformed.contains("i.ytimg.com")) {
+            if (!transformed.contains("/vi/") && !transformed.contains("/vi_webp/")) {
+                return transformed
+            }
             val ytRes = when (quality) {
                 AlbumArtQuality.LOW -> "hqdefault" // 480x360 (360p)
                 AlbumArtQuality.HIGH -> "maxresdefault" // 1280x720 (720p)

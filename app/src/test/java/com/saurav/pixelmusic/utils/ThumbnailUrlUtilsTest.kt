@@ -110,4 +110,22 @@ class ThumbnailUrlUtilsTest {
         assertThat(ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(ytMax))
             .isNotEqualTo(ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(ytOther))
     }
+
+    @Test
+    fun getCanonicalArtworkDiskCacheKey_dynamicSqpCollages_distinguishesMixes() {
+        val mix1 = "https://i.ytimg.com/hqdefault.jpg?sqp=-oaymwE2COADEG5IVWytauq4Ep9CAgp9W1&rs=AOn4CL1"
+        val mix2 = "https://i.ytimg.com/hqdefault.jpg?sqp=-oaymwE2CPYBEG5IVWytauq4Ep9CAgp9W2&rs=AOn4CL2"
+
+        assertThat(ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(mix1))
+            .isNotEqualTo(ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(mix2))
+        assertThat(ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(mix1))
+            .isEqualTo(mix1)
+    }
+
+    @Test
+    fun optimizeArtworkUrl_dynamicSqpCollages_untouched() {
+        val mixUrl = "https://i.ytimg.com/hqdefault.jpg?sqp=-oaymwE2COADEG5IVWytauq4Ep9CAgp9W1&rs=AOn4CL1"
+        assertThat(ThumbnailUrlUtils.optimizeArtworkUrl(mixUrl, AlbumArtQuality.HIGH))
+            .isEqualTo(mixUrl)
+    }
 }

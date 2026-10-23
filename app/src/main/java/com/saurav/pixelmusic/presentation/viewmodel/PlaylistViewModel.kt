@@ -171,6 +171,7 @@ class PlaylistViewModel @Inject constructor(
         const val FOLDER_PLAYLIST_PREFIX = "folder_playlist:"
         private const val MANUAL_ORDER_MODE = "manual"
         private const val SMART_PLAYLIST_MAX_ITEMS = 100
+        private val remotePlaylistsCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Playlist, List<Song>>>()
     }
 
     // Helper function to resolve stored playlist sort keys
@@ -225,11 +226,11 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    fun loadPlaylistDetails(playlistId: String) {
+    fun loadPlaylistDetails(playlistId: String, forceRefresh: Boolean = false) {
         viewModelScope.launch {
             val shouldKeepExisting = _uiState.value.currentPlaylistDetails?.id == playlistId
             
-            if (shouldKeepExisting && _uiState.value.currentPlaylistSongs.isNotEmpty()) {
+            if (!forceRefresh && shouldKeepExisting && _uiState.value.currentPlaylistSongs.isNotEmpty()) {
                 val isRemote = playlistId.startsWith("PL") || playlistId.startsWith("VL") || playlistId.startsWith("RD") || playlistId.toLongOrNull() == null
                 if (isRemote) {
                     _uiState.update { it.copy(isLoading = false, playlistNotFound = false) }
@@ -342,7 +343,11 @@ class PlaylistViewModel @Inject constructor(
 
                                     var continuation = ytPlaylistPage.songsContinuation ?: ytPlaylistPage.continuation
                                     var pages = 0
-                                    val maxPages = if (playlistId.startsWith("RD") || playlistId.contains("Mix")) 2 else 20
+                                    val isMix = playlistId.startsWith("RD") ||
+                                        playlistId.contains("Mix", ignoreCase = true) ||
+                                        ytPlaylist.title.contains("Mix", ignoreCase = true) ||
+                                        ytPlaylist.title.contains("Station", ignoreCase = true)
+                                    val maxPages = if (isMix) 0 else 20
                                     while (continuation != null && pages < maxPages) {
                                         var contResult = YouTube.playlistContinuation(continuation)
                                         if (contResult.isFailure) {
@@ -408,6 +413,26 @@ class PlaylistViewModel @Inject constructor(
                             }
                         }
                     } else if (playlistId.startsWith("PL") || playlistId.startsWith("VL") || playlistId.toLongOrNull() == null) {
+                        val cached = remotePlaylistsCache[playlistId]
+                        if (!forceRefresh && cached != null && cached.second.isNotEmpty()) {
+                            _uiState.update {
+                                it.copy(
+                                    currentPlaylistDetails = cached.first,
+                                    currentPlaylistSongs = cached.second,
+                                    playlistSongsOrderMode = PlaylistSongsOrderMode.Manual,
+                                    isLoading = false,
+                                    playlistNotFound = false
+                                )
+                            }
+                            val isCachedMix = playlistId.startsWith("RD") ||
+                                playlistId.contains("Mix", ignoreCase = true) ||
+                                cached.first.name.contains("Mix", ignoreCase = true) ||
+                                cached.first.name.contains("Station", ignoreCase = true)
+                            if (isCachedMix) {
+                                return@launch
+                            }
+                        }
+
                         if (shouldKeepExisting && _uiState.value.currentPlaylistSongs.isNotEmpty()) {
                             _uiState.update { it.copy(isLoading = false, playlistNotFound = false) }
                             return@launch
@@ -458,56 +483,69 @@ class PlaylistViewModel @Inject constructor(
                                 )
                             }
 
-                            // Fetch the remaining pages progressively in the background coroutine
-                            viewModelScope.launch(Dispatchers.IO) {
-                                val allYtSongs = ytPlaylistPage.songs.toMutableList()
-                                var continuation = ytPlaylistPage.songsContinuation ?: ytPlaylistPage.continuation
-                                var pages = 0
-                                val maxPages = if (playlistId.startsWith("RD") || playlistId.contains("Mix")) 2 else 10
-                                while (continuation != null && pages < maxPages) {
-                                    val contResult = YouTube.playlistContinuation(continuation)
-                                    if (contResult.isSuccess) {
-                                        val contPage = contResult.getOrThrow()
-                                        allYtSongs.addAll(contPage.songs)
-                                        continuation = contPage.continuation
-                                        pages++
+                            remotePlaylistsCache[playlistId] = Pair(playlistModel, firstPageSongs)
 
-                                        val currentNativeSongs = allYtSongs.map { it.toNativeSong() }
-                                        musicRepository.insertYoutubeSongs(contPage.songs.map { it.toNativeSong() })
-                                        
-                                        // Update video ids
-                                        currentPlaylistSetVideoIds = allYtSongs.mapNotNull { it.setVideoId }
+                            val isMixPlaylist = playlistId.startsWith("RD") ||
+                                playlistId.contains("Mix", ignoreCase = true) ||
+                                ytPlaylist.title.contains("Mix", ignoreCase = true) ||
+                                ytPlaylist.title.contains("Station", ignoreCase = true)
 
-                                        // Only update preferences if the playlist exists locally
-                                        val currentExisting = playlistPreferencesRepository.userPlaylistsFlow.first().find { it.id == playlistId }
-                                        if (currentExisting != null) {
-                                            playlistPreferencesRepository.updatePlaylist(
-                                                currentExisting.copy(
-                                                    songIds = currentNativeSongs.map { it.id }
-                                                )
-                                            )
-                                        }
+                            // Do NOT paginate dynamic radio mixes (the first 25 songs are the complete snapshot;
+                            // continuing on radio stations loads infinite random songs).
+                            if (!isMixPlaylist) {
+                                // Fetch the remaining pages progressively in the background coroutine
+                                viewModelScope.launch(Dispatchers.IO) {
+                                    val allYtSongs = ytPlaylistPage.songs.toMutableList()
+                                    var continuation = ytPlaylistPage.songsContinuation ?: ytPlaylistPage.continuation
+                                    var pages = 0
+                                    val maxPages = 10
+                                    while (continuation != null && pages < maxPages) {
+                                        val contResult = YouTube.playlistContinuation(continuation)
+                                        if (contResult.isSuccess) {
+                                            val contPage = contResult.getOrThrow()
+                                            allYtSongs.addAll(contPage.songs)
+                                            continuation = contPage.continuation
+                                            pages++
 
-                                        val updatedPlaylistModel = Playlist(
-                                            id = playlistId,
-                                            name = ytPlaylist.title,
-                                            songIds = currentNativeSongs.map { it.id },
-                                            coverImageUri = ytPlaylist.thumbnail,
-                                            source = "YOUTUBE"
-                                        )
+                                            val currentNativeSongs = allYtSongs.map { it.toNativeSong() }
+                                            musicRepository.insertYoutubeSongs(contPage.songs.map { it.toNativeSong() })
+                                            
+                                            // Update video ids
+                                            currentPlaylistSetVideoIds = allYtSongs.mapNotNull { it.setVideoId }
 
-                                        withContext(Dispatchers.Main) {
-                                            _uiState.update { state ->
-                                                if (state.currentPlaylistDetails?.id == playlistId) {
-                                                    state.copy(
-                                                        currentPlaylistDetails = updatedPlaylistModel,
-                                                        currentPlaylistSongs = currentNativeSongs
+                                            // Only update preferences if the playlist exists locally
+                                            val currentExisting = playlistPreferencesRepository.userPlaylistsFlow.first().find { it.id == playlistId }
+                                            if (currentExisting != null) {
+                                                playlistPreferencesRepository.updatePlaylist(
+                                                    currentExisting.copy(
+                                                        songIds = currentNativeSongs.map { it.id }
                                                     )
-                                                } else state
+                                                )
                                             }
+
+                                            val updatedPlaylistModel = Playlist(
+                                                id = playlistId,
+                                                name = ytPlaylist.title,
+                                                songIds = currentNativeSongs.map { it.id },
+                                                coverImageUri = ytPlaylist.thumbnail,
+                                                source = "YOUTUBE"
+                                            )
+
+                                            remotePlaylistsCache[playlistId] = Pair(updatedPlaylistModel, currentNativeSongs)
+
+                                            withContext(Dispatchers.Main) {
+                                                _uiState.update { state ->
+                                                    if (state.currentPlaylistDetails?.id == playlistId) {
+                                                        state.copy(
+                                                            currentPlaylistDetails = updatedPlaylistModel,
+                                                            currentPlaylistSongs = currentNativeSongs
+                                                        )
+                                                    } else state
+                                                }
+                                            }
+                                        } else {
+                                            break
                                         }
-                                    } else {
-                                        break
                                     }
                                 }
                             }
@@ -2066,7 +2104,8 @@ class PlaylistViewModel @Inject constructor(
         val currentId = _uiState.value.currentPlaylistDetails?.id ?: return
         val source = _uiState.value.currentPlaylistDetails?.source
         if (source == "YOUTUBE") {
-            loadPlaylistDetails(currentId)
+            remotePlaylistsCache.remove(currentId)
+            loadPlaylistDetails(currentId, forceRefresh = true)
         }
     }
 
