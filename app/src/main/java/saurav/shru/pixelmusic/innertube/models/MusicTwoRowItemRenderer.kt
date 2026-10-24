@@ -24,38 +24,38 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class MusicTwoRowItemRenderer(
-    val title: Runs? = null,
+    val title: Runs,
     val subtitle: Runs? = null,
     val subtitleBadges: List<Badges>? = null,
     val menu: Menu? = null,
-    val thumbnailRenderer: ThumbnailRenderer? = null,
-    val navigationEndpoint: NavigationEndpoint? = null,
+    val thumbnailRenderer: ThumbnailRenderer,
+    val navigationEndpoint: NavigationEndpoint,
     val thumbnailOverlay: MusicResponsiveListItemRenderer.Overlay? = null,
 ) {
     val isSong: Boolean
-        get() = navigationEndpoint?.endpoint is WatchEndpoint
+        get() = navigationEndpoint.endpoint is WatchEndpoint
     val isPlaylist: Boolean
         get() =
-            navigationEndpoint?.browseEndpoint
+            navigationEndpoint.browseEndpoint
                 ?.browseEndpointContextSupportedConfigs
                 ?.browseEndpointContextMusicConfig
                 ?.pageType ==
                 MUSIC_PAGE_TYPE_PLAYLIST
     val isAlbum: Boolean
         get() =
-            navigationEndpoint?.browseEndpoint
+            navigationEndpoint.browseEndpoint
                 ?.browseEndpointContextSupportedConfigs
                 ?.browseEndpointContextMusicConfig
                 ?.pageType ==
                 MUSIC_PAGE_TYPE_ALBUM ||
-                navigationEndpoint?.browseEndpoint
+                navigationEndpoint.browseEndpoint
                     ?.browseEndpointContextSupportedConfigs
                     ?.browseEndpointContextMusicConfig
                     ?.pageType ==
                 MUSIC_PAGE_TYPE_AUDIOBOOK
     val isArtist: Boolean
         get() =
-            navigationEndpoint?.browseEndpoint
+            navigationEndpoint.browseEndpoint
                 ?.browseEndpointContextSupportedConfigs
                 ?.browseEndpointContextMusicConfig
                 ?.pageType ==

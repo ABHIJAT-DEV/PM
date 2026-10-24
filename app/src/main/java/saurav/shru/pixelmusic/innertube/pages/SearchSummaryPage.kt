@@ -95,7 +95,7 @@ data class SearchSummaryPage(
                             },
                         duration =
                             subtitle
-                                .lastOrNull()
+                                ?.lastOrNull()
                                 ?.firstOrNull()
                                 ?.text
                                 ?.parseTime(),
