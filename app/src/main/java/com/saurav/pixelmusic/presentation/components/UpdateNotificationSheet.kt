@@ -163,7 +163,9 @@ fun UpdateNotificationSheet(
                                 .padding(bottom = 8.dp)
                         )
 
-                        val migrateShape = AbsoluteSmoothCornerShape(16.dp, 60)
+                        val isLiquidGlass = LocalLiquidGlassEnabled.current
+                        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+                        val migrateShape = AbsoluteSmoothCornerShape(18.dp, 60)
 
                         Button(
                             onClick = {
@@ -171,15 +173,18 @@ fun UpdateNotificationSheet(
                                 onDismiss()
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                containerColor = if (isLiquidGlass) Color.Transparent else MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp)
-                                .padding(bottom = 8.dp)
-                                .liquidGlassInteractiveSurface(shape = migrateShape),
-                            shape = migrateShape
+                                .height(52.dp)
+                                .liquidGlassInteractiveSurface(
+                                    shape = migrateShape,
+                                    surfaceTint = if (isLiquidGlass) MaterialTheme.colorScheme.errorContainer.copy(alpha = if (isDark) 0.65f else 0.80f) else null
+                                ),
+                            shape = migrateShape,
+                            elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
                         ) {
                             Text(
                                 text = "Migrate to Stable Release",
@@ -187,6 +192,7 @@ fun UpdateNotificationSheet(
                                 fontSize = 15.sp
                             )
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
                     val isLiquidGlass = LocalLiquidGlassEnabled.current
@@ -201,10 +207,13 @@ fun UpdateNotificationSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(54.dp)
-                            .liquidGlassInteractiveSurface(shape = buttonShape),
+                            .liquidGlassInteractiveSurface(
+                                shape = buttonShape,
+                                surfaceTint = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f) else null
+                            ),
                         shape = buttonShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f) else MaterialTheme.colorScheme.primary,
+                            containerColor = if (isLiquidGlass) Color.Transparent else MaterialTheme.colorScheme.primary,
                             contentColor = Color.Black
                         ),
                         elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
@@ -423,7 +432,7 @@ private fun LinkButtonView(button: ChangelogItem.LinkButton) {
     val uriHandler = LocalUriHandler.current
     val isLiquidGlass = LocalLiquidGlassEnabled.current
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val buttonShape = AbsoluteSmoothCornerShape(16.dp, 60)
+    val buttonShape = AbsoluteSmoothCornerShape(18.dp, 60)
 
     Button(
         onClick = {
@@ -435,19 +444,24 @@ private fun LinkButtonView(button: ChangelogItem.LinkButton) {
         },
         modifier = Modifier
             .fillMaxWidth()
-            .height(50.dp)
-            .padding(vertical = 4.dp)
-            .liquidGlassInteractiveSurface(shape = buttonShape),
+            .height(52.dp)
+            .liquidGlassInteractiveSurface(
+                shape = buttonShape,
+                surfaceTint = if (isLiquidGlass) {
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.65f else 0.80f)
+                } else null
+            ),
         shape = buttonShape,
-        colors = ButtonDefaults.filledTonalButtonColors(
+        colors = ButtonDefaults.buttonColors(
             containerColor = if (isLiquidGlass) {
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.65f else 0.80f)
+                Color.Transparent
             } else {
                 MaterialTheme.colorScheme.secondaryContainer
             },
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         ),
-        elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation()
+        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
@@ -457,7 +471,7 @@ private fun LinkButtonView(button: ChangelogItem.LinkButton) {
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = if (!button.subtitle.isNullOrBlank()) "${button.title} (${button.subtitle})" else button.title,
+            text = button.title,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
