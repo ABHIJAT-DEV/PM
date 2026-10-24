@@ -244,16 +244,9 @@
   ### Join the Community &amp; Help Shape the Future of PixelMusic
 
   <p align="center">
-    <a href="https://github.com/Saurav-02/PixelMusic/issues">
-      <img src="assets/badges/badge_issues.svg" height="46" alt="Report an Issue" />
-    </a>
     &nbsp;&nbsp;
     <a href="https://t.me/PixelMusicAppBot">
       <img src="assets/badges/badge_feedback.svg" height="46" alt="Send Feedback via Bot" />
-    </a>
-    &nbsp;&nbsp;
-    <a href="https://github.com/Saurav-02/PixelMusic/pulls">
-      <img src="assets/badges/badge_contribute.svg" height="46" alt="Contribute" />
     </a>
   </p>
 
