@@ -54,7 +54,7 @@
 
 > [!IMPORTANT]
 > ### 📢 Official Source Code Repository Notice
-> This repository is exclusively dedicated to developing and publishing the **open-source codebase** of PixelMusic.  
+> This repository is exclusively dedicated to developing the **open-source codebase** of PixelMusic.  
 > To install and use PixelMusic on your Android phone, download the signed release or beta APK from our official channels:
 > 
 > 🌐 **[Official Website (pixelmusic.pages.dev)](https://pixelmusic.pages.dev)** &nbsp;•&nbsp; 🤖 **[Telegram Update Bot (@PixelMusicAppBot)](https://t.me/PixelMusicAppBot)**
@@ -282,21 +282,17 @@ flowchart TD
   ### Join the Community &amp; Help Shape the Future of PixelMusic
 
   <p align="center">
-    <a href="https://github.com/atappu805/Clean2.0/issues">
+    <a href="https://github.com/Saurav-02/PixelMusic/issues">
       <img src="assets/badges/badge_issues.svg" height="46" alt="Report an Issue" />
     </a>
     &nbsp;&nbsp;
-    <a href="https://github.com/atappu805/Clean2.0/pulls">
+    <a href="https://github.com/Saurav-02/PixelMusic/pulls">
       <img src="assets/badges/badge_contribute.svg" height="46" alt="Contribute" />
-    </a>
-    &nbsp;&nbsp;
-    <a href="LICENSE">
-      <img src="assets/badges/badge_license.svg" height="46" alt="GPL-3.0 License" />
     </a>
   </p>
 
   <br />
 
-  <sub>PixelMusic is an open-source project created for personal and educational music listening. All audio, album art, and artist trademarks remain the intellectual property of their respective copyright holders.</sub>
+  <sub>PixelMusic is an open-source project created for personal and educational purposes. All audio, album art, and artist trademarks remain the intellectual property of their respective copyright holders.</sub>
 
 </div>
