@@ -42,8 +42,6 @@
     <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/UI-Jetpack%20Compose%20%7C%20M3E-2E172B?style=for-the-badge&logo=jetpackcompose&logoColor=EBBFE0" alt="Jetpack Compose" /></a>
     &nbsp;
     <a href="https://developer.android.com/media/media3"><img src="https://img.shields.io/badge/Audio-AndroidX%20Media3-2E172B?style=for-the-badge&logo=googleplay&logoColor=EBBFE0" alt="Media3" /></a>
-    &nbsp;
-    <a href="LICENCE"><img src="https://img.shields.io/badge/Licence-GPL--3.0-2E172B?style=for-the-badge&logo=opensourceinitiative&logoColor=EBBFE0" alt="Licence /></a>
   </p>
 
 </div>
@@ -55,9 +53,9 @@
 > [!IMPORTANT]
 > ### 📢 Official Source Code Repository Notice
 > This repository is exclusively dedicated to developing the **open-source codebase** of PixelMusic.
->  If you are a new user, install the application from the official page or use the Telegram bot. The latter updates through the in-app updater, or you can use the Telegram bot to update the app or get a beta version.
+>  If you are a new user, install the application from the official page or use the Telegram bot. The bot delivers app updates, bleeding-edge beta builds, and accepts user feedback directly!
 > 
-> 🌐 **[Official Website (pixelmusic.pages.dev)](https://pixelmusic.pages.dev)** &nbsp;•&nbsp; 🤖 **[Telegram Update Bot (@PixelMusicAppBot)](https://t.me/PixelMusicAppBot)**
+> 🌐 **[Official Website (pixelmusic.pages.dev)](https://pixelmusic.pages.dev)** &nbsp;•&nbsp; 🤖 **[Telegram Update & Feedback Bot (@PixelMusicAppBot)](https://t.me/PixelMusicAppBot)**
 
 </div>
 
@@ -190,42 +188,6 @@
 
 ---
 
-## 🏗️ Audio Engine Architecture
-
-```mermaid
-flowchart TD
-    subgraph SOURCING ["1. Multi-Source Resolver"]
-        YT["YouTube Music / InnerTube API"]
-        SUB["Subsonic (Navidrome / Airsonic)"]
-        NE["NetEase Music Provider"]
-        LOCAL["Local MediaStore & Offline Cache"]
-    end
-
-    subgraph ENGINE ["2. Direct CDN & Audio Pipeline"]
-        RESOLVE["Direct GoogleVideo CDN Stream Resolver"]
-        DUAL["DualPlayer Pre-buffering Queue"]
-        EXO["AndroidX Media3 ExoPlayer Engine"]
-        DSP["DSP Equalizer • ReplayGain • Crossfade"]
-    end
-
-    subgraph PRESENTATION ["3. Material 3 Expressive UI"]
-        M3E["Material You Dynamic Palette"]
-        AGSL["AGSL Blur & Scrim Shaders"]
-        LYRICS["Synced .lrc & Gemini AI Lyrics"]
-        CAPSULE["Dynamic Island / System Capsule"]
-    end
-
-    SOURCING --> RESOLVE
-    LOCAL --> EXO
-    RESOLVE --> DUAL
-    DUAL --> EXO
-    EXO --> DSP
-    DSP --> OUTPUT["Hi-Res Audio Output (Bluetooth / DAC / Speaker)"]
-    EXO -. Telemetry & Art .-> PRESENTATION
-```
-
----
-
 ## 📥 Get PixelMusic
 
 ### Choose your preferred distribution channel:
@@ -233,12 +195,12 @@ flowchart TD
 | Channel | Recommended For | Speed | Features |
 |---|---|:---:|---|
 | 🌐 **[Official Website](https://pixelmusic.pages.dev)** | Direct browser install | ⚡⚡⚡ High-Speed | Direct APK download, latest stable release notes, clean web installer |
-| 🤖 **[@PixelMusicAppBot](https://t.me/PixelMusicAppBot)** | Instant Telegram delivery | ⚡⚡⚡ Instant | Direct in-chat APK delivery, bleeding-edge beta builds, instant update alerts |
+| 🤖 **[@PixelMusicAppBot](https://t.me/PixelMusicAppBot)** | Instant Telegram delivery & Feedback | ⚡⚡⚡ Instant | Direct in-chat APK delivery, bleeding-edge beta builds, instant update alerts, direct feedback submission |
 
 <br />
 
 #### 📲 How to Install:
-1. Tap either **[pixelmusic.pages.dev](https://pixelmusic.pages.dev)** or open **[@PixelMusicAppBot](https://t.me/PixelMusicAppBot)** on Telegram.
+1. Tap either **[pixelmusic.pages.dev](https://pixelmusic.pages.dev)** or open **[@PixelMusicAppBot](https://t.me/PixelMusicAppBot)** on Telegram (which also accepts feedback and bug reports).
 2. Download the latest `.apk` installer file.
 3. Open the downloaded file and tap **Install** *(if prompted, grant "Install unknown apps" permission to your browser or Telegram)*.
 4. Launch **PixelMusic** and enjoy ad-free, high-fidelity music!
@@ -284,6 +246,10 @@ flowchart TD
   <p align="center">
     <a href="https://github.com/Saurav-02/PixelMusic/issues">
       <img src="assets/badges/badge_issues.svg" height="46" alt="Report an Issue" />
+    </a>
+    &nbsp;&nbsp;
+    <a href="https://t.me/PixelMusicAppBot">
+      <img src="assets/badges/badge_feedback.svg" height="46" alt="Send Feedback via Bot" />
     </a>
     &nbsp;&nbsp;
     <a href="https://github.com/Saurav-02/PixelMusic/pulls">
