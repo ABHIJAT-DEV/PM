@@ -214,14 +214,14 @@ fun UpdateNotificationSheet(
                         shape = buttonShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isLiquidGlass) Color.Transparent else MaterialTheme.colorScheme.primary,
-                            contentColor = Color.Black
+                            contentColor = Color.White
                         ),
                         elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
                     ) {
                         Icon(
                             imageVector = if (isUpdateAvailable) Icons.Rounded.Download else Icons.Rounded.Check,
                             contentDescription = null,
-                            tint = Color.Black,
+                            tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -229,7 +229,7 @@ fun UpdateNotificationSheet(
                             text = if (isUpdateAvailable) "Update Now" else "Awesome",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = Color.Black
+                            color = Color.White
                         )
                     }
 

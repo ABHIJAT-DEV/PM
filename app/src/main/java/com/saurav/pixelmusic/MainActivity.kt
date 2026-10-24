@@ -1461,7 +1461,6 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 },
-                                onLongClick = { showRecognitionDialog = true },
                                 onSwipeUp = { showRecognitionDialog = true },
                                 onListenTogetherClick = { playerViewModel.openListenTogetherSheet() },
                                 isLiquidGlass = isLiquidGlassOnNavBar,

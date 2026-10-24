@@ -664,21 +664,21 @@ private fun AboutHeroCard(
                                         shape = downloadShape,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f) else MaterialTheme.colorScheme.primary,
-                                            contentColor = Color.Black
+                                            contentColor = Color.White
                                         ),
                                         elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
                                     ) {
                                         Icon(
                                             Icons.Rounded.Download, 
                                             contentDescription = null, 
-                                            tint = Color.Black,
+                                            tint = Color.White,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
                                             "Download Version ${state.versionName}", 
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.Black
+                                            color = Color.White
                                         )
                                     }
                                 }

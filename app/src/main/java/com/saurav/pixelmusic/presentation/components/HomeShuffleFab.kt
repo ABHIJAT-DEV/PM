@@ -101,7 +101,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -552,19 +554,23 @@ fun HomeShuffleFab(
                                             shuffleJiggle.animateTo(0f, jiggleSpec)
                                         }
                                         coroutineScope.launch { shufflePress.animateTo(1f, pressSpec) }
-                                        val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-                                            waitForUpOrCancellation()
-                                        }
-                                        coroutineScope.launch { shufflePress.animateTo(0f, pressSpec) }
-                                        if (up != null) {
-                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            onClick()
-                                        } else {
-                                            if (onLongClick != null) {
-                                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                onLongClick.invoke()
+                                        var isLongPress = false
+                                        val up = try {
+                                            withTimeout(viewConfiguration.longPressTimeoutMillis) {
                                                 waitForUpOrCancellation()
                                             }
+                                        } catch (e: TimeoutCancellationException) {
+                                            isLongPress = true
+                                            null
+                                        }
+                                        coroutineScope.launch { shufflePress.animateTo(0f, pressSpec) }
+                                        if (up != null && !isDragging) {
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onClick()
+                                        } else if (isLongPress && !isDragging && onLongClick != null) {
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onLongClick.invoke()
+                                            waitForUpOrCancellation()
                                         }
                                     }
                                 },
@@ -604,7 +610,7 @@ fun HomeShuffleFab(
                                             coroutineScope.launch { ltPress.animateTo(1f, pressSpec) }
                                             val up = waitForUpOrCancellation()
                                             coroutineScope.launch { ltPress.animateTo(0f, pressSpec) }
-                                            if (up != null) {
+                                            if (up != null && !isDragging) {
                                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                 onListenTogetherClick()
                                             }

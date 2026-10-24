@@ -368,21 +368,21 @@ private fun DownloadingView(
                 shape = buttonShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary,
-                    contentColor = Color.Black
+                    contentColor = Color.White
                 ),
                 elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
             ) {
                 Icon(
                     imageVector = if (isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, 
                     contentDescription = null, 
-                    tint = Color.Black,
+                    tint = Color.White,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = if (isPaused) "Resume" else "Pause",
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = Color.White
                 )
             }
         }
@@ -464,21 +464,21 @@ private fun FinishedView(
             shape = installShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isLiquidGlassInstall) MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkInstall) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary,
-                contentColor = Color.Black
+                contentColor = Color.White
             ),
             elevation = if (isLiquidGlassInstall) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
         ) {
             Icon(
                 Icons.Rounded.Download, 
                 contentDescription = null,
-                tint = Color.Black
+                tint = Color.White
             )
             Spacer(Modifier.width(8.dp))
             Text(
                 "Install Update", 
                 fontSize = 16.sp, 
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = Color.White
             )
         }
 
