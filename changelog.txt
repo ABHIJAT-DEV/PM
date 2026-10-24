@@ -1,4 +1,4 @@
-**Upcoming Release (Sub release 4.5.0)**
+**Sub release 4.5.0**
 
 * 🔮 **iOS Liquid Glass (Brand New Feature - Unreleased / Experimental):** Real-time liquid glass refraction, backdrop blur passes, and specular highlight physics across the navigation bar, mini player, bottom toggle pill, sliders, and headers. Controlled via a unified master toggle with blur, refraction, vibrancy, depth, surface tint, and opacity sliders.
 * ⚡ **Performance Mode Integration:** Liquid glass is automatically patched into Device Performance Mode — suspending all heavy real-time shader passes and backdrop sampling whenever performance mode or battery saving is enabled.
