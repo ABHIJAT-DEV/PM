@@ -55,11 +55,13 @@ object NextPage {
                     ?.firstOrNull()
                     ?.takeIf {
                         it.navigationEndpoint?.browseEndpoint != null
-                    }?.let {
-                        Album(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
-                        )
+                    }?.let { run ->
+                        run.navigationEndpoint?.browseEndpoint?.browseId?.let { id ->
+                            Album(
+                                name = run.text,
+                                id = id,
+                            )
+                        }
                     },
             duration =
                 renderer.lengthText
@@ -68,9 +70,9 @@ object NextPage {
                     ?.text
                     ?.parseTime(),
             thumbnail =
-                renderer.thumbnail.thumbnails
-                    .lastOrNull()
-                    ?.url ?: return null,
+                renderer.thumbnail?.thumbnails
+                    ?.lastOrNull()
+                    ?.url ?: "",
             explicit =
                 renderer.badges?.find {
                     it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"

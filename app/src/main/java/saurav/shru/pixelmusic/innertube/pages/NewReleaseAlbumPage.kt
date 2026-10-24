@@ -23,27 +23,31 @@ object NewReleaseAlbumPage {
         val subtitleRuns = renderer.subtitle?.runs ?: return null
         val subtitleGroups = subtitleRuns.splitBySeparator()
 
+        val browseId = renderer.navigationEndpoint.browseEndpoint?.browseId ?: return null
+        val playlistId = renderer.thumbnailOverlay
+            ?.musicItemThumbnailOverlayRenderer
+            ?.content
+            ?.musicPlayButtonRenderer
+            ?.playNavigationEndpoint
+            ?.watchPlaylistEndpoint
+            ?.playlistId
+            ?: browseId.removePrefix("MPREb_").let { "OLAK5uy_$it" }
+        val artistGroup = if (subtitleGroups.size > 1) subtitleGroups.getOrNull(1) else subtitleGroups.firstOrNull()
+
         return AlbumItem(
-            browseId = renderer.navigationEndpoint.browseEndpoint?.browseId ?: return null,
-            playlistId =
-                renderer.thumbnailOverlay
-                    ?.musicItemThumbnailOverlayRenderer
-                    ?.content
-                    ?.musicPlayButtonRenderer
-                    ?.playNavigationEndpoint
-                    ?.watchPlaylistEndpoint
-                    ?.playlistId ?: return null,
+            browseId = browseId,
+            playlistId = playlistId,
             title =
                 renderer.title.runs
                     ?.firstOrNull()
                     ?.text ?: return null,
             artists =
-                subtitleGroups.getOrNull(1)?.oddElements()?.map {
+                artistGroup?.oddElements()?.map {
                     Artist(
                         name = it.text,
                         id = it.navigationEndpoint?.browseEndpoint?.browseId,
                     )
-                } ?: return null,
+                } ?: emptyList(),
             year =
                 subtitleRuns
                     .lastOrNull()

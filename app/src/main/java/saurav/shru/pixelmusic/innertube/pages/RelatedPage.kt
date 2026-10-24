@@ -52,11 +52,13 @@ data class RelatedPage(
                         )
                     } ?: emptyList(),
                 album =
-                    renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let {
-                        Album(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
-                        )
+                    renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let { run ->
+                        run.navigationEndpoint?.browseEndpoint?.browseId?.let { id ->
+                            Album(
+                                name = run.text,
+                                id = id,
+                            )
+                        }
                     },
                 duration = null,
                 thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
@@ -79,7 +81,8 @@ data class RelatedPage(
                                 ?.musicPlayButtonRenderer
                                 ?.playNavigationEndpoint
                                 ?.watchPlaylistEndpoint
-                                ?.playlistId ?: return null,
+                                ?.playlistId
+                                ?: (renderer.navigationEndpoint.browseEndpoint?.browseId?.removePrefix("MPREb_")?.let { "OLAK5uy_$it" } ?: return null),
                         title =
                             renderer.title.runs
                                 ?.firstOrNull()
@@ -121,7 +124,7 @@ data class RelatedPage(
                                 ?.content
                                 ?.musicPlayButtonRenderer
                                 ?.playNavigationEndpoint
-                                ?.watchPlaylistEndpoint ?: return null,
+                                ?.watchPlaylistEndpoint,
                         shuffleEndpoint =
                             renderer.menu
                                 ?.menuRenderer
@@ -130,10 +133,10 @@ data class RelatedPage(
                                     it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE"
                                 }?.menuNavigationItemRenderer
                                 ?.navigationEndpoint
-                                ?.watchPlaylistEndpoint ?: return null,
+                                ?.watchPlaylistEndpoint,
                         radioEndpoint =
-                            renderer.menu.menuRenderer.items
-                                .find {
+                            renderer.menu?.menuRenderer?.items
+                                ?.find {
                                     it.menuNavigationItemRenderer?.icon?.iconType == "MIX"
                                 }?.menuNavigationItemRenderer
                                 ?.navigationEndpoint
@@ -155,14 +158,14 @@ data class RelatedPage(
                                     it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE"
                                 }?.menuNavigationItemRenderer
                                 ?.navigationEndpoint
-                                ?.watchPlaylistEndpoint ?: return null,
+                                ?.watchPlaylistEndpoint,
                         radioEndpoint =
-                            renderer.menu.menuRenderer.items
-                                .find {
+                            renderer.menu?.menuRenderer?.items
+                                ?.find {
                                     it.menuNavigationItemRenderer?.icon?.iconType == "MIX"
                                 }?.menuNavigationItemRenderer
                                 ?.navigationEndpoint
-                                ?.watchPlaylistEndpoint ?: return null,
+                                ?.watchPlaylistEndpoint,
                     )
                 }
                 else -> null

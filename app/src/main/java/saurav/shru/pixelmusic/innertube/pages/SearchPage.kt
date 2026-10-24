@@ -44,11 +44,13 @@ object SearchPage {
                     title = title,
                     artists = metadata.getOrNull(0).toArtists(),
                     album =
-                        metadata.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
-                            Album(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
-                            )
+                        metadata.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let { run ->
+                            run.navigationEndpoint?.browseEndpoint?.browseId?.let { id ->
+                                Album(
+                                    name = run.text,
+                                    id = id,
+                                )
+                            }
                         },
                     duration = metadata.duration(),
                     thumbnail = thumbnail ?: return null,
@@ -81,12 +83,13 @@ object SearchPage {
                 )
             }
             renderer.isAlbum -> {
+                val browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null
                 AlbumItem(
-                    browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
+                    browseId = browseId,
                     playlistId =
                         renderer.watchEndpoint()
                             ?.playlistId
-                            ?: return null,
+                            ?: browseId.removePrefix("MPREb_").let { "OLAK5uy_$it" },
                     title = title,
                     artists = metadata.getOrNull(0).toArtists().takeIf { it.isNotEmpty() },
                     year = metadata.year(),

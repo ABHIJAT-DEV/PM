@@ -70,6 +70,7 @@ data class SearchSummaryPage(
             val subtitle = renderer.subtitle.runs?.splitBySeparator()
             return when {
                 renderer.onTap.watchEndpoint != null -> {
+                    val artistGroup = if ((subtitle?.size ?: 0) > 1) subtitle?.getOrNull(1) else subtitle?.firstOrNull()
                     SongItem(
                         id = renderer.onTap.watchEndpoint.videoId ?: return null,
                         title =
@@ -77,18 +78,20 @@ data class SearchSummaryPage(
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         artists =
-                            subtitle?.getOrNull(1)?.oddElements()?.map {
+                            artistGroup?.oddElements()?.map {
                                 Artist(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId,
                                 )
-                            } ?: return null,
+                            } ?: emptyList(),
                         album =
-                            subtitle.getOrNull(2)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
-                                Album(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
-                                )
+                            subtitle?.getOrNull(2)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let { run ->
+                                run.navigationEndpoint?.browseEndpoint?.browseId?.let { id ->
+                                    Album(
+                                        name = run.text,
+                                        id = id,
+                                    )
+                                }
                             },
                         duration =
                             subtitle
@@ -117,37 +120,39 @@ data class SearchSummaryPage(
                                 .find { it.buttonRenderer.icon?.iconType == "MUSIC_SHUFFLE" }
                                 ?.buttonRenderer
                                 ?.command
-                                ?.watchPlaylistEndpoint ?: return null,
+                                ?.watchPlaylistEndpoint,
                         radioEndpoint =
                             renderer.buttons
                                 .find { it.buttonRenderer.icon?.iconType == "MIX" }
                                 ?.buttonRenderer
                                 ?.command
-                                ?.watchPlaylistEndpoint ?: return null,
+                                ?.watchPlaylistEndpoint,
                     )
                 }
 
                 renderer.onTap.browseEndpoint?.isAlbumEndpoint == true -> {
+                    val browseId = renderer.onTap.browseEndpoint.browseId
+                    val artistGroup = if ((subtitle?.size ?: 0) > 1) subtitle?.getOrNull(1) else subtitle?.firstOrNull()
                     AlbumItem(
-                        browseId = renderer.onTap.browseEndpoint.browseId,
+                        browseId = browseId,
                         playlistId =
                             renderer.buttons
                                 .firstOrNull()
                                 ?.buttonRenderer
                                 ?.command
                                 ?.anyWatchEndpoint
-                                ?.playlistId ?: return null,
+                                ?.playlistId ?: browseId.removePrefix("MPREb_").let { "OLAK5uy_$it" },
                         title =
                             renderer.title.runs
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         artists =
-                            subtitle?.getOrNull(1)?.oddElements()?.map {
+                            artistGroup?.oddElements()?.map {
                                 Artist(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId,
                                 )
-                            } ?: return null,
+                            } ?: emptyList(),
                         year = null,
                         thumbnail = renderer.thumbnail.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                         explicit =
@@ -178,15 +183,13 @@ data class SearchSummaryPage(
                                 .find { it.buttonRenderer.icon?.iconType == "PLAY_ARROW" }
                                 ?.buttonRenderer
                                 ?.command
-                                ?.watchPlaylistEndpoint
-                                ?: return null,
+                                ?.watchPlaylistEndpoint,
                         shuffleEndpoint =
                             renderer.buttons
                                 .find { it.buttonRenderer.icon?.iconType == "MUSIC_SHUFFLE" }
                                 ?.buttonRenderer
                                 ?.command
-                                ?.watchPlaylistEndpoint
-                                ?: return null,
+                                ?.watchPlaylistEndpoint,
                         radioEndpoint = null,
                     )
                 }

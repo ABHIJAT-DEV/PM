@@ -82,10 +82,10 @@ data class LibraryPage(
                     thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                     shuffleEndpoint = renderer.menu?.menuRenderer?.items?.find {
                         it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE"
-                    }?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint ?: return null,
-                    radioEndpoint = renderer.menu.menuRenderer.items.find {
+                    }?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint,
+                    radioEndpoint = renderer.menu?.menuRenderer?.items?.find {
                         it.menuNavigationItemRenderer?.icon?.iconType == "MIX"
-                    }?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint ?: return null,
+                    }?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint,
                 )
 
                 else -> null
@@ -103,16 +103,17 @@ data class LibraryPage(
                         ?.map {
                             Artist(
                                 name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null
+                                id = it.navigationEndpoint?.browseEndpoint?.browseId
                             )
                         } ?: emptyList(),
                     album = renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()
-                        ?.let {
-                            Album(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId
-                                    ?: return null
-                            )
+                        ?.let { run ->
+                            run.navigationEndpoint?.browseEndpoint?.browseId?.let { id ->
+                                Album(
+                                    name = run.text,
+                                    id = id
+                                )
+                            }
                         },
                     duration = renderer.fixedColumns?.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text?.parseTime(),
                     thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
@@ -142,21 +143,14 @@ data class LibraryPage(
         }
 
         private fun parseArtists(runs: List<Run>?): List<Artist> {
-            val artists = mutableListOf<Artist>()
-
-            if (runs != null) {
-                for (run in runs) {
-                    if (run.navigationEndpoint != null) {
-                        artists.add(
-                            Artist(
-                                id = run.navigationEndpoint.browseEndpoint?.browseId!!,
-                                name = run.text
-                            )
-                        )
-                    }
+            return runs?.mapNotNull { run ->
+                run.text.takeIf { it.isNotBlank() && it != " • " }?.let { name ->
+                    Artist(
+                        id = run.navigationEndpoint?.browseEndpoint?.browseId,
+                        name = name
+                    )
                 }
-            }
-            return artists
+            }.orEmpty()
         }
     }
 }

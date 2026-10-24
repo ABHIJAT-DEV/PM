@@ -35,21 +35,21 @@ object SearchSuggestionPage {
                             ?.runs
                             ?.firstOrNull()
                             ?.text ?: return null,
-                    artists =
-                        renderer.flexColumns
+                    artists = run {
+                        val groups = renderer.flexColumns
                             .getOrNull(1)
                             ?.musicResponsiveListItemFlexColumnRenderer
                             ?.text
                             ?.runs
                             ?.splitBySeparator()
-                            ?.getOrNull(1)
-                            ?.oddElements()
-                            ?.map {
-                                Artist(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                                )
-                            } ?: return null,
+                        val artistGroup = if ((groups?.size ?: 0) > 1) groups?.getOrNull(1) else groups?.firstOrNull()
+                        artistGroup?.oddElements()?.map {
+                            Artist(
+                                name = it.text,
+                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
+                            )
+                        } ?: emptyList()
+                    },
                     album =
                         renderer.flexColumns
                             .getOrNull(
@@ -58,11 +58,13 @@ object SearchSuggestionPage {
                             ?.text
                             ?.runs
                             ?.firstOrNull()
-                            ?.let {
-                                Album(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
-                                )
+                            ?.let { run ->
+                                run.navigationEndpoint?.browseEndpoint?.browseId?.let { id ->
+                                    Album(
+                                        name = run.text,
+                                        id = id,
+                                    )
+                                }
                             },
                     duration = null,
                     thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
@@ -111,8 +113,10 @@ object SearchSuggestionPage {
                         ?.text
                         ?.runs
                         ?.splitBySeparator() ?: return null
+                val browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null
+                val artistGroup = if (secondaryLine.size > 1) secondaryLine.getOrNull(1) else secondaryLine.firstOrNull()
                 AlbumItem(
-                    browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
+                    browseId = browseId,
                     playlistId =
                         renderer.menu
                             ?.menuRenderer
@@ -122,7 +126,7 @@ object SearchSuggestionPage {
                             }?.menuNavigationItemRenderer
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint
-                            ?.playlistId ?: return null,
+                            ?.playlistId ?: browseId.removePrefix("MPREb_").let { "OLAK5uy_$it" },
                     title =
                         renderer.flexColumns
                             .firstOrNull()
@@ -132,12 +136,12 @@ object SearchSuggestionPage {
                             ?.firstOrNull()
                             ?.text ?: return null,
                     artists =
-                        secondaryLine.getOrNull(1)?.oddElements()?.map {
+                        artistGroup?.oddElements()?.map {
                             Artist(
                                 name = it.text,
                                 id = it.navigationEndpoint?.browseEndpoint?.browseId,
                             )
-                        } ?: return null,
+                        } ?: emptyList(),
                     year =
                         secondaryLine
                             .lastOrNull()
