@@ -345,7 +345,8 @@ private fun DownloadingView(
                 onClick = onCancel,
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp),
+                    .height(52.dp)
+                    .liquidGlassInteractiveSurface(shape = buttonShape),
                 shape = buttonShape,
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.errorContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.errorContainer,
@@ -362,24 +363,26 @@ private fun DownloadingView(
                 onClick = onPauseResume,
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp),
+                    .height(52.dp)
+                    .liquidGlassInteractiveSurface(shape = buttonShape),
                 shape = buttonShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary,
-                    contentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onPrimary
+                    contentColor = Color.Black
                 ),
                 elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
             ) {
                 Icon(
                     imageVector = if (isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, 
                     contentDescription = null, 
-                    tint = if (isDark) Color.White else LocalContentColor.current,
+                    tint = Color.Black,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = if (isPaused) "Resume" else "Pause",
-                    color = if (isDark) Color.White else Color.Unspecified
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
                 )
             }
         }
@@ -456,25 +459,26 @@ private fun FinishedView(
             onClick = onInstall,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(56.dp)
+                .liquidGlassInteractiveSurface(shape = installShape),
             shape = installShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isLiquidGlassInstall) MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkInstall) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary,
-                contentColor = if (isDarkInstall) Color.White else MaterialTheme.colorScheme.onPrimary
+                contentColor = Color.Black
             ),
             elevation = if (isLiquidGlassInstall) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
         ) {
             Icon(
                 Icons.Rounded.Download, 
                 contentDescription = null,
-                tint = if (isDarkInstall) Color.White else LocalContentColor.current
+                tint = Color.Black
             )
             Spacer(Modifier.width(8.dp))
             Text(
                 "Install Update", 
                 fontSize = 16.sp, 
                 fontWeight = FontWeight.Bold,
-                color = if (isDarkInstall) Color.White else Color.Unspecified
+                color = Color.Black
             )
         }
 
