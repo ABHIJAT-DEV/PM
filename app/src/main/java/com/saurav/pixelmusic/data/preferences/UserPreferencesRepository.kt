@@ -1527,30 +1527,39 @@ constructor(
                 preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] ?: emptySet()
             }
 
+    private fun normalizeInterestId(id: String): String =
+        id.removePrefix("youtube_").removePrefix("youtube://")
+
     suspend fun markSongInterested(songId: String) {
+        val normalized = normalizeInterestId(songId)
+        val ids = setOf(songId, normalized)
         dataStore.edit { preferences ->
             val currentInterested = preferences[PreferencesKeys.INTERESTED_SONG_IDS] ?: emptySet()
             val currentNotInterested = preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] ?: emptySet()
-            preferences[PreferencesKeys.INTERESTED_SONG_IDS] = currentInterested + songId
-            preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] = currentNotInterested - songId
+            preferences[PreferencesKeys.INTERESTED_SONG_IDS] = currentInterested + ids
+            preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] = currentNotInterested - ids
         }
     }
 
     suspend fun markSongNotInterested(songId: String) {
+        val normalized = normalizeInterestId(songId)
+        val ids = setOf(songId, normalized)
         dataStore.edit { preferences ->
             val currentInterested = preferences[PreferencesKeys.INTERESTED_SONG_IDS] ?: emptySet()
             val currentNotInterested = preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] ?: emptySet()
-            preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] = currentNotInterested + songId
-            preferences[PreferencesKeys.INTERESTED_SONG_IDS] = currentInterested - songId
+            preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] = currentNotInterested + ids
+            preferences[PreferencesKeys.INTERESTED_SONG_IDS] = currentInterested - ids
         }
     }
 
     suspend fun clearSongInterest(songId: String) {
+        val normalized = normalizeInterestId(songId)
+        val ids = setOf(songId, normalized)
         dataStore.edit { preferences ->
             val currentInterested = preferences[PreferencesKeys.INTERESTED_SONG_IDS] ?: emptySet()
             val currentNotInterested = preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] ?: emptySet()
-            preferences[PreferencesKeys.INTERESTED_SONG_IDS] = currentInterested - songId
-            preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] = currentNotInterested - songId
+            preferences[PreferencesKeys.INTERESTED_SONG_IDS] = currentInterested - ids
+            preferences[PreferencesKeys.NOT_INTERESTED_SONG_IDS] = currentNotInterested - ids
         }
     }
 

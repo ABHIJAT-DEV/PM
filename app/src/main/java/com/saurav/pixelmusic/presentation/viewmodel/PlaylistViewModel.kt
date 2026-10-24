@@ -644,17 +644,12 @@ class PlaylistViewModel @Inject constructor(
                     }
                     try {
                         val result = withContext(Dispatchers.IO) {
-                            YouTube.createPlaylist(name)
+                            YouTube.createPlaylist(name, youtubeVideoIds.takeIf { it.isNotEmpty() })
                         }
                         if (result.isSuccess) {
                             val playlistId = result.getOrThrow()
                             remotePlaylistId = playlistId
                             finalSource = "YOUTUBE"
-                            youtubeVideoIds.forEach { videoId ->
-                                withContext(Dispatchers.IO) {
-                                    YouTube.addToPlaylist(playlistId, videoId)
-                                }
-                            }
                         }
                     } catch (e: Exception) {
                         Log.e("PlaylistViewModel", "Failed to create remote YouTube playlist", e)
@@ -1641,9 +1636,10 @@ class PlaylistViewModel @Inject constructor(
                         val setVideoId = setVideoIds.removeAt(fromIndex)
                         setVideoIds.add(toIndex, setVideoId)
                         val successorSetVideoId = if (toIndex + 1 < setVideoIds.size) setVideoIds[toIndex + 1] else null
+                        val predecessorSetVideoId = if (toIndex > 0) setVideoIds[toIndex - 1] else null
                         currentPlaylistSetVideoIds = setVideoIds
                         withContext(Dispatchers.IO) {
-                            YouTube.moveSongPlaylist(playlistId, setVideoId, successorSetVideoId)
+                            YouTube.moveSongPlaylist(playlistId, setVideoId, successorSetVideoId, predecessorSetVideoId)
                         }
                     }
                 }

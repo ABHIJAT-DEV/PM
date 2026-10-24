@@ -119,7 +119,7 @@ class YouTubeLibrarySyncManager @Inject constructor(
         allSongItems += firstPage.songs
 
         // Fetch all continuation pages (each has ~100 songs)
-        var continuation = firstPage.songsContinuation
+        var continuation = firstPage.songsContinuation ?: firstPage.continuation
         while (continuation != null) {
             val next = YouTube.playlistContinuation(continuation).getOrNull() ?: break
             allSongItems += next.songs

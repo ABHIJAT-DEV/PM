@@ -67,6 +67,7 @@ object AutoQueueManager {
     private var engagementDaoRef: com.saurav.pixelmusic.data.database.EngagementDao? = null
     private var userPreferencesRepo: com.saurav.pixelmusic.data.preferences.UserPreferencesRepository? = null
     private var minSongDurationMs: Int = 0
+    private val notInterestedSongIds = mutableSetOf<String>()
     // BUG 5 FIX: Called after items are added to the player so DualPlayerEngine can
     // refresh its internal queue snapshot immediately (not waiting for TIMELINE_CHANGED
     // during an active crossfade).
@@ -141,6 +142,14 @@ object AutoQueueManager {
             coroutineScope.launch(Dispatchers.IO) {
                 repo.minSongDurationFlow.collect { duration ->
                     minSongDurationMs = duration
+                }
+            }
+            coroutineScope.launch(Dispatchers.IO) {
+                repo.notInterestedSongIdsFlow.collect { notInterestedSet ->
+                    synchronized(notInterestedSongIds) {
+                        notInterestedSongIds.clear()
+                        notInterestedSongIds.addAll(notInterestedSet)
+                    }
                 }
             }
         }
@@ -1162,6 +1171,10 @@ object AutoQueueManager {
             fun canAddSong(song: Song): Boolean {
                 if (minSongDurationMs > 0 && song.duration > 0 && song.duration < minSongDurationMs) return false
                 val songIdStr = song.id
+                val isNotInterested = synchronized(notInterestedSongIds) {
+                    notInterestedSongIds.any { isSameSong(it, songIdStr) }
+                }
+                if (isNotInterested) return false
                 val isInQueue = currentQueueIds.any { isSameSong(it, songIdStr) }
                 val isAvoid = avoidIds.any { isSameSong(it, songIdStr) }
                 val isAlreadyAdded = finalSongsToAdd.any { isSameSong(it.id, songIdStr) }
@@ -1387,8 +1400,13 @@ object AutoQueueManager {
                         }.toSet()
                     } else emptySet()
                 }
+                val notInterestedLocal = synchronized(notInterestedSongIds) { notInterestedSongIds.toSet() }
                 val filteredItems = nextResult.items
                     .filter { it.id !in addedVideoIdsLocal }
+                    .filter { item ->
+                        val rawId = item.id
+                        notInterestedLocal.none { isSameSong(it, rawId) }
+                    }
                     .filter { minDurationSec <= 0 || it.duration == null || it.duration >= minDurationSec }
                     .filter { item ->
                         val cleanTitle = item.title.lowercase().trim()
