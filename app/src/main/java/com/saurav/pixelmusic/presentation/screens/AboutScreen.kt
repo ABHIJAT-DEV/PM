@@ -32,7 +32,12 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
+import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import kotlinx.coroutines.flow.collectLatest
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import androidx.compose.foundation.background
@@ -521,6 +526,9 @@ private fun AboutHeroCard(
                             }
                             is UpdateState.Available -> {
                                 Column(modifier = Modifier.fillMaxWidth()) {
+                                    val isLiquidGlass = LocalLiquidGlassEnabled.current
+                                    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+                                    val downloadShape = AbsoluteSmoothCornerShape(16.dp, 60)
                                     if (!state.changelog.isNullOrBlank()) {
                                         val previewLines = remember(state.changelog) {
                                             val nonBlankLines = state.changelog
@@ -649,11 +657,29 @@ private fun AboutHeroCard(
                                             // Launch the new beautiful UI screen!
                                             navController.navigateSafely("update_download")
                                         },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(52.dp)
+                                            .liquidGlassInteractiveSurface(shape = downloadShape),
+                                        shape = downloadShape,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f) else MaterialTheme.colorScheme.primary,
+                                            contentColor = Color.Black
+                                        ),
+                                        elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
                                     ) {
-                                        Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Icon(
+                                            Icons.Rounded.Download, 
+                                            contentDescription = null, 
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Download Version ${state.versionName}")
+                                        Text(
+                                            "Download Version ${state.versionName}", 
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.Black
+                                        )
                                     }
                                 }
                             }
