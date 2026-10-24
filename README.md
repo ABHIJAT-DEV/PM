@@ -1,18 +1,11 @@
 <div align="center">
 
-  <img src="app/src/main/res/drawable/ic_launcher_custom_fg.png" width="130" height="130" alt="PixelMusic Logo" />
+  <!-- ==================== HERO COMPONENT ==================== -->
+  <img src="assets/components/card_hero.svg" width="100%" alt="PixelMusic Hero" />
 
-  # 🎵 PixelMusic
+  <br /><br />
 
-  ### **The Next-Generation Material 3 Expressive Music Experience for Android**
-
-  <p align="center">
-    <em>Engineered for audiophiles. Designed with fluid Material 3 Expressive motion. Crafted for uncompromised performance.</em>
-  </p>
-
-  <br />
-
-  <!-- Material 3 Expressive Interactive Pill Badges -->
+  <!-- Material 3 Expressive Interactive Action Badges -->
   <p align="center">
     <a href="https://pixelmusic.pages.dev">
       <img src="assets/badges/badge_download.svg" height="52" alt="Download APK" />
@@ -33,39 +26,16 @@
 
   <br />
 
-  <!-- Platform & Tech Badges -->
-  <p align="center">
-    <a href="https://developer.android.com/about/versions/10"><img src="https://img.shields.io/badge/Android-10.0%2B%20(API%2029%2B)-2E172B?style=for-the-badge&logo=android&logoColor=EBBFE0" alt="Android 10+" /></a>
-    &nbsp;
-    <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-100%25-2E172B?style=for-the-badge&logo=kotlin&logoColor=EBBFE0" alt="Kotlin 100%" /></a>
-    &nbsp;
-    <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/UI-Jetpack%20Compose%20%7C%20M3E-2E172B?style=for-the-badge&logo=jetpackcompose&logoColor=EBBFE0" alt="Jetpack Compose" /></a>
-    &nbsp;
-    <a href="https://developer.android.com/media/media3"><img src="https://img.shields.io/badge/Audio-AndroidX%20Media3-2E172B?style=for-the-badge&logo=googleplay&logoColor=EBBFE0" alt="Media3" /></a>
-    &nbsp;
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-2E172B?style=for-the-badge&logo=opensourceinitiative&logoColor=EBBFE0" alt="License" /></a>
-  </p>
+  <!-- ==================== DISTRIBUTION HUB COMPONENT ==================== -->
+  <img src="assets/components/card_download_hub.svg" width="100%" alt="Official Distribution Hub" />
 
-</div>
+  <br /><br />
 
----
+  <!-- ==================== SHOWCASE COMPONENT ==================== -->
+  <img src="assets/components/card_showcase.svg" width="100%" alt="Interface Showcase Gallery" />
 
-<div align="center">
+  <br /><br />
 
-> [!IMPORTANT]
-> ### 📢 Official Source Code Repository Notice
-> This repository is exclusively dedicated to developing and publishing the **open-source codebase** of PixelMusic.  
-> To install and use PixelMusic on your Android phone, download the signed release or beta APK from our official channels:
-> 
-> 🌐 **[Official Website (pixelmusic.pages.dev)](https://pixelmusic.pages.dev)** &nbsp;•&nbsp; 🤖 **[Telegram Update Bot (@PixelMusicAppBot)](https://t.me/PixelMusicAppBot)**
-
-</div>
-
----
-
-## 📱 App Experience Showcase
-
-<div align="center">
   <table>
     <tr>
       <td align="center" width="33%">
@@ -119,78 +89,38 @@
       </td>
     </tr>
   </table>
+
+  <br />
+
+  <!-- ==================== SIGNATURE FEATURES (BIG COMPONENTS) ==================== -->
+  <img src="assets/components/card_features_audio.svg" width="100%" alt="Direct CDN Streaming Engine" />
+
+  <br /><br />
+
+  <img src="assets/components/card_features_ui.svg" width="100%" alt="Material 3 Expressive Aesthetics" />
+
+  <br /><br />
+
+  <img src="assets/components/card_features_lyrics.svg" width="100%" alt="Synchronized Lyrics & AI Rescue" />
+
+  <br /><br />
+
+  <img src="assets/components/card_features_downloader.svg" width="100%" alt="Multi-Threaded Chunk Downloader" />
+
+  <br /><br />
+
+  <img src="assets/components/card_features_cloud.svg" width="100%" alt="Multi-Cloud & Subsonic Sync" />
+
+  <br /><br />
+
+  <img src="assets/components/card_features_system.svg" width="100%" alt="System Capsule & OEM Integrations" />
+
+  <br /><br />
+
+  <!-- ==================== AUDIO PIPELINE ARCHITECTURE ==================== -->
+  <img src="assets/components/card_architecture.svg" width="100%" alt="Audio Engine Architecture" />
+
 </div>
-
----
-
-## 💎 Signature Features
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>⚡ Direct CDN Streaming Engine</h3>
-      <ul>
-        <li><b>Zero HTTP 403 Throttles:</b> Streams resolve directly to unencrypted GoogleVideo CDN endpoints, bypassing tracking layers and avoiding playback stalls.</li>
-        <li><b>Adaptive Bitrate Profiles:</b> Dynamic switching between high-fidelity Opus (up to 160 kbps) and AAC/M4A profiles tailored to network conditions.</li>
-        <li><b>DualPlayer Preload Architecture:</b> Pre-buffers adjacent queue tracks in the background for zero-latency, gapless track transitions.</li>
-        <li><b>Live Audio Telemetry:</b> Real-time playback stats display itag format, bitrate, sample frequency, and codec details.</li>
-      </ul>
-    </td>
-    <td width="50%" valign="top">
-      <h3>🎨 Material 3 Expressive Aesthetics</h3>
-      <ul>
-        <li><b>Harmonic Dynamic Theming:</b> Fully responsive color palettes extracted synchronously from active album artwork and your device wallpaper.</li>
-        <li><b>Fluid AGSL Shaders:</b> Android 13+ GPU-accelerated motion blur, luminous fog scrim headers, and tactile spring physics.</li>
-        <li><b>Ambient Profile Ring:</b> Animated flowing sweep gradient avatar ring responding to system accent colors.</li>
-        <li><b>Expressive Badges &amp; Controls:</b> 12-lobed scalloped indicators, customizable navigation bar radius, and haptic feedback.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🎤 Synchronized Lyrics &amp; AI Rescue</h3>
-      <ul>
-        <li><b>Karaoke Syllable Glow:</b> Timestamped <code>.lrc</code> real-time lyric scrolling with fluid line highlighting.</li>
-        <li><b>🤖 Gemini AI Lyric Rescue:</b> Automated AI lyric generation fallback when official sources lack lyrics for rare or indie tracks.</li>
-        <li><b>Smart Title Sanitizer:</b> Cleans remasters, feature tags, and bracket noise to guarantee high lyric match rates.</li>
-        <li><b>Immersive Typography Mode:</b> Full-screen artist photo background with customizable typographic scaling.</li>
-      </ul>
-    </td>
-    <td width="50%" valign="top">
-      <h3>💾 Multi-Threaded Chunk Downloader</h3>
-      <ul>
-        <li><b>Parallel Byte-Range Engine:</b> Multi-connection chunk downloader with HTTP 206 byte resume to prevent dropped downloads.</li>
-        <li><b>Lossless Tag Embedding:</b> Embeds title, artist, album, release year, genre, and high-resolution cover art directly into audio containers via TagLib &amp; JAudioTagger.</li>
-        <li><b>Offline <code>.lrc</code> Integration:</b> Injects synchronized lyrics into downloaded files for playback across third-party media apps.</li>
-        <li><b>MediaStore Auto-Sync:</b> Instant indexation in Android system-wide media library.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>☁️ Multi-Cloud &amp; Self-Hosted Sync</h3>
-      <ul>
-        <li><b>Subsonic API Protocol:</b> Direct integration with self-hosted music servers including Navidrome, Airsonic, and Funkwhale.</li>
-        <li><b>YouTube Music Synchronization:</b> Seamlessly sync playlists, liked songs, history, and artist subscriptions with bi-directional cloud actions.</li>
-        <li><b>NetEase Music Cloud:</b> Access NetEase playlists, charts, and recommendations.</li>
-        <li><b>Accidental Deletion Safeguards:</b> Confirmation safeguards for deleting custom playlists and tracks.</li>
-      </ul>
-    </td>
-    <td width="50%" valign="top">
-      <h3>🏝️ System Capsules &amp; Smart OEM Integrations</h3>
-      <ul>
-        <li><b>Status Bar Capsule (Dynamic Island):</b> Native status bar mini-pill controls on OriginOS, HyperOS, Realme UI, OxygenOS, and ColorOS.</li>
-        <li><b>Ambient Music Recognition:</b> Quick Settings tile and floating overlay task to recognize nearby music with haptic confirmation.</li>
-        <li><b>Android Auto Certified:</b> Streamlined automotive interface for hands-free driving playback.</li>
-        <li><b>Share as 30s Video:</b> Render and export interactive 30-second video cards with audio and artwork to share on social media.</li>
-      </ul>
-    </td>
-  </tr>
-</table>
-
----
-
-## 🏗️ Audio Engine Architecture
 
 ```mermaid
 flowchart TD
@@ -224,63 +154,21 @@ flowchart TD
     EXO -. Telemetry & Art .-> PRESENTATION
 ```
 
----
-
-## 📥 Get PixelMusic
-
-### Choose your preferred distribution channel:
-
-| Channel | Recommended For | Speed | Features |
-|---|---|:---:|---|
-| 🌐 **[Official Website](https://pixelmusic.pages.dev)** | Direct browser install | ⚡⚡⚡ High-Speed | Direct APK download, latest stable release notes, clean web installer |
-| 🤖 **[@PixelMusicAppBot](https://t.me/PixelMusicAppBot)** | Instant Telegram delivery | ⚡⚡⚡ Instant | Direct in-chat APK delivery, bleeding-edge beta builds, instant update alerts |
-
-<br />
-
-#### 📲 How to Install:
-1. Tap either **[pixelmusic.pages.dev](https://pixelmusic.pages.dev)** or open **[@PixelMusicAppBot](https://t.me/PixelMusicAppBot)** on Telegram.
-2. Download the latest `.apk` installer file.
-3. Open the downloaded file and tap **Install** *(if prompted, grant "Install unknown apps" permission to your browser or Telegram)*.
-4. Launch **PixelMusic** and enjoy ad-free, high-fidelity music!
-
-> [!TIP]
-> **Zero-Fuss Updates:** Once installed, PixelMusic includes a built-in auto-updater with SemVer checks and changelog previews. You can update seamlessly with a single tap inside the app!
-
----
-
-## 🛠️ Technology Stack
-
-- **Core Language:** 100% [Kotlin](https://kotlinlang.org/) with Coroutines &amp; Flow
-- **UI Engine:** [Jetpack Compose](https://developer.android.com/jetpack/compose) with Material 3 Expressive Design System
-- **Audio & Media:** [AndroidX Media3](https://developer.android.com/media/media3) (ExoPlayer, MediaSession, Transformer)
-- **Dependency Injection:** [Dagger Hilt](https://dagger.dev/hilt/)
-- **Persistence:** [AndroidX Room Database](https://developer.android.com/training/data-storage/room) &amp; Jetpack DataStore
-- **Networking:** [OkHttp 5](https://square.github.io/okhttp/) &amp; [Ktor Client](https://ktor.io/)
-- **Metadata & Audio Containers:** [TagLib](https://taglib.org/) &amp; [JAudioTagger](http://www.jthink.net/jaudiotagger/)
-- **Image Pipeline:** [Coil 3](https://coil-kt.github.io/coil/) with Compose Subcomposition
-
----
-
-## 👥 Contributors & Credits
-
 <div align="center">
 
-| Role | Contributor | Links |
-|---|---|---|
-| **Lead Developer** | **Saurav Biswas** | [@Saurav124x](https://t.me/Saurav124x) • [GitHub](https://github.com/Saurav-02) • [Instagram](https://www.instagram.com/holy_saurav) |
-| **UI Design Collaborator** | **@Xyg901** | [@Xyg901](https://t.me/Xyg901) |
-| **Foundational Architecture** | Built upon and inspired by **PixelPlayer** created by Theo Vilardo | Open Source Community |
+  <br />
 
-</div>
+  <!-- ==================== TECH STACK COMPONENT ==================== -->
+  <img src="assets/components/card_tech_stack.svg" width="100%" alt="System Specifications & Tech Stack" />
 
-<br />
+  <br /><br />
 
----
+  <!-- ==================== COMMUNITY & CONTRIBUTORS COMPONENT ==================== -->
+  <img src="assets/components/card_community.svg" width="100%" alt="Community & Contributors" />
 
-<div align="center">
+  <br /><br />
 
-  ### Join the Community &amp; Help Shape the Future of PixelMusic
-
+  <!-- Action Badges -->
   <p align="center">
     <a href="https://github.com/atappu805/Clean2.0/issues">
       <img src="assets/badges/badge_issues.svg" height="46" alt="Report an Issue" />
