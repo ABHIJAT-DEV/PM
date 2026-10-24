@@ -28,6 +28,7 @@ data class Action(
     val addedFullListId: String? = null,
     val setVideoId: String? = null,
     val movedSetVideoIdSuccessor: String? = null,
+    val movedSetVideoIdPredecessor: String? = null,
     val removedVideoId: String? = null,
     val playlistName: String? = null
 )

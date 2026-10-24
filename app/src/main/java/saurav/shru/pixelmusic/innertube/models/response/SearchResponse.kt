@@ -31,12 +31,12 @@ data class SearchResponse(
 
     @Serializable
     data class ContinuationContents(
-        val musicShelfContinuation: MusicShelfContinuation,
+        val musicShelfContinuation: MusicShelfContinuation? = null,
     ) {
         @Serializable
         data class MusicShelfContinuation(
-            val contents: List<Content>,
-            val continuations: List<Continuation>?,
+            val contents: List<Content> = emptyList(),
+            val continuations: List<Continuation>? = null,
         ) {
             @Serializable
             data class Content(

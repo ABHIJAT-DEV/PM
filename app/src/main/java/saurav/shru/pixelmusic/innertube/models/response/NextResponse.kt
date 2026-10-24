@@ -19,9 +19,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class NextResponse(
-    val contents: Contents,
-    val continuationContents: ContinuationContents?,
-    val currentVideoEndpoint: NavigationEndpoint?,
+    val contents: Contents? = null,
+    val continuationContents: ContinuationContents? = null,
+    val currentVideoEndpoint: NavigationEndpoint? = null,
 ) {
     @Serializable
     data class Contents(
@@ -46,6 +46,6 @@ data class NextResponse(
 
     @Serializable
     data class ContinuationContents(
-        val playlistPanelContinuation: PlaylistPanelRenderer,
+        val playlistPanelContinuation: PlaylistPanelRenderer? = null,
     )
 }

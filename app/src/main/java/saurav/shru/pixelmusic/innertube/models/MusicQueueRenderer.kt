@@ -20,7 +20,7 @@ data class MusicQueueRenderer(
 ) {
     @Serializable
     data class Content(
-        val playlistPanelRenderer: PlaylistPanelRenderer,
+        val playlistPanelRenderer: PlaylistPanelRenderer? = null,
     )
 
     @Serializable

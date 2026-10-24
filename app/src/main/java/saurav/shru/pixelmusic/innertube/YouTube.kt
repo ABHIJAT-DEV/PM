@@ -687,7 +687,7 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
                     isEditable = false
                 ),
                 songs = songs,
-                songsContinuation = null,
+                songsContinuation = continuation,
                 continuation = continuation
             )
         }
@@ -747,7 +747,7 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
         val response = innerTube.browse(
             client = WEB_REMIX,
             continuation = continuation,
-            browseId = "",
+            browseId = null,
             setLogin = true
         ).body<BrowseResponse>()
 
@@ -764,12 +764,12 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
             ?.tabRenderer?.content?.sectionListRenderer?.continuations?.getContinuation()
         val sectionListRender = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer
-        val sections = sectionListRender?.contents!!
-            .mapNotNull { it.musicCarouselShelfRenderer }
-            .mapNotNull {
+        val sections = sectionListRender?.contents
+            ?.mapNotNull { it.musicCarouselShelfRenderer }
+            ?.mapNotNull {
                 HomePage.Section.fromMusicCarouselShelfRenderer(it)
-            }.toMutableList()
-        val chips = sectionListRender.header?.chipCloudRenderer?.chips?.mapNotNull { HomePage.Chip.fromChipCloudChipRenderer(it) }
+            }?.toMutableList() ?: mutableListOf()
+        val chips = sectionListRender?.header?.chipCloudRenderer?.chips?.mapNotNull { HomePage.Chip.fromChipCloudChipRenderer(it) }
         HomePage(chips, sections, continuation)
     }
 
@@ -997,28 +997,31 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
 
         val tabs = response.contents?.singleColumnBrowseResultsRenderer?.tabs
 
-        val contents = if (tabs != null && tabIndex >= 0 && tabIndex < tabs.size) {
-            tabs[tabIndex].tabRenderer.content?.sectionListRenderer?.contents?.firstOrNull()
+        val sectionContents = if (tabs != null && tabIndex >= 0 && tabIndex < tabs.size) {
+            tabs[tabIndex].tabRenderer.content?.sectionListRenderer?.contents.orEmpty()
         } else {
-            null
+            emptyList()
         }
 
+        val grid = sectionContents.firstNotNullOfOrNull { it.gridRenderer }
+        val shelf = sectionContents.firstNotNullOfOrNull { it.musicShelfRenderer }
+
         when {
-            contents?.gridRenderer != null -> {
+            grid != null -> {
                 LibraryPage(
-                    items = contents.gridRenderer.items.orEmpty()
+                    items = grid.items.orEmpty()
                         .mapNotNull(GridRenderer.Item::musicTwoRowItemRenderer)
                         .mapNotNull { LibraryPage.fromMusicTwoRowItemRenderer(it) },
-                    continuation = contents.gridRenderer.continuations?.getContinuation()
+                    continuation = grid.continuations?.getContinuation()
                 )
             }
 
-            contents?.musicShelfRenderer?.contents != null -> {
+            shelf?.contents != null -> {
                 LibraryPage(
-                    items = contents.musicShelfRenderer.contents
+                    items = shelf.contents
                         .mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
                         .mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) },
-                    continuation = contents.musicShelfRenderer.continuations?.getContinuation()
+                    continuation = shelf.continuations?.getContinuation()
                 )
             }
 
@@ -1058,6 +1061,21 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
                 LibraryContinuationPage(
                     items = items,
                     continuation = if (items.isEmpty()) null else contents.musicShelfContinuation.continuations?.getContinuation()
+                )
+            }
+
+            contents?.sectionListContinuation != null -> {
+                val items = contents.sectionListContinuation.contents
+                    .flatMap { sec ->
+                        sec.gridRenderer?.items?.mapNotNull(GridRenderer.Item::musicTwoRowItemRenderer)
+                            ?.mapNotNull { LibraryPage.fromMusicTwoRowItemRenderer(it) }
+                            ?: sec.musicShelfRenderer?.contents?.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
+                                ?.mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) }
+                            ?: emptyList()
+                    }
+                LibraryContinuationPage(
+                    items = items,
+                    continuation = if (items.isEmpty()) null else contents.sectionListContinuation.continuations?.getContinuation()
                 )
             }
 
@@ -1303,14 +1321,15 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
                     ?.playNavigationEndpoint?.watchEndpoint?.videoId
             if (videoId.isNullOrBlank()) return null
 
-            val artists = secondColumn?.runs?.mapNotNull { run ->
-                run.text.takeIf { it.isNotBlank() }?.let { name ->
+            val artistRuns = secondColumn?.runs?.splitBySeparator()?.firstOrNull() ?: secondColumn?.runs.orEmpty()
+            val artists = artistRuns.filter { it.text.trim() !in listOf(",", "&", "•", "·", "") }.mapNotNull { run ->
+                run.text.trim().takeIf { it.isNotBlank() }?.let { name ->
                     Artist(
                         name = name,
                         id = run.navigationEndpoint?.browseEndpoint?.browseId
                     )
                 }
-            } ?: emptyList()
+            }
 
             val thirdColumn = if (flexSize >= 3) {
                 renderer.flexColumns.getOrNull(2)
@@ -1512,12 +1531,17 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
         innerTube.removeFromPlaylist(WEB_REMIX, playlistId, videoId, setVideoId)
     }
 
-    suspend fun moveSongPlaylist(playlistId: String, setVideoId: String, successorSetVideoId: String?) = runCatching {
-        innerTube.moveSongPlaylist(WEB_REMIX, playlistId, setVideoId, successorSetVideoId)
+    suspend fun moveSongPlaylist(
+        playlistId: String,
+        setVideoId: String,
+        successorSetVideoId: String? = null,
+        predecessorSetVideoId: String? = null,
+    ) = runCatching {
+        innerTube.moveSongPlaylist(WEB_REMIX, playlistId, setVideoId, successorSetVideoId, predecessorSetVideoId)
     }
 
-    suspend fun createPlaylist(title: String) = runCatching {
-        innerTube.createPlaylist(WEB_REMIX, title).body<CreatePlaylistResponse>().playlistId
+    suspend fun createPlaylist(title: String, videoIds: List<String>? = null) = runCatching {
+        innerTube.createPlaylist(WEB_REMIX, title, videoIds).body<CreatePlaylistResponse>().playlistId
     }
 
     suspend fun renamePlaylist(playlistId: String, name: String) = runCatching {
@@ -1606,24 +1630,50 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
         if (followAutomixPreview) {
             // Keep automix opt-in so ordered playlist queues can page through their own continuation first.
             playlistPanelRenderer.contents.lastOrNull()?.automixPreviewVideoRenderer?.content?.automixPlaylistVideoRenderer?.navigationEndpoint?.watchPlaylistEndpoint?.let { watchPlaylistEndpoint ->
+                val watchTabs = response.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs.orEmpty()
+                val lyricsEp = watchTabs.find {
+                    val tabTitle = it.tabRenderer.title?.lowercase().orEmpty()
+                    val tabBrowseId = it.tabRenderer.endpoint?.browseEndpoint?.browseId.orEmpty()
+                    tabTitle.contains("lyric") || tabBrowseId.startsWith("FEmusic_lyrics")
+                }?.tabRenderer?.endpoint?.browseEndpoint ?: watchTabs.getOrNull(1)?.tabRenderer?.endpoint?.browseEndpoint
+
+                val relatedEp = watchTabs.find {
+                    val tabTitle = it.tabRenderer.title?.lowercase().orEmpty()
+                    val tabBrowseId = it.tabRenderer.endpoint?.browseEndpoint?.browseId.orEmpty()
+                    tabTitle.contains("related") || tabBrowseId.startsWith("FEmusic_related")
+                }?.tabRenderer?.endpoint?.browseEndpoint ?: watchTabs.getOrNull(2)?.tabRenderer?.endpoint?.browseEndpoint
+
                 return@runCatching next(watchPlaylistEndpoint).getOrThrow().let { result ->
                     result.copy(
                         title = title,
                         items = songs + result.items,
-                        lyricsEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.getOrNull(1)?.tabRenderer?.endpoint?.browseEndpoint,
-                        relatedEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.getOrNull(2)?.tabRenderer?.endpoint?.browseEndpoint,
+                        lyricsEndpoint = lyricsEp,
+                        relatedEndpoint = relatedEp,
                         currentIndex = currentIndex,
                         endpoint = watchPlaylistEndpoint
                     )
                 }
             }
         }
+        val watchTabs = response.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs.orEmpty()
+        val lyricsEp = watchTabs.find {
+            val tabTitle = it.tabRenderer.title?.lowercase().orEmpty()
+            val tabBrowseId = it.tabRenderer.endpoint?.browseEndpoint?.browseId.orEmpty()
+            tabTitle.contains("lyric") || tabBrowseId.startsWith("FEmusic_lyrics")
+        }?.tabRenderer?.endpoint?.browseEndpoint ?: watchTabs.getOrNull(1)?.tabRenderer?.endpoint?.browseEndpoint
+
+        val relatedEp = watchTabs.find {
+            val tabTitle = it.tabRenderer.title?.lowercase().orEmpty()
+            val tabBrowseId = it.tabRenderer.endpoint?.browseEndpoint?.browseId.orEmpty()
+            tabTitle.contains("related") || tabBrowseId.startsWith("FEmusic_related")
+        }?.tabRenderer?.endpoint?.browseEndpoint ?: watchTabs.getOrNull(2)?.tabRenderer?.endpoint?.browseEndpoint
+
         NextResult(
             title = title,
             items = songs,
             currentIndex = currentIndex,
-            lyricsEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.getOrNull(1)?.tabRenderer?.endpoint?.browseEndpoint,
-            relatedEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.getOrNull(2)?.tabRenderer?.endpoint?.browseEndpoint,
+            lyricsEndpoint = lyricsEp,
+            relatedEndpoint = relatedEp,
             continuation = playlistPanelRenderer.continuations?.getContinuation(),
             endpoint = endpoint
         )
@@ -1646,7 +1696,11 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
         val albums = mutableListOf<AlbumItem>()
         val artists = mutableListOf<ArtistItem>()
         val playlists = mutableListOf<PlaylistItem>()
-        response.contents?.sectionListRenderer?.contents?.forEach { sectionContent ->
+        val sectionList = response.contents?.sectionListRenderer
+            ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer
+            ?: response.contents?.twoColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer
+
+        sectionList?.contents?.forEach { sectionContent ->
             sectionContent.musicCarouselShelfRenderer?.contents?.forEach { content ->
                 when (val item = content.musicResponsiveListItemRenderer?.let(RelatedPage.Companion::fromMusicResponsiveListItemRenderer)
                     ?: content.musicTwoRowItemRenderer?.let(RelatedPage.Companion::fromMusicTwoRowItemRenderer)) {
@@ -1666,7 +1720,7 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
         }
         innerTube.getQueue(WEB_REMIX, videoIds, playlistId).body<GetQueueResponse>().queueDatas
             .mapNotNull {
-                it.content.playlistPanelVideoRenderer?.let { renderer ->
+                it.content?.playlistPanelVideoRenderer?.let { renderer ->
                     NextPage.fromPlaylistPanelVideoRenderer(renderer)
                 }
             }

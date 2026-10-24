@@ -15,12 +15,12 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class MusicResponsiveHeaderRenderer(
-    val thumbnail: ThumbnailRenderer?,
-    val buttons: List<Button>,
-    val title: Runs,
-    val subtitle: Runs,
-    val secondSubtitle: Runs?,
-    val straplineTextOne: Runs?
+    val thumbnail: ThumbnailRenderer? = null,
+    val buttons: List<Button> = emptyList(),
+    val title: Runs? = null,
+    val subtitle: Runs? = null,
+    val secondSubtitle: Runs? = null,
+    val straplineTextOne: Runs? = null
 ) {
     @Serializable
     data class Button(

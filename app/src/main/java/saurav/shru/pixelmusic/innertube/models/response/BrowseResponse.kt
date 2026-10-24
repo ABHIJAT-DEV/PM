@@ -28,13 +28,13 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class BrowseResponse(
-    val contents: Contents?,
-    val continuationContents: ContinuationContents?,
-    val onResponseReceivedActions: List<ResponseAction>?,
-    val header: Header?,
-    val microformat: Microformat?,
-    val responseContext: ResponseContext,
-    val background: ThumbnailRenderer?
+    val contents: Contents? = null,
+    val continuationContents: ContinuationContents? = null,
+    val onResponseReceivedActions: List<ResponseAction>? = null,
+    val header: Header? = null,
+    val microformat: Microformat? = null,
+    val responseContext: ResponseContext? = null,
+    val background: ThumbnailRenderer? = null
 ) {
     @Serializable
     data class Contents(
@@ -100,20 +100,20 @@ data class BrowseResponse(
         @Serializable
         data class MusicImmersiveHeaderRenderer(
             val title: Runs,
-            val description: Runs?,
-            val thumbnail: ThumbnailRenderer?,
-            val playButton: Button?,
-            val startRadioButton: Button?,
-            val subscriptionButton: SubscriptionButton?,
+            val description: Runs? = null,
+            val thumbnail: ThumbnailRenderer? = null,
+            val playButton: Button? = null,
+            val startRadioButton: Button? = null,
+            val subscriptionButton: SubscriptionButton? = null,
             val monthlyListenerCount: Runs? = null,
-            val menu: Menu,
+            val menu: Menu? = null,
         )
 
         @Serializable
         data class MusicVisualHeaderRenderer(
             val title: Runs,
-            val foregroundThumbnail: ThumbnailRenderer,
-            val thumbnail: ThumbnailRenderer?,
+            val foregroundThumbnail: ThumbnailRenderer? = null,
+            val thumbnail: ThumbnailRenderer? = null,
         )
 
         @Serializable
@@ -139,8 +139,8 @@ data class BrowseResponse(
         }
         @Serializable
         data class MusicThumbnailRenderer(
-            val musicThumbnailRenderer: MusicThumbnailRenderer,
-            val thumbnails: List<MusicThumbnail>?,
+            val musicThumbnailRenderer: MusicThumbnailRenderer? = null,
+            val thumbnails: List<MusicThumbnail>? = null,
         )
     }
 

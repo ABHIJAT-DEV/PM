@@ -27,16 +27,21 @@ data class Run(
 fun List<Run>.splitBySeparator(): List<List<Run>> {
     val res = mutableListOf<List<Run>>()
     var tmp = mutableListOf<Run>()
+    val separatorRegex = Regex("""^\s*[•·・–—]\s*$""")
     forEach { run ->
-        if (run.text == " • ") {
-            res.add(tmp)
-            tmp = mutableListOf()
+        if (run.text == " • " || separatorRegex.matches(run.text)) {
+            if (tmp.isNotEmpty()) {
+                res.add(tmp)
+                tmp = mutableListOf()
+            }
         } else {
             tmp.add(run)
         }
     }
-    res.add(tmp)
-    return res
+    if (tmp.isNotEmpty()) {
+        res.add(tmp)
+    }
+    return if (res.isEmpty()) listOf(emptyList()) else res
 }
 
 fun List<List<Run>>.clean(): List<List<Run>> =

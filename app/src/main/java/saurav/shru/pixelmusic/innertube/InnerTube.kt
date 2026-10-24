@@ -705,21 +705,35 @@ class InnerTube {
         client: YouTubeClient,
         playlistId: String,
         setVideoId: String,
-        successorSetVideoId: String?,
+        successorSetVideoId: String? = null,
+        predecessorSetVideoId: String? = null,
     ) = withRetry {
+        val action = if (successorSetVideoId != null) {
+            Action(
+                action = "ACTION_MOVE_VIDEO_BEFORE",
+                movedSetVideoIdSuccessor = successorSetVideoId,
+                setVideoId = setVideoId,
+            )
+        } else if (predecessorSetVideoId != null) {
+            Action(
+                action = "ACTION_MOVE_VIDEO_AFTER",
+                movedSetVideoIdPredecessor = predecessorSetVideoId,
+                setVideoId = setVideoId,
+            )
+        } else {
+            Action(
+                action = "ACTION_MOVE_VIDEO_BEFORE",
+                movedSetVideoIdSuccessor = null,
+                setVideoId = setVideoId,
+            )
+        }
         httpClient.post("browse/edit_playlist") {
             ytClient(client, setLogin = true)
             setBody(
                 EditPlaylistBody(
                     context = client.toContext(locale, visitorData, dataSyncId),
-                    playlistId = playlistId,
-                    actions = listOf(
-                        Action(
-                            action = "ACTION_MOVE_VIDEO_BEFORE",
-                            movedSetVideoIdSuccessor = successorSetVideoId,
-                            setVideoId = setVideoId,
-                        )
-                    )
+                    playlistId = playlistId.removePrefix("VL"),
+                    actions = listOf(action)
                 )
             )
         }
@@ -728,13 +742,15 @@ class InnerTube {
     suspend fun createPlaylist(
         client: YouTubeClient,
         title: String,
+        videoIds: List<String>? = null,
     ) = withRetry {
         httpClient.post("playlist/create") {
             ytClient(client, true)
             setBody(
                 CreatePlaylistBody(
                     context = client.toContext(locale, visitorData, dataSyncId),
-                    title = title
+                    title = title,
+                    videoIds = videoIds
                 )
             )
         }
@@ -790,7 +806,7 @@ class InnerTube {
             val response = next(client = YouTubeClient.WEB, videoId, null, null, null, null, null).body<NextResponse>()
 
             val baseForInfo =
-                response.contents.twoColumnWatchNextResults
+                response.contents?.twoColumnWatchNextResults
                     ?.results
                     ?.results
                     ?.content
@@ -799,7 +815,7 @@ class InnerTube {
                     }?.videoSecondaryInfoRenderer
 
             val baseForTitle =
-                response.contents.twoColumnWatchNextResults
+                response.contents?.twoColumnWatchNextResults
                     ?.results
                     ?.results
                     ?.content
@@ -808,7 +824,7 @@ class InnerTube {
                     }?.videoPrimaryInfoRenderer
 
             val returnYouTubeDislikeResponse =
-                returnYouTubeDislike(videoId).body<ReturnYouTubeDislikeResponse>()
+                runCatching { returnYouTubeDislike(videoId).body<ReturnYouTubeDislikeResponse>() }.getOrNull()
 
             return@runCatching MediaInfo(
                 videoId = videoId,
@@ -849,9 +865,9 @@ class InnerTube {
                         ?.subscriberCountText
                         ?.simpleText?.split(" ")?.firstOrNull(),
                 uploadDate = baseForTitle?.dateText?.simpleText,
-                viewCount = returnYouTubeDislikeResponse.viewCount,
-                like = returnYouTubeDislikeResponse.likes,
-                dislike = returnYouTubeDislikeResponse.dislikes,
+                viewCount = returnYouTubeDislikeResponse?.viewCount,
+                like = returnYouTubeDislikeResponse?.likes,
+                dislike = returnYouTubeDislikeResponse?.dislikes,
             )
 
         }
