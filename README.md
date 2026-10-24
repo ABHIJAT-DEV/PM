@@ -16,6 +16,7 @@
   <a href="https://developer.android.com/about/versions/11"><img src="https://img.shields.io/badge/Android-11.0%2B%20(API%2030%2B)-green?style=flat-square" alt="Android Version"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-100%25-purple?style=flat-square" alt="Kotlin"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/UI-Jetpack%20Compose%20%7C%20Material%203-blueviolet?style=flat-square" alt="Jetpack Compose"></a>
+  <a href="https://t.me/PixelMusicAppBot"><img src="https://img.shields.io/badge/Update%20Bot-@PixelMusicAppBot-2CA5E0?style=flat-square&logo=telegram" alt="Telegram Update Bot"></a>
   <a href="https://t.me/Saurav124x"><img src="https://img.shields.io/badge/Telegram-@Saurav124x-2CA5E0?style=flat-square&logo=telegram" alt="Telegram"></a>
 </p>
 
@@ -26,14 +27,18 @@
 # 🚀 DOWNLOAD THE LATEST APK
 
 ### 📢 **Notice:** This repository is strictly for distributing and developing the **source code** of the app.
-### To download the latest installable **PixelMusic APK**, visit our dedicated release page:
+### To download the latest installable **PixelMusic APK**, grab it directly via our official channels:
 
-# 🌐 [pixelmusic.pages.dev](https://pixelmusic.pages.dev) 🌐
+# 🌐 [pixelmusic.pages.dev](https://pixelmusic.pages.dev) &nbsp;|&nbsp; 🤖 [@PixelMusicAppBot](https://t.me/PixelMusicAppBot)
 
 <br />
 
 <a href="https://pixelmusic.pages.dev">
   <img src="https://img.shields.io/badge/⚡%20DOWNLOAD%20APK-pixelmusic.pages.dev-FF6F00?style=for-the-badge&logo=android&logoColor=white" height="52" alt="Download APK" />
+</a>
+&nbsp;&nbsp;
+<a href="https://t.me/PixelMusicAppBot">
+  <img src="https://img.shields.io/badge/🤖%20TELEGRAM%20BOT-@PixelMusicAppBot-0088cc?style=for-the-badge&logo=telegram&logoColor=white" height="52" alt="Telegram Update Bot" />
 </a>
 &nbsp;&nbsp;
 <a href="https://pixelmusic.pages.dev">
@@ -117,10 +122,12 @@
 - **Direct YouTube Sync:** Add or remove songs directly from the Song Info bottom sheet with bi-directional YouTube cloud sync.
 - **Full Backup & Restore:** Securely backup your library, playlists, settings, and session cookies for seamless migration.
 
-### 🔄 In-App Updater
+### 🔄 In-App Updater & Seamless Upgrades
+- **In-App Update Engine:** Seamlessly detects, downloads, and applies updates directly inside the app from our update backend without needing manual browser visits.
 - **Semantic Versioning (SemVer):** Strict 3-part version comparison prevents improper downgrade prompts.
 - **Resilient Resume:** HTTP 206 Partial Content verification protects APK downloads from corruption.
 - **In-App Changelog Viewer:** Preview updates with formatted release notes and direct installer launching.
+- **Bleeding-Edge Beta Channel:** Instant access to upcoming beta test builds through the Telegram update bot.
 
 ---
 
@@ -143,15 +150,29 @@
 > ### 📢 **Source Code Repository Notice**
 > This repository is exclusively dedicated to developing and distributing the **source code** of PixelMusic. 
 > 
-> 👉 **To download the latest installable APK, head over to the dedicated website:**
-> # 🌐 [pixelmusic.pages.dev](https://pixelmusic.pages.dev)
+> 👉 **To download the latest installable APK, use either of our official channels:**
 > 
-> *Always download APKs from the official page above to get the latest stable releases, features, and security updates.*
+> * 🌐 **Official Website:** [pixelmusic.pages.dev](https://pixelmusic.pages.dev)
+> * 🤖 **Telegram Update Bot:** [@PixelMusicAppBot](https://t.me/PixelMusicAppBot) *(Direct APK download, latest releases & beta builds)*
 
-### Quick Steps:
+### Installation Options:
+
+#### Option 1: Official Website
 1. Visit **[pixelmusic.pages.dev](https://pixelmusic.pages.dev)** on your Android device.
 2. Download the latest **PixelMusic APK**.
 3. Tap the downloaded file to install (allow "Install Unknown Apps" for your browser if prompted).
+
+#### Option 2: Download via Telegram Bot ([@PixelMusicAppBot](https://t.me/PixelMusicAppBot))
+1. Open the bot on Telegram: **[@PixelMusicAppBot](https://t.me/PixelMusicAppBot)**.
+2. Tap `/start` to view and download the latest release or beta APK directly.
+3. Fast, convenient, and sends you direct download files right inside Telegram.
+
+---
+
+### 🔄 In-App Updates & Beta Releases
+
+* **In-App Updates:** You do not have to manually search for new releases. App updates happen directly **inside your app from a dedicated update source**. When an update is ready, the app displays a release prompt with rich changelog details and lets you download and install the update with a single tap.
+* **Beta Versions via Telegram:** If you want to update to the latest version of a **beta release** or get bleeding-edge features as soon as they are compiled, you can download and update to the latest beta version anytime via our official Telegram bot **[@PixelMusicAppBot](https://t.me/PixelMusicAppBot)**.
 
 > ⚠️ **Notice regarding Application ID:**  
 > The application ID is `com.saurav.pixelmusic`. If upgrading from older forks or packages, please create a backup via **Settings > Backup and restore > Backup all data**, copy your session cookies, install the update, and restore your data.
@@ -170,6 +191,7 @@
 | **Credits & Attribution** | Built upon and inspired by the open-source **PixelPlayer** project created by Theo Vilardo. |
 
 ### 💬 Community & Support
+- **Telegram Update Bot:** [@PixelMusicAppBot](https://t.me/PixelMusicAppBot) *(Instant APK delivery & latest beta updates)*
 - **Telegram:** Connect with the developers and community on Telegram:
   - Main Developer: [@Saurav124x](https://t.me/Saurav124x)
   - UI Makeover: [@Xyg901](https://t.me/Xyg901)
