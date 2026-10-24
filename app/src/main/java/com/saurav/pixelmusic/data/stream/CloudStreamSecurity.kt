@@ -16,7 +16,6 @@ object CloudStreamSecurity {
     private const val MAX_RANGE_VALUE_BYTES = 8L * 1024L * 1024L * 1024L
 
     private val GDRIVE_FILE_ID_REGEX = Regex("^[A-Za-z0-9_-]{10,200}$")
-    private val NAVIDROME_SONG_ID_REGEX = Regex("^[A-Za-z0-9_-]{1,100}$")
     private val FORBIDDEN_HOSTS = setOf("localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]")
     private val EXTRA_ALLOWED_AUDIO_TYPES = setOf(
         "application/octet-stream",
@@ -35,11 +34,7 @@ object CloudStreamSecurity {
 
     fun validateTelegramFileId(fileId: Int): Boolean = fileId > 0
 
-    fun validateNeteaseSongId(songId: Long): Boolean = songId > 0L
-
     fun validateGDriveFileId(fileId: String): Boolean = GDRIVE_FILE_ID_REGEX.matches(fileId)
-
-    fun validateNavidromeSongId(songId: String): Boolean = NAVIDROME_SONG_ID_REGEX.matches(songId)
 
     fun validateRangeHeader(rawHeader: String?): RangeHeaderValidation {
         if (rawHeader.isNullOrBlank()) {

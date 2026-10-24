@@ -1166,12 +1166,7 @@ class MusicService : MediaLibraryService() {
         return startCommandResult
     }
 
-    private fun getNavidromeId(mediaItem: MediaItem?): String? = null
-    private fun isNavidromeMediaItem(mediaItem: MediaItem?): Boolean = false
-    private fun reportNavidromePlayback(state: String, mediaItem: MediaItem? = engine.masterPlayer.currentMediaItem) {}
-    private var navidromePlaybackReportJob: Job? = null
-    private fun startNavidromePlaybackReporting() {}
-    private fun stopNavidromePlaybackReporting() {}
+
 
     private val playerListener = object : Player.Listener {
         override fun onVolumeChanged(volume: Float) {
@@ -1198,18 +1193,11 @@ class MusicService : MediaLibraryService() {
             scrobbleManager?.onPlayerStateChanged(isPlaying, player.currentMediaItem, durationMs)
             
             if (isPlaying) {
-                reportNavidromePlayback("playing")
-                startNavidromePlaybackReporting()
-                
                 // Start Island progress bar if enabled
                 if (isDynamicIslandEnabled) {
                     startLiveProgressTracker()
                 }
             } else {
-                val state = if (player.playbackState == Player.STATE_ENDED) "stopped" else "paused"
-                reportNavidromePlayback(state)
-                stopNavidromePlaybackReporting()
-                
                 // Instantly dismiss Island pill on pause
                 stopLiveProgressTracker()
             }
@@ -1257,8 +1245,6 @@ class MusicService : MediaLibraryService() {
                 val mediaItem = player.currentMediaItem
 
                 endOfTrackTimerSongId = null
-                reportNavidromePlayback("stopped")
-                stopNavidromePlaybackReporting()
                 stopLiveProgressTracker()
                 
                 scrobbleManager?.onPlayerStateChanged(false, mediaItem, 0)
@@ -1297,19 +1283,9 @@ class MusicService : MediaLibraryService() {
             reason: Int
         ) {
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
-                val state = if (engine.masterPlayer.isPlaying) "playing" else "paused"
-                reportNavidromePlayback(state)
-                
                 // Instantly update progress bar when user seeks
                 if (engine.masterPlayer.isPlaying && isDynamicIslandEnabled) {
                     triggerLiveProgressTrackerUpdate()
-                }
-            }
-
-            if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) {
-                val finishedItem = oldPosition.mediaItem
-                if (isNavidromeMediaItem(finishedItem)) {
-                    reportNavidromePlayback("stopped", finishedItem)
                 }
             }
 
@@ -1347,15 +1323,6 @@ class MusicService : MediaLibraryService() {
             }
             scrobbleManager?.onPlayerStateChanged(player.isPlaying, mediaItem, durationMs)
             
-            if (isNavidromeMediaItem(mediaItem)) {
-                reportNavidromePlayback("starting")
-                if (engine.masterPlayer.isPlaying) {
-                    startNavidromePlaybackReporting()
-                }
-            } else {
-                stopNavidromePlaybackReporting()
-            }
-
             // Immediately update Island with new song title/art
             if (player.isPlaying && isDynamicIslandEnabled) {
                 triggerLiveProgressTrackerUpdate()
@@ -1938,8 +1905,6 @@ class MusicService : MediaLibraryService() {
 
     override fun onDestroy() {
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
-        reportNavidromePlayback("stopped")
-        stopNavidromePlaybackReporting()
         stopLiveProgressTracker()
         playbackSnapshotPersistJob?.cancel()
         mediaSessionButtonRefreshJob?.cancel()
