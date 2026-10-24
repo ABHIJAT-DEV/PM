@@ -34,7 +34,7 @@
   <br />
 
   <!-- Platform & Tech Badges -->
-  <p align="center">
+  <p align="centre">
     <a href="https://developer.android.com/about/versions/10"><img src="https://img.shields.io/badge/Android-10.0%2B%20(API%2029%2B)-2E172B?style=for-the-badge&logo=android&logoColor=EBBFE0" alt="Android 10+" /></a>
     &nbsp;
     <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-100%25-2E172B?style=for-the-badge&logo=kotlin&logoColor=EBBFE0" alt="Kotlin 100%" /></a>
@@ -43,19 +43,19 @@
     &nbsp;
     <a href="https://developer.android.com/media/media3"><img src="https://img.shields.io/badge/Audio-AndroidX%20Media3-2E172B?style=for-the-badge&logo=googleplay&logoColor=EBBFE0" alt="Media3" /></a>
     &nbsp;
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-2E172B?style=for-the-badge&logo=opensourceinitiative&logoColor=EBBFE0" alt="License" /></a>
+    <a href="LICENCE"><img src="https://img.shields.io/badge/Licence-GPL--3.0-2E172B?style=for-the-badge&logo=opensourceinitiative&logoColor=EBBFE0" alt="Licence /></a>
   </p>
 
 </div>
 
 ---
 
-<div align="center">
+<div align="centre">
 
 > [!IMPORTANT]
 > ### 📢 Official Source Code Repository Notice
-> This repository is exclusively dedicated to developing the **open-source codebase** of PixelMusic.  
-> To install and use PixelMusic on your Android phone, download the signed release or beta APK from our official channels:
+> This repository is exclusively dedicated to developing the **open-source codebase** of PixelMusic.
+>  If you are a new user, install the application from the official page or use the Telegram bot. The latter updates through the in-app updater, or you can use the Telegram bot to update the app or get a beta version.
 > 
 > 🌐 **[Official Website (pixelmusic.pages.dev)](https://pixelmusic.pages.dev)** &nbsp;•&nbsp; 🤖 **[Telegram Update Bot (@PixelMusicAppBot)](https://t.me/PixelMusicAppBot)**
 
