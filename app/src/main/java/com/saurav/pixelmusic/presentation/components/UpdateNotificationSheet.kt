@@ -163,6 +163,8 @@ fun UpdateNotificationSheet(
                                 .padding(bottom = 8.dp)
                         )
 
+                        val migrateShape = AbsoluteSmoothCornerShape(16.dp, 60)
+
                         Button(
                             onClick = {
                                 onMigrateClick()
@@ -175,8 +177,9 @@ fun UpdateNotificationSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
-                                .padding(bottom = 8.dp),
-                            shape = AbsoluteSmoothCornerShape(16.dp, 60)
+                                .padding(bottom = 8.dp)
+                                .liquidGlassInteractiveSurface(shape = migrateShape),
+                            shape = migrateShape
                         ) {
                             Text(
                                 text = "Migrate to Stable Release",
@@ -197,18 +200,19 @@ fun UpdateNotificationSheet(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp),
+                            .height(54.dp)
+                            .liquidGlassInteractiveSurface(shape = buttonShape),
                         shape = buttonShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f) else MaterialTheme.colorScheme.primary,
-                            contentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onPrimary
+                            contentColor = Color.Black
                         ),
                         elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
                     ) {
                         Icon(
                             imageVector = if (isUpdateAvailable) Icons.Rounded.Download else Icons.Rounded.Check,
                             contentDescription = null,
-                            tint = if (isDark) Color.White else LocalContentColor.current,
+                            tint = Color.Black,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -216,7 +220,7 @@ fun UpdateNotificationSheet(
                             text = if (isUpdateAvailable) "Update Now" else "Awesome",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = if (isDark) Color.White else Color.Unspecified
+                            color = Color.Black
                         )
                     }
 
@@ -417,64 +421,49 @@ private fun VersionHeaderView(header: ChangelogItem.VersionHeader) {
 @Composable
 private fun LinkButtonView(button: ChangelogItem.LinkButton) {
     val uriHandler = LocalUriHandler.current
-    Surface(
-        shape = AbsoluteSmoothCornerShape(16.dp, 60),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+    val isLiquidGlass = LocalLiquidGlassEnabled.current
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val buttonShape = AbsoluteSmoothCornerShape(16.dp, 60)
+
+    Button(
+        onClick = {
+            try {
+                uriHandler.openUri(button.url)
+            } catch (e: Exception) {
+                // ignore if invalid
+            }
+        },
         modifier = Modifier
             .fillMaxWidth()
+            .height(50.dp)
             .padding(vertical = 4.dp)
-            .clickable {
-                try {
-                    uriHandler.openUri(button.url)
-                } catch (e: Exception) {
-                    // ignore if invalid
-                }
-            }
+            .liquidGlassInteractiveSurface(shape = buttonShape),
+        shape = buttonShape,
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = if (isLiquidGlass) {
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.65f else 0.80f)
+            } else {
+                MaterialTheme.colorScheme.secondaryContainer
+            },
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        ),
+        elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Text(text = button.icon, fontSize = 18.sp)
-                }
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = button.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                if (!button.subtitle.isNullOrBlank()) {
-                    Text(
-                        text = button.subtitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = if (!button.subtitle.isNullOrBlank()) "${button.title} (${button.subtitle})" else button.title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
