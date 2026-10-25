@@ -29,30 +29,39 @@
 ## 📱 App Experience Showcase
 
 ![Explore & Discover](assets/IMG_20260923_100206.jpg)
+
 **Explore & Recommendations** — InnerTube mood carousels & charts
 
 ![Now Playing Screen](assets/IMG_20260923_100221.jpg)
+
 **Expressive Now Playing** — Wallpaper-reactive fluid AGSL scrim
 
 ![Synchronized Lyrics](assets/IMG_20260923_100233.jpg)
+
 **Karaoke Synchronized Lyrics** — Live auto-scrolling with AI rescue
 
 ![Media Library](assets/IMG_20260923_100255.jpg)
+
 **Smart Offline Library** — Tagged downloads & cloud playlists
 
 ![Queue & Radio](assets/IMG_20260923_100305.jpg)
+
 **DualPlayer Preload Queue** — Zero-gap transitions & auto-queue
 
 ![Artist Page](assets/IMG_20260923_100314.jpg)
+
 **Rich Artist & Album View** — Discography, singles, and related artists
 
 ![Settings & Theming](assets/IMG_20260923_100325.jpg)
+
 **Deep Personalization** — Dynamic palette & custom accents
 
 ![Subsonic Integration](assets/IMG_20260923_100349.jpg)
+
 **Cloud & Subsonic Servers** — Navidrome, Airsonic & NetEase support
 
 ![Dynamic Island & Capsule](assets/IMG_20260923_100359.jpg)
+
 **System Capsule & Widgets** — OriginOS, HyperOS, ColorOS dynamic island
 
 ---
