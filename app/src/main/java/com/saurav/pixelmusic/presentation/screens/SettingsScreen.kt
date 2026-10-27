@@ -41,7 +41,9 @@ import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -318,7 +320,7 @@ fun SettingsScreen(
                     val equalizerType by playerViewModel.userPreferencesRepository.equalizerTypeFlow
                         .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP)
 
-                    mainCategories.forEach { category ->
+                    for (category in mainCategories) {
                         val colors = if (isBw) {
                             bwCategoryColors
                         } else {
@@ -329,25 +331,24 @@ fun SettingsScreen(
                         val eqSubtitle = if (isEq && equalizerType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
                             "System Equalizer Active • Tap to open"
                         } else null
-                        val eqTrailing: (@Composable () -> Unit)? = if (isEq && equalizerType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
-                            {
-                                IconButton(
-                                    onClick = { navController.navigateSafely(Screen.Equalizer.route) }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Tune,
-                                        contentDescription = "Configure Equalizer",
-                                        tint = colors.second
-                                    )
-                                }
-                            }
-                        } else null
 
                         ExpressiveCategoryItem(
                             category = category,
                             customColors = colors,
                             subtitleOverride = eqSubtitle,
-                            trailingContent = eqTrailing,
+                            trailingContent = if (isEq && equalizerType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
+                                {
+                                    IconButton(
+                                        onClick = { navController.navigateSafely(Screen.Equalizer.route) }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Tune,
+                                            contentDescription = "Configure Equalizer",
+                                            tint = colors.second
+                                        )
+                                    }
+                                }
+                            } else null,
                             onClick = {
                                 if (category == SettingsCategory.EQUALIZER) {
                                     if (equalizerType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {

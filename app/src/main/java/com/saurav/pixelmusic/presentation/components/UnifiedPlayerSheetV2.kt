@@ -73,6 +73,9 @@ import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassBlurIntensity
 import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionIntensity
 import com.saurav.pixelmusic.presentation.components.scoped.PlayerAlbumNavigationEffect
 import com.saurav.pixelmusic.presentation.components.scoped.PlayerArtistNavigationEffect
+import kotlinx.coroutines.flow.collectLatest
+import com.saurav.pixelmusic.presentation.navigation.Screen
+import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.components.scoped.PlayerSheetPredictiveBackHandler
 import com.saurav.pixelmusic.presentation.components.scoped.QueueSheetRuntimeEffects
 import com.saurav.pixelmusic.presentation.components.scoped.SheetMotionController

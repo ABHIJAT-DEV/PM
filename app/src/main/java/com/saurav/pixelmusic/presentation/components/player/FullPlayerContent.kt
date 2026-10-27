@@ -2192,10 +2192,7 @@ fun FullPlayerContent(
                                         },
                                         onClick = {
                                             showSongInfoBottomSheet = false
-                                            val eqType = playerViewModel.userPreferencesRepository.dataStore.let {
-                                                // Check preference flow
-                                            }
-                                            playerViewModel.viewModelScope.launch {
+                                            coroutineScope.launch {
                                                 val selectedType = playerViewModel.userPreferencesRepository.equalizerTypeFlow.first()
                                                 if (selectedType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
                                                     val audioSessionId = playerViewModel.activeAudioSessionId.value
