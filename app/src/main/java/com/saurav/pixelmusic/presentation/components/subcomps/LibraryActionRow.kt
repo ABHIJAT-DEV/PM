@@ -259,7 +259,13 @@ fun LibraryActionRow(
                                 containerColor = if (isLiquidGlass) buttonContainerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else buttonContainerColor,
                                 contentColor = buttonContentColor
                             ),
-                            elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, focusedElevation = 0.dp, hoveredElevation = 0.dp, disabledElevation = 0.dp) else ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 6.dp),
+                            elevation = ButtonDefaults.filledTonalButtonElevation(
+                                defaultElevation = 0.dp,
+                                pressedElevation = 0.dp,
+                                focusedElevation = 0.dp,
+                                hoveredElevation = 0.dp,
+                                disabledElevation = 0.dp
+                            ),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                             modifier = Modifier
                                 .height(genHeight)
@@ -342,9 +348,12 @@ fun LibraryActionRow(
                                         containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                     ),
-                                    elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, focusedElevation = 0.dp, hoveredElevation = 0.dp, disabledElevation = 0.dp) else ButtonDefaults.buttonElevation(
-                                        defaultElevation = 4.dp,
-                                        pressedElevation = 6.dp
+                                    elevation = ButtonDefaults.filledTonalButtonElevation(
+                                        defaultElevation = 0.dp,
+                                        pressedElevation = 0.dp,
+                                        focusedElevation = 0.dp,
+                                        hoveredElevation = 0.dp,
+                                        disabledElevation = 0.dp
                                     ),
                                     contentPadding = PaddingValues(
                                         horizontal = 14.dp,
