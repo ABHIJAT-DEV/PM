@@ -620,12 +620,12 @@ class MusicService : MediaLibraryService() {
                 when (playerCommand) {
                     Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
                         if (this@MusicService.controller.skipToNext()) {
-                            return MediaSession.ConnectionResult.RESULT_INFO_SKIPPED
+                            return SessionResult.RESULT_INFO_SKIPPED
                         }
                     }
                     Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
                         if (this@MusicService.controller.skipToPrevious()) {
-                            return MediaSession.ConnectionResult.RESULT_INFO_SKIPPED
+                            return SessionResult.RESULT_INFO_SKIPPED
                         }
                     }
                 }
