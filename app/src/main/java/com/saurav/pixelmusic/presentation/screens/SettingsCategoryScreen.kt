@@ -2095,8 +2095,11 @@ fun SettingsCategoryScreen(
                             }
 
                             SettingsCategory.EQUALIZER -> {
-                                // Equalizer has its own screen, so this block is unreachable via standard navigation
-                                // but required for exhaustiveness.
+                                androidx.compose.runtime.LaunchedEffect(Unit) {
+                                    navController.navigateSafely(Screen.Equalizer.route) {
+                                        popUpTo(Screen.SettingsCategory.route) { inclusive = true }
+                                    }
+                                }
                             }
 
                             SettingsCategory.DEVICE_CAPABILITIES -> {

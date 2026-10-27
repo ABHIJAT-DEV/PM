@@ -30,6 +30,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 data class EqualizerUiState(
+    val equalizerType: com.saurav.pixelmusic.data.equalizer.EqualizerType = com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP,
     val isEnabled: Boolean = false,
     val currentPreset: EqualizerPreset = EqualizerPreset.FLAT,
     val bandLevels: ImmutableList<Int> = List(10) { 0 }.toImmutableList(),
@@ -189,7 +190,8 @@ class EqualizerViewModel @Inject constructor(
                 equalizerPreferencesRepository.loudnessDismissedFlow,
                 equalizerPreferencesRepository.equalizerViewModeFlow,
                 equalizerPreferencesRepository.customPresetsFlow,
-                equalizerPreferencesRepository.pinnedPresetsFlow
+                equalizerPreferencesRepository.pinnedPresetsFlow,
+                equalizerPreferencesRepository.equalizerTypeFlow
             ) { values ->
                  val enabled = values[0] as Boolean
                  val presetName = values[1] as String
@@ -208,6 +210,7 @@ class EqualizerViewModel @Inject constructor(
                  val viewMode = values[12] as UserPreferencesRepository.EqualizerViewMode
                  val customPresets = (values[13] as? List<*>)?.filterIsInstance<EqualizerPreset>() ?: emptyList()
                  val pinnedPresets = (values[14] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                 val equalizerType = (values[15] as? com.saurav.pixelmusic.data.equalizer.EqualizerType) ?: com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP
 
                 val currentPreset = if (presetName == "custom") {
                     EqualizerPreset.custom(customBands)
@@ -217,6 +220,7 @@ class EqualizerViewModel @Inject constructor(
                 }
 
                 EqualizerUiState(
+                    equalizerType = equalizerType,
                     isEnabled = enabled,
                     currentPreset = currentPreset,
                     bandLevels = (if (currentPreset.name == "custom") customBands else currentPreset.bandLevels).toImmutableList(),
@@ -239,6 +243,17 @@ class EqualizerViewModel @Inject constructor(
                 )
             }.collect { newState ->
                 _uiState.value = newState
+            }
+        }
+    }
+
+    fun setEqualizerType(type: com.saurav.pixelmusic.data.equalizer.EqualizerType) {
+        viewModelScope.launch {
+            equalizerPreferencesRepository.setEqualizerType(type)
+            if (type == com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP) {
+                equalizerManager.attachToAudioSessionIfNeeded(dualPlayerEngine.getAudioSessionId())
+            } else {
+                equalizerManager.release()
             }
         }
     }

@@ -343,9 +343,9 @@ object SettingsSearchCatalog {
             SettingsCategory.LIQUID_GLASS, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
 
         // ─── Equalizer ──────────────────────────────────────────────────────────────
-        SearchableSetting("Equalizer", "Launch system audio effects and sound enhancement panel",
+        SearchableSetting("Equalizer", "Launch audio effects, equalizer, and sound enhancement panel",
             listOf("equalizer", "eq", "audio", "bass", "treble", "dolby", "sound", "effects"),
-            SettingsCategory.EQUALIZER, Screen.SettingsCategory.createRoute(SettingsCategory.EQUALIZER.id)),
+            SettingsCategory.EQUALIZER, Screen.Equalizer.route),
 
         // ─── Device Capabilities ────────────────────────────────────────────────────
         SearchableSetting("Device Capabilities", "Hardware decoding, sample rates, and audio output capabilities",

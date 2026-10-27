@@ -285,6 +285,7 @@ constructor(
                 booleanPreferencesKey("artist_settings_rescan_required")
 
         // Equalizer Settings
+        val EQUALIZER_TYPE = stringPreferencesKey("equalizer_type")
         val EQUALIZER_ENABLED = booleanPreferencesKey("equalizer_enabled")
         val EQUALIZER_PRESET = stringPreferencesKey("equalizer_preset")
         val EQUALIZER_CUSTOM_BANDS = stringPreferencesKey("equalizer_custom_bands")
@@ -533,6 +534,21 @@ constructor(
 
     enum class EqualizerViewMode {
         SLIDERS, GRAPH, HYBRID
+    }
+
+    val equalizerTypeFlow: Flow<com.saurav.pixelmusic.data.equalizer.EqualizerType> = dataStore.data.map { preferences ->
+        val typeStr = preferences[PreferencesKeys.EQUALIZER_TYPE] ?: com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP.name
+        try {
+            com.saurav.pixelmusic.data.equalizer.EqualizerType.valueOf(typeStr)
+        } catch (_: Exception) {
+            com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP
+        }
+    }
+
+    suspend fun setEqualizerType(type: com.saurav.pixelmusic.data.equalizer.EqualizerType) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EQUALIZER_TYPE] = type.name
+        }
     }
 
     val crossfadeDurationFlow: Flow<Int> =

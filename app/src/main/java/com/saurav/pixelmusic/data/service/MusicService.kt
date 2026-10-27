@@ -145,6 +145,12 @@ class MusicService : MediaLibraryService() {
     lateinit var exoCache: ExoCache
     @Inject
     lateinit var engagementDao: com.saurav.pixelmusic.data.database.EngagementDao
+    @Inject
+    lateinit var equalizerManager: com.saurav.pixelmusic.data.equalizer.EqualizerManager
+    @Inject
+    lateinit var equalizerPreferencesRepository: com.saurav.pixelmusic.data.preferences.EqualizerPreferencesRepository
+    @Inject
+    lateinit var externalAudioEffectSession: com.saurav.pixelmusic.data.equalizer.ExternalAudioEffectSession
 
     private var scrobbleManager: com.saurav.pixelmusic.data.lastfm.ScrobbleManager? = null
 
@@ -422,6 +428,38 @@ class MusicService : MediaLibraryService() {
         // Restore equalizer state from preferences and only attach audio effects when
         // the user actually has at least one effect enabled for the current session.
         serviceScope.launch {
+            val enabled = equalizerPreferencesRepository.equalizerEnabledFlow.first()
+            val presetName = equalizerPreferencesRepository.equalizerPresetFlow.first()
+            val customBands = equalizerPreferencesRepository.equalizerCustomBandsFlow.first()
+            val bassBoostEnabled = equalizerPreferencesRepository.bassBoostEnabledFlow.first()
+            val bassBoost = equalizerPreferencesRepository.bassBoostStrengthFlow.first()
+            val virtualizerEnabled = equalizerPreferencesRepository.virtualizerEnabledFlow.first()
+            val virtualizer = equalizerPreferencesRepository.virtualizerStrengthFlow.first()
+            val loudnessEnabled = equalizerPreferencesRepository.loudnessEnhancerEnabledFlow.first()
+            val loudnessStrength = equalizerPreferencesRepository.loudnessEnhancerStrengthFlow.first()
+
+            equalizerManager.restoreState(
+                enabled, presetName, customBands,
+                bassBoostEnabled, bassBoost,
+                virtualizerEnabled, virtualizer,
+                loudnessEnabled, loudnessStrength
+            )
+        }
+
+        serviceScope.launch {
+            equalizerPreferencesRepository.equalizerTypeFlow.collect { eqType ->
+                if (eqType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
+                    equalizerManager.release()
+                } else {
+                    val sessionId = engine.activeAudioSessionId.value
+                    if (sessionId != 0) {
+                        equalizerManager.attachToAudioSessionIfNeeded(sessionId)
+                    }
+                }
+            }
+        }
+
+        serviceScope.launch {
             userPreferencesRepository.keepPlayingInBackgroundFlow.collect { enabled ->
                 keepPlayingInBackground = enabled
             }
@@ -466,6 +504,10 @@ class MusicService : MediaLibraryService() {
         serviceScope.launch {
             engine.activeAudioSessionId.collect { sessionId ->
                 notifySystemEqualizer(sessionId)
+                val eqType = equalizerPreferencesRepository.equalizerTypeFlow.first()
+                if (eqType == com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP) {
+                    equalizerManager.attachToAudioSessionIfNeeded(sessionId)
+                }
             }
         }
 
@@ -1931,6 +1973,8 @@ class MusicService : MediaLibraryService() {
             release()
             mediaSession = null
         }
+        externalAudioEffectSession.close()
+        equalizerManager.release()
         engine.setOnPlayerAboutToBeReleasedListener {}
         engine.release()
         controller.release()
@@ -3549,14 +3593,7 @@ class MusicService : MediaLibraryService() {
      */
     private fun notifySystemEqualizer(audioSessionId: Int) {
         if (audioSessionId == 0 || audioSessionId == androidx.media3.common.C.AUDIO_SESSION_ID_UNSET) return
-        
-        Timber.tag(TAG).d("Broadcasting audio session $audioSessionId to system equalizers")
-        val intent = Intent(android.media.audiofx.AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
-            putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
-            putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-            putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
-        }
-        sendBroadcast(intent)
+        externalAudioEffectSession.open(audioSessionId)
     }
 
 // --- LIVE PROGRESS TRACKER FOR DYNAMIC ISLAND ---

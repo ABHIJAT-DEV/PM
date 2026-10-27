@@ -139,6 +139,11 @@ import com.saurav.pixelmusic.presentation.components.CustomPresetsSheet
 import com.saurav.pixelmusic.presentation.components.ReorderPresetsSheet
 import com.saurav.pixelmusic.presentation.components.SavePresetDialog
 import com.saurav.pixelmusic.presentation.components.RenamePresetDialog
+import com.saurav.pixelmusic.presentation.components.EqualizerTypeSelector
+import com.saurav.pixelmusic.data.equalizer.EqualizerType
+import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Button
 import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.EqualizerViewMode
 import androidx.compose.material.icons.rounded.ViewQuilt
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -297,7 +302,94 @@ fun EqualizerScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            item(key = "preset_tabs") {
+            item(key = "equalizer_engine_selector") {
+                EqualizerTypeSelector(
+                    selectedType = uiState.equalizerType,
+                    onTypeSelected = { equalizerViewModel.setEqualizerType(it) }
+                )
+            }
+
+            if (uiState.equalizerType == EqualizerType.SYSTEM) {
+                item(key = "system_equalizer_panel") {
+                    val context = LocalContext.current
+                    val audioSessionId by playerViewModel.activeAudioSessionId.collectAsStateWithLifecycle()
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Tune,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+
+                            Text(
+                                text = "System Equalizer Active",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Text(
+                                text = "Audio enhancement is handled by your device's built-in sound engine (e.g. Dolby Atmos, Dirac, or external equalizer apps). When selected, all equalizer triggers in the app will launch your system equalizer.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+
+                            Button(
+                                onClick = {
+                                    val intent = android.content.Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
+                                        putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
+                                        putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
+                                        if (audioSessionId != 0) {
+                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
+                                        }
+                                    }
+                                    try {
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "System equalizer not available", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Open System Equalizer")
+                            }
+                        }
+                    }
+                }
+            } else {
+                item(key = "preset_tabs") {
                 val visiblePresets = remember(uiState.accessiblePresets) {
                     val defaultPresets = uiState.accessiblePresets.filter { !it.isCustom }
                     (defaultPresets + EqualizerPreset.custom(List(10) { 0 })).toImmutableList()
@@ -365,6 +457,7 @@ fun EqualizerScreen(
                     onVolumeChange = { equalizerViewModel.setSystemVolume(it) }
                 )
             }
+            }
         }
         
         CollapsibleCommonTopBar(
@@ -375,53 +468,55 @@ fun EqualizerScreen(
             expandedTitleStartPadding = 20.dp,
             collapsedTitleStartPadding = 72.dp,
             actions = {
-                FilledIconButton(
-                    onClick = { equalizerViewModel.cycleViewMode() },
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                if (uiState.equalizerType == EqualizerType.IN_APP) {
+                    FilledIconButton(
+                        onClick = { equalizerViewModel.cycleViewMode() },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Icon(
+                            imageVector = when(uiState.viewMode) {
+                                EqualizerViewMode.SLIDERS -> Icons.Rounded.GraphicEq
+                                EqualizerViewMode.GRAPH -> Icons.AutoMirrored.Rounded.ShowChart
+                                EqualizerViewMode.HYBRID -> Icons.AutoMirrored.Rounded.ViewQuilt
+                            },
+                            contentDescription = stringResource(R.string.presentation_batch_d_eq_change_view_mode_cd)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    val isEnabled = uiState.isEnabled
+                    val powerButtonCorner by animateIntAsState(
+                        targetValue = if (isEnabled) 50 else 12,
+                        label = "PowerButtonShape"
                     )
-                ) {
-                    Icon(
-                        imageVector = when(uiState.viewMode) {
-                            EqualizerViewMode.SLIDERS -> Icons.Rounded.GraphicEq
-                            EqualizerViewMode.GRAPH -> Icons.AutoMirrored.Rounded.ShowChart
-                            EqualizerViewMode.HYBRID -> Icons.AutoMirrored.Rounded.ViewQuilt
-                        },
-                        contentDescription = stringResource(R.string.presentation_batch_d_eq_change_view_mode_cd)
-                    )
+
+                    FilledIconToggleButton(
+                        checked = isEnabled,
+                        onCheckedChange = { equalizerViewModel.toggleEqualizer() },
+                        shape = RoundedCornerShape(powerButtonCorner),
+                        colors = IconButtonDefaults.filledIconToggleButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            checkedContainerColor = MaterialTheme.colorScheme.primary,
+                            checkedContentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PowerSettingsNew,
+                            contentDescription = if (isEnabled) {
+                                stringResource(R.string.presentation_batch_d_eq_disable_cd)
+                            } else {
+                                stringResource(R.string.presentation_batch_d_eq_enable_cd)
+                            }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
                 }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                val isEnabled = uiState.isEnabled
-                val powerButtonCorner by animateIntAsState(
-                    targetValue = if (isEnabled) 50 else 12,
-                    label = "PowerButtonShape"
-                )
-
-                FilledIconToggleButton(
-                    checked = isEnabled,
-                    onCheckedChange = { equalizerViewModel.toggleEqualizer() },
-                    shape = RoundedCornerShape(powerButtonCorner),
-                    colors = IconButtonDefaults.filledIconToggleButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        checkedContainerColor = MaterialTheme.colorScheme.primary,
-                        checkedContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PowerSettingsNew,
-                        contentDescription = if (isEnabled) {
-                            stringResource(R.string.presentation_batch_d_eq_disable_cd)
-                        } else {
-                            stringResource(R.string.presentation_batch_d_eq_enable_cd)
-                        }
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
             }
         )
     }

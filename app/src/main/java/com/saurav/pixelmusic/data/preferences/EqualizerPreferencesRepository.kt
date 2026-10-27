@@ -37,6 +37,16 @@ class EqualizerPreferencesRepository @Inject constructor(
         val VIEW_MODE = stringPreferencesKey("equalizer_view_mode")
         val CUSTOM_PRESETS = stringPreferencesKey("custom_presets_json")
         val PINNED_PRESETS = stringPreferencesKey("pinned_presets_json")
+        val EQUALIZER_TYPE = stringPreferencesKey("equalizer_type")
+    }
+
+    val equalizerTypeFlow: Flow<com.saurav.pixelmusic.data.equalizer.EqualizerType> = dataStore.data.map { preferences ->
+        val typeName = preferences[Keys.EQUALIZER_TYPE] ?: com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP.name
+        try {
+            com.saurav.pixelmusic.data.equalizer.EqualizerType.valueOf(typeName)
+        } catch (_: Exception) {
+            com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP
+        }
     }
 
     val equalizerViewModeFlow: Flow<UserPreferencesRepository.EqualizerViewMode> = dataStore.data.map { preferences ->
@@ -140,6 +150,11 @@ class EqualizerPreferencesRepository @Inject constructor(
             EqualizerPreset.ALL_PRESETS.map { it.name }
         }
     }
+
+    suspend fun setEqualizerType(type: com.saurav.pixelmusic.data.equalizer.EqualizerType) =
+        dataStore.edit { preferences ->
+            preferences[Keys.EQUALIZER_TYPE] = type.name
+        }
 
     suspend fun setEqualizerViewMode(mode: UserPreferencesRepository.EqualizerViewMode) =
         dataStore.edit { preferences ->

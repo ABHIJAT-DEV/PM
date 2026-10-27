@@ -42,6 +42,7 @@
     <string name="error_name_empty">Name cannot be empty</string>
     <string name="action_save">Save</string>
     <string name="action_rename">Rename</string>
+    <string name="equalizer_action_save_new">Save as New</string>
 
     <!-- AI metadata sheet -->
     <string name="ai_metadata_headline_success">Perfectly tagged!</string>

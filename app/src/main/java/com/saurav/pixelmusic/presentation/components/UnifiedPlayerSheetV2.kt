@@ -297,6 +297,14 @@ fun UnifiedPlayerSheetV2(
         playerViewModel = playerViewModel
     )
 
+    LaunchedEffect(navController) {
+        playerViewModel.equalizerNavigationRequests.collectLatest {
+            sheetMotionController.snapCollapsed(sheetCollapsedTargetY)
+            playerViewModel.collapsePlayerSheet()
+            navController.navigateSafely(Screen.Equalizer.route)
+        }
+    }
+
     // FullPlayerVisualState now holds lazy getters that read from the Animatable
     // inside graphicsLayer (draw-phase), avoiding per-frame recomposition.
     val fullPlayerVisualState = rememberFullPlayerVisualState(

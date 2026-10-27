@@ -267,6 +267,20 @@ fun AppNavigation(
                 }
             }
             composable(
+                Screen.Equalizer.route,
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    com.saurav.pixelmusic.presentation.screens.EqualizerScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel
+                    )
+                }
+            }
+            composable(
                 Screen.ListenTogetherSettings.route,
                 enterTransition = { enterTransition() },
                 exitTransition = { exitTransition() },
