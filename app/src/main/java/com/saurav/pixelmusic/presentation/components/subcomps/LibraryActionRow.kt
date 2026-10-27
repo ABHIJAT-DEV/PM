@@ -15,6 +15,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
@@ -207,11 +208,13 @@ fun LibraryActionRow(
                 label = "ActionRowContent",
                 transitionSpec = {
                     if (targetState) { // Transition to Folders (Breadcrumbs)
-                        slideInVertically { height -> height } + fadeIn() togetherWith
-                                slideOutVertically { height -> -height } + fadeOut()
+                        (slideInVertically { height -> height } + fadeIn() togetherWith
+                                slideOutVertically { height -> -height } + fadeOut())
+                            .using(SizeTransform(clip = false))
                     } else { // Transition to other tabs (Buttons)
-                        slideInVertically { height -> -height } + fadeIn() togetherWith
-                                slideOutVertically { height -> height } + fadeOut()
+                        (slideInVertically { height -> -height } + fadeIn() togetherWith
+                                slideOutVertically { height -> height } + fadeOut())
+                            .using(SizeTransform(clip = false))
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -236,6 +239,10 @@ fun LibraryActionRow(
 
                     val newButtonEndCorner by animateDpAsState(
                         targetValue = if (shouldShowImport) innerCorner else outerCorner,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        ),
                         label = "NewButtonEndCorner"
                     )
 
@@ -259,13 +266,20 @@ fun LibraryActionRow(
                                 containerColor = if (isLiquidGlass) buttonContainerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else buttonContainerColor,
                                 contentColor = buttonContentColor
                             ),
-                            elevation = ButtonDefaults.filledTonalButtonElevation(
-                                defaultElevation = 0.dp,
-                                pressedElevation = 0.dp,
-                                focusedElevation = 0.dp,
-                                hoveredElevation = 0.dp,
-                                disabledElevation = 0.dp
-                            ),
+                            elevation = if (isLiquidGlass) {
+                                ButtonDefaults.buttonElevation(
+                                    defaultElevation = 0.dp,
+                                    pressedElevation = 0.dp,
+                                    focusedElevation = 0.dp,
+                                    hoveredElevation = 0.dp,
+                                    disabledElevation = 0.dp
+                                )
+                            } else {
+                                ButtonDefaults.buttonElevation(
+                                    defaultElevation = 4.dp,
+                                    pressedElevation = 6.dp
+                                )
+                            },
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                             modifier = Modifier
                                 .height(genHeight)
@@ -314,24 +328,24 @@ fun LibraryActionRow(
 
                         AnimatedVisibility(
                             visible = shouldShowImport,
-                            enter = fadeIn() + expandHorizontally(
+                            enter = fadeIn(animationSpec = tween(150)) + expandHorizontally(
                                 expandFrom = Alignment.Start,
-                                clip = false, // <— evita el “corte” durante la expansión
+                                clip = false,
                                 animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMedium
                                 )
                             ),
-                            exit = fadeOut() + shrinkHorizontally(
+                            exit = fadeOut(animationSpec = tween(150)) + shrinkHorizontally(
                                 shrinkTowards = Alignment.Start,
-                                clip = false, // <— evita el “corte” durante la expansión
+                                clip = false,
                                 animationSpec = spring(
                                     dampingRatio = Spring.DampingRatioNoBouncy,
                                     stiffness = Spring.StiffnessMedium
                                 )
                             )
                         ) {
-                            Row(modifier = Modifier.height(genHeight), verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Spacer(modifier = Modifier.width(8.dp))
 
                                 val importButtonShape = RoundedCornerShape(
@@ -348,13 +362,20 @@ fun LibraryActionRow(
                                         containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                     ),
-                                    elevation = ButtonDefaults.filledTonalButtonElevation(
-                                        defaultElevation = 0.dp,
-                                        pressedElevation = 0.dp,
-                                        focusedElevation = 0.dp,
-                                        hoveredElevation = 0.dp,
-                                        disabledElevation = 0.dp
-                                    ),
+                                    elevation = if (isLiquidGlass) {
+                                        ButtonDefaults.buttonElevation(
+                                            defaultElevation = 0.dp,
+                                            pressedElevation = 0.dp,
+                                            focusedElevation = 0.dp,
+                                            hoveredElevation = 0.dp,
+                                            disabledElevation = 0.dp
+                                        )
+                                    } else {
+                                        ButtonDefaults.buttonElevation(
+                                            defaultElevation = 4.dp,
+                                            pressedElevation = 6.dp
+                                        )
+                                    },
                                     contentPadding = PaddingValues(
                                         horizontal = 14.dp,
                                         vertical = 10.dp

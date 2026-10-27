@@ -213,6 +213,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -1019,8 +1020,9 @@ fun LibraryScreen(
                             targetState = isSelectionMode || isPlaylistSelectionMode || isAlbumSelectionMode,
                             label = "ActionRowModeSwitch",
                             transitionSpec = {
-                                (slideInHorizontally { -it } + fadeIn()) togetherWith
-                                        (slideOutHorizontally { it } + fadeOut())
+                                ((slideInHorizontally { -it } + fadeIn()) togetherWith
+                                        (slideOutHorizontally { it } + fadeOut()))
+                                    .using(SizeTransform(clip = false))
                             },
                             modifier = Modifier
                                 .padding(
