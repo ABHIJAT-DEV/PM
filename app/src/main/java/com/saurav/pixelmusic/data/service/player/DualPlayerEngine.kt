@@ -991,18 +991,52 @@ class DualPlayerEngine @Inject constructor(
         playerA.pauseAtEndOfMediaItems = shouldPause
     }
 
-    fun getNextTransitionTarget(currentMediaItem: MediaItem, repeatMode: Int): TransitionTarget? {
+    fun getNextTransitionTarget(
+        currentMediaItem: MediaItem,
+        repeatMode: Int,
+        forManualSkip: Boolean = false
+    ): TransitionTarget? {
         val snapshot = ensureQueueSnapshot()
         if (snapshot.isEmpty()) return null
 
         val currentAbsoluteIndex = resolveCurrentAbsoluteIndex(currentMediaItem, snapshot)
         if (currentAbsoluteIndex == C.INDEX_UNSET) return null
 
-        val targetIndex = when (repeatMode) {
-            Player.REPEAT_MODE_ONE -> currentAbsoluteIndex
-            else -> currentAbsoluteIndex + 1
+        val targetIndex = when {
+            !forManualSkip && repeatMode == Player.REPEAT_MODE_ONE -> currentAbsoluteIndex
+            currentAbsoluteIndex + 1 < snapshot.size -> currentAbsoluteIndex + 1
+            repeatMode == Player.REPEAT_MODE_ALL && snapshot.isNotEmpty() -> 0
+            else -> C.INDEX_UNSET
         }
 
+        if (targetIndex == C.INDEX_UNSET) return null
+        val targetItem = snapshot.getOrNull(targetIndex) ?: return null
+        return TransitionTarget(
+            mediaItem = targetItem,
+            absoluteIndex = targetIndex,
+            queueSize = snapshot.size
+        )
+    }
+
+    fun getPreviousTransitionTarget(
+        currentMediaItem: MediaItem,
+        repeatMode: Int,
+        forManualSkip: Boolean = false
+    ): TransitionTarget? {
+        val snapshot = ensureQueueSnapshot()
+        if (snapshot.isEmpty()) return null
+
+        val currentAbsoluteIndex = resolveCurrentAbsoluteIndex(currentMediaItem, snapshot)
+        if (currentAbsoluteIndex == C.INDEX_UNSET) return null
+
+        val targetIndex = when {
+            !forManualSkip && repeatMode == Player.REPEAT_MODE_ONE -> currentAbsoluteIndex
+            currentAbsoluteIndex - 1 >= 0 -> currentAbsoluteIndex - 1
+            repeatMode == Player.REPEAT_MODE_ALL && snapshot.isNotEmpty() -> snapshot.size - 1
+            else -> C.INDEX_UNSET
+        }
+
+        if (targetIndex == C.INDEX_UNSET) return null
         val targetItem = snapshot.getOrNull(targetIndex) ?: return null
         return TransitionTarget(
             mediaItem = targetItem,

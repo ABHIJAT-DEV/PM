@@ -476,15 +476,10 @@ class PlaybackStateHolder @Inject constructor(
             }
         }
         // Fallback when history is too short or target not found in queue
-        val prevIndex = controller.currentMediaItemIndex - 1
-        if (prevIndex >= 0) {
-            controller.seekTo(prevIndex, 0L)
-        } else {
-            controller.sendCustomCommand(
-                androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_PREVIOUS, android.os.Bundle.EMPTY),
-                android.os.Bundle.EMPTY
-            )
-        }
+        controller.sendCustomCommand(
+            androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_PREVIOUS, android.os.Bundle.EMPTY),
+            android.os.Bundle.EMPTY
+        )
     }
 
     fun nextSong() {
@@ -494,15 +489,10 @@ class PlaybackStateHolder @Inject constructor(
         } else {
             val controller = mediaController ?: return
             if (!controller.isConnected) return
-            val nextIndex = controller.currentMediaItemIndex + 1
-            if (nextIndex < controller.mediaItemCount) {
-                controller.seekTo(nextIndex, 0L)
-            } else {
-                controller.sendCustomCommand(
-                    androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_NEXT, android.os.Bundle.EMPTY),
-                    android.os.Bundle.EMPTY
-                )
-            }
+            controller.sendCustomCommand(
+                androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_NEXT, android.os.Bundle.EMPTY),
+                android.os.Bundle.EMPTY
+            )
         }
     }
 

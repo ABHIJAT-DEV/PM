@@ -612,6 +612,26 @@ class MusicService : MediaLibraryService() {
                 super.onDisconnected(session, controller)
             }
 
+            override fun onPlayerCommandRequest(
+                session: MediaSession,
+                controllerInfo: MediaSession.ControllerInfo,
+                playerCommand: Int
+            ): Int {
+                when (playerCommand) {
+                    Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
+                        if (this@MusicService.controller.skipToNext()) {
+                            return MediaSession.ConnectionResult.RESULT_INFO_SKIPPED
+                        }
+                    }
+                    Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
+                        if (this@MusicService.controller.skipToPrevious()) {
+                            return MediaSession.ConnectionResult.RESULT_INFO_SKIPPED
+                        }
+                    }
+                }
+                return super.onPlayerCommandRequest(session, controllerInfo, playerCommand)
+            }
+
             override fun onCustomCommand(
                 session: MediaSession,
                 controller: MediaSession.ControllerInfo,
@@ -622,10 +642,14 @@ class MusicService : MediaLibraryService() {
                     .d("onCustomCommand received: ${customCommand.customAction}")
                 when (customCommand.customAction) {
                     MusicNotificationProvider.CUSTOM_COMMAND_SKIP_NEXT -> {
-                        session.player.seekToNext()
+                        if (!this@MusicService.controller.skipToNext()) {
+                            session.player.seekToNext()
+                        }
                     }
                     MusicNotificationProvider.CUSTOM_COMMAND_SKIP_PREVIOUS -> {
-                        session.player.seekToPrevious()
+                        if (!this@MusicService.controller.skipToPrevious()) {
+                            session.player.seekToPrevious()
+                        }
                     }
                     MusicNotificationProvider.CUSTOM_COMMAND_CLOSE_PLAYER -> {
                         closeNotificationPlayer()

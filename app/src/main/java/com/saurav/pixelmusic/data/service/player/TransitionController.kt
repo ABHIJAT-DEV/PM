@@ -8,9 +8,11 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import com.saurav.pixelmusic.data.model.TransitionMode
 import com.saurav.pixelmusic.data.model.TransitionResolution
+import com.saurav.pixelmusic.data.model.TransitionSettings
 import com.saurav.pixelmusic.data.model.TransitionSource
 import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
 import com.saurav.pixelmusic.data.repository.TransitionRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,6 +44,10 @@ class TransitionController @Inject constructor(
     private var transitionListener: Player.Listener? = null
     private var transitionSchedulerJob: Job? = null
     private var currentObservedPlayer: Player? = null
+
+    private var isCrossfadeEnabled = false
+    private var crossfadeOnManualSkip = false
+    private var crossfadeDurationMs = 2000
 
     private val swapListener: (Player) -> Unit = { newPlayer ->
         Timber.tag("TransitionDebug").d("Controller detected player swap. Moving listener.")
@@ -122,6 +128,107 @@ class TransitionController @Inject constructor(
         currentObservedPlayer = engine.masterPlayer
         currentObservedPlayer?.addListener(transitionListener!!)
         engine.addPlayerSwapListener(swapListener)
+
+        scope.launch {
+            userPreferencesRepository.isCrossfadeEnabledFlow.collect {
+                isCrossfadeEnabled = it
+            }
+        }
+        scope.launch {
+            userPreferencesRepository.crossfadeOnManualSkipFlow.collect {
+                crossfadeOnManualSkip = it
+            }
+        }
+        scope.launch {
+            userPreferencesRepository.crossfadeDurationFlow.collect {
+                crossfadeDurationMs = it
+            }
+        }
+    }
+
+    fun canCrossfadeOnManualSkip(): Boolean {
+        return isCrossfadeEnabled &&
+                crossfadeOnManualSkip &&
+                engine.masterPlayer.isPlaying &&
+                engine.masterPlayer.playbackState == Player.STATE_READY
+    }
+
+    fun skipToNext(): Boolean {
+        if (!isCrossfadeEnabled || !crossfadeOnManualSkip) return false
+        val player = engine.masterPlayer
+        if (!player.isPlaying || player.playbackState != Player.STATE_READY) return false
+
+        if (engine.isTransitionRunning()) {
+            engine.cancelNext()
+            return false
+        }
+
+        val currentMediaItem = player.currentMediaItem ?: return false
+        val repeatMode = player.repeatMode
+        val target = engine.getNextTransitionTarget(currentMediaItem, repeatMode, forManualSkip = true) ?: return false
+
+        triggerManualTransition(currentMediaItem, target)
+        return true
+    }
+
+    fun skipToPrevious(): Boolean {
+        if (!isCrossfadeEnabled || !crossfadeOnManualSkip) return false
+        val player = engine.masterPlayer
+        if (!player.isPlaying || player.playbackState != Player.STATE_READY) return false
+
+        if (engine.isTransitionRunning()) {
+            engine.cancelNext()
+            return false
+        }
+
+        val currentMediaItem = player.currentMediaItem ?: return false
+        val repeatMode = player.repeatMode
+        val target = engine.getPreviousTransitionTarget(currentMediaItem, repeatMode, forManualSkip = true) ?: return false
+
+        triggerManualTransition(currentMediaItem, target)
+        return true
+    }
+
+    private fun triggerManualTransition(
+        currentMediaItem: MediaItem,
+        target: DualPlayerEngine.TransitionTarget
+    ) {
+        transitionSchedulerJob?.cancel()
+        engine.setPauseAtEndOfMediaItems(shouldPause = false)
+
+        transitionSchedulerJob = scope.launch {
+            if (engine.isTransitionRunning()) {
+                engine.cancelNext()
+            }
+
+            Timber.tag("TransitionDebug").d("Manual skip crossfade to: %s", target.mediaItem.mediaId)
+            engine.prepareNext(target)
+
+            val playlistId = currentMediaItem.mediaMetadata.extras?.getString("playlistId")
+            val fromTrackId = currentMediaItem.mediaId
+            val toTrackId = target.mediaItem.mediaId
+
+            val settings = try {
+                if (playlistId != null) {
+                    transitionRepository.resolveTransitionSettings(playlistId, fromTrackId, toTrackId).first().settings
+                } else {
+                    TransitionSettings(
+                        mode = TransitionMode.OVERLAP,
+                        durationMs = crossfadeDurationMs.coerceIn(500, 12000)
+                    )
+                }
+            } catch (e: Exception) {
+                TransitionSettings(
+                    mode = TransitionMode.OVERLAP,
+                    durationMs = crossfadeDurationMs.coerceIn(500, 12000)
+                )
+            }
+
+            if (!isActive) return@launch
+
+            engine.setPauseAtEndOfMediaItems(shouldPause = true)
+            engine.performTransition(settings)
+        }
     }
 
     private fun scheduleTransitionFor(currentMediaItem: MediaItem) {

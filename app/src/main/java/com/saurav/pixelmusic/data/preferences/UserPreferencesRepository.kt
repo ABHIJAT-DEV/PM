@@ -249,6 +249,7 @@ constructor(
         val AOD_SCREEN_ENABLED = booleanPreferencesKey("aod_screen_enabled")
         val KEEP_PLAYING_IN_BACKGROUND = booleanPreferencesKey("keep_playing_in_background")
         val IS_CROSSFADE_ENABLED = booleanPreferencesKey("is_crossfade_enabled")
+        val CROSSFADE_ON_MANUAL_SKIP = booleanPreferencesKey("crossfade_on_manual_skip")
         val HI_FI_MODE_ENABLED = booleanPreferencesKey("hi_fi_mode_enabled")
         val CROSSFADE_DURATION = intPreferencesKey("crossfade_duration")
         val CUSTOM_GENRES = androidx.datastore.preferences.core.stringSetPreferencesKey("custom_genres")
@@ -559,6 +560,17 @@ constructor(
     suspend fun setCrossfadeDuration(duration: Int) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.CROSSFADE_DURATION] = duration.coerceIn(1000, 12000)
+        }
+    }
+
+    val crossfadeOnManualSkipFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.CROSSFADE_ON_MANUAL_SKIP] ?: false
+        }
+
+    suspend fun setCrossfadeOnManualSkip(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CROSSFADE_ON_MANUAL_SKIP] = enabled
         }
     }
 

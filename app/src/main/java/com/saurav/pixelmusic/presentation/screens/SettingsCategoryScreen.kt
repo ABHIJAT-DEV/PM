@@ -81,6 +81,7 @@ import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
@@ -1485,6 +1486,19 @@ fun SettingsCategoryScreen(
                                             steps = 10,
                                             onValueChange = { settingsViewModel.setCrossfadeDuration(it.toInt()) },
                                             valueText = { value -> "${(value / 1000).toInt()}s" }
+                                        )
+                                        SwitchSettingItem(
+                                            title = stringResource(R.string.setcat_crossfade_on_manual_skip_title),
+                                            subtitle = stringResource(R.string.setcat_crossfade_on_manual_skip_subtitle),
+                                            checked = uiState.crossfadeOnManualSkip,
+                                            onCheckedChange = { settingsViewModel.setCrossfadeOnManualSkip(it) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.SkipNext,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.secondary
+                                                )
+                                            }
                                         )
                                     }
                                     SwitchSettingItem(

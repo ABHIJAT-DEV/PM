@@ -94,6 +94,7 @@ data class SettingsUiState(
     val resumeOnHeadsetReconnect: Boolean = false,
     val showQueueHistory: Boolean = true,
     val isCrossfadeEnabled: Boolean = false,
+    val crossfadeOnManualSkip: Boolean = false,
     val hiFiModeEnabled: Boolean = false,
     val hiFiModeDeviceSupported: Boolean = true,
     val crossfadeDuration: Int = 2000,
@@ -246,6 +247,7 @@ private sealed interface SettingsUiUpdate {
         val resumeOnHeadsetReconnect: Boolean,
         val showQueueHistory: Boolean,
         val isCrossfadeEnabled: Boolean,
+        val crossfadeOnManualSkip: Boolean,
         val hiFiModeEnabled: Boolean,
         val crossfadeDuration: Int,
         val persistentShuffleEnabled: Boolean,
@@ -721,7 +723,8 @@ class SettingsViewModel @Inject constructor(
                 userPreferencesRepository.scrobbleDelayPercentFlow,
                 userPreferencesRepository.scrobbleMinSongDurationFlow,
                 userPreferencesRepository.scrobbleDelaySecondsFlow,
-                userPreferencesRepository.aodScreenEnabledFlow
+                userPreferencesRepository.aodScreenEnabledFlow,
+                userPreferencesRepository.crossfadeOnManualSkipFlow
             ) { values ->
                 SettingsUiUpdate.Group2(
                     keepPlayingInBackground = values[0] as Boolean,
@@ -729,6 +732,7 @@ class SettingsViewModel @Inject constructor(
                     resumeOnHeadsetReconnect = values[2] as Boolean,
                     showQueueHistory = values[3] as Boolean,
                     isCrossfadeEnabled = values[4] as Boolean,
+                    crossfadeOnManualSkip = values[30] as Boolean,
                     hiFiModeEnabled = values[5] as Boolean,
                     crossfadeDuration = values[6] as Int,
                     persistentShuffleEnabled = values[7] as Boolean,
@@ -764,6 +768,7 @@ class SettingsViewModel @Inject constructor(
                         resumeOnHeadsetReconnect = update.resumeOnHeadsetReconnect,
                         showQueueHistory = update.showQueueHistory,
                         isCrossfadeEnabled = update.isCrossfadeEnabled,
+                        crossfadeOnManualSkip = update.crossfadeOnManualSkip,
                         hiFiModeEnabled = update.hiFiModeEnabled,
                         crossfadeDuration = update.crossfadeDuration,
                         persistentShuffleEnabled = update.persistentShuffleEnabled,
@@ -1558,6 +1563,12 @@ class SettingsViewModel @Inject constructor(
     fun setCrossfadeDuration(duration: Int) {
         viewModelScope.launch {
             userPreferencesRepository.setCrossfadeDuration(duration)
+        }
+    }
+
+    fun setCrossfadeOnManualSkip(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setCrossfadeOnManualSkip(enabled)
         }
     }
 
