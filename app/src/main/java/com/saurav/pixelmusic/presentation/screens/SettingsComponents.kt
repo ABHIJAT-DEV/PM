@@ -74,6 +74,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalContext
+import android.os.Build
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -639,6 +644,31 @@ fun PalettePreviewCircle(
 ) {
     val defaultColor = MaterialTheme.colorScheme.primary
     val bgColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val context = LocalContext.current
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
+    // Dynamically retrieve the system's detected Material You Monet palette on Android 12+
+    val detectedMonetColors = remember(context, isDark) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val scheme = if (isDark) {
+                    dynamicDarkColorScheme(context)
+                } else {
+                    dynamicLightColorScheme(context)
+                }
+                listOf(
+                    scheme.primary,
+                    scheme.secondary,
+                    scheme.tertiary,
+                    scheme.primaryContainer
+                )
+            } catch (e: Throwable) {
+                null
+            }
+        } else {
+            null
+        }
+    }
 
     Box(
         modifier = modifier
@@ -648,7 +678,7 @@ fun PalettePreviewCircle(
     ) {
         when (palette) {
             "DYNAMIC" -> {
-                // Pixel-style soft pastel 4-circle Monet preview with harmonious tonal shades
+                // Pixel-style 4-circle Monet preview using the system's actual detected Material You palette
                 val rotateAnim = remember { Animatable(if (animated) -90f else 0f) }
                 val bloomScale = remember { Animatable(if (animated) 0.5f else 1f) }
                 if (animated) {
@@ -687,11 +717,17 @@ fun PalettePreviewCircle(
                     val cx = w / 2f
                     val cy = h / 2f
 
-                    // Soft pastel Monet tones: Lavender, Sage Mint, Warm Amber, Soft Sky
-                    drawCircle(Color(0xFFC4B5FD), radius = dotRadius, center = Offset(cx - offset, cy - offset))
-                    drawCircle(Color(0xFFA7F3D0), radius = dotRadius, center = Offset(cx + offset, cy - offset))
-                    drawCircle(Color(0xFFFDE68A), radius = dotRadius, center = Offset(cx - offset, cy + offset))
-                    drawCircle(Color(0xFFBAE6FD), radius = dotRadius, center = Offset(cx + offset, cy + offset))
+                    // Use detected Material You system tones (Primary, Secondary, Tertiary, PrimaryContainer),
+                    // with fallback to soft pastel Monet tones if unavailable
+                    val dot1 = detectedMonetColors?.getOrNull(0) ?: Color(0xFFC4B5FD)
+                    val dot2 = detectedMonetColors?.getOrNull(1) ?: Color(0xFFA7F3D0)
+                    val dot3 = detectedMonetColors?.getOrNull(2) ?: Color(0xFFFDE68A)
+                    val dot4 = detectedMonetColors?.getOrNull(3) ?: Color(0xFFBAE6FD)
+
+                    drawCircle(dot1, radius = dotRadius, center = Offset(cx - offset, cy - offset))
+                    drawCircle(dot2, radius = dotRadius, center = Offset(cx + offset, cy - offset))
+                    drawCircle(dot3, radius = dotRadius, center = Offset(cx - offset, cy + offset))
+                    drawCircle(dot4, radius = dotRadius, center = Offset(cx + offset, cy + offset))
                 }
             }
             "ALBUM_ART" -> {
