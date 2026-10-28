@@ -139,7 +139,6 @@ import com.saurav.pixelmusic.presentation.components.CustomPresetsSheet
 import com.saurav.pixelmusic.presentation.components.ReorderPresetsSheet
 import com.saurav.pixelmusic.presentation.components.SavePresetDialog
 import com.saurav.pixelmusic.presentation.components.RenamePresetDialog
-import com.saurav.pixelmusic.presentation.components.EqualizerTypeSelector
 import com.saurav.pixelmusic.data.equalizer.EqualizerType
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Tune
@@ -302,13 +301,6 @@ fun EqualizerScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            item(key = "equalizer_engine_selector") {
-                EqualizerTypeSelector(
-                    selectedType = uiState.equalizerType,
-                    onTypeSelected = { equalizerViewModel.setEqualizerType(it) }
-                )
-            }
-
             if (uiState.equalizerType == EqualizerType.SYSTEM) {
                 item(key = "system_equalizer_panel") {
                     val context = LocalContext.current

@@ -6,6 +6,9 @@
     <queries>
         <package android:name="com.snapchat.android" />
         <package android:name="com.instagram.android" />
+        <intent>
+            <action android:name="android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
+        </intent>
     </queries>
 
     <uses-permission android:name="android.permission.INTERNET" />

@@ -97,6 +97,19 @@ object AndroidVersionCompat {
      * 30-second Video Sharing Engine requires Media3 Transformer video encoding support,
      * which reliably needs Android 11+ (API 30, R) and an available H.264 (AVC) video encoder.
      */
+    /**
+     * Checks if the device has a system equalizer / audio effects control panel
+     * capable of handling [android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL].
+     */
+    fun supportsSystemEqualizer(context: android.content.Context): Boolean {
+        val intent = android.content.Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL)
+        return try {
+            intent.resolveActivity(context.packageManager) != null
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun supportsVideoSharing(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
         return try {

@@ -290,7 +290,10 @@ fun CustomPresetsSheet(
     onDelete: (EqualizerPreset) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberBottomSheetState(skipPartiallyExpanded = true, initialValue = SheetValue.Hidden)
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -398,7 +401,10 @@ fun ReorderPresetsSheet(
 ) {
     if (!visible) return
 
-    val sheetState = rememberBottomSheetState(skipPartiallyExpanded = true, initialValue = SheetValue.Hidden)
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+    )
     val coroutineScope = rememberCoroutineScope()
     var currentPinned by remember(pinnedPresetsNames) { mutableStateOf(pinnedPresetsNames.toList()) }
 
