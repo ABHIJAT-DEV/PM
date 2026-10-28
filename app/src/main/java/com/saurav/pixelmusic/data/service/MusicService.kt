@@ -1245,14 +1245,16 @@ class MusicService : MediaLibraryService() {
 
     private val playerListener = object : Player.Listener {
         override fun onVolumeChanged(volume: Float) {
-            if (engine.isTransitionRunning()) return
+            if (engine.isTransitionRunning() || controller.isFadeRunning()) return
             val expectedVolume = expectedReplayGainVolume
             if (expectedVolume != null && abs(expectedVolume - volume) < 0.001f) {
                 expectedReplayGainVolume = null
                 return
             }
             expectedReplayGainVolume = null
-            userSelectedVolume = volume.coerceIn(0f, 1f)
+            if (volume > 0.01f) {
+                userSelectedVolume = volume.coerceIn(0f, 1f)
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -1292,12 +1294,7 @@ class MusicService : MediaLibraryService() {
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             when {
-                playWhenReady -> {
-                    clearHeadsetReconnectResume()
-                    if (controller.isCrossfadeActive() && !engine.isTransitionRunning()) {
-                        controller.smoothFadeInOnResume(mediaSession?.player ?: engine.masterPlayer)
-                    }
-                }
+                playWhenReady -> clearHeadsetReconnectResume()
                 !resumeOnHeadsetReconnectEnabled -> clearHeadsetReconnectResume()
                 reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY -> {
                     shouldResumeAfterHeadsetReconnect = true
@@ -1502,7 +1499,8 @@ class MusicService : MediaLibraryService() {
         if (!replayGainEnabled) {
             pendingReplayGainVolume = null
             if (!engine.isTransitionRunning()) {
-                setPlayerVolume(engine.masterPlayer, userSelectedVolume)
+                val vol = if (userSelectedVolume > 0.01f) userSelectedVolume else 1f
+                setPlayerVolume(engine.masterPlayer, vol)
             }
             return
         }
@@ -1514,7 +1512,8 @@ class MusicService : MediaLibraryService() {
         if (filePath.isNullOrBlank()) {
             Timber.tag(TAG).d("ReplayGain: No file path for track, keeping user-selected volume")
             if (!engine.isTransitionRunning()) {
-                setPlayerVolume(engine.masterPlayer, userSelectedVolume)
+                val vol = if (userSelectedVolume > 0.01f) userSelectedVolume else 1f
+                setPlayerVolume(engine.masterPlayer, vol)
             }
             return
         }

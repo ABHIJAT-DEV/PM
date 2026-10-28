@@ -1369,7 +1369,8 @@ private val inFlightResolutions = java.util.concurrent.ConcurrentHashMap<String,
         }
 
         outgoingPlayer.volume = 0f
-        incomingPlayer.volume = incomingTrackReplayGainVolume ?: 1f
+        val finalVolume = incomingTrackReplayGainVolume ?: 1f
+        incomingPlayer.volume = if (finalVolume > 0.01f) finalVolume else 1f
         incomingTrackReplayGainVolume = null
 
         outgoingPlayer.removeListener(masterPlayerListener)

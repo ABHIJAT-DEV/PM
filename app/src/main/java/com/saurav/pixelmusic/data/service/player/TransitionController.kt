@@ -142,6 +142,8 @@ class TransitionController @Inject constructor(
 
     fun isCrossfadeActive(): Boolean = isCrossfadeEnabled
 
+    fun isFadeRunning(): Boolean = playPauseFadeJob?.isActive == true
+
     fun canCrossfadeOnManualSkip(): Boolean {
         return isCrossfadeEnabled &&
                 engine.masterPlayer.isPlaying &&
@@ -158,7 +160,7 @@ class TransitionController @Inject constructor(
 
         playPauseFadeJob?.cancel()
         playPauseFadeJob = scope.launch {
-            val targetVolume = engine.incomingTrackReplayGainVolume ?: 1f
+            val targetVolume = engine.incomingTrackReplayGainVolume ?: (if (player.volume > 0.05f) player.volume else 1f)
             val fadeDuration = 200L
             val stepMs = 16L
 
@@ -180,6 +182,10 @@ class TransitionController @Inject constructor(
             } else {
                 player.volume = 0f
                 player.play()
+                val waitStart = android.os.SystemClock.elapsedRealtime()
+                while (player.playbackState == Player.STATE_BUFFERING && android.os.SystemClock.elapsedRealtime() - waitStart < 1000L) {
+                    delay(20L)
+                }
                 val startedAtMs = android.os.SystemClock.elapsedRealtime()
                 try {
                     while (true) {
@@ -195,29 +201,6 @@ class TransitionController @Inject constructor(
             }
         }
         return true
-    }
-
-    fun smoothFadeInOnResume(player: Player) {
-        if (!isCrossfadeEnabled) return
-        if (playPauseFadeJob?.isActive == true) return
-        val targetVolume = engine.incomingTrackReplayGainVolume ?: 1f
-        playPauseFadeJob = scope.launch {
-            player.volume = 0f
-            val fadeDuration = 200L
-            val stepMs = 16L
-            val startedAtMs = android.os.SystemClock.elapsedRealtime()
-            try {
-                while (true) {
-                    val elapsed = (android.os.SystemClock.elapsedRealtime() - startedAtMs).coerceAtMost(fadeDuration)
-                    val progress = (elapsed.toFloat() / fadeDuration).coerceIn(0f, 1f)
-                    player.volume = (targetVolume * progress).coerceIn(0f, 1f)
-                    if (elapsed >= fadeDuration) break
-                    delay(stepMs)
-                }
-            } finally {
-                player.volume = targetVolume
-            }
-        }
     }
 
     fun skipToNext(): Boolean {
