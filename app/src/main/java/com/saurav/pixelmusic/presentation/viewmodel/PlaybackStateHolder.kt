@@ -67,17 +67,6 @@ class PlaybackStateHolder @Inject constructor(
     }
 
     private val scope: CoroutineScope = appScope
-
-    private var isCrossfadeEnabled = false
-    private var playPauseFadeJob: Job? = null
-
-    init {
-        scope.launch {
-            userPreferencesRepository.isCrossfadeEnabledFlow.collect {
-                isCrossfadeEnabled = it
-            }
-        }
-    }
     
     // MediaController
     var mediaController: MediaController? = null
@@ -403,58 +392,14 @@ class PlaybackStateHolder @Inject constructor(
             }
         } else {
             val controller = mediaController ?: return
-            if (controller.isPlaying) {
-                if (isCrossfadeEnabled && !dualPlayerEngine.isTransitionRunning()) {
-                    playPauseFadeJob?.cancel()
-                    playPauseFadeJob = scope.launch {
-                        val startVol = controller.volume
-                        val fadeDuration = 200L
-                        val stepMs = 16L
-                        val startedAt = android.os.SystemClock.elapsedRealtime()
-                        try {
-                            while (true) {
-                                val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
-                                val progress = (elapsed.toFloat() / fadeDuration).coerceIn(0f, 1f)
-                                controller.volume = (startVol * (1f - progress)).coerceIn(0f, 1f)
-                                if (elapsed >= fadeDuration) break
-                                delay(stepMs)
-                            }
-                            controller.pause()
-                        } finally {
-                            controller.volume = startVol
-                        }
-                    }
-                } else {
-                    playPauseFadeJob?.cancel()
-                    controller.pause()
-                }
-            } else {
-                if (isCrossfadeEnabled && !dualPlayerEngine.isTransitionRunning()) {
-                    playPauseFadeJob?.cancel()
-                    playPauseFadeJob = scope.launch {
-                        val targetVol = if (controller.volume > 0.05f) controller.volume else 1f
-                        controller.volume = 0f
-                        controller.play()
-                        val fadeDuration = 250L
-                        val stepMs = 16L
-                        val startedAt = android.os.SystemClock.elapsedRealtime()
-                        try {
-                            while (true) {
-                                val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
-                                val progress = (elapsed.toFloat() / fadeDuration).coerceIn(0f, 1f)
-                                controller.volume = (targetVol * progress).coerceIn(0f, 1f)
-                                if (elapsed >= fadeDuration) break
-                                delay(stepMs)
-                            }
-                        } finally {
-                            controller.volume = targetVol
-                        }
-                    }
-                } else {
-                    playPauseFadeJob?.cancel()
-                    controller.play()
-                }
-            }
+            if (!controller.isConnected) return
+            controller.sendCustomCommand(
+                androidx.media3.session.SessionCommand(
+                    MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE,
+                    android.os.Bundle.EMPTY
+                ),
+                android.os.Bundle.EMPTY
+            )
         }
     }
 
@@ -974,8 +919,6 @@ class PlaybackStateHolder @Inject constructor(
 
     fun onCleared() {
         stopProgressUpdates()
-        playPauseFadeJob?.cancel()
-        playPauseFadeJob = null
         remoteSeekUnlockJob?.cancel()
         remoteSeekUnlockJob = null
         shuffleToggleJob?.cancel()

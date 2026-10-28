@@ -20,4 +20,5 @@ object MusicNotificationProvider {
     const val EXTRA_END_OF_TRACK_ENABLED = "com.saurav.pixelmusic.extra.END_OF_TRACK_ENABLED"
     const val CUSTOM_COMMAND_SKIP_NEXT = "com.saurav.pixelmusic.SKIP_NEXT"
     const val CUSTOM_COMMAND_SKIP_PREVIOUS = "com.saurav.pixelmusic.SKIP_PREVIOUS"
+    const val CUSTOM_COMMAND_PLAY_PAUSE = "com.saurav.pixelmusic.PLAY_PAUSE"
 }

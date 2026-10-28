@@ -591,6 +591,7 @@ class MusicService : MediaLibraryService() {
                     MusicNotificationProvider.CUSTOM_COMMAND_CANCEL_SLEEP_TIMER,
                     MusicNotificationProvider.CUSTOM_COMMAND_SKIP_NEXT,
                     MusicNotificationProvider.CUSTOM_COMMAND_SKIP_PREVIOUS,
+                    MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE,
                 ).map { SessionCommand(it, Bundle.EMPTY) }
 
                 val sessionCommandsBuilder = SessionCommands.Builder()
@@ -651,6 +652,12 @@ class MusicService : MediaLibraryService() {
                     MusicNotificationProvider.CUSTOM_COMMAND_SKIP_PREVIOUS -> {
                         if (!this@MusicService.controller.skipToPrevious()) {
                             session.player.seekToPrevious()
+                        }
+                    }
+                    MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE -> {
+                        val activePlayer = session.player
+                        if (!this@MusicService.controller.handlePlayPause(activePlayer)) {
+                            if (activePlayer.isPlaying) activePlayer.pause() else activePlayer.play()
                         }
                     }
                     MusicNotificationProvider.CUSTOM_COMMAND_CLOSE_PLAYER -> {
@@ -1285,7 +1292,12 @@ class MusicService : MediaLibraryService() {
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             when {
-                playWhenReady -> clearHeadsetReconnectResume()
+                playWhenReady -> {
+                    clearHeadsetReconnectResume()
+                    if (controller.isCrossfadeActive() && !engine.isTransitionRunning()) {
+                        controller.smoothFadeInOnResume(mediaSession?.player ?: engine.masterPlayer)
+                    }
+                }
                 !resumeOnHeadsetReconnectEnabled -> clearHeadsetReconnectResume()
                 reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY -> {
                     shouldResumeAfterHeadsetReconnect = true

@@ -6043,7 +6043,13 @@ class PlayerViewModel @Inject constructor(
                 return
             }
             if (controller.isPlaying) {
-                controller.pause()
+                controller.sendCustomCommand(
+                    androidx.media3.session.SessionCommand(
+                        MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE,
+                        android.os.Bundle.EMPTY
+                    ),
+                    android.os.Bundle.EMPTY
+                )
             } else {
                 if (controller.currentMediaItem == null) {
                     val currentQueue = _playerUiState.value.currentPlaybackQueue
@@ -6068,13 +6074,25 @@ class PlayerViewModel @Inject constructor(
                                 if (fallbackSong != null) {
                                     loadAndPlaySong(fallbackSong)
                                 } else {
-                                    controller.play()
+                                    controller.sendCustomCommand(
+                                        androidx.media3.session.SessionCommand(
+                                            MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE,
+                                            android.os.Bundle.EMPTY
+                                        ),
+                                        android.os.Bundle.EMPTY
+                                    )
                                 }
                             }
                         }
                     }
                 } else {
-                    controller.play()
+                    controller.sendCustomCommand(
+                        androidx.media3.session.SessionCommand(
+                            MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE,
+                            android.os.Bundle.EMPTY
+                        ),
+                        android.os.Bundle.EMPTY
+                    )
                 }
             }
         }

@@ -140,10 +140,84 @@ class TransitionController @Inject constructor(
         }
     }
 
+    fun isCrossfadeActive(): Boolean = isCrossfadeEnabled
+
     fun canCrossfadeOnManualSkip(): Boolean {
         return isCrossfadeEnabled &&
                 engine.masterPlayer.isPlaying &&
                 engine.masterPlayer.playbackState == Player.STATE_READY
+    }
+
+    private var playPauseFadeJob: Job? = null
+
+    fun handlePlayPause(player: Player = engine.masterPlayer): Boolean {
+        if (!isCrossfadeEnabled) return false
+        if (player.playbackState == Player.STATE_IDLE) return false
+
+        val isCurrentlyPlaying = player.playWhenReady && player.playbackState != Player.STATE_ENDED
+
+        playPauseFadeJob?.cancel()
+        playPauseFadeJob = scope.launch {
+            val targetVolume = engine.incomingTrackReplayGainVolume ?: 1f
+            val fadeDuration = 200L
+            val stepMs = 16L
+
+            if (isCurrentlyPlaying) {
+                val startVol = player.volume
+                val startedAtMs = android.os.SystemClock.elapsedRealtime()
+                try {
+                    while (true) {
+                        val elapsed = (android.os.SystemClock.elapsedRealtime() - startedAtMs).coerceAtMost(fadeDuration)
+                        val progress = (elapsed.toFloat() / fadeDuration).coerceIn(0f, 1f)
+                        player.volume = (startVol * (1f - progress)).coerceIn(0f, 1f)
+                        if (elapsed >= fadeDuration) break
+                        delay(stepMs)
+                    }
+                    player.pause()
+                } finally {
+                    player.volume = targetVolume
+                }
+            } else {
+                player.volume = 0f
+                player.play()
+                val startedAtMs = android.os.SystemClock.elapsedRealtime()
+                try {
+                    while (true) {
+                        val elapsed = (android.os.SystemClock.elapsedRealtime() - startedAtMs).coerceAtMost(fadeDuration)
+                        val progress = (elapsed.toFloat() / fadeDuration).coerceIn(0f, 1f)
+                        player.volume = (targetVolume * progress).coerceIn(0f, 1f)
+                        if (elapsed >= fadeDuration) break
+                        delay(stepMs)
+                    }
+                } finally {
+                    player.volume = targetVolume
+                }
+            }
+        }
+        return true
+    }
+
+    fun smoothFadeInOnResume(player: Player) {
+        if (!isCrossfadeEnabled) return
+        if (playPauseFadeJob?.isActive == true) return
+        val targetVolume = engine.incomingTrackReplayGainVolume ?: 1f
+        playPauseFadeJob = scope.launch {
+            player.volume = 0f
+            val fadeDuration = 200L
+            val stepMs = 16L
+            val startedAtMs = android.os.SystemClock.elapsedRealtime()
+            try {
+                while (true) {
+                    val elapsed = (android.os.SystemClock.elapsedRealtime() - startedAtMs).coerceAtMost(fadeDuration)
+                    val progress = (elapsed.toFloat() / fadeDuration).coerceIn(0f, 1f)
+                    player.volume = (targetVolume * progress).coerceIn(0f, 1f)
+                    if (elapsed >= fadeDuration) break
+                    delay(stepMs)
+                }
+            } finally {
+                player.volume = targetVolume
+            }
+        }
     }
 
     fun skipToNext(): Boolean {
@@ -415,6 +489,8 @@ class TransitionController @Inject constructor(
      */
     fun release() {
         Timber.tag("TransitionDebug").d("Releasing controller.")
+        playPauseFadeJob?.cancel()
+        playPauseFadeJob = null
         transitionSchedulerJob?.cancel()
         engine.removePlayerSwapListener(swapListener)
         transitionListener?.let { currentObservedPlayer?.removeListener(it) }
