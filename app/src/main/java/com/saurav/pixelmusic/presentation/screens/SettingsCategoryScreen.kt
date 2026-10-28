@@ -956,16 +956,15 @@ fun SettingsCategoryScreen(
                                         put("BLACK_AND_WHITE", stringResource(R.string.setcat_color_palette_bw))
                                         put("YELLOW", stringResource(R.string.setcat_color_palette_yellow))
                                     }
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_app_color_palette_label),
-                                        description = stringResource(R.string.setcat_app_color_palette_desc),
+                                    ColorPaletteSelectorCard(
+                                        selectedPalette = uiState.colorPalette,
                                         options = colorPaletteOptions,
-                                        selectedKey = uiState.colorPalette,
-                                        onSelectionChanged = { newPalette ->
+                                        onPaletteSelected = { newPalette, origin ->
                                             if (newPalette != uiState.colorPalette) {
                                                 if (themeTransitionController != null) {
                                                     themeTransitionController.transitionThemeChange(
                                                         view = view,
+                                                        origin = origin,
                                                         scope = coroutineScope
                                                     ) {
                                                         settingsViewModel.setColorPalette(newPalette)
@@ -974,9 +973,6 @@ fun SettingsCategoryScreen(
                                                     settingsViewModel.setColorPalette(newPalette)
                                                 }
                                             }
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.Palette, null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SwitchSettingItem(

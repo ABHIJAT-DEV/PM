@@ -148,6 +148,8 @@ import com.saurav.pixelmusic.presentation.viewmodel.SetupEvent
 import com.saurav.pixelmusic.presentation.viewmodel.SetupUiState
 import com.saurav.pixelmusic.presentation.viewmodel.SetupViewModel
 import com.saurav.pixelmusic.ui.theme.ExpTitleTypography
+import com.saurav.pixelmusic.ui.theme.LocalThemeTransitionController
+import androidx.compose.ui.platform.LocalView
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import com.saurav.pixelmusic.utils.StorageInfo
 import kotlinx.collections.immutable.ImmutableList
@@ -439,14 +441,48 @@ fun SetupScreen(
                                 navigateToPage(pagerState.currentPage + 1)
                             }
                         )
-                        SetupPage.ThemeSelection -> ThemeSelectionPage(
-                            uiState = uiState,
-                            onModeSelected = setupViewModel::setAppThemeMode
-                        )
-                        SetupPage.PaletteSelection -> PaletteSelectionPage(
-                            uiState = uiState,
-                            onPaletteSelected = setupViewModel::setColorPalette
-                        )
+                        SetupPage.ThemeSelection -> {
+                            val themeTransitionController = LocalThemeTransitionController.current
+                            val view = LocalView.current
+                            ThemeSelectionPage(
+                                uiState = uiState,
+                                onModeSelected = { mode ->
+                                    if (mode != uiState.appThemeMode) {
+                                        if (themeTransitionController != null) {
+                                            themeTransitionController.transitionThemeChange(
+                                                view = view,
+                                                scope = scope
+                                            ) {
+                                                setupViewModel.setAppThemeMode(mode)
+                                            }
+                                        } else {
+                                            setupViewModel.setAppThemeMode(mode)
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        SetupPage.PaletteSelection -> {
+                            val themeTransitionController = LocalThemeTransitionController.current
+                            val view = LocalView.current
+                            PaletteSelectionPage(
+                                uiState = uiState,
+                                onPaletteSelected = { palette ->
+                                    if (palette != uiState.colorPalette) {
+                                        if (themeTransitionController != null) {
+                                            themeTransitionController.transitionThemeChange(
+                                                view = view,
+                                                scope = scope
+                                            ) {
+                                                setupViewModel.setColorPalette(palette)
+                                            }
+                                        } else {
+                                            setupViewModel.setColorPalette(palette)
+                                        }
+                                    }
+                                }
+                            )
+                        }
                         SetupPage.Finish -> FinishPage()
                         SetupPage.LibraryLayout -> LibraryLayoutPage(
                             uiState = uiState,
@@ -1459,15 +1495,23 @@ private fun ThemeModeOptionCard(
                 modifier = Modifier.size(46.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = option.icon,
-                        contentDescription = null,
-                        tint = if (selected) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        }
-                    )
+                    if (option.mode == "DYNAMIC" || option.mode == "ALBUM_ART" ||
+                        option.mode == "BLACK_AND_WHITE" || option.mode == "YELLOW") {
+                        PalettePreviewCircle(
+                            palette = option.mode,
+                            size = 30.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = option.icon,
+                            contentDescription = null,
+                            tint = if (selected) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            }
+                        )
+                    }
                 }
             }
 

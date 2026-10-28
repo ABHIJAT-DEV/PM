@@ -7,6 +7,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -613,6 +617,264 @@ fun ThemeModeSelectorCard(
                             ) {
                                 Text(
                                     text = optionLabel,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = contentColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PalettePreviewCircle(
+    palette: String,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 28.dp
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(androidx.compose.foundation.shape.CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        when (palette) {
+            "DYNAMIC" -> {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val halfW = this.size.width / 2f
+                    val halfH = this.size.height / 2f
+                    drawRect(Color(0xFF6750A4), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(halfW, halfH))
+                    drawRect(Color(0xFF388E3C), topLeft = Offset(halfW, 0f), size = androidx.compose.ui.geometry.Size(halfW, halfH))
+                    drawRect(Color(0xFFF57C00), topLeft = Offset(0f, halfH), size = androidx.compose.ui.geometry.Size(halfW, halfH))
+                    drawRect(Color(0xFF0288D1), topLeft = Offset(halfW, halfH), size = androidx.compose.ui.geometry.Size(halfW, halfH))
+                }
+            }
+            "ALBUM_ART" -> {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawCircle(
+                        brush = Brush.sweepGradient(
+                            listOf(
+                                Color(0xFFFF5252),
+                                Color(0xFFFF4081),
+                                Color(0xFF7C4DFF),
+                                Color(0xFF00E5FF),
+                                Color(0xFF69F0AE),
+                                Color(0xFFFFD740),
+                                Color(0xFFFF5252)
+                            )
+                        )
+                    )
+                    drawCircle(Color.Black.copy(alpha = 0.6f), radius = this.size.width * 0.25f)
+                    drawCircle(Color.White, radius = this.size.width * 0.08f)
+                }
+            }
+            "BLACK_AND_WHITE" -> {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawArc(Color.White, startAngle = 90f, sweepAngle = 180f, useCenter = true)
+                    drawArc(Color.Black, startAngle = 270f, sweepAngle = 180f, useCenter = true)
+                    drawCircle(
+                        color = Color.Gray.copy(alpha = 0.4f),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                    )
+                }
+            }
+            "YELLOW" -> {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawCircle(Color(0xFF1E1E1E))
+                    drawCircle(Color(0xFFFFEA00), radius = this.size.width * 0.42f)
+                }
+            }
+            else -> {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawCircle(Color(0xFF6750A4))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ColorPaletteSelectorCard(
+    modifier: Modifier = Modifier,
+    selectedPalette: String,
+    options: Map<String, String>,
+    onPaletteSelected: (String, Offset) -> Unit
+) {
+    val highlightTitle = LocalSettingsHighlightTitle.current
+    val title = stringResource(R.string.setcat_app_color_palette_label)
+    val highlighted = highlightTitle != null && title == highlightTitle
+    val shape = RoundedCornerShape(10.dp)
+    val view = LocalView.current
+    val appHapticsConfig = LocalAppHapticsConfig.current
+    val themeTransitionController = LocalThemeTransitionController.current
+    var showSheet by remember { mutableStateOf(false) }
+
+    val rawSelectedLabel = options[selectedPalette] ?: selectedPalette
+    val selectedLabel = rawSelectedLabel.removeSuffix(" (Beta)")
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .autoBringIntoViewWhenHighlighted(highlighted)
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .clickable {
+                    showSheet = true
+                }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                // Leading Icon
+                Box(
+                    modifier = Modifier
+                        .padding(end = 16.dp)
+                        .size(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Palette,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                }
+
+                // Title and Subtitle
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = selectedLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Single animated palette toggle circle button
+                var buttonCenter by remember { mutableStateOf(Offset.Zero) }
+                Surface(
+                    onClick = {
+                        performAppCompatHapticFeedback(
+                            view,
+                            appHapticsConfig,
+                            HapticFeedbackConstantsCompat.GESTURE_START
+                        )
+                        val paletteKeys = options.keys.toList()
+                        val currentIndex = paletteKeys.indexOf(selectedPalette).takeIf { it >= 0 } ?: 0
+                        val nextPalette = paletteKeys[(currentIndex + 1) % paletteKeys.size]
+                        onPaletteSelected(nextPalette, buttonCenter)
+                    },
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .onGloballyPositioned { coords ->
+                            val pos = coords.positionInRoot()
+                            buttonCenter = pos + Offset(coords.size.width / 2f, coords.size.height / 2f)
+                        }
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedContent(
+                            targetState = selectedPalette,
+                            transitionSpec = {
+                                (scaleIn(tween(250)) + fadeIn(tween(250))) togetherWith
+                                    (scaleOut(tween(150)) + fadeOut(tween(150)))
+                            },
+                            label = "PaletteToggleCircle"
+                        ) { palette ->
+                            PalettePreviewCircle(
+                                palette = palette,
+                                size = 28.dp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (highlighted) {
+            HighlightPulseOverlay(shape = shape)
+        }
+    }
+
+    if (showSheet) {
+        com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    fontWeight = FontWeight.Bold
+                )
+
+                LazyColumn(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(options.entries.toList()) { (key, optionLabel) ->
+                        val isSelected = key == selectedPalette
+                        val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
+                        val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        val cleanOptionLabel = optionLabel.removeSuffix(" (Beta)")
+                        var optionCenter by remember { mutableStateOf(Offset.Zero) }
+
+                        Surface(
+                            onClick = {
+                                themeTransitionController?.lastTouchOffset = optionCenter
+                                onPaletteSelected(key, optionCenter)
+                                showSheet = false
+                            },
+                            shape = RoundedCornerShape(24.dp),
+                            color = containerColor,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(72.dp)
+                                .onGloballyPositioned { coords ->
+                                    val pos = coords.positionInRoot()
+                                    optionCenter = pos + Offset(coords.size.width / 2f, coords.size.height / 2f)
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                PalettePreviewCircle(
+                                    palette = key,
+                                    size = 32.dp
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = cleanOptionLabel,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                     color = contentColor
