@@ -50,16 +50,8 @@ import kotlin.math.max
 val LocalThemeTransitionController = staticCompositionLocalOf<ThemeTransitionController?> { null }
 
 enum class ThemeTransitionType {
-    CIRCLE_SPREAD,
-    CIRCLE_SHRINK,
-    WIPE_UP,
-    WIPE_DOWN,
-    WIPE_LEFT,
-    WIPE_RIGHT,
-    CORNER_TOP_LEFT,
-    CORNER_TOP_RIGHT,
-    CORNER_BOTTOM_LEFT,
-    CORNER_BOTTOM_RIGHT
+    CIRCLE_SPREAD, // Zoom out
+    CIRCLE_SHRINK  // Zoom in
 }
 
 class CircularRevealShape(
@@ -83,45 +75,6 @@ class CircularRevealShape(
                     bottom = center.y + radius
                 )
             )
-        }
-        return Outline.Generic(path)
-    }
-}
-
-class DirectionalWipeShape(
-    private val type: ThemeTransitionType,
-    private val progress: Float
-) : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
-        val p = progress.coerceIn(0f, 1f)
-        if (p <= 0.001f) {
-            return Outline.Generic(Path())
-        }
-        if (p >= 0.999f) {
-            return Outline.Rectangle(Rect(0f, 0f, size.width, size.height))
-        }
-        val path = Path().apply {
-            when (type) {
-                ThemeTransitionType.WIPE_DOWN -> {
-                    addRect(Rect(0f, 0f, size.width, size.height * p))
-                }
-                ThemeTransitionType.WIPE_UP -> {
-                    addRect(Rect(0f, size.height * (1f - p), size.width, size.height))
-                }
-                ThemeTransitionType.WIPE_RIGHT -> {
-                    addRect(Rect(0f, 0f, size.width * p, size.height))
-                }
-                ThemeTransitionType.WIPE_LEFT -> {
-                    addRect(Rect(size.width * (1f - p), 0f, size.width, size.height))
-                }
-                else -> {
-                    addRect(Rect(0f, 0f, size.width, size.height))
-                }
-            }
         }
         return Outline.Generic(path)
     }
@@ -159,11 +112,11 @@ class ThemeTransitionController {
     }
 
     private fun pickRandomTransition(): ThemeTransitionType {
-        val allTypes = ThemeTransitionType.values()
-        val candidates = allTypes.filter { it != lastChosenType }
-        val chosen = candidates.randomOrNull() ?: allTypes.random()
-        lastChosenType = chosen
-        return chosen
+        return if (lastChosenType == ThemeTransitionType.CIRCLE_SPREAD) {
+            ThemeTransitionType.CIRCLE_SHRINK
+        } else {
+            ThemeTransitionType.CIRCLE_SPREAD
+        }.also { lastChosenType = it }
     }
 
     private fun startReveal(
@@ -176,19 +129,11 @@ class ThemeTransitionController {
         val chosenType = pickRandomTransition()
         currentTransitionType = chosenType
 
-        val center = when (chosenType) {
-            ThemeTransitionType.CORNER_TOP_LEFT -> Offset(0f, 0f)
-            ThemeTransitionType.CORNER_TOP_RIGHT -> Offset(viewWidth, 0f)
-            ThemeTransitionType.CORNER_BOTTOM_LEFT -> Offset(0f, viewHeight)
-            ThemeTransitionType.CORNER_BOTTOM_RIGHT -> Offset(viewWidth, viewHeight)
-            else -> resolvedOrigin
-        }
-
-        val maxDistX = max(center.x, viewWidth - center.x)
-        val maxDistY = max(center.y, viewHeight - center.y)
+        val maxDistX = max(resolvedOrigin.x, viewWidth - resolvedOrigin.x)
+        val maxDistY = max(resolvedOrigin.y, viewHeight - resolvedOrigin.y)
         val calculatedMaxRadius = hypot(maxDistX.toDouble(), maxDistY.toDouble()).toFloat() + 32f
 
-        revealCenter = center
+        revealCenter = resolvedOrigin
         maxRadius = calculatedMaxRadius
         revealRadius = 0f
         transitionProgress = 0f
@@ -340,8 +285,8 @@ fun CircularThemeRevealHost(
         val center = controller.revealCenter
         val maxR = controller.maxRadius
 
-        // Underlay: previous screenshot for expanding reveals
-        if (isTransitioning && bitmap != null && type != ThemeTransitionType.CIRCLE_SHRINK) {
+        // Underlay: previous screenshot for zoom out (CIRCLE_SPREAD)
+        if (isTransitioning && bitmap != null && type == ThemeTransitionType.CIRCLE_SPREAD) {
             Image(
                 bitmap = bitmap,
                 contentDescription = null,
@@ -355,16 +300,9 @@ fun CircularThemeRevealHost(
             modifier = Modifier
                 .fillMaxSize()
                 .then(
-                    if (isTransitioning && type != ThemeTransitionType.CIRCLE_SHRINK) {
+                    if (isTransitioning && type == ThemeTransitionType.CIRCLE_SPREAD) {
                         Modifier.graphicsLayer {
-                            val revealShape = when (type) {
-                                ThemeTransitionType.WIPE_DOWN,
-                                ThemeTransitionType.WIPE_UP,
-                                ThemeTransitionType.WIPE_RIGHT,
-                                ThemeTransitionType.WIPE_LEFT -> DirectionalWipeShape(type, progress)
-                                else -> CircularRevealShape(radius = progress * maxR, center = center)
-                            }
-                            shape = revealShape
+                            shape = CircularRevealShape(radius = progress * maxR, center = center)
                             clip = true
                         }
                     } else {
@@ -375,7 +313,7 @@ fun CircularThemeRevealHost(
             content()
         }
 
-        // Overlay: previous screenshot for CIRCLE_SHRINK
+        // Overlay: previous screenshot for zoom in (CIRCLE_SHRINK)
         if (isTransitioning && bitmap != null && type == ThemeTransitionType.CIRCLE_SHRINK) {
             val currentRadius = (1f - progress) * maxR
             if (currentRadius > 0f) {

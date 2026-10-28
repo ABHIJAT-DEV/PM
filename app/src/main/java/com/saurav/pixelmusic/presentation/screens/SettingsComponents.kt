@@ -645,14 +645,15 @@ fun PalettePreviewCircle(
     ) {
         when (palette) {
             "DYNAMIC" -> {
+                // Pixel-style soft pastel 4-circle Monet preview with harmonious tonal shades
                 val rotateAnim = remember { Animatable(if (animated) -90f else 0f) }
-                val bloomScale = remember { Animatable(if (animated) 0.4f else 1f) }
+                val bloomScale = remember { Animatable(if (animated) 0.5f else 1f) }
                 if (animated) {
                     LaunchedEffect(Unit) {
                         launch {
                             rotateAnim.animateTo(
                                 targetValue = 0f,
-                                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+                                animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
                             )
                         }
                         launch {
@@ -666,6 +667,7 @@ fun PalettePreviewCircle(
                         }
                     }
                 }
+                val bgColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
@@ -675,23 +677,31 @@ fun PalettePreviewCircle(
                             scaleY = bloomScale.value
                         }
                 ) {
-                    val halfW = this.size.width / 2f
-                    val halfH = this.size.height / 2f
-                    drawRect(Color(0xFF6750A4), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(halfW, halfH))
-                    drawRect(Color(0xFF388E3C), topLeft = Offset(halfW, 0f), size = androidx.compose.ui.geometry.Size(halfW, halfH))
-                    drawRect(Color(0xFFF57C00), topLeft = Offset(0f, halfH), size = androidx.compose.ui.geometry.Size(halfW, halfH))
-                    drawRect(Color(0xFF0288D1), topLeft = Offset(halfW, halfH), size = androidx.compose.ui.geometry.Size(halfW, halfH))
+                    drawCircle(bgColor)
+                    val w = this.size.width
+                    val h = this.size.height
+                    val dotRadius = w * 0.21f
+                    val offset = w * 0.22f
+                    val cx = w / 2f
+                    val cy = h / 2f
+
+                    // Soft pastel Monet tones: Lavender, Sage Mint, Warm Amber, Soft Sky
+                    drawCircle(Color(0xFFC4B5FD), radius = dotRadius, center = Offset(cx - offset, cy - offset))
+                    drawCircle(Color(0xFFA7F3D0), radius = dotRadius, center = Offset(cx + offset, cy - offset))
+                    drawCircle(Color(0xFFFDE68A), radius = dotRadius, center = Offset(cx - offset, cy + offset))
+                    drawCircle(Color(0xFFBAE6FD), radius = dotRadius, center = Offset(cx + offset, cy + offset))
                 }
             }
             "ALBUM_ART" -> {
+                // Soft pastel chromatic vinyl disc with gentle, harmonious music tones
                 val spinAnim = remember { Animatable(if (animated) 0f else 360f) }
-                val dropAnim = remember { Animatable(if (animated) 14f else 0f) }
+                val dropAnim = remember { Animatable(if (animated) 10f else 0f) }
                 if (animated) {
                     LaunchedEffect(Unit) {
                         launch {
                             spinAnim.animateTo(
                                 targetValue = 360f,
-                                animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing)
+                                animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
                             )
                         }
                         launch {
@@ -713,21 +723,24 @@ fun PalettePreviewCircle(
                             translationY = dropAnim.value
                         }
                 ) {
+                    val w = this.size.width
+                    // Harmonious soft gradient: pastel rose, violet, sky, mint, and warm amber
                     drawCircle(
                         brush = Brush.sweepGradient(
                             listOf(
-                                Color(0xFFFF5252),
-                                Color(0xFFFF4081),
-                                Color(0xFF7C4DFF),
-                                Color(0xFF00E5FF),
-                                Color(0xFF69F0AE),
-                                Color(0xFFFFD740),
-                                Color(0xFFFF5252)
+                                Color(0xFFF472B6), // Soft Rose Pink
+                                Color(0xFFA78BFA), // Soft Lavender Purple
+                                Color(0xFF60A5FA), // Soft Sky Blue
+                                Color(0xFF34D399), // Soft Mint Green
+                                Color(0xFFFBBF24), // Soft Warm Amber
+                                Color(0xFFF472B6)  // Seamless loop
                             )
                         )
                     )
-                    drawCircle(Color.Black.copy(alpha = 0.6f), radius = this.size.width * 0.25f)
-                    drawCircle(Color.White, radius = this.size.width * 0.08f)
+                    // Inner vinyl record rings
+                    drawCircle(Color(0x33000000), radius = w * 0.36f)
+                    drawCircle(Color(0x66000000), radius = w * 0.22f)
+                    drawCircle(Color.White.copy(alpha = 0.9f), radius = w * 0.08f)
                 }
             }
             "BLACK_AND_WHITE" -> {
@@ -738,7 +751,7 @@ fun PalettePreviewCircle(
                         launch {
                             flipAnim.animateTo(
                                 targetValue = 0f,
-                                animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing)
+                                animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
                             )
                         }
                         launch {
@@ -762,16 +775,16 @@ fun PalettePreviewCircle(
                         }
                 ) {
                     drawArc(Color.White, startAngle = 90f, sweepAngle = 180f, useCenter = true)
-                    drawArc(Color.Black, startAngle = 270f, sweepAngle = 180f, useCenter = true)
+                    drawArc(Color(0xFF18181B), startAngle = 270f, sweepAngle = 180f, useCenter = true)
                     drawCircle(
-                        color = Color.Gray.copy(alpha = 0.4f),
+                        color = Color.Gray.copy(alpha = 0.3f),
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
                     )
                 }
             }
             "YELLOW" -> {
                 val popScale = remember { Animatable(if (animated) 0.2f else 1f) }
-                val liftAnim = remember { Animatable(if (animated) 12f else 0f) }
+                val liftAnim = remember { Animatable(if (animated) 10f else 0f) }
                 if (animated) {
                     LaunchedEffect(Unit) {
                         launch {
@@ -803,13 +816,14 @@ fun PalettePreviewCircle(
                             translationY = liftAnim.value
                         }
                 ) {
-                    drawCircle(Color(0xFF1E1E1E))
-                    drawCircle(Color(0xFFFFEA00), radius = this.size.width * 0.42f)
+                    // Deep dark zinc surface with cyber amber-yellow center
+                    drawCircle(Color(0xFF18181B))
+                    drawCircle(Color(0xFFFFC800), radius = this.size.width * 0.40f)
                 }
             }
             else -> {
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    drawCircle(Color(0xFF6750A4))
+                    drawCircle(MaterialTheme.colorScheme.primary)
                 }
             }
         }
