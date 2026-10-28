@@ -612,6 +612,8 @@ class MusicService : MediaLibraryService() {
                 super.onDisconnected(session, controller)
             }
 
+            @Deprecated("Deprecated in Java", ReplaceWith("onPlayerCommandRequest"))
+            @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
             override fun onPlayerCommandRequest(
                 session: MediaSession,
                 controllerInfo: MediaSession.ControllerInfo,

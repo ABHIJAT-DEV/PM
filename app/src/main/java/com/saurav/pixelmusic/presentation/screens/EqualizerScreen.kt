@@ -141,7 +141,7 @@ import com.saurav.pixelmusic.presentation.components.SavePresetDialog
 import com.saurav.pixelmusic.presentation.components.RenamePresetDialog
 import com.saurav.pixelmusic.presentation.components.EqualizerTypeSelector
 import com.saurav.pixelmusic.data.equalizer.EqualizerType
-import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.EqualizerViewMode
@@ -378,7 +378,7 @@ fun EqualizerScreen(
                                     .height(48.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.OpenInNew,
+                                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp)
                                 )

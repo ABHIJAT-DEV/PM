@@ -82,7 +82,7 @@ data class RelatedPage(
                                 ?.playNavigationEndpoint
                                 ?.watchPlaylistEndpoint
                                 ?.playlistId
-                                ?: (renderer.navigationEndpoint.browseEndpoint?.browseId?.removePrefix("MPREb_")?.let { "OLAK5uy_$it" } ?: return null),
+                                ?: (renderer.navigationEndpoint.browseEndpoint.browseId.removePrefix("MPREb_").let { "OLAK5uy_$it" }),
                         title =
                             renderer.title.runs
                                 ?.firstOrNull()
