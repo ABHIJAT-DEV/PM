@@ -630,11 +630,6 @@ class MusicService : MediaLibraryService() {
                             return SessionResult.RESULT_INFO_SKIPPED
                         }
                     }
-                    Player.COMMAND_PLAY_PAUSE -> {
-                        if (this@MusicService.controller.handlePlayPause()) {
-                            return SessionResult.RESULT_INFO_SKIPPED
-                        }
-                    }
                 }
                 return super.onPlayerCommandRequest(session, controllerInfo, playerCommand)
             }

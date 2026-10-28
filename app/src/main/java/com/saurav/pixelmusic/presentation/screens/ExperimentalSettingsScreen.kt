@@ -97,6 +97,10 @@ fun ExperimentalSettingsScreen(
     settingsViewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val hasSystemEqualizer = remember(context) {
+        AndroidVersionCompat.supportsSystemEqualizer(context)
+    }
 
     val transitionState = remember { MutableTransitionState(false) }
     LaunchedEffect(true) { transitionState.targetState = true }
@@ -708,11 +712,6 @@ fun ExperimentalSettingsScreen(
                 }
             }
             
-            val context = LocalContext.current
-            val hasSystemEqualizer = remember(context) {
-                AndroidVersionCompat.supportsSystemEqualizer(context)
-            }
-
             if (hasSystemEqualizer) {
                 item(key = "divider_audio_engine") {
                     Spacer(modifier = Modifier.height(8.dp))

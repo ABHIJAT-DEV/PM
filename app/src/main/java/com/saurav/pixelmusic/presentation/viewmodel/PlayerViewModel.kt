@@ -2308,8 +2308,49 @@ class PlayerViewModel @Inject constructor(
         connectivityStateHolder.refreshLocalConnectionInfo(refreshBluetoothDevices)
     }
 
+    private var pendingTimelineUpdateDuringTransition = false
+
+    private val dualEngineSwapListener: (Player) -> Unit = { newPlayer ->
+        viewModelScope.launch(Dispatchers.Main.immediate) {
+            val ctrl = mediaController
+            if (ctrl != null) {
+                syncDisplayedMediaItemIfChanged(ctrl)
+                updateCurrentPlaybackQueueFromPlayer(ctrl)
+            } else {
+                syncDisplayedMediaItemIfChanged(newPlayer)
+            }
+        }
+    }
+
+    private val dualEngineDisplayListener: (Player) -> Unit = { incomingPlayer ->
+        viewModelScope.launch(Dispatchers.Main.immediate) {
+            syncDisplayedMediaItemIfChanged(incomingPlayer)
+        }
+    }
+
+    private val dualEngineFinishedListener: () -> Unit = {
+        viewModelScope.launch(Dispatchers.Main.immediate) {
+            val ctrl = mediaController ?: return@launch
+            syncDisplayedMediaItemIfChanged(ctrl)
+            if (pendingTimelineUpdateDuringTransition) {
+                pendingTimelineUpdateDuringTransition = false
+                updateCurrentPlaybackQueueFromPlayer(ctrl)
+            }
+            playbackStateHolder.updateStablePlayerState {
+                it.copy(
+                    currentMediaItemIndex = ctrl.currentMediaItemIndex,
+                    isPlaying = ctrl.isPlaying,
+                    playWhenReady = ctrl.playWhenReady
+                )
+            }
+        }
+    }
+
     init {
         Log.i("PlayerViewModel", "init started.")
+        dualPlayerEngine.addPlayerSwapListener(dualEngineSwapListener)
+        dualPlayerEngine.addTransitionDisplayPlayerListener(dualEngineDisplayListener)
+        dualPlayerEngine.addTransitionFinishedListener(dualEngineFinishedListener)
 
         // Cast initialization if already connected
         val currentSession = sessionManager?.currentCastSession
@@ -4772,7 +4813,10 @@ class PlayerViewModel @Inject constructor(
                 if (isRemoteSessionControllingPlayback()) return
                 syncDisplayedMediaItemIfChanged(playerCtrl)
                 // Skip updates during crossfade transitions to prevent UI freeze and jumpy state.
-                if (dualPlayerEngine.isTransitionRunning()) return
+                if (dualPlayerEngine.isTransitionRunning()) {
+                    pendingTimelineUpdateDuringTransition = true
+                    return
+                }
 
                 transitionSchedulerJob?.cancel()
                 
@@ -6304,6 +6348,9 @@ class PlayerViewModel @Inject constructor(
 
 
     override fun onCleared() {
+        dualPlayerEngine.removePlayerSwapListener(dualEngineSwapListener)
+        dualPlayerEngine.removeTransitionDisplayPlayerListener(dualEngineDisplayListener)
+        dualPlayerEngine.removeTransitionFinishedListener(dualEngineFinishedListener)
         mediaControllerPlaybackListener?.let { listener ->
             mediaController?.removeListener(listener)
             mediaControllerPlaybackListener = null
