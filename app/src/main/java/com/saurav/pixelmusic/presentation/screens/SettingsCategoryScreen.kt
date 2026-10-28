@@ -1487,19 +1487,7 @@ fun SettingsCategoryScreen(
                                             onValueChange = { settingsViewModel.setCrossfadeDuration(it.toInt()) },
                                             valueText = { value -> "${(value / 1000).toInt()}s" }
                                         )
-                                        SwitchSettingItem(
-                                            title = stringResource(R.string.setcat_crossfade_on_manual_skip_title),
-                                            subtitle = stringResource(R.string.setcat_crossfade_on_manual_skip_subtitle),
-                                            checked = uiState.crossfadeOnManualSkip,
-                                            onCheckedChange = { settingsViewModel.setCrossfadeOnManualSkip(it) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.SkipNext,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.secondary
-                                                )
-                                            }
-                                        )
+
                                     }
                                     SwitchSettingItem(
                                         title = stringResource(R.string.setcat_hifi_mode_title),

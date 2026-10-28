@@ -385,7 +385,7 @@ fun LibraryScreen(
     val currentTabIndex by remember(pagerState, tabTitles, isCompactNavigation) {
         derivedStateOf {
             resolveTabIndex(
-                page = pagerState.currentPage,
+                page = if (pagerState.isScrollInProgress) pagerState.targetPage else pagerState.currentPage,
                 tabCount = tabTitles.size,
                 compactMode = isCompactNavigation
             )

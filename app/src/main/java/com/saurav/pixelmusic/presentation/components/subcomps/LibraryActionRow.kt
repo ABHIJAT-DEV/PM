@@ -238,28 +238,26 @@ fun LibraryActionRow(
                     val outerCorner = 26.dp
                     val innerCorner = 8.dp
 
-                    val newButtonEndCorner by animateDpAsState(
-                        targetValue = if (shouldShowImport) innerCorner else outerCorner,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        ),
-                        label = "NewButtonEndCorner"
+                    val buttonContainerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    val buttonContentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    val flatElevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp,
+                        focusedElevation = 0.dp,
+                        hoveredElevation = 0.dp,
+                        disabledElevation = 0.dp
                     )
 
-                    val importButtonStartCorner by animateDpAsState(
-                        targetValue = innerCorner,
-                        label = "ImportButtonStartCorner"
-                    )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Determine button colors based on shuffle state (not for playlist tab)
-                        val buttonContainerColor = MaterialTheme.colorScheme.tertiaryContainer
-                        val buttonContentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                        val newButtonShape = RoundedCornerShape(
-                            topStart = 26.dp, bottomStart = 26.dp,
-                            topEnd = newButtonEndCorner, bottomEnd = newButtonEndCorner
-                        )
-                        
+                        val newButtonShape = if (shouldShowImport) {
+                            RoundedCornerShape(
+                                topStart = outerCorner, bottomStart = outerCorner,
+                                topEnd = innerCorner, bottomEnd = innerCorner
+                            )
+                        } else {
+                            RoundedCornerShape(outerCorner)
+                        }
+
                         FilledTonalButton(
                             onClick = onMainActionClick,
                             shape = newButtonShape,
@@ -267,20 +265,7 @@ fun LibraryActionRow(
                                 containerColor = if (isLiquidGlass) buttonContainerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else buttonContainerColor,
                                 contentColor = buttonContentColor
                             ),
-                            elevation = if (isLiquidGlass) {
-                                ButtonDefaults.buttonElevation(
-                                    defaultElevation = 0.dp,
-                                    pressedElevation = 0.dp,
-                                    focusedElevation = 0.dp,
-                                    hoveredElevation = 0.dp,
-                                    disabledElevation = 0.dp
-                                )
-                            } else {
-                                ButtonDefaults.buttonElevation(
-                                    defaultElevation = 4.dp,
-                                    pressedElevation = 6.dp
-                                )
-                            },
+                            elevation = flatElevation,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                             modifier = Modifier
                                 .height(genHeight)
@@ -318,7 +303,6 @@ fun LibraryActionRow(
                                     modifier = Modifier.size(20.dp).rotate(iconRotation)
                                 )
                                 Text(
-                                    modifier = Modifier.animateContentSize(),
                                     text = text,
                                     overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.labelLarge,
@@ -327,90 +311,57 @@ fun LibraryActionRow(
                             }
                         }
 
-                        AnimatedVisibility(
-                            visible = shouldShowImport,
-                            enter = fadeIn(animationSpec = tween(150)) + expandHorizontally(
-                                expandFrom = Alignment.Start,
-                                clip = false,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                )
-                            ),
-                            exit = fadeOut(animationSpec = tween(150)) + shrinkHorizontally(
-                                shrinkTowards = Alignment.Start,
-                                clip = false,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                )
+                        if (shouldShowImport) {
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            val importButtonShape = RoundedCornerShape(
+                                topStart = innerCorner,
+                                bottomStart = innerCorner,
+                                topEnd = outerCorner,
+                                bottomEnd = outerCorner
                             )
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Spacer(modifier = Modifier.width(8.dp))
 
-                                val importButtonShape = RoundedCornerShape(
-                                    topStart = importButtonStartCorner,
-                                    bottomStart = importButtonStartCorner,
-                                    topEnd = 26.dp,
-                                    bottomEnd = 26.dp
-                                )
-
-                                FilledTonalButton(
-                                    onClick = onImportM3uClick,
-                                    shape = importButtonShape,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    ),
-                                    elevation = if (isLiquidGlass) {
-                                        ButtonDefaults.buttonElevation(
-                                            defaultElevation = 0.dp,
-                                            pressedElevation = 0.dp,
-                                            focusedElevation = 0.dp,
-                                            hoveredElevation = 0.dp,
-                                            disabledElevation = 0.dp
-                                        )
-                                    } else {
-                                        ButtonDefaults.buttonElevation(
-                                            defaultElevation = 4.dp,
-                                            pressedElevation = 6.dp
-                                        )
-                                    },
-                                    contentPadding = PaddingValues(
-                                        horizontal = 14.dp,
-                                        vertical = 10.dp
-                                    ),
-                                    modifier = Modifier
-                                        .height(genHeight)
-                                        .liquidGlassActionButton(
-                                            shape = importButtonShape,
-                                            isLiquidGlass = isLiquidGlass,
-                                            press = importPress,
-                                            jiggle = importJiggle,
-                                            isCircle = false,
-                                            borderBrush = glassBorderBrush,
-                                            coroutineScope = coroutineScope,
-                                            pressSpec = pressSpec,
-                                            jiggleSpec = jiggleSpec
-                                        )
+                            FilledTonalButton(
+                                onClick = onImportM3uClick,
+                                shape = importButtonShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                ),
+                                elevation = flatElevation,
+                                contentPadding = PaddingValues(
+                                    horizontal = 14.dp,
+                                    vertical = 10.dp
+                                ),
+                                modifier = Modifier
+                                    .height(genHeight)
+                                    .liquidGlassActionButton(
+                                        shape = importButtonShape,
+                                        isLiquidGlass = isLiquidGlass,
+                                        press = importPress,
+                                        jiggle = importJiggle,
+                                        isCircle = false,
+                                        borderBrush = glassBorderBrush,
+                                        coroutineScope = coroutineScope,
+                                        pressSpec = pressSpec,
+                                        jiggleSpec = jiggleSpec
+                                    )
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.rounded_upload_file_24),
-                                            contentDescription = stringResource(R.string.cd_import_m3u_playlist),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.import_file),
-                                            overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_upload_file_24),
+                                        contentDescription = stringResource(R.string.cd_import_m3u_playlist),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.import_file),
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
                             }
                         }
