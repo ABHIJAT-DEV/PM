@@ -18,10 +18,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
@@ -96,10 +98,10 @@ class DirectionalWipeShape(
         density: Density
     ): Outline {
         val p = progress.coerceIn(0f, 1f)
-        if (p <= 0f) {
+        if (p <= 0.001f) {
             return Outline.Generic(Path())
         }
-        if (p >= 1f) {
+        if (p >= 0.999f) {
             return Outline.Rectangle(Rect(0f, 0f, size.width, size.height))
         }
         val path = Path().apply {
@@ -141,6 +143,8 @@ class ThemeTransitionController {
     var maxRadius by mutableFloatStateOf(0f)
         private set
     var lastTouchOffset by mutableStateOf<Offset?>(null)
+
+    var hostScope: CoroutineScope? = null
 
     private var lastChosenType: ThemeTransitionType? = null
     private var animJob: Job? = null
@@ -192,20 +196,25 @@ class ThemeTransitionController {
 
         change()
 
-        animJob = scope.launch {
-            val animatable = Animatable(0f)
-            animatable.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(
-                    durationMillis = 440,
-                    easing = FastOutSlowInEasing
-                )
-            ) {
-                transitionProgress = value
-                revealRadius = value * calculatedMaxRadius
+        val animScope = hostScope ?: scope
+        animJob?.cancel()
+        animJob = animScope.launch {
+            try {
+                val animatable = Animatable(0f)
+                animatable.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(
+                        durationMillis = 440,
+                        easing = FastOutSlowInEasing
+                    )
+                ) {
+                    transitionProgress = value
+                    revealRadius = value * calculatedMaxRadius
+                }
+            } finally {
+                isTransitioning = false
+                previousBitmap = null
             }
-            isTransitioning = false
-            previousBitmap = null
         }
     }
 
@@ -223,7 +232,11 @@ class ThemeTransitionController {
             return
         }
 
-        animJob?.cancel()
+        if (isTransitioning) {
+            animJob?.cancel()
+            isTransitioning = false
+            previousBitmap = null
+        }
 
         val resolvedOrigin = origin
             ?: lastTouchOffset
@@ -232,24 +245,43 @@ class ThemeTransitionController {
         val window = findWindow(view)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && window != null) {
             val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val handler = Handler(Looper.getMainLooper())
+            var hasHandled = false
+            val timeoutRunnable = Runnable {
+                if (!hasHandled) {
+                    hasHandled = true
+                    Log.w("CircularReveal", "PixelCopy timed out; applying change immediately")
+                    previousBitmap = null
+                    isTransitioning = false
+                    change()
+                }
+            }
+            handler.postDelayed(timeoutRunnable, 350)
+
             try {
                 PixelCopy.request(
                     window,
                     bitmap,
                     { copyResult ->
-                        if (copyResult == PixelCopy.SUCCESS) {
-                            previousBitmap = bitmap.asImageBitmap()
-                            startReveal(resolvedOrigin, w.toFloat(), h.toFloat(), scope, change)
-                        } else {
-                            Log.w("CircularReveal", "PixelCopy failed with result: $copyResult")
-                            previousBitmap = null
-                            change()
+                        handler.removeCallbacks(timeoutRunnable)
+                        if (!hasHandled) {
+                            hasHandled = true
+                            if (copyResult == PixelCopy.SUCCESS) {
+                                previousBitmap = bitmap.asImageBitmap()
+                                startReveal(resolvedOrigin, w.toFloat(), h.toFloat(), scope, change)
+                            } else {
+                                Log.w("CircularReveal", "PixelCopy failed with result: $copyResult")
+                                previousBitmap = null
+                                isTransitioning = false
+                                change()
+                            }
                         }
                     },
-                    Handler(Looper.getMainLooper())
+                    handler
                 )
                 return
             } catch (e: Throwable) {
+                handler.removeCallbacks(timeoutRunnable)
                 Log.e("CircularReveal", "PixelCopy invocation threw error", e)
             }
         }
@@ -263,6 +295,7 @@ class ThemeTransitionController {
         } catch (e: Throwable) {
             Log.e("CircularReveal", "Software snapshot capture failed", e)
             previousBitmap = null
+            isTransitioning = false
             change()
         }
     }
@@ -279,6 +312,14 @@ fun CircularThemeRevealHost(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
+    val hostScope = rememberCoroutineScope()
+    DisposableEffect(hostScope) {
+        controller.hostScope = hostScope
+        onDispose {
+            controller.hostScope = null
+        }
+    }
+
     Box(
         modifier = modifier
             .pointerInput(Unit) {
@@ -292,58 +333,63 @@ fun CircularThemeRevealHost(
                 }
             }
     ) {
-        if (!controller.isTransitioning || controller.previousBitmap == null) {
-            content()
-        } else {
-            val type = controller.currentTransitionType
-            val progress = controller.transitionProgress
-            val center = controller.revealCenter
-            val maxR = controller.maxRadius
+        val isTransitioning = controller.isTransitioning
+        val bitmap = controller.previousBitmap
+        val type = controller.currentTransitionType
+        val progress = controller.transitionProgress
+        val center = controller.revealCenter
+        val maxR = controller.maxRadius
 
-            if (type == ThemeTransitionType.CIRCLE_SHRINK) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    content()
-                }
-                val currentRadius = (1f - progress) * maxR
-                if (currentRadius > 0f) {
-                    Image(
-                        bitmap = controller.previousBitmap!!,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                shape = CircularRevealShape(radius = currentRadius, center = center)
-                                clip = true
-                            },
-                        contentScale = ContentScale.FillBounds
-                    )
-                }
-            } else {
-                Image(
-                    bitmap = controller.previousBitmap!!,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds
-                )
+        // Underlay: previous screenshot for expanding reveals
+        if (isTransitioning && bitmap != null && type != ThemeTransitionType.CIRCLE_SHRINK) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
+        }
 
-                val revealShape = when (type) {
-                    ThemeTransitionType.WIPE_DOWN,
-                    ThemeTransitionType.WIPE_UP,
-                    ThemeTransitionType.WIPE_RIGHT,
-                    ThemeTransitionType.WIPE_LEFT -> DirectionalWipeShape(type = type, progress = progress)
-                    else -> CircularRevealShape(radius = progress * maxR, center = center)
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
+        // Main content: ALWAYS IN PLACE! Never disposed, never remounted!
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (isTransitioning && type != ThemeTransitionType.CIRCLE_SHRINK) {
+                        Modifier.graphicsLayer {
+                            val revealShape = when (type) {
+                                ThemeTransitionType.WIPE_DOWN,
+                                ThemeTransitionType.WIPE_UP,
+                                ThemeTransitionType.WIPE_RIGHT,
+                                ThemeTransitionType.WIPE_LEFT -> DirectionalWipeShape(type, progress)
+                                else -> CircularRevealShape(radius = progress * maxR, center = center)
+                            }
                             shape = revealShape
                             clip = true
                         }
-                ) {
-                    content()
-                }
+                    } else {
+                        Modifier
+                    }
+                )
+        ) {
+            content()
+        }
+
+        // Overlay: previous screenshot for CIRCLE_SHRINK
+        if (isTransitioning && bitmap != null && type == ThemeTransitionType.CIRCLE_SHRINK) {
+            val currentRadius = (1f - progress) * maxR
+            if (currentRadius > 0f) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            shape = CircularRevealShape(radius = currentRadius, center = center)
+                            clip = true
+                        },
+                    contentScale = ContentScale.FillBounds
+                )
             }
         }
     }
