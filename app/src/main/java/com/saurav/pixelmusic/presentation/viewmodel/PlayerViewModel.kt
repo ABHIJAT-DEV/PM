@@ -5677,9 +5677,7 @@ class PlayerViewModel @Inject constructor(
             // On Android 11+, use system batch delete dialog
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                 val uris = deletableSongs.mapNotNull { song ->
-                    song.id.toLongOrNull()?.let { id ->
-                        com.saurav.pixelmusic.utils.MediaStorePermissionHelper.getMediaStoreUri(id)
-                    }
+                    com.saurav.pixelmusic.utils.MediaStorePermissionHelper.getMediaStoreUri(activity, song)
                 }
                 if (uris.isNotEmpty()) {
                     val intentSender = com.saurav.pixelmusic.utils.MediaStorePermissionHelper
@@ -5791,11 +5789,8 @@ class PlayerViewModel @Inject constructor(
             // On Android 11+, use the system delete confirmation dialog via MediaStore.createDeleteRequest()
             // which both confirms AND handles deletion in one step (no MANAGE_EXTERNAL_STORAGE needed).
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                val songLongId = song.id.toLongOrNull()
-                val intentSender = if (songLongId != null && songLongId > 0) {
-                    com.saurav.pixelmusic.utils.MediaStorePermissionHelper
-                        .createDeleteRequestForSong(activity, songLongId)
-                } else null
+                val intentSender = com.saurav.pixelmusic.utils.MediaStorePermissionHelper
+                    .createDeleteRequestForSong(activity, song)
                 if (intentSender != null) {
                     pendingDeleteSong = song
                     pendingDeleteCallback = onResult
@@ -5901,14 +5896,17 @@ class PlayerViewModel @Inject constructor(
 
     suspend fun removeSong(song: Song) {
         toggleFavoriteSpecificSong(song, true)
-        playbackStateHolder.setCurrentPosition(0L)
+        val isCurrent = playbackStateHolder.stablePlayerState.value.currentSong?.id == song.id
+        if (isCurrent) {
+            playbackStateHolder.setCurrentPosition(0L)
+            _isSheetVisible.value = false
+        }
         _playerUiState.update { currentState ->
             currentState.copy(
                 currentPlaybackQueue = currentState.currentPlaybackQueue.removeSongById(song.id),
-                currentQueueSourceName = ""
+                currentQueueSourceName = if (isCurrent) "" else currentState.currentQueueSourceName
             )
         }
-        _isSheetVisible.value = false
         songRemovalStateHolder.removeSongFromLibrary(song)
     }
 

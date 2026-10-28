@@ -202,7 +202,8 @@ class MetadataEditStateHolder @Inject constructor(
         // and is legitimately deletable via ContentResolver. Checking canWrite here would
         // cause every delete to fail with "file not found" on modern Android.
         if (!fileInfo.exists) {
-            return@withContext false
+            // File is already missing from storage — return true so the library removes the phantom entry
+            return@withContext true
         }
         FileDeletionUtils.deleteFile(context, song.path)
     }
