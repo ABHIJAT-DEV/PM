@@ -1326,57 +1326,46 @@ fun PaletteSelectionPage(
     uiState: SetupUiState,
     onPaletteSelected: (String) -> Unit
 ) {
-    val paletteOptions = listOf(
-        ThemeOptionItem(
-            mode = "DYNAMIC",
-            title = "Dynamic (System)",
-            description = "Extracts accent colors directly from your wallpaper.",
-            icon = Icons.Outlined.Palette,
-            recommended = true
-        ),
-        ThemeOptionItem(
-            mode = "ALBUM_ART",
-            title = "Live (Album Art)",
-            description = "Adapts accent colors live to the currently playing song's album art.",
-            icon = Icons.Outlined.Palette,
-            recommended = false
-        ),
-        ThemeOptionItem(
-            mode = "BLACK_AND_WHITE",
-            title = "Black and White",
-            description = "Monochrome palette with pure white, pure black, grey accents, and black & white thumbnails.",
-            icon = Icons.Outlined.Palette,
-            recommended = false
-        ),
-        ThemeOptionItem(
-            mode = "SAGE",
-            title = "Sage Green (Mint)",
-            description = "A calming, natural mint green.",
-            icon = Icons.Outlined.Palette,
-            recommended = false
-        ),
-        ThemeOptionItem(
-            mode = "PURPLE",
-            title = "Classic Purple",
-            description = "A deep, elegant violet.",
-            icon = Icons.Outlined.Palette,
-            recommended = false
-        ),
-        ThemeOptionItem(
-            mode = "BLUE",
-            title = "Slate Blue",
-            description = "A cool, muted blue.",
-            icon = Icons.Outlined.Palette,
-            recommended = false
-        ),
-        ThemeOptionItem(
-            mode = "ORANGE",
-            title = "Sunset Orange",
-            description = "A warm, vibrant orange.",
-            icon = Icons.Outlined.Palette,
-            recommended = false
+    val paletteOptions = buildList {
+        if (com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsDynamicColor) {
+            add(
+                ThemeOptionItem(
+                    mode = "DYNAMIC",
+                    title = "Dynamic (System)",
+                    description = "Extracts accent colors directly from your wallpaper.",
+                    icon = Icons.Outlined.Palette,
+                    recommended = true
+                )
+            )
+        }
+        add(
+            ThemeOptionItem(
+                mode = "ALBUM_ART",
+                title = "Live (Album Art)",
+                description = "Adapts accent colors live to the currently playing song's album art.",
+                icon = Icons.Outlined.Palette,
+                recommended = !com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsDynamicColor
+            )
         )
-    )
+        add(
+            ThemeOptionItem(
+                mode = "BLACK_AND_WHITE",
+                title = "Black and White",
+                description = "Monochrome palette with pure white, pure black, and sleek gray accents.",
+                icon = Icons.Outlined.Palette,
+                recommended = false
+            )
+        )
+        add(
+            ThemeOptionItem(
+                mode = "YELLOW",
+                title = "Monochrome Yellow",
+                description = "Minimalist pitch black, crisp white, and electric cyber yellow.",
+                icon = Icons.Outlined.Palette,
+                recommended = false
+            )
+        )
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,

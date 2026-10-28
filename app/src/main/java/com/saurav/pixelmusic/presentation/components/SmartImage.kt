@@ -94,14 +94,7 @@ fun SmartImage(
     // Initialize the shared Compose State-backed cache once
     SmartImageCache.initialize(connectivityStateHolder, userPreferencesRepository)
 
-    val isBwTheme = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
-    val effectiveColorFilter = if (isBwTheme) {
-        androidx.compose.ui.graphics.ColorFilter.colorMatrix(
-            androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
-        )
-    } else {
-        colorFilter
-    }
+    val effectiveColorFilter = colorFilter
 
     val clippedModifier = modifier.clip(shape)
 

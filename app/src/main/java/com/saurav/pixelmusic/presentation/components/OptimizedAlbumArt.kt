@@ -151,12 +151,7 @@ fun OptimizedAlbumArt(
     }
     var lastSuccessPainter by remember(requestModel.data) { mutableStateOf<Painter?>(null) }
 
-    val isBwTheme = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
-    val effectiveColorFilter = if (isBwTheme) {
-        androidx.compose.ui.graphics.ColorFilter.colorMatrix(
-            androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
-        )
-    } else null
+    val effectiveColorFilter: androidx.compose.ui.graphics.ColorFilter? = null
 
     // Use SubcomposeAsyncImage with Coil's native crossfade instead of Crossfade wrapper
     // This avoids recompositions on painter.state changes during scroll.

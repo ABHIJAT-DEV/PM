@@ -592,20 +592,20 @@ private fun getStaticColorScheme(palette: String, darkTheme: Boolean): androidx.
     return if (darkTheme) {
         when (palette) {
             "BLACK_AND_WHITE" -> BwDarkColorScheme
+            "YELLOW" -> YellowDarkColorScheme
             "PURPLE" -> PurpleDarkColorScheme
             "BLUE" -> BlueDarkColorScheme
             "ORANGE" -> OrangeDarkColorScheme
-            "YELLOW" -> YellowDarkColorScheme
-            else -> SageDarkColorScheme
+            else -> BwDarkColorScheme
         }
     } else {
         when (palette) {
             "BLACK_AND_WHITE" -> BwLightColorScheme
+            "YELLOW" -> YellowLightColorScheme
             "PURPLE" -> PurpleLightColorScheme
             "BLUE" -> BlueLightColorScheme
             "ORANGE" -> OrangeLightColorScheme
-            "YELLOW" -> YellowLightColorScheme
-            else -> SageLightColorScheme
+            else -> BwLightColorScheme
         }
     }
 }

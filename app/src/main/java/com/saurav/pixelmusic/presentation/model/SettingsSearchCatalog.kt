@@ -23,7 +23,7 @@ object SettingsSearchCatalog {
         SearchableSetting("App Font", "PixelMusic font or system font",
             listOf("font", "typeface", "text", "typography"),
             SettingsCategory.APPEARANCE, Screen.SettingsCategory.createRoute(SettingsCategory.APPEARANCE.id)),
-        SearchableSetting("Color Palette", "Dynamic, Album Art, Sage, Purple, Blue, Orange, Yellow",
+        SearchableSetting("Color Palette", "Dynamic, Album Art, Black and White, Monochrome Yellow",
             listOf("color", "palette", "dynamic", "material you", "theme", "monochrome"),
             SettingsCategory.APPEARANCE, Screen.SettingsCategory.createRoute(SettingsCategory.APPEARANCE.id)),
         SearchableSetting("Background Wallpaper", "Default, Music Notes, Live Blur, or Custom Image from Gallery",

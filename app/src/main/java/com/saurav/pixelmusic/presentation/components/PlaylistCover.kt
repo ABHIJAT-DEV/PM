@@ -83,12 +83,7 @@ fun PlaylistCover(
             .then(shapeMod)
             .clip(shape)
     ) {
-        val isBw = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
-        val bwColorFilter = if (isBw) {
-            androidx.compose.ui.graphics.ColorFilter.colorMatrix(
-                androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
-            )
-        } else null
+        val bwColorFilter: androidx.compose.ui.graphics.ColorFilter? = null
 
         if (!playlist.coverImageUri.isNullOrBlank()) {
             AsyncImage(

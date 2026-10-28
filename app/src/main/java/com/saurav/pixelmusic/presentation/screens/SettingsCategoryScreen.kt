@@ -954,11 +954,7 @@ fun SettingsCategoryScreen(
                                         }
                                         put("ALBUM_ART", stringResource(R.string.setcat_color_palette_album_art))
                                         put("BLACK_AND_WHITE", stringResource(R.string.setcat_color_palette_bw))
-                                        put("SAGE", stringResource(R.string.setcat_color_palette_sage))
-                                        put("PURPLE", stringResource(R.string.setcat_color_palette_purple))
-                                        put("BLUE", stringResource(R.string.setcat_color_palette_blue))
-                                        put("ORANGE", stringResource(R.string.setcat_color_palette_orange))
-                                        put("YELLOW", "Monochrome Yellow")
+                                        put("YELLOW", stringResource(R.string.setcat_color_palette_yellow))
                                     }
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_app_color_palette_label),
