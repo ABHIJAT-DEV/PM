@@ -637,6 +637,9 @@ fun PalettePreviewCircle(
     size: androidx.compose.ui.unit.Dp = 28.dp,
     animated: Boolean = false
 ) {
+    val defaultColor = MaterialTheme.colorScheme.primary
+    val bgColor = MaterialTheme.colorScheme.surfaceContainerHighest
+
     Box(
         modifier = modifier
             .size(size)
@@ -667,7 +670,6 @@ fun PalettePreviewCircle(
                         }
                     }
                 }
-                val bgColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
@@ -823,7 +825,7 @@ fun PalettePreviewCircle(
             }
             else -> {
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    drawCircle(MaterialTheme.colorScheme.primary)
+                    drawCircle(defaultColor)
                 }
             }
         }
