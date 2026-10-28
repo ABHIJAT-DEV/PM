@@ -634,7 +634,8 @@ fun ThemeModeSelectorCard(
 fun PalettePreviewCircle(
     palette: String,
     modifier: Modifier = Modifier,
-    size: androidx.compose.ui.unit.Dp = 28.dp
+    size: androidx.compose.ui.unit.Dp = 28.dp,
+    animated: Boolean = false
 ) {
     Box(
         modifier = modifier
@@ -644,7 +645,36 @@ fun PalettePreviewCircle(
     ) {
         when (palette) {
             "DYNAMIC" -> {
-                Canvas(modifier = Modifier.fillMaxSize()) {
+                val rotateAnim = remember { Animatable(if (animated) -90f else 0f) }
+                val bloomScale = remember { Animatable(if (animated) 0.4f else 1f) }
+                if (animated) {
+                    LaunchedEffect(Unit) {
+                        launch {
+                            rotateAnim.animateTo(
+                                targetValue = 0f,
+                                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+                            )
+                        }
+                        launch {
+                            bloomScale.animateTo(
+                                targetValue = 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            )
+                        }
+                    }
+                }
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            rotationZ = rotateAnim.value
+                            scaleX = bloomScale.value
+                            scaleY = bloomScale.value
+                        }
+                ) {
                     val halfW = this.size.width / 2f
                     val halfH = this.size.height / 2f
                     drawRect(Color(0xFF6750A4), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(halfW, halfH))
@@ -654,7 +684,35 @@ fun PalettePreviewCircle(
                 }
             }
             "ALBUM_ART" -> {
-                Canvas(modifier = Modifier.fillMaxSize()) {
+                val spinAnim = remember { Animatable(if (animated) 0f else 360f) }
+                val dropAnim = remember { Animatable(if (animated) 14f else 0f) }
+                if (animated) {
+                    LaunchedEffect(Unit) {
+                        launch {
+                            spinAnim.animateTo(
+                                targetValue = 360f,
+                                animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing)
+                            )
+                        }
+                        launch {
+                            dropAnim.animateTo(
+                                targetValue = 0f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            )
+                        }
+                    }
+                }
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            rotationZ = spinAnim.value
+                            translationY = dropAnim.value
+                        }
+                ) {
                     drawCircle(
                         brush = Brush.sweepGradient(
                             listOf(
@@ -673,7 +731,36 @@ fun PalettePreviewCircle(
                 }
             }
             "BLACK_AND_WHITE" -> {
-                Canvas(modifier = Modifier.fillMaxSize()) {
+                val flipAnim = remember { Animatable(if (animated) 180f else 0f) }
+                val snapScale = remember { Animatable(if (animated) 0.5f else 1f) }
+                if (animated) {
+                    LaunchedEffect(Unit) {
+                        launch {
+                            flipAnim.animateTo(
+                                targetValue = 0f,
+                                animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing)
+                            )
+                        }
+                        launch {
+                            snapScale.animateTo(
+                                targetValue = 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
+                            )
+                        }
+                    }
+                }
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            rotationZ = flipAnim.value
+                            scaleX = snapScale.value
+                            scaleY = snapScale.value
+                        }
+                ) {
                     drawArc(Color.White, startAngle = 90f, sweepAngle = 180f, useCenter = true)
                     drawArc(Color.Black, startAngle = 270f, sweepAngle = 180f, useCenter = true)
                     drawCircle(
@@ -683,7 +770,39 @@ fun PalettePreviewCircle(
                 }
             }
             "YELLOW" -> {
-                Canvas(modifier = Modifier.fillMaxSize()) {
+                val popScale = remember { Animatable(if (animated) 0.2f else 1f) }
+                val liftAnim = remember { Animatable(if (animated) 12f else 0f) }
+                if (animated) {
+                    LaunchedEffect(Unit) {
+                        launch {
+                            popScale.animateTo(
+                                targetValue = 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioHighBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
+                            )
+                        }
+                        launch {
+                            liftAnim.animateTo(
+                                targetValue = 0f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            )
+                        }
+                    }
+                }
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = popScale.value
+                            scaleY = popScale.value
+                            translationY = liftAnim.value
+                        }
+                ) {
                     drawCircle(Color(0xFF1E1E1E))
                     drawCircle(Color(0xFFFFEA00), radius = this.size.width * 0.42f)
                 }
@@ -807,7 +926,8 @@ fun ColorPaletteSelectorCard(
                         ) { palette ->
                             PalettePreviewCircle(
                                 palette = palette,
-                                size = 28.dp
+                                size = 28.dp,
+                                animated = true
                             )
                         }
                     }
@@ -870,7 +990,8 @@ fun ColorPaletteSelectorCard(
                             ) {
                                 PalettePreviewCircle(
                                     palette = key,
-                                    size = 32.dp
+                                    size = 32.dp,
+                                    animated = isSelected
                                 )
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Text(

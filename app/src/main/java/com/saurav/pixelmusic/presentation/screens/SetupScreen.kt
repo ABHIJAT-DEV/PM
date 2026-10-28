@@ -1499,7 +1499,8 @@ private fun ThemeModeOptionCard(
                         option.mode == "BLACK_AND_WHITE" || option.mode == "YELLOW") {
                         PalettePreviewCircle(
                             palette = option.mode,
-                            size = 30.dp
+                            size = 30.dp,
+                            animated = selected
                         )
                     } else {
                         Icon(

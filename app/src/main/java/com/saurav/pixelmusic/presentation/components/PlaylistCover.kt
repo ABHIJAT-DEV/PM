@@ -95,10 +95,7 @@ fun PlaylistCover(
             )
         } else if (playlist.coverColorArgb != null) {
             val baseColor = Color(playlist.coverColorArgb)
-            val effectiveColor = if (isBw) {
-                val lum = 0.299f * baseColor.red + 0.587f * baseColor.green + 0.114f * baseColor.blue
-                Color(lum, lum, lum, baseColor.alpha)
-            } else baseColor
+            val effectiveColor = baseColor
             Box(
                 modifier = Modifier
                     .fillMaxSize()
