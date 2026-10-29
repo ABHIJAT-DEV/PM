@@ -589,32 +589,6 @@ fun SettingsCategoryScreen(
                                         }
                                     )
                                 }
-                                    SettingsItem(
-                                        title = stringResource(R.string.setcat_excluded_directories_title),
-                                        subtitle = stringResource(R.string.setcat_excluded_directories_subtitle),
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary)
-                                        },
-                                        trailingIcon = {
-                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        },
-                                        onClick = {
-                                            showExplorerSheet = true
-                                            settingsViewModel.openExplorer()
-                                        }
-                                    )
-                                    SettingsItem(
-                                        title = stringResource(R.string.setcat_artists_title),
-                                        subtitle = stringResource(R.string.setcat_artists_subtitle),
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.secondary)
-                                        },
-                                        trailingIcon = {
-                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        },
-                                        onClick = { navController.navigateSafely(Screen.ArtistSettings.route) }
-                                    )
-                                }
 
                                 SettingsSubsection(title = stringResource(R.string.setcat_filtering)) {
                                     SliderSettingsItem(
