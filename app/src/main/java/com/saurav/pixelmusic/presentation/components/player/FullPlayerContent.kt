@@ -1023,7 +1023,7 @@ fun FullPlayerContent(
 
                         Row(
                             modifier = Modifier.padding(end = 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // 1. Output / Cast Button (Reversed D shape ᗡ)
@@ -1033,7 +1033,8 @@ fun FullPlayerContent(
 
                                 Box(
                                     modifier = Modifier
-                                        .height(36.dp)
+                                        .height(48.dp)
+                                        .then(if (showCastLabel) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
                                         .animateContentSize(
                                             animationSpec = spring(
                                                 dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -1089,8 +1090,7 @@ fun FullPlayerContent(
                                                     onShowCastClicked()
                                                 }
                                             }
-                                        }
-                                        .padding(horizontal = if (showCastLabel) 14.dp else 12.dp),
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Row(
@@ -1105,7 +1105,7 @@ fun FullPlayerContent(
                                                 else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
                                             },
                                             tint = topBarIconColor,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(24.dp)
                                         )
                                         AnimatedVisibility(visible = showCastLabel) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1159,12 +1159,12 @@ fun FullPlayerContent(
                                 // Default mode Cast button
                                 Box(
                                     modifier = Modifier
-                                        .height(36.dp)
+                                        .height(48.dp)
+                                        .then(if (showCastLabel) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
                                         .animateContentSize()
                                         .clip(topCastShape)
                                         .background(topBarButtonBg, topCastShape)
-                                        .clickable { onShowCastClicked() }
-                                        .padding(horizontal = if (showCastLabel) 14.dp else 12.dp),
+                                        .clickable { onShowCastClicked() },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Row(
@@ -1179,7 +1179,7 @@ fun FullPlayerContent(
                                                 else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
                                             },
                                             tint = topBarIconColor,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(24.dp)
                                         )
                                         AnimatedVisibility(visible = showCastLabel) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1208,7 +1208,8 @@ fun FullPlayerContent(
 
                                 Box(
                                     modifier = Modifier
-                                        .height(36.dp)
+                                        .height(48.dp)
+                                        .then(if (ltActive) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
                                         .animateContentSize()
                                         .graphicsLayer {
                                             scaleX = 1f + (ltPress.value * 0.10f) + (ltJiggle.value * 0.15f)
@@ -1259,8 +1260,7 @@ fun FullPlayerContent(
                                                     playerViewModel.openListenTogetherSheet()
                                                 }
                                             }
-                                        }
-                                        .padding(horizontal = if (ltActive) 14.dp else 12.dp),
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (!ltActive) {
@@ -1268,7 +1268,7 @@ fun FullPlayerContent(
                                             imageVector = Icons.Rounded.Group,
                                             contentDescription = stringResource(R.string.listen_together),
                                             tint = topBarIconColor,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     } else {
                                         val ltInfiniteTransition = rememberInfiniteTransition(label = "ltPillPulse")
@@ -1359,19 +1359,19 @@ fun FullPlayerContent(
                                 // Default mode Listen Together button
                                 Box(
                                     modifier = Modifier
-                                        .height(36.dp)
+                                        .height(48.dp)
+                                        .then(if (ltActive) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
                                         .animateContentSize()
                                         .clip(topLtShape)
                                         .background(topBarButtonBg, topLtShape)
-                                        .clickable { playerViewModel.openListenTogetherSheet() }
-                                        .padding(horizontal = if (ltActive) 14.dp else 12.dp),
+                                        .clickable { playerViewModel.openListenTogetherSheet() },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Group,
                                         contentDescription = stringResource(R.string.listen_together),
                                         tint = topBarIconColor,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
@@ -1383,7 +1383,7 @@ fun FullPlayerContent(
 
                                 Box(
                                     modifier = Modifier
-                                        .size(width = 42.dp, height = 36.dp)
+                                        .size(width = 44.dp, height = 48.dp)
                                         .graphicsLayer {
                                             scaleX = 1f + (queuePress.value * 0.10f) + (queueJiggle.value * 0.15f)
                                             scaleY = 1f - (queuePress.value * 0.08f) - (queueJiggle.value * 0.13f)
@@ -1433,22 +1433,21 @@ fun FullPlayerContent(
                                                     onShowQueueClicked()
                                                 }
                                             }
-                                        }
-                                        .padding(horizontal = 12.dp),
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         painter = painterResource(R.drawable.rounded_queue_music_24),
                                         contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
                                         tint = topBarIconColor,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             } else {
                                 // Default mode Queue button
                                 Box(
                                     modifier = Modifier
-                                        .size(width = 42.dp, height = 36.dp)
+                                        .size(width = 44.dp, height = 48.dp)
                                         .clip(topQueueShape)
                                         .background(topBarButtonBg, topQueueShape)
                                         .clickable { onShowQueueClicked() },
@@ -1458,7 +1457,7 @@ fun FullPlayerContent(
                                         painter = painterResource(R.drawable.rounded_queue_music_24),
                                         contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
                                         tint = topBarIconColor,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
