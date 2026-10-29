@@ -24,6 +24,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -199,6 +201,15 @@ fun UpdateNotificationSheet(
                     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                     val buttonShape = AbsoluteSmoothCornerShape(18.dp, 60)
 
+                    val primaryButtonColor = if (isDark) {
+                        val hsl = FloatArray(3)
+                        ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
+                        hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
+                        Color(ColorUtils.HSLToColor(hsl))
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+
                     Button(
                         onClick = {
                             onConfirmClick()
@@ -209,11 +220,11 @@ fun UpdateNotificationSheet(
                             .height(54.dp)
                             .liquidGlassInteractiveSurface(
                                 shape = buttonShape,
-                                surfaceTint = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f) else null
+                                surfaceTint = if (isLiquidGlass) primaryButtonColor.copy(alpha = if (isDark) 0.65f else 0.80f) else null
                             ),
                         shape = buttonShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isLiquidGlass) Color.Transparent else MaterialTheme.colorScheme.primary,
+                            containerColor = if (isLiquidGlass) Color.Transparent else primaryButtonColor,
                             contentColor = Color.White
                         ),
                         elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()

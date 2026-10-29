@@ -763,31 +763,43 @@ fun LibraryScreen(
                         } else {
                             val isLiquidGlassHeader = LocalLiquidGlassEnabled.current
                             val isDarkHeader = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isLiquidGlassHeader) (if (isDarkHeader) Color(0x351E1E22) else Color(0x40FFFFFF)) else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f),
-                                tonalElevation = 0.dp,
-                                shadowElevation = 0.dp,
-                                modifier = Modifier
-                                    .padding(start = 4.dp)
-                                    .height(56.dp)
-                                    .liquidGlassInteractiveSurface(shape = CircleShape)
-                            ) {
-                                Row(
+                            if (isLiquidGlassHeader) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isDarkHeader) Color(0x351E1E22) else Color(0x40FFFFFF),
+                                    tonalElevation = 0.dp,
+                                    shadowElevation = 0.dp,
                                     modifier = Modifier
-                                        .fillMaxHeight()
-                                        .padding(horizontal = 22.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .padding(start = 4.dp)
+                                        .height(56.dp)
+                                        .liquidGlassInteractiveSurface(shape = CircleShape)
                                 ) {
-                                    Text(
-                                        text = stringResource(R.string.presentation_batch_d_library_title),
-                                        fontFamily = GoogleSansRounded,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 34.sp,
-                                        letterSpacing = 0.5.sp
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .padding(horizontal = 22.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.presentation_batch_d_library_title),
+                                            fontFamily = GoogleSansRounded,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 34.sp,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                    }
                                 }
+                            } else {
+                                Text(
+                                    text = stringResource(R.string.presentation_batch_d_library_title),
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 34.sp,
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
                             }
                         }
                     },
@@ -812,12 +824,15 @@ fun LibraryScreen(
                                         navController.navigateSafely(Screen.Settings.route)
                                     },
                                     shape = CircleShape,
-                                    color = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primaryContainer,
+                                    color = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else Color.Transparent,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp,
                                     modifier = Modifier
                                         .size(44.dp)
-                                        .liquidGlassInteractiveSurface(isCircle = true)
+                                        .then(
+                                            if (isLiquidGlass) Modifier.liquidGlassInteractiveSurface(isCircle = true)
+                                            else Modifier
+                                        )
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(

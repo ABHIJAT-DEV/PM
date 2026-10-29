@@ -3509,17 +3509,24 @@ fun AnimatedSparklesIconButton(
                 scaleY = scale
                 rotationZ = rotation
             }
-            .liquidGlassInteractiveSurface(isCircle = true)
-            .clip(CircleShape)
-            .background(gradientBrush)
+            .then(
+                if (isLiquidGlass) {
+                    Modifier
+                        .liquidGlassInteractiveSurface(isCircle = true)
+                        .clip(CircleShape)
+                        .background(gradientBrush)
+                } else {
+                    Modifier
+                }
+            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Rounded.AutoAwesome,
             contentDescription = "Smart Mix",
-            modifier = Modifier.size(20.dp),
-            tint = colors.onPrimary
+            modifier = Modifier.size(if (isLiquidGlass) 20.dp else 24.dp),
+            tint = if (isLiquidGlass) colors.onPrimary else colors.primary
         )
     }
 }

@@ -14,6 +14,8 @@ import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurfa
 import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -340,6 +342,15 @@ private fun DownloadingView(
         val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
         val buttonShape = CircleShape
 
+        val primaryButtonColor = if (isDark) {
+            val hsl = FloatArray(3)
+            ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
+            hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
+            Color(ColorUtils.HSLToColor(hsl))
+        } else {
+            MaterialTheme.colorScheme.primary
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             FilledTonalButton(
                 onClick = onCancel,
@@ -367,7 +378,7 @@ private fun DownloadingView(
                     .liquidGlassInteractiveSurface(shape = buttonShape),
                 shape = buttonShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary,
+                    containerColor = if (isLiquidGlass) primaryButtonColor.copy(alpha = if (isDark) 0.55f else 0.70f) else primaryButtonColor,
                     contentColor = Color.White
                 ),
                 elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
@@ -455,6 +466,15 @@ private fun FinishedView(
         val isDarkInstall = MaterialTheme.colorScheme.surface.luminance() < 0.5f
         val installShape = CircleShape
 
+        val primaryButtonColor = if (isDarkInstall) {
+            val hsl = FloatArray(3)
+            ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
+            hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
+            Color(ColorUtils.HSLToColor(hsl))
+        } else {
+            MaterialTheme.colorScheme.primary
+        }
+
         Button(
             onClick = onInstall,
             modifier = Modifier
@@ -463,7 +483,7 @@ private fun FinishedView(
                 .liquidGlassInteractiveSurface(shape = installShape),
             shape = installShape,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isLiquidGlassInstall) MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkInstall) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary,
+                containerColor = if (isLiquidGlassInstall) primaryButtonColor.copy(alpha = if (isDarkInstall) 0.55f else 0.70f) else primaryButtonColor,
                 contentColor = Color.White
             ),
             elevation = if (isLiquidGlassInstall) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()

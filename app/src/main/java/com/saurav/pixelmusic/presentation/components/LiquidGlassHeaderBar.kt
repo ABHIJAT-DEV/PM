@@ -59,21 +59,18 @@ fun LiquidGlassHeaderBar(
         val pillShape = CircleShape
         val headerBarHeight = if (pillTextSize >= 24.sp) 52.dp else 48.dp
 
-        val pillModifier = Modifier
-            .height(headerBarHeight)
-            .liquidGlassInteractiveSurface(
-                shape = pillShape,
-                isCircle = false,
-                enabled = isLiquidGlass,
-                backdrop = activeBackdrop
-            )
-            .then(
-                if (!isLiquidGlass) {
-                    Modifier
-                        .clip(pillShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f), pillShape)
-                } else Modifier
-            )
+        val pillModifier = if (isLiquidGlass) {
+            Modifier
+                .height(headerBarHeight)
+                .liquidGlassInteractiveSurface(
+                    shape = pillShape,
+                    isCircle = false,
+                    enabled = true,
+                    backdrop = activeBackdrop
+                )
+        } else {
+            Modifier.height(headerBarHeight)
+        }
 
         Box(
             modifier = pillModifier
@@ -91,7 +88,7 @@ fun LiquidGlassHeaderBar(
             Row(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = if (isLiquidGlass) 16.dp else 0.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(if (pillIcon != null) 10.dp else 0.dp)
             ) {
@@ -111,21 +108,18 @@ fun LiquidGlassHeaderBar(
 
         // ── 2. SETTINGS ICON BUTTON ──────────────────────────────────
         val settingsShape = CircleShape
-        val settingsModifier = Modifier
-            .size(headerBarHeight)
-            .liquidGlassInteractiveSurface(
-                shape = settingsShape,
-                isCircle = true,
-                enabled = isLiquidGlass,
-                backdrop = activeBackdrop
-            )
-            .then(
-                if (!isLiquidGlass) {
-                    Modifier
-                        .clip(settingsShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f), settingsShape)
-                } else Modifier
-            )
+        val settingsModifier = if (isLiquidGlass) {
+            Modifier
+                .size(headerBarHeight)
+                .liquidGlassInteractiveSurface(
+                    shape = settingsShape,
+                    isCircle = true,
+                    enabled = true,
+                    backdrop = activeBackdrop
+                )
+        } else {
+            Modifier.size(headerBarHeight)
+        }
 
         Box(
             modifier = settingsModifier
