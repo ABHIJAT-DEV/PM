@@ -255,17 +255,6 @@ object SettingsSearchCatalog {
             listOf("playlist", "suggestion", "recommend", "smart"),
             SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
 
-        // ─── Behavior ───────────────────────────────────────────────────────────────
-        SearchableSetting("Folder Back Gesture", "Navigate up a folder with back gesture",
-            listOf("folder", "back", "gesture", "navigate"),
-            SettingsCategory.BEHAVIOR, Screen.SettingsCategory.createRoute(SettingsCategory.BEHAVIOR.id)),
-        SearchableSetting("Tap Background to Close", "Close Now Playing by tapping outside",
-            listOf("tap", "background", "close", "player", "dismiss"),
-            SettingsCategory.BEHAVIOR, Screen.SettingsCategory.createRoute(SettingsCategory.BEHAVIOR.id)),
-        SearchableSetting("Haptic Feedback", "Vibration feedback on app interactions",
-            listOf("haptic", "vibrate", "feedback", "touch"),
-            SettingsCategory.BEHAVIOR, Screen.SettingsCategory.createRoute(SettingsCategory.BEHAVIOR.id)),
-
         // ─── AI Integration ─────────────────────────────────────────────────────────
         SearchableSetting("AI Provider", "Gemini, DeepSeek, Groq, Mistral, OpenAI & more",
             listOf("ai", "provider", "gemini", "deepseek", "groq", "openai", "mistral", "nvidia", "kimi", "glm", "openrouter"),

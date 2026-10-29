@@ -58,12 +58,6 @@ enum class SettingsCategory(
         subtitleRes = R.string.listen_together_desc,
         icon = Icons.Rounded.Group
     ),
-    BEHAVIOR(
-        id = "behavior",
-        titleRes = R.string.settings_category_behavior_title,
-        subtitleRes = R.string.settings_category_behavior_subtitle,
-        iconRes = R.drawable.rounded_touch_app_24
-    ),
     AI_INTEGRATION(
         id = "ai",
         titleRes = R.string.settings_category_ai_title,

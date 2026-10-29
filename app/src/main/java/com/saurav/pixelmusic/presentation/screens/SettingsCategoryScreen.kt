@@ -1615,49 +1615,6 @@ fun SettingsCategoryScreen(
                                 }
                             }
 
-                            SettingsCategory.BEHAVIOR -> {
-                                SettingsSubsection(title = stringResource(R.string.setcat_folders)) {
-                                    SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_folder_back_gesture_title),
-                                        subtitle = stringResource(R.string.setcat_folder_back_gesture_subtitle),
-                                        checked = uiState.folderBackGestureNavigation,
-                                        onCheckedChange = { settingsViewModel.setFolderBackGestureNavigation(it) },
-                                        leadingIcon = {
-                                            Icon(
-                                                painterResource(R.drawable.rounded_touch_app_24),
-                                                null,
-                                                tint = MaterialTheme.colorScheme.secondary
-                                            )
-                                        }
-                                    )
-                                }
-                                SettingsSubsection(title = stringResource(R.string.setcat_player_gestures)) {
-                                    SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_tap_bg_closes_title),
-                                        subtitle = stringResource(R.string.setcat_tap_bg_closes_subtitle),
-                                        checked = uiState.tapBackgroundClosesPlayer,
-                                        onCheckedChange = { settingsViewModel.setTapBackgroundClosesPlayer(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_touch_app_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                }
-                                SettingsSubsection(
-                                    title = stringResource(R.string.setcat_haptics),
-                                    addBottomSpace = false
-                                ) {
-                                    SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_haptic_feedback_title),
-                                        subtitle = stringResource(R.string.setcat_haptic_feedback_subtitle),
-                                        checked = uiState.hapticsEnabled,
-                                        onCheckedChange = { settingsViewModel.setHapticsEnabled(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_touch_app_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                }
-                            }
-
                             SettingsCategory.AI_INTEGRATION -> {
                                 SettingsSubsection(title = stringResource(R.string.setcat_ai_provider_section)) {
                                     ThemeSelectorItem(

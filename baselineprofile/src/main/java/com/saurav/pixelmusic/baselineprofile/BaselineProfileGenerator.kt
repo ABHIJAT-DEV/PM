@@ -153,7 +153,6 @@ class BaselineProfileGenerator {
             "Music Management|Administraci[oó]n de m[uú]sica|Biblioteca|Library",
             "Appearance|Apariencia",
             "Playback|Reproducci[oó]n",
-            "Behavior|Comportamiento",
             "AI Integration|Integraci[oó]n",
             "Backup|Restore|Copia|Restaurar",
             "Developer Options|Opciones de desarrollador",
