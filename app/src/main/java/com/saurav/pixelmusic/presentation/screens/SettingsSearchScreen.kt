@@ -111,7 +111,8 @@ fun openSetting(setting: SearchableSetting, queryUsed: String) {
     // Settings, About, …) must go straight to that route instead.
     val isCategoryScreen = setting.route.startsWith("settings_category/")
     val target = if (isCategoryScreen && setting.category != null) {
-        Screen.SettingsCategory.createRouteWithHighlight(setting.category.id, setting.title)
+        val routeCategoryId = setting.route.removePrefix("settings_category/").substringBefore("/")
+        Screen.SettingsCategory.createRouteWithHighlight(routeCategoryId, setting.title)
     } else {
         setting.route
     }

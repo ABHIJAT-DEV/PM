@@ -164,25 +164,7 @@ object SettingsSearchCatalog {
             listOf("pure", "music", "filter", "video", "youtube", "audio only"),
             SettingsCategory.PLAYBACK, Screen.SettingsCategory.createRoute(SettingsCategory.PLAYBACK.id)),
 
-        // ─── Listen Together ────────────────────────────────────────────────────────
-        SearchableSetting("Listen Together", "Host or join synchronized music sessions with up to 4 people",
-            listOf("listen together", "party", "session", "share", "room", "friends", "code", "group"),
-            SettingsCategory.LISTEN_TOGETHER, Screen.ListenTogetherSettings.route),
-        SearchableSetting("Compact Member List", "Collapse participants into a dense horizontal avatar strip",
-            listOf("listen together", "compact", "members", "participants", "avatars"),
-            SettingsCategory.LISTEN_TOGETHER, Screen.ListenTogetherSettings.route),
-        SearchableSetting("Animated Reactions", "Display floating emoji reaction animations",
-            listOf("listen together", "reactions", "animations", "emojis"),
-            SettingsCategory.LISTEN_TOGETHER, Screen.ListenTogetherSettings.route),
-        SearchableSetting("Chat & Social Bar", "Show quick chat reaction chips and song request controls",
-            listOf("listen together", "chat", "social", "requests"),
-            SettingsCategory.LISTEN_TOGETHER, Screen.ListenTogetherSettings.route),
-        SearchableSetting("Keep Session Alive", "Maintain realtime synchronization in background",
-            listOf("listen together", "background", "connection", "sync", "keep alive"),
-            SettingsCategory.LISTEN_TOGETHER, Screen.ListenTogetherSettings.route),
-        SearchableSetting("Automatic Drift Correction", "Dynamic playback rate adjustment ensures all listeners stay in frame-accurate sync",
-            listOf("listen together", "drift", "sync", "frame-accurate", "tempo", "pitch", "latency", "delay"),
-            SettingsCategory.LISTEN_TOGETHER, Screen.ListenTogetherSettings.route),
+
 
         // ─── Library ────────────────────────────────────────────────────────────────
         SearchableSetting("Excluded Directories", "Folders to ignore while scanning",
@@ -337,10 +319,19 @@ object SettingsSearchCatalog {
             listOf("scrobble", "lastfm", "track", "history"),
             SettingsCategory.LASTFM, Screen.SettingsCategory.createRoute(SettingsCategory.LASTFM.id)),
 
-        // ─── Liquid Glass ───────────────────────────────────────────────────────────
+        // ─── Liquid Glass (Developer / Experimental) ─────────────────────────────────
         SearchableSetting("Liquid Glass", "Enable iOS-style liquid glass refraction across supported components",
-            listOf("liquid", "glass", "liquid glass", "refraction", "blur", "ios", "glassmorphism", "specular", "experimental", "battery", "performance"),
-            SettingsCategory.LIQUID_GLASS, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
+            listOf("liquid", "glass", "liquid glass", "refraction", "blur", "ios", "glassmorphism", "specular", "experimental", "developer", "battery", "performance"),
+            SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
+        SearchableSetting("Liquid Glass Blur Intensity", "Adjust optical background blur for liquid glass surfaces",
+            listOf("liquid glass", "blur", "intensity", "glass blur", "background", "experimental", "developer"),
+            SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
+        SearchableSetting("Liquid Glass Refraction Height", "Adjust lens distortion curvature and refraction depth",
+            listOf("liquid glass", "refraction", "height", "depth", "lens", "curvature", "experimental", "developer"),
+            SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
+        SearchableSetting("Liquid Glass Light Mode Boost", "Enhance glass contrast and specular highlights in light themes",
+            listOf("liquid glass", "light mode", "contrast", "specular", "boost", "white", "experimental", "developer"),
+            SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
 
         // ─── Equalizer ──────────────────────────────────────────────────────────────
         SearchableSetting("Equalizer", "Launch audio effects, equalizer, and sound enhancement panel",
@@ -418,7 +409,7 @@ object SettingsSearchCatalog {
     }
 
     private fun isSupportedOnCurrentDevice(entry: SearchableSetting): Boolean {
-        if (entry.category == SettingsCategory.LIQUID_GLASS && !com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsLiquidGlass) {
+        if (entry.route.contains("liquid_glass") && !com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsLiquidGlass) {
             return false
         }
         return when (entry.title) {
@@ -457,11 +448,22 @@ object SettingsSearchCatalog {
             else if (lkw.contains(q)) s += 25
         }
 
+        // Category matching (e.g. typing "developer", "dev", "appearance", "playback", "experiments")
+        entry.category?.let { cat ->
+            val catId = cat.id.lowercase()
+            val catName = cat.name.lowercase()
+            if (catId == q || catName == q) s += 50
+            else if (catId.startsWith(q) || catName.startsWith(q)) s += 30
+            else if (catId.contains(q) || catName.contains(q)) s += 15
+        }
+
         // Multi-word query matching (e.g. "glass battery", "liquid blur", "nav bar corner")
         val queryTokens = q.split(' ', '-', ',').filter { it.isNotBlank() }
         if (queryTokens.size > 1) {
             val allTokensMatch = queryTokens.all { token ->
-                title.contains(token) || subtitle.contains(token) || entry.keywords.any { it.contains(token, ignoreCase = true) }
+                title.contains(token) || subtitle.contains(token) ||
+                    (entry.category != null && entry.category.id.contains(token, ignoreCase = true)) ||
+                    entry.keywords.any { it.contains(token, ignoreCase = true) }
             }
             if (allTokensMatch) {
                 s += 90

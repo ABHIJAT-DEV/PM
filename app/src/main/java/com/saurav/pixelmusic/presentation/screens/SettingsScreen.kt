@@ -297,7 +297,8 @@ fun SettingsScreen(
                         it != SettingsCategory.ABOUT && 
                         it != SettingsCategory.DEVICE_CAPABILITIES &&
                         it != SettingsCategory.LASTFM &&
-                        (it != SettingsCategory.LIQUID_GLASS || AndroidVersionCompat.supportsLiquidGlass)
+                        it != SettingsCategory.LISTEN_TOGETHER &&
+                        it != SettingsCategory.LIQUID_GLASS
                     }
 
                     val totalItems = mainCategories.size + 2

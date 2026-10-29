@@ -85,6 +85,11 @@ import androidx.compose.ui.res.stringResource
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.preferences.AlbumArtQuality
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.ChevronRight
+import com.saurav.pixelmusic.presentation.model.SettingsCategory
+import com.saurav.pixelmusic.presentation.navigation.Screen
+import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 
 
 
@@ -196,6 +201,50 @@ fun ExperimentalSettingsScreen(
                     enabled = uiState.isUiMotionBlurEnabled
                 )
         ) {
+            if (AndroidVersionCompat.supportsLiquidGlass) {
+                item(key = "liquid_glass_nav_card") {
+                    SettingsSection(
+                        title = stringResource(R.string.settings_category_liquid_glass_title),
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color.Transparent
+                        ) {
+                            SettingsItem(
+                                title = stringResource(R.string.settings_category_liquid_glass_title),
+                                subtitle = stringResource(R.string.settings_category_liquid_glass_subtitle),
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary
+                                    )
+                                },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ChevronRight,
+                                        contentDescription = stringResource(R.string.cd_open),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                onClick = {
+                                    navController.navigateSafely(
+                                        Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             item(key = "player_ui_tweaks_section") {
                 SettingsSection(
                     title = stringResource(R.string.presentation_batch_f_exp_player_ui_tweaks_section),

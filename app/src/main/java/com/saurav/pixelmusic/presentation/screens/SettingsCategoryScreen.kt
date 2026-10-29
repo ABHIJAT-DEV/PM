@@ -1947,6 +1947,21 @@ fun SettingsCategoryScreen(
                                         },
                                         onClick = { navController.navigateSafely(Screen.Experimental.route) }
                                     )
+                                    if (AndroidVersionCompat.supportsLiquidGlass) {
+                                        SettingsItem(
+                                            title = stringResource(R.string.settings_category_liquid_glass_title),
+                                            subtitle = stringResource(R.string.settings_category_liquid_glass_subtitle),
+                                            leadingIcon = {
+                                                Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary)
+                                            },
+                                            trailingIcon = {
+                                                Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            },
+                                            onClick = {
+                                                navController.navigateSafely(Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id))
+                                            }
+                                        )
+                                    }
                                     SettingsItem(
                                         title = stringResource(R.string.setcat_test_setup_title),
                                         subtitle = stringResource(R.string.setcat_test_setup_subtitle),
