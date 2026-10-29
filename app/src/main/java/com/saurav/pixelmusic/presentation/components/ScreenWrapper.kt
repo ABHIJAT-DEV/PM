@@ -20,6 +20,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -31,6 +32,7 @@ import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import androidx.lifecycle.compose.currentStateAsState
 import com.saurav.pixelmusic.presentation.navigation.isMainRootRoute
 import com.saurav.pixelmusic.presentation.navigation.TRANSITION_DURATION
+import com.saurav.pixelmusic.utils.AndroidVersionCompat
 import com.saurav.pixelmusic.data.preferences.AppBackgroundStyle
 
 @OptIn(UnstableApi::class)
@@ -82,7 +84,7 @@ fun ScreenWrapper(
     val shouldRunDepthEffects = !isMainRootScreen || hasVisibleNonMainRootScreen
 
     // Receding card depth logic:
-    // Only the screen underneath recedes (scales down, rounds corners, dims).
+    // Only the screen underneath recedes (scales down, blurs, rounds corners, dims).
     // The incoming/top screen is always full scale (1.0f) with 0dp corners to prevent floating-box clipping.
     val isUnderneath = remember(visibleEntries, myEntry, myIndex, topIndex, isNavigationTarget) {
         !isNavigationTarget &&
@@ -94,12 +96,20 @@ fun ScreenWrapper(
 
     val depthEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
 
-    // Depth Scale: background card recedes to 0.94f; top screen stays 1.0f
-    val targetScale = if (shouldRunDepthEffects && isUnderneath) 0.94f else 1.0f
+    // Previous screen scale out: background card recedes to 0.90f
+    val targetScale = if (shouldRunDepthEffects && isUnderneath) 0.90f else 1.0f
     val scale by animateFloatAsState(
         targetValue = targetScale,
         animationSpec = tween(durationMillis = TRANSITION_DURATION, easing = depthEasing),
         label = "depthScale"
+    )
+
+    // Previous screen blur: background card blurs up to 20dp
+    val targetBlur = if (shouldRunDepthEffects && isUnderneath) 20f else 0f
+    val blurRadius by animateFloatAsState(
+        targetValue = targetBlur,
+        animationSpec = tween(durationMillis = TRANSITION_DURATION, easing = depthEasing),
+        label = "depthBlur"
     )
 
     // Corner Radius: background card rounds its corners to 28dp as it recedes into a card
@@ -110,8 +120,8 @@ fun ScreenWrapper(
         label = "cornerRadius"
     )
 
-    // Dim overlay: background card dims to 0.35f black
-    val targetDim = if (shouldRunDepthEffects && isUnderneath) 0.35f else 0f
+    // Dim overlay: background card dims to 0.30f black
+    val targetDim = if (shouldRunDepthEffects && isUnderneath) 0.30f else 0f
     val dimAlpha by animateFloatAsState(
         targetValue = targetDim,
         animationSpec = tween(durationMillis = TRANSITION_DURATION, easing = depthEasing),
@@ -135,6 +145,13 @@ fun ScreenWrapper(
                     this.clip = false
                 }
             }
+            .then(
+                if (AndroidVersionCompat.supportsHardwareBlur && blurRadius > 0.5f) {
+                    Modifier.blur(blurRadius.dp)
+                } else {
+                    Modifier
+                }
+            )
             // If using a custom wallpaper, make the wrapper transparent so the MainActivity background shows through!
             .background(if (backgroundStyle != AppBackgroundStyle.DEFAULT) Color.Transparent else MaterialTheme.colorScheme.background)
     ) {
