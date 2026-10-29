@@ -694,132 +694,6 @@ fun SettingsCategoryScreen(
                                         }
                                     )
                                 }
-
-                                SettingsSubsection(
-                                    title = stringResource(R.string.setcat_lyrics_management),
-                                    addBottomSpace = false
-                                ) {
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_lyrics_source_priority_label),
-                                        description = stringResource(R.string.setcat_lyrics_source_priority_desc),
-                                        options = mapOf(
-                                            LyricsSourcePreference.EMBEDDED_FIRST.name to stringResource(R.string.setcat_lyrics_embedded_first),
-                                            LyricsSourcePreference.API_FIRST.name to stringResource(R.string.setcat_lyrics_online_first),
-                                            LyricsSourcePreference.LOCAL_FIRST.name to stringResource(R.string.setcat_lyrics_local_first)
-                                        ),
-                                        selectedKey = uiState.lyricsSourcePreference.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setLyricsSourcePreference(
-                                                LyricsSourcePreference.fromName(key)
-                                            )
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    SwitchSettingItem(
-                                        title = "AI Lyrics Search (β)",
-                                        subtitle = "Extract clean song titles with AI when standard search finds no lyrics",
-                                        checked = uiState.isAiLyricsRescueEnabled,
-                                        onCheckedChange = { enabled ->
-                                            if (enabled && currentAiApiKey.isBlank()) {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Please configure an AI API key in Settings > AI Integration first",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                            } else {
-                                                settingsViewModel.setAiLyricsRescueEnabled(enabled)
-                                            }
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    SettingsItem(
-                                        title = stringResource(R.string.setcat_reset_imported_lyrics_title),
-                                        subtitle = stringResource(R.string.setcat_reset_imported_lyrics_subtitle),
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.ClearAll, null, tint = MaterialTheme.colorScheme.secondary)
-                                        },
-                                        onClick = { showClearLyricsDialog = true }
-                                    )
-                                }
-
-                                SettingsSubsection(title = stringResource(R.string.presentation_batch_f_exp_visual_quality)) {
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_album_art_quality_wifi_title),
-                                        description = stringResource(R.string.setcat_album_art_quality_wifi_desc),
-                                        options = mapOf(
-                                            AlbumArtQuality.LOW.name to stringResource(R.string.presentation_batch_f_album_art_quality_low_line),
-                                            AlbumArtQuality.HIGH.name to stringResource(R.string.presentation_batch_f_album_art_quality_high_line)
-                                        ),
-                                        selectedKey = uiState.albumArtQuality.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setAlbumArtQuality(AlbumArtQuality.valueOf(key))
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_wifi_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_album_art_quality_mobile_title),
-                                        description = stringResource(R.string.setcat_album_art_quality_mobile_desc),
-                                        options = mapOf(
-                                            AlbumArtQuality.LOW.name to stringResource(R.string.presentation_batch_f_album_art_quality_low_line),
-                                            AlbumArtQuality.HIGH.name to stringResource(R.string.presentation_batch_f_album_art_quality_high_line)
-                                        ),
-                                        selectedKey = uiState.albumArtQualityMobile.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setAlbumArtQualityMobile(AlbumArtQuality.valueOf(key))
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_mobile_speaker_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                }
-
-                                SettingsSubsection(title = "Download Management") {
-                                    ThemeSelectorItem(
-                                        label = "Download Audio Quality",
-                                        description = "Select the default audio quality for offline music downloads.",
-                                        options = StreamingAudioQuality.entries.associate { it.name to it.label },
-                                        selectedKey = uiState.downloadAudioQuality.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setDownloadAudioQuality(StreamingAudioQuality.valueOf(key))
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    SwitchSettingItem(
-                                        title = "Embed Rich Metadata & Lyrics",
-                                        subtitle = "Embed full song tags, high-resolution artwork, and synchronized lyrics directly into downloaded files (increases file size)",
-                                        checked = uiState.embedFullMetadataOnDownload,
-                                        onCheckedChange = { settingsViewModel.setEmbedFullMetadataOnDownload(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    SliderSettingsItem(
-                                        label = stringResource(R.string.setcat_music_storage_limit_desc),
-                                        value = storageLimitDraft,
-                                        valueRange = 0f..10240f,
-                                        steps = 20,
-                                        onValueChange = { storageLimitDraft = it },
-                                        onValueChangeFinished = {
-                                            val selectedLimit = storageLimitDraft.toInt()
-                                            if (selectedLimit != uiState.storageLimitMb) {
-                                                settingsViewModel.setStorageLimitMb(selectedLimit)
-                                            }
-                                        },
-                                        valueText = { value ->
-                                            if (value.toInt() == 0) "Unlimited"
-                                            else if (value >= 1024) "${(value / 1024).toInt()} GB"
-                                            else "${value.toInt()} MB"
-                                        }
-                                    )
-                                }
                             }
 
                             SettingsCategory.APPEARANCE -> {
@@ -1618,6 +1492,132 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setPureYtMusicOnly(it) },
                                         leadingIcon = {
                                             Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                }
+
+                                SettingsSubsection(
+                                    title = stringResource(R.string.setcat_lyrics_management),
+                                    addBottomSpace = false
+                                ) {
+                                    ThemeSelectorItem(
+                                        label = stringResource(R.string.setcat_lyrics_source_priority_label),
+                                        description = stringResource(R.string.setcat_lyrics_source_priority_desc),
+                                        options = mapOf(
+                                            LyricsSourcePreference.EMBEDDED_FIRST.name to stringResource(R.string.setcat_lyrics_embedded_first),
+                                            LyricsSourcePreference.API_FIRST.name to stringResource(R.string.setcat_lyrics_online_first),
+                                            LyricsSourcePreference.LOCAL_FIRST.name to stringResource(R.string.setcat_lyrics_local_first)
+                                        ),
+                                        selectedKey = uiState.lyricsSourcePreference.name,
+                                        onSelectionChanged = { key ->
+                                            settingsViewModel.setLyricsSourcePreference(
+                                                LyricsSourcePreference.fromName(key)
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    SwitchSettingItem(
+                                        title = "AI Lyrics Search (β)",
+                                        subtitle = "Extract clean song titles with AI when standard search finds no lyrics",
+                                        checked = uiState.isAiLyricsRescueEnabled,
+                                        onCheckedChange = { enabled ->
+                                            if (enabled && currentAiApiKey.isBlank()) {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Please configure an AI API key in Settings > AI Integration first",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            } else {
+                                                settingsViewModel.setAiLyricsRescueEnabled(enabled)
+                                            }
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    SettingsItem(
+                                        title = stringResource(R.string.setcat_reset_imported_lyrics_title),
+                                        subtitle = stringResource(R.string.setcat_reset_imported_lyrics_subtitle),
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.ClearAll, null, tint = MaterialTheme.colorScheme.secondary)
+                                        },
+                                        onClick = { showClearLyricsDialog = true }
+                                    )
+                                }
+
+                                SettingsSubsection(title = stringResource(R.string.presentation_batch_f_exp_visual_quality)) {
+                                    ThemeSelectorItem(
+                                        label = stringResource(R.string.setcat_album_art_quality_wifi_title),
+                                        description = stringResource(R.string.setcat_album_art_quality_wifi_desc),
+                                        options = mapOf(
+                                            AlbumArtQuality.LOW.name to stringResource(R.string.presentation_batch_f_album_art_quality_low_line),
+                                            AlbumArtQuality.HIGH.name to stringResource(R.string.presentation_batch_f_album_art_quality_high_line)
+                                        ),
+                                        selectedKey = uiState.albumArtQuality.name,
+                                        onSelectionChanged = { key ->
+                                            settingsViewModel.setAlbumArtQuality(AlbumArtQuality.valueOf(key))
+                                        },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_wifi_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    ThemeSelectorItem(
+                                        label = stringResource(R.string.setcat_album_art_quality_mobile_title),
+                                        description = stringResource(R.string.setcat_album_art_quality_mobile_desc),
+                                        options = mapOf(
+                                            AlbumArtQuality.LOW.name to stringResource(R.string.presentation_batch_f_album_art_quality_low_line),
+                                            AlbumArtQuality.HIGH.name to stringResource(R.string.presentation_batch_f_album_art_quality_high_line)
+                                        ),
+                                        selectedKey = uiState.albumArtQualityMobile.name,
+                                        onSelectionChanged = { key ->
+                                            settingsViewModel.setAlbumArtQualityMobile(AlbumArtQuality.valueOf(key))
+                                        },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_mobile_speaker_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                }
+
+                                SettingsSubsection(title = "Download Management") {
+                                    ThemeSelectorItem(
+                                        label = "Download Audio Quality",
+                                        description = "Select the default audio quality for offline music downloads.",
+                                        options = StreamingAudioQuality.entries.associate { it.name to it.label },
+                                        selectedKey = uiState.downloadAudioQuality.name,
+                                        onSelectionChanged = { key ->
+                                            settingsViewModel.setDownloadAudioQuality(StreamingAudioQuality.valueOf(key))
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    SwitchSettingItem(
+                                        title = "Embed Rich Metadata & Lyrics",
+                                        subtitle = "Embed full song tags, high-resolution artwork, and synchronized lyrics directly into downloaded files (increases file size)",
+                                        checked = uiState.embedFullMetadataOnDownload,
+                                        onCheckedChange = { settingsViewModel.setEmbedFullMetadataOnDownload(it) },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    SliderSettingsItem(
+                                        label = stringResource(R.string.setcat_music_storage_limit_desc),
+                                        value = storageLimitDraft,
+                                        valueRange = 0f..10240f,
+                                        steps = 20,
+                                        onValueChange = { storageLimitDraft = it },
+                                        onValueChangeFinished = {
+                                            val selectedLimit = storageLimitDraft.toInt()
+                                            if (selectedLimit != uiState.storageLimitMb) {
+                                                settingsViewModel.setStorageLimitMb(selectedLimit)
+                                            }
+                                        },
+                                        valueText = { value ->
+                                            if (value.toInt() == 0) "Unlimited"
+                                            else if (value >= 1024) "${(value / 1024).toInt()} GB"
+                                            else "${value.toInt()} MB"
                                         }
                                     )
                                 }
