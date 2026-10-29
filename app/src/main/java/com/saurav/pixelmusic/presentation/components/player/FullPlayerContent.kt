@@ -1019,61 +1019,7 @@ fun FullPlayerContent(
                             else -> painterResource(R.drawable.rounded_mobile_speaker_24)
                         }
 
-                        val castIconScale = remember { Animatable(1f) }
-                        val animateCastIcon: () -> Unit = {
-                            coroutineScope.launch {
-                                castIconScale.snapTo(0.72f)
-                                castIconScale.animateTo(
-                                    targetValue = 1f,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessMedium
-                                    )
-                                )
-                            }
-                        }
 
-                        val ltIconOffsetY = remember { Animatable(0f) }
-                        val ltIconScale = remember { Animatable(1f) }
-                        val animateLtIcon: () -> Unit = {
-                            coroutineScope.launch {
-                                ltIconOffsetY.snapTo(-8f)
-                                ltIconScale.snapTo(1.22f)
-                                launch {
-                                    ltIconOffsetY.animateTo(
-                                        0f,
-                                        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-                                    )
-                                }
-                                launch {
-                                    ltIconScale.animateTo(
-                                        1f,
-                                        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-                                    )
-                                }
-                            }
-                        }
-
-                        val queueIconRotation = remember { Animatable(0f) }
-                        val queueIconScale = remember { Animatable(1f) }
-                        val animateQueueIcon: () -> Unit = {
-                            coroutineScope.launch {
-                                queueIconRotation.snapTo(0f)
-                                queueIconScale.snapTo(0.72f)
-                                launch {
-                                    queueIconRotation.animateTo(
-                                        targetValue = 360f,
-                                        animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing)
-                                    )
-                                }
-                                launch {
-                                    queueIconScale.animateTo(
-                                        1f,
-                                        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
-                                    )
-                                }
-                            }
-                        }
 
                         val topCastShape = remember {
                             RoundedCornerShape(
@@ -1178,7 +1124,6 @@ fun FullPlayerContent(
                                                 coroutineScope.launch { castPress.animateTo(0f, pressSpec) }
                                                 if (up != null) {
                                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    animateCastIcon()
                                                     onShowCastClicked()
                                                 }
                                             }
@@ -1197,12 +1142,7 @@ fun FullPlayerContent(
                                                 else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
                                             },
                                             tint = topBarIconColor,
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                                .graphicsLayer {
-                                                    scaleX = castIconScale.value
-                                                    scaleY = castIconScale.value
-                                                }
+                                            modifier = Modifier.size(24.dp)
                                         )
                                         AnimatedVisibility(visible = showCastLabel) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1262,7 +1202,6 @@ fun FullPlayerContent(
                                         .clip(topCastShape)
                                         .background(topBarButtonBg, topCastShape)
                                         .clickable {
-                                            animateCastIcon()
                                             onShowCastClicked()
                                         },
                                     contentAlignment = Alignment.Center
@@ -1279,12 +1218,7 @@ fun FullPlayerContent(
                                                 else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
                                             },
                                             tint = topBarIconColor,
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                                .graphicsLayer {
-                                                    scaleX = castIconScale.value
-                                                    scaleY = castIconScale.value
-                                                }
+                                            modifier = Modifier.size(24.dp)
                                         )
                                         AnimatedVisibility(visible = showCastLabel) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1362,7 +1296,6 @@ fun FullPlayerContent(
                                                 coroutineScope.launch { ltPress.animateTo(0f, pressSpec) }
                                                 if (up != null) {
                                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    animateLtIcon()
                                                     playerViewModel.openListenTogetherSheet()
                                                 }
                                             }
@@ -1374,13 +1307,7 @@ fun FullPlayerContent(
                                             imageVector = Icons.Rounded.Group,
                                             contentDescription = stringResource(R.string.listen_together),
                                             tint = topBarIconColor,
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                                .graphicsLayer {
-                                                    translationY = ltIconOffsetY.value
-                                                    scaleX = ltIconScale.value
-                                                    scaleY = ltIconScale.value
-                                                }
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     } else {
                                         val ltInfiniteTransition = rememberInfiniteTransition(label = "ltPillPulse")
@@ -1477,7 +1404,6 @@ fun FullPlayerContent(
                                         .clip(topLtShape)
                                         .background(topBarButtonBg, topLtShape)
                                         .clickable {
-                                            animateLtIcon()
                                             playerViewModel.openListenTogetherSheet()
                                         },
                                     contentAlignment = Alignment.Center
@@ -1486,13 +1412,7 @@ fun FullPlayerContent(
                                         imageVector = Icons.Rounded.Group,
                                         contentDescription = stringResource(R.string.listen_together),
                                         tint = topBarIconColor,
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .graphicsLayer {
-                                                translationY = ltIconOffsetY.value
-                                                scaleX = ltIconScale.value
-                                                scaleY = ltIconScale.value
-                                            }
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
@@ -1551,7 +1471,6 @@ fun FullPlayerContent(
                                                 coroutineScope.launch { queuePress.animateTo(0f, pressSpec) }
                                                 if (up != null) {
                                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    animateQueueIcon()
                                                     onShowQueueClicked()
                                                 }
                                             }
@@ -1562,13 +1481,7 @@ fun FullPlayerContent(
                                         painter = painterResource(R.drawable.rounded_queue_music_24),
                                         contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
                                         tint = topBarIconColor,
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .graphicsLayer {
-                                                rotationZ = queueIconRotation.value
-                                                scaleX = queueIconScale.value
-                                                scaleY = queueIconScale.value
-                                            }
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             } else {
@@ -1579,7 +1492,6 @@ fun FullPlayerContent(
                                         .clip(topQueueShape)
                                         .background(topBarButtonBg, topQueueShape)
                                         .clickable {
-                                            animateQueueIcon()
                                             onShowQueueClicked()
                                         },
                                     contentAlignment = Alignment.Center
@@ -1588,13 +1500,7 @@ fun FullPlayerContent(
                                         painter = painterResource(R.drawable.rounded_queue_music_24),
                                         contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
                                         tint = topBarIconColor,
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .graphicsLayer {
-                                                rotationZ = queueIconRotation.value
-                                                scaleX = queueIconScale.value
-                                                scaleY = queueIconScale.value
-                                            }
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
@@ -3039,28 +2945,6 @@ private fun SongMetadataDisplaySection(
             }
         } else {
             // Portrait Mode: [Lyrics] [⋮]
-            val lyricsIconScale = remember { Animatable(1f) }
-            val animateLyricsIcon: () -> Unit = {
-                coroutineScope.launch {
-                    lyricsIconScale.snapTo(0.72f)
-                    lyricsIconScale.animateTo(
-                        1f,
-                        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
-                    )
-                }
-            }
-
-            val moreIconRotation = remember { Animatable(0f) }
-            val animateMoreIcon: () -> Unit = {
-                coroutineScope.launch {
-                    moreIconRotation.snapTo(0f)
-                    moreIconRotation.animateTo(
-                        90f,
-                        tween(durationMillis = 350, easing = FastOutSlowInEasing)
-                    )
-                }
-            }
-
             val lyricsShape = RoundedCornerShape(
                 topStart = 50.dp, topEnd = 6.dp,
                 bottomStart = 50.dp, bottomEnd = 6.dp
@@ -3142,7 +3026,6 @@ private fun SongMetadataDisplaySection(
                                     coroutineScope.launch { lyricsPress.animateTo(0f, pressSpec) }
                                     if (up != null) {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        animateLyricsIcon()
                                         onClickLyrics()
                                     }
                                 }
@@ -3152,11 +3035,7 @@ private fun SongMetadataDisplaySection(
                         Icon(
                             painter = painterResource(R.drawable.rounded_lyrics_24),
                             contentDescription = stringResource(R.string.presentation_batch_g_player_cd_lyrics),
-                            tint = if (isDark) Color.White else Color(0xFF1C1C1E),
-                            modifier = Modifier.graphicsLayer {
-                                scaleX = lyricsIconScale.value
-                                scaleY = lyricsIconScale.value
-                            }
+                            tint = if (isDark) Color.White else Color(0xFF1C1C1E)
                         )
                     }
 
@@ -3221,7 +3100,6 @@ private fun SongMetadataDisplaySection(
                                     coroutineScope.launch { morePress.animateTo(0f, pressSpec) }
                                     if (up != null) {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        animateMoreIcon()
                                         onClickShare()
                                     }
                                 }
@@ -3231,10 +3109,7 @@ private fun SongMetadataDisplaySection(
                         Icon(
                             painter = painterResource(R.drawable.rounded_more_vert_24),
                             contentDescription = stringResource(R.string.cd_player_more_options),
-                            tint = if (isDark) Color.White else Color(0xFF1C1C1E),
-                            modifier = Modifier.graphicsLayer {
-                                rotationZ = moreIconRotation.value
-                            }
+                            tint = if (isDark) Color.White else Color(0xFF1C1C1E)
                         )
                     }
                 } else {
@@ -3246,18 +3121,11 @@ private fun SongMetadataDisplaySection(
                             contentColor = chipContentColor
                         ),
                         shape = lyricsShape,
-                        onClick = {
-                            animateLyricsIcon()
-                            onClickLyrics()
-                        },
+                        onClick = onClickLyrics,
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.rounded_lyrics_24),
-                            contentDescription = stringResource(R.string.presentation_batch_g_player_cd_lyrics),
-                            modifier = Modifier.graphicsLayer {
-                                scaleX = lyricsIconScale.value
-                                scaleY = lyricsIconScale.value
-                            }
+                            contentDescription = stringResource(R.string.presentation_batch_g_player_cd_lyrics)
                         )
                     }
                     FilledIconButton(
@@ -3267,17 +3135,11 @@ private fun SongMetadataDisplaySection(
                             contentColor = chipContentColor
                         ),
                         shape = moreShape,
-                        onClick = {
-                            animateMoreIcon()
-                            onClickShare()
-                        },
+                        onClick = onClickShare,
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.rounded_more_vert_24),
-                            contentDescription = stringResource(R.string.cd_player_more_options),
-                            modifier = Modifier.graphicsLayer {
-                                rotationZ = moreIconRotation.value
-                            }
+                            contentDescription = stringResource(R.string.cd_player_more_options)
                         )
                     }
                 }
