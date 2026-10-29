@@ -83,7 +83,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import com.saurav.pixelmusic.R
-import com.saurav.pixelmusic.data.preferences.AlbumArtQuality
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -799,102 +798,7 @@ fun ExperimentalSettingsScreen(
                 }
             }
 
-            // Divider for new section
-            item(key = "divider_visuals") { 
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                ) {
-                     Text(
-                        text = stringResource(R.string.presentation_batch_f_exp_visual_quality),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f)
-                    )
-                     androidx.compose.material3.HorizontalDivider(
-                        modifier = Modifier
-                            .weight(3f)
-                            .padding(start = 8.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                }
-            }
 
-            item(key = "visual_tweaks_section") {
-                val albumArtQuality = uiState.albumArtQuality
-                
-                 SettingsSection(
-                    title = stringResource(R.string.presentation_batch_f_exp_album_art_resolution),
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Rounded.MusicNote, // Or Image/Photo icon
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = Color.Transparent,
-                        modifier = Modifier.padding(horizontal = 0.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                           // Quality Selector using a Dialog or a custom Picker?
-                           // Using a series of Radio Buttons or a clickable list item that opens a dialog is common.
-                           // For simplicity and quick access as requested ("selector or slider"), let's use a segmented style or a simple list of options.
-                           
-                           // Using a loop to create selectable items for each enum value
-                           AlbumArtQuality.entries.forEach { quality ->
-                               val isSelected = quality == albumArtQuality
-                               val qualityLine = albumArtQualityLine(quality)
-                               
-                               Surface(
-                                   color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                                   shape = RoundedCornerShape(12.dp),
-                                   modifier = Modifier.fillMaxWidth(),
-                                   onClick = { settingsViewModel.setAlbumArtQuality(quality) }
-                               ) {
-                                   Row(
-                                       modifier = Modifier
-                                           .padding(horizontal = 16.dp, vertical = 12.dp)
-                                           .fillMaxWidth(),
-                                       verticalAlignment = Alignment.CenterVertically,
-                                       horizontalArrangement = Arrangement.SpaceBetween
-                                   ) {
-                                       Column(modifier = Modifier.weight(1f)) {
-                                           Text(
-                                               text = qualityLine.substringBefore(" - "),
-                                               style = MaterialTheme.typography.bodyLarge,
-                                               color = MaterialTheme.colorScheme.onSurface,
-                                               fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
-                                           )
-                                           qualityLine.substringAfter(" - ", "").takeIf { it.isNotEmpty() }?.let { desc ->
-                                                Text(
-                                                   text = desc,
-                                                   style = MaterialTheme.typography.bodySmall,
-                                                   color = MaterialTheme.colorScheme.onSurfaceVariant
-                                               )
-                                           }
-                                       }
-                                       
-                                       if (isSelected) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.LinearScale, // Check icon
-                                                contentDescription = stringResource(R.string.presentation_batch_f_cd_selected),
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                       }
-                                   }
-                               }
-                           }
-                        }
-                    }
-                }
-            }
 
             item(key = "experimental_bottom_spacer") {
                 Spacer(modifier = Modifier.height(MiniPlayerHeight + 36.dp))
@@ -909,15 +813,6 @@ fun ExperimentalSettingsScreen(
         )
     }
 }
-
-@Composable
-private fun albumArtQualityLine(quality: AlbumArtQuality): String =
-    stringResource(
-        when (quality) {
-            AlbumArtQuality.LOW -> R.string.presentation_batch_f_album_art_quality_low_line
-            AlbumArtQuality.HIGH -> R.string.presentation_batch_f_album_art_quality_high_line
-        }
-    )
 
 @Composable
 private fun TriggerModeOptionCard(

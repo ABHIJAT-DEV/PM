@@ -365,9 +365,7 @@ object SettingsSearchCatalog {
         SearchableSetting("Transparent Placeholders", "Use translucent placeholders during player transition",
             listOf("transparent", "placeholder", "player", "experimental"),
             SettingsCategory.DEVELOPER, Screen.Experimental.route),
-        SearchableSetting("Album Art Resolution", "Quality of downloaded album art",
-            listOf("album art", "resolution", "quality", "experimental"),
-            SettingsCategory.DEVELOPER, Screen.Experimental.route),
+
         SearchableSetting("Universal App Logging", "Record all app activity to logcat and internal log file",
             listOf("log", "logging", "debug", "verbose", "logcat", "diagnostics"),
             SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.DEVELOPER.id)),
