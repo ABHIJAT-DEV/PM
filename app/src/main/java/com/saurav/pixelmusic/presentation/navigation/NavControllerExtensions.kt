@@ -4,6 +4,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavOptionsBuilder
 
+private var lastNavTime = 0L
+private var lastNavRoute = ""
+
 private fun NavController.isReadyForNavigation(): Boolean {
     return runCatching {
         // We allow navigation if the current entry is at least STARTED.
@@ -14,8 +17,14 @@ private fun NavController.isReadyForNavigation(): Boolean {
 
 fun NavController.navigateSafely(route: String): Boolean {
     if (!isReadyForNavigation()) return false
+    val now = System.currentTimeMillis()
+    if (route == lastNavRoute && now - lastNavTime < 400L) {
+        return false
+    }
+    lastNavTime = now
+    lastNavRoute = route
     navigate(route) {
-        launchSingleTop = true
+        launchSingleTop = false
     }
     return true
 }
@@ -25,8 +34,14 @@ fun NavController.navigateSafely(
     builder: NavOptionsBuilder.() -> Unit
 ): Boolean {
     if (!isReadyForNavigation()) return false
+    val now = System.currentTimeMillis()
+    if (route == lastNavRoute && now - lastNavTime < 400L) {
+        return false
+    }
+    lastNavTime = now
+    lastNavRoute = route
     navigate(route) {
-        launchSingleTop = true
+        launchSingleTop = false
         builder()
     }
     return true
