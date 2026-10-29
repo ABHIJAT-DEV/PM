@@ -835,7 +835,7 @@ fun ExploreScreen(
         LiquidGlassHeaderBar(
             pillText = "Explore",
             pillIcon = null,
-            pillTextSize = 28.sp,
+            pillTextSize = 34.sp,
             isLiquidGlass = isLiquidGlassOnHeader,
             backdrop = null,
             alpha = exploreTitleAlpha,
@@ -3509,24 +3509,17 @@ fun AnimatedSparklesIconButton(
                 scaleY = scale
                 rotationZ = rotation
             }
-            .then(
-                if (isLiquidGlass) {
-                    Modifier
-                        .liquidGlassInteractiveSurface(isCircle = true)
-                        .clip(CircleShape)
-                        .background(gradientBrush)
-                } else {
-                    Modifier
-                }
-            )
+            .liquidGlassInteractiveSurface(isCircle = true)
+            .clip(CircleShape)
+            .background(gradientBrush)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Rounded.AutoAwesome,
             contentDescription = "Smart Mix",
-            modifier = Modifier.size(if (isLiquidGlass) 20.dp else 24.dp),
-            tint = if (isLiquidGlass) colors.onPrimary else colors.primary
+            modifier = Modifier.size(20.dp),
+            tint = colors.onPrimary
         )
     }
 }

@@ -824,15 +824,12 @@ fun LibraryScreen(
                                         navController.navigateSafely(Screen.Settings.route)
                                     },
                                     shape = CircleShape,
-                                    color = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else Color.Transparent,
+                                    color = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primaryContainer,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp,
                                     modifier = Modifier
                                         .size(44.dp)
-                                        .then(
-                                            if (isLiquidGlass) Modifier.liquidGlassInteractiveSurface(isCircle = true)
-                                            else Modifier
-                                        )
+                                        .liquidGlassInteractiveSurface(isCircle = true)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(

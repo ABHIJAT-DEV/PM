@@ -57,7 +57,7 @@ fun LiquidGlassHeaderBar(
     ) {
         // ── 1. HEADER PILL ──────────────────────────────────────────
         val pillShape = CircleShape
-        val headerBarHeight = if (pillTextSize >= 24.sp) 52.dp else 48.dp
+        val headerBarHeight = if (pillTextSize >= 32.sp) 56.dp else if (pillTextSize >= 24.sp) 52.dp else 48.dp
 
         val pillModifier = if (isLiquidGlass) {
             Modifier
@@ -108,18 +108,21 @@ fun LiquidGlassHeaderBar(
 
         // ── 2. SETTINGS ICON BUTTON ──────────────────────────────────
         val settingsShape = CircleShape
-        val settingsModifier = if (isLiquidGlass) {
-            Modifier
-                .size(headerBarHeight)
-                .liquidGlassInteractiveSurface(
-                    shape = settingsShape,
-                    isCircle = true,
-                    enabled = true,
-                    backdrop = activeBackdrop
-                )
-        } else {
-            Modifier.size(headerBarHeight)
-        }
+        val settingsModifier = Modifier
+            .size(headerBarHeight)
+            .liquidGlassInteractiveSurface(
+                shape = settingsShape,
+                isCircle = true,
+                enabled = isLiquidGlass,
+                backdrop = activeBackdrop
+            )
+            .then(
+                if (!isLiquidGlass) {
+                    Modifier
+                        .clip(settingsShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f), settingsShape)
+                } else Modifier
+            )
 
         Box(
             modifier = settingsModifier
