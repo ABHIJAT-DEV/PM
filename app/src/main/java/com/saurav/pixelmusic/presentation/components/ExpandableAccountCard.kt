@@ -2,7 +2,12 @@ package com.saurav.pixelmusic.presentation.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,7 +54,14 @@ fun ExpandableAccountCard(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(targetValue = if (expanded) 180f else 0f, label = "arrow_rotation")
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "arrow_rotation"
+    )
     
     val hasProfile = uiState.ytUsername.isNotEmpty()
     val nameText = if (hasProfile) uiState.ytUsername else "Guest User"
@@ -69,7 +81,7 @@ fun ExpandableAccountCard(
     )
 
     Surface(
-        modifier = modifier.animateContentSize(),
+        modifier = modifier,
         shape = RoundedCornerShape(28.dp),
         color = surfaceContainer,
         tonalElevation = if (expanded) 6.dp else 2.dp
@@ -152,8 +164,22 @@ fun ExpandableAccountCard(
 
             AnimatedVisibility(
                 visible = expanded,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
+                enter = fadeIn(animationSpec = tween(durationMillis = 180, delayMillis = 40, easing = LinearOutSlowInEasing)) +
+                        expandVertically(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            ),
+                            expandFrom = Alignment.Top
+                        ),
+                exit = fadeOut(animationSpec = tween(durationMillis = 120, easing = FastOutLinearInEasing)) +
+                       shrinkVertically(
+                           animationSpec = spring(
+                               dampingRatio = Spring.DampingRatioNoBouncy,
+                               stiffness = Spring.StiffnessMedium
+                           ),
+                           shrinkTowards = Alignment.Top
+                       )
             ) {
                 Column(
                     modifier = Modifier
