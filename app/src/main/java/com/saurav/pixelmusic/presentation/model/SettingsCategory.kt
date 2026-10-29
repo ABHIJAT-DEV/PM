@@ -108,6 +108,9 @@ enum class SettingsCategory(
     );
 
     companion object {
-        fun fromId(id: String): SettingsCategory? = entries.find { it.id == id }
+        fun fromId(id: String): SettingsCategory? = when (id) {
+            "content" -> LIBRARY
+            else -> entries.find { it.id == id }
+        }
     }
 }

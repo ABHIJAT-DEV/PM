@@ -298,10 +298,11 @@ fun SettingsScreen(
                         it != SettingsCategory.DEVICE_CAPABILITIES &&
                         it != SettingsCategory.LASTFM &&
                         it != SettingsCategory.LISTEN_TOGETHER &&
-                        it != SettingsCategory.LIQUID_GLASS
+                        it != SettingsCategory.LIQUID_GLASS &&
+                        it != SettingsCategory.CONTENT
                     }
 
-                    val totalItems = mainCategories.size + 2
+                    val totalItems = mainCategories.size + 1
                     fun shapeFor(index: Int) =
                         when {
                             totalItems == 1 -> RoundedCornerShape(24.dp)
@@ -381,17 +382,6 @@ fun SettingsScreen(
                         }
                         itemIndex++
                     }
-
-                    ExpressiveCategoryItem(
-                        category = SettingsCategory.DEVICE_CAPABILITIES,
-                        customColors = if (isBw) bwCategoryColors else getCategoryColors(SettingsCategory.DEVICE_CAPABILITIES, isDark),
-                        onClick = { navController.navigateSafely(Screen.DeviceCapabilities.route) },
-                        shape = shapeFor(itemIndex)
-                    )
-                    if (itemIndex < totalItems - 1) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-                    itemIndex++
 
                     ExpressiveCategoryItem(
                         category = SettingsCategory.ABOUT,

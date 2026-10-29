@@ -229,31 +229,31 @@ object SettingsSearchCatalog {
             listOf("lyrics", "lrc", "auto scan", "subtitles"),
             SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
 
-        // ─── Content ────────────────────────────────────────────────────────────────
+        // ─── Online Content & Sources ───────────────────────────────────────────────
         SearchableSetting("Content Language", "Preferred language for YouTube Music recommendations",
             listOf("language", "content", "youtube", "region"),
-            SettingsCategory.CONTENT, Screen.SettingsCategory.createRoute(SettingsCategory.CONTENT.id)),
+            SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
         SearchableSetting("Content Country", "Region preference for YouTube Music content",
             listOf("country", "region", "content", "location"),
-            SettingsCategory.CONTENT, Screen.SettingsCategory.createRoute(SettingsCategory.CONTENT.id)),
+            SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
         SearchableSetting("Hide Explicit", "Hide tracks marked as explicit from search and feeds",
             listOf("explicit", "hide", "clean", "censored"),
-            SettingsCategory.CONTENT, Screen.SettingsCategory.createRoute(SettingsCategory.CONTENT.id)),
+            SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
         SearchableSetting("Hide Video", "Hide video content from YouTube Music search results",
             listOf("video", "hide", "audio only"),
-            SettingsCategory.CONTENT, Screen.SettingsCategory.createRoute(SettingsCategory.CONTENT.id)),
+            SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
         SearchableSetting("My Top Playlist Size", "Number of tracks included in My Top playlist (20, 50, or 100)",
             listOf("my top", "top songs", "size", "count", "playlist", "limit"),
-            SettingsCategory.CONTENT, Screen.SettingsCategory.createRoute(SettingsCategory.CONTENT.id)),
+            SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
         SearchableSetting("Quick Picks", "Discover, Last Listen, or Don't Show",
             listOf("quick picks", "discover", "recommendations", "suggestions"),
-            SettingsCategory.CONTENT, Screen.SettingsCategory.createRoute(SettingsCategory.CONTENT.id)),
+            SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
         SearchableSetting("Quick Picks Display", "Card carousel or List grid layout",
             listOf("quick picks", "display", "card", "list", "layout"),
-            SettingsCategory.CONTENT, Screen.SettingsCategory.createRoute(SettingsCategory.CONTENT.id)),
+            SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
         SearchableSetting("Playlist Suggestions Source", "Playlist title, content, or both for smart suggestions",
             listOf("playlist", "suggestion", "recommend", "smart"),
-            SettingsCategory.CONTENT, Screen.SettingsCategory.createRoute(SettingsCategory.CONTENT.id)),
+            SettingsCategory.LIBRARY, Screen.SettingsCategory.createRoute(SettingsCategory.LIBRARY.id)),
 
         // ─── Behavior ───────────────────────────────────────────────────────────────
         SearchableSetting("Folder Back Gesture", "Navigate up a folder with back gesture",
@@ -339,10 +339,10 @@ object SettingsSearchCatalog {
         // ─── Device Capabilities ────────────────────────────────────────────────────
         SearchableSetting("Device Capabilities", "Hardware decoding, sample rates, and audio output capabilities",
             listOf("device", "capabilities", "hardware", "audio", "specs", "dsp", "dac"),
-            SettingsCategory.DEVICE_CAPABILITIES, Screen.DeviceCapabilities.route),
+            SettingsCategory.DEVELOPER, Screen.DeviceCapabilities.route),
         SearchableSetting("Feature Compatibility", "OS and platform feature support matrix (Blur, AGSL, Dynamic Color)",
             listOf("compatibility", "features", "incompatible", "unsupported", "blur", "agsl", "android"),
-            SettingsCategory.DEVICE_CAPABILITIES, Screen.FeatureCompatibility.route),
+            SettingsCategory.DEVELOPER, Screen.FeatureCompatibility.route),
 
         // ─── Developer & Experimental ───────────────────────────────────────────────
         SearchableSetting("Experimental Features", "Full player tweaks, delays, and animation options",

@@ -103,6 +103,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.rounded.DeveloperBoard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ButtonDefaults
@@ -446,8 +447,36 @@ fun SettingsCategoryScreen(
                         modifier = Modifier.background(Color.Transparent)
                     ) {
                         when (category) {
-                            SettingsCategory.CONTENT -> {
-                                SettingsSubsection(title = "Content Customization") {
+                            SettingsCategory.LIBRARY, SettingsCategory.CONTENT -> {
+                                SettingsSubsection(title = stringResource(R.string.setcat_library_structure)) {
+                                    SettingsItem(
+                                        title = stringResource(R.string.setcat_excluded_directories_title),
+                                        subtitle = stringResource(R.string.setcat_excluded_directories_subtitle),
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary)
+                                        },
+                                        trailingIcon = {
+                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        },
+                                        onClick = {
+                                            showExplorerSheet = true
+                                            settingsViewModel.openExplorer()
+                                        }
+                                    )
+                                    SettingsItem(
+                                        title = stringResource(R.string.setcat_artists_title),
+                                        subtitle = stringResource(R.string.setcat_artists_subtitle),
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.secondary)
+                                        },
+                                        trailingIcon = {
+                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        },
+                                        onClick = { navController.navigateSafely(Screen.ArtistSettings.route) }
+                                    )
+                                }
+
+                                SettingsSubsection(title = "Online Content & Sources") {
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.settings_content_language_title),
                                         description = stringResource(R.string.settings_content_language_desc),
@@ -560,10 +589,6 @@ fun SettingsCategoryScreen(
                                         }
                                     )
                                 }
-                            }
-
-                            SettingsCategory.LIBRARY -> {
-                                SettingsSubsection(title = stringResource(R.string.setcat_library_structure)) {
                                     SettingsItem(
                                         title = stringResource(R.string.setcat_excluded_directories_title),
                                         subtitle = stringResource(R.string.setcat_excluded_directories_subtitle),
@@ -2000,6 +2025,17 @@ fun SettingsCategoryScreen(
                                     title = stringResource(R.string.setcat_diagnostics),
                                     addBottomSpace = false
                                 ) {
+                                    SettingsItem(
+                                        title = stringResource(R.string.settings_category_device_capabilities_title),
+                                        subtitle = stringResource(R.string.settings_category_device_capabilities_subtitle),
+                                        leadingIcon = {
+                                            Icon(Icons.Rounded.DeveloperBoard, null, tint = MaterialTheme.colorScheme.secondary)
+                                        },
+                                        trailingIcon = {
+                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        },
+                                        onClick = { navController.navigateSafely(Screen.DeviceCapabilities.route) }
+                                    )
                                     SwitchSettingItem(
                                         title = "Universal App Logging",
                                         subtitle = "Record all app activity (verbose, debug, info, warn, error, fatal) to Logcat and internal log file. Turn off for zero logging.",

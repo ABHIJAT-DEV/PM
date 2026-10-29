@@ -6,8 +6,8 @@
     <string name="settings_accounts_row_subtitle">Manage Telegram, Google Drive, NetEase, and more services</string>
 
     <!-- SettingsCategory enum (grid) -->
-    <string name="settings_category_library_title">Music Management</string>
-    <string name="settings_category_library_subtitle">Manage folders, refresh library, parsing options</string>
+    <string name="settings_category_library_title">Library &amp; Sources</string>
+    <string name="settings_category_library_subtitle">Local folders, scanner, content region, and source filters</string>
     <string name="settings_category_content_title">Content</string>
     <string name="settings_category_content_subtitle">Content country, language, filters and suggestion sources</string>
     <string name="settings_content_language_title">Content Language</string>
