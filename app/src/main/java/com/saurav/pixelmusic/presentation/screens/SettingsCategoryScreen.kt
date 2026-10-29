@@ -1203,11 +1203,7 @@ fun SettingsCategoryScreen(
                                             }
                                         )
 
-                                        AnimatedVisibility(
-                                            visible = isDynamicIslandEnabled,
-                                            enter = expandVertically() + fadeIn(),
-                                            exit = shrinkVertically() + fadeOut()
-                                        ) {
+                                        if (isDynamicIslandEnabled) {
                                             ThemeSelectorItem(
                                                 label = "Island Visualizer Style",
                                                 description = "Choose what appears in the dynamic island pill",
