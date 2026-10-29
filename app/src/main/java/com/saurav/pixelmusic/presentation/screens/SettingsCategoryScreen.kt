@@ -696,10 +696,9 @@ fun SettingsCategoryScreen(
                             }
 
                             SettingsCategory.APPEARANCE -> {
-                                val useSmoothCorners by settingsViewModel.useSmoothCorners.collectAsStateWithLifecycle()
+                                val useSmoothCorners = uiState.useSmoothCorners
                                 val playerDesignStyle by playerViewModel.playerDesignStyle.collectAsStateWithLifecycle()
-                                val nowPlayingLyricsStyle by playerViewModel.userPreferencesRepository.nowPlayingLyricsStyleFlow
-                                    .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.HIDDEN)
+                                val nowPlayingLyricsStyle = uiState.nowPlayingLyricsStyle
                                 val currentBgStyle = uiState.appBackgroundStyle
                                 val currentBgOpacity = uiState.appBackgroundOpacity
 
@@ -1184,10 +1183,8 @@ fun SettingsCategoryScreen(
                                         }
                                     )
                                     if (AndroidVersionCompat.supportsLiveNotificationOrIsland()) {
-                                        val isDynamicIslandEnabled by playerViewModel.userPreferencesRepository.dynamicIslandEnabledFlow
-                                            .collectAsStateWithLifecycle(initialValue = true)
-                                        val dynamicIslandStyle by playerViewModel.userPreferencesRepository.dynamicIslandStyleFlow
-                                            .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.data.preferences.DynamicIslandStyle.ANIMATED_NOTES)
+                                        val isDynamicIslandEnabled = uiState.dynamicIslandEnabled
+                                        val dynamicIslandStyle = uiState.dynamicIslandStyle
 
                                         SwitchSettingItem(
                                             title = if (Build.VERSION.SDK_INT >= 36) "Live Activity / Dynamic Island" else "Dynamic Island (Origin OS special)",

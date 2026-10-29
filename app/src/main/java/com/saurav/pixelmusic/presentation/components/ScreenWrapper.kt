@@ -22,7 +22,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -31,7 +30,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import androidx.lifecycle.compose.currentStateAsState
 import com.saurav.pixelmusic.presentation.navigation.isMainRootRoute
-import com.saurav.pixelmusic.presentation.navigation.TRANSITION_DURATION
 import com.saurav.pixelmusic.utils.AndroidVersionCompat
 import com.saurav.pixelmusic.data.preferences.AppBackgroundStyle
 
@@ -83,9 +81,7 @@ fun ScreenWrapper(
     }
     val shouldRunDepthEffects = !isMainRootScreen || hasVisibleNonMainRootScreen
 
-    // Receding card depth logic:
-    // Only the screen underneath recedes (scales down, blurs, rounds corners, dims).
-    // The incoming/top screen is always full scale (1.0f) with 0dp corners to prevent floating-box clipping.
+    // True when this screen is receding/sitting behind the active top destination
     val isUnderneath = remember(visibleEntries, myEntry, myIndex, topIndex, isNavigationTarget) {
         !isNavigationTarget &&
             myIndex != -1 &&
@@ -94,37 +90,29 @@ fun ScreenWrapper(
             myEntry?.lifecycle?.currentState != Lifecycle.State.CREATED
     }
 
-    val depthEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+    val depthEasing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1.0f)
 
-    // Previous screen scale out: background card recedes to 0.90f
-    val targetScale = if (shouldRunDepthEffects && isUnderneath) 0.90f else 1.0f
-    val scale by animateFloatAsState(
-        targetValue = targetScale,
-        animationSpec = tween(durationMillis = TRANSITION_DURATION, easing = depthEasing),
-        label = "depthScale"
-    )
-
-    // Previous screen blur: background card blurs up to 20dp
-    val targetBlur = if (shouldRunDepthEffects && isUnderneath) 20f else 0f
+    // Previous screen blur: smoothly blurs up to 24dp as it zooms out, and clears to 0dp on return
+    val targetBlur = if (shouldRunDepthEffects && isUnderneath) 24f else 0f
     val blurRadius by animateFloatAsState(
         targetValue = targetBlur,
-        animationSpec = tween(durationMillis = TRANSITION_DURATION, easing = depthEasing),
+        animationSpec = tween(durationMillis = 420, easing = depthEasing),
         label = "depthBlur"
     )
 
-    // Corner Radius: background card rounds its corners to 28dp as it recedes into a card
+    // Soft 28dp rounded card corners while zooming out into the background
     val targetRadius = if (shouldRunDepthEffects && isUnderneath) 28f else 0f
     val cornerRadius by animateFloatAsState(
         targetValue = targetRadius,
-        animationSpec = tween(durationMillis = TRANSITION_DURATION, easing = depthEasing),
+        animationSpec = tween(durationMillis = 420, easing = depthEasing),
         label = "cornerRadius"
     )
 
-    // Dim overlay: background card dims to 0.30f black
-    val targetDim = if (shouldRunDepthEffects && isUnderneath) 0.30f else 0f
+    // Subtle dim overlay on the receding background page
+    val targetDim = if (shouldRunDepthEffects && isUnderneath) 0.28f else 0f
     val dimAlpha by animateFloatAsState(
         targetValue = targetDim,
-        animationSpec = tween(durationMillis = TRANSITION_DURATION, easing = depthEasing),
+        animationSpec = tween(durationMillis = 420, easing = depthEasing),
         label = "dimAlpha"
     )
 
@@ -135,9 +123,6 @@ fun ScreenWrapper(
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                transformOrigin = TransformOrigin(0.5f, 0.5f)
                 if (shouldRunDepthEffects && cornerRadius > 0.5f) {
                     this.shape = RoundedCornerShape(cornerRadius.dp)
                     this.clip = true

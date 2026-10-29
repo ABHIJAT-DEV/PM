@@ -183,10 +183,6 @@ fun ExperimentalSettingsScreen(
         modifier = Modifier
             .nestedScroll(nestedScrollConnection)
             .fillMaxSize()
-            .graphicsLayer {
-                alpha = contentAlpha
-                translationY = contentOffset.toPx()
-            }
     ) {
         val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
 

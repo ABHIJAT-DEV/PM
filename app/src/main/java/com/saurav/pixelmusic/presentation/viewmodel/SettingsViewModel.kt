@@ -194,7 +194,11 @@ data class SettingsUiState(
     val scrobbleDelayPercent: Float = 0.5f,
     val scrobbleMinSongDuration: Int = 30,
     val scrobbleDelaySeconds: Int = 180,
-    val generatedPlaylistsRetentionPeriod: String = "permanent"
+    val generatedPlaylistsRetentionPeriod: String = "permanent",
+    val dynamicIslandEnabled: Boolean = true,
+    val dynamicIslandStyle: com.saurav.pixelmusic.data.preferences.DynamicIslandStyle = com.saurav.pixelmusic.data.preferences.DynamicIslandStyle.ANIMATED_NOTES,
+    val nowPlayingLyricsStyle: com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle = com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.HIDDEN,
+    val useSmoothCorners: Boolean = true
 )
 
 data class FailedSongInfo(
@@ -294,7 +298,12 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    companion object {
+        @Volatile
+        private var cachedUiState = SettingsUiState()
+    }
+
+    private val _uiState = MutableStateFlow(cachedUiState)
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     val playerDesignStyle: StateFlow<com.saurav.pixelmusic.data.preferences.PlayerDesignStyle> = userPreferencesRepository.playerDesignStyleFlow
@@ -573,6 +582,36 @@ class SettingsViewModel @Inject constructor(
     val dataTransferEvents: SharedFlow<String> = _dataTransferEvents.asSharedFlow()
 
     init {
+        viewModelScope.launch {
+            _uiState.collect { state ->
+                cachedUiState = state
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.dynamicIslandEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(dynamicIslandEnabled = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.dynamicIslandStyleFlow.collect { style ->
+                _uiState.update { it.copy(dynamicIslandStyle = style) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.nowPlayingLyricsStyleFlow.collect { style ->
+                _uiState.update { it.copy(nowPlayingLyricsStyle = style) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.useSmoothCornersFlow.collect { enabled ->
+                _uiState.update { it.copy(useSmoothCorners = enabled) }
+            }
+        }
+
         viewModelScope.launch {
             backupManager.getBackupHistory().collect { history ->
                 _uiState.update { it.copy(backupHistory = history) }

@@ -10,33 +10,45 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.ui.graphics.TransformOrigin
 
-// MD3 Expressive – Emphasized motion curves
-val EmphasizedDecelerateEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
-val EmphasizedAccelerateEasing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+// Smooth, unhurried motion curves so the zoom-out and zoom-in stages are clearly visible
+val SmoothZoomOutEasing = CubicBezierEasing(0.32f, 0.0f, 0.2f, 1.0f)
+val SmoothZoomInEasing = CubicBezierEasing(0.22f, 0.68f, 0.18f, 1.0f)
 
-// Transition duration aligned across scale, blur, and opacity
-const val TRANSITION_DURATION = 350
+// Total transition duration (staggered two-phase zoom choreography)
+const val TRANSITION_DURATION = 520
 
-// Forward Push: Enter — new screen scales in smoothly as an overlay over the receding screen
+// Forward Push: Stage 2 — Incoming screen zooms in (0.80f -> 1.0f) after previous screen starts zooming out
 fun enterTransition(): EnterTransition = scaleIn(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedDecelerateEasing),
-    initialScale = 0.90f,
+    animationSpec = tween(durationMillis = 390, delayMillis = 130, easing = SmoothZoomInEasing),
+    initialScale = 0.80f,
     transformOrigin = TransformOrigin(0.5f, 0.5f)
 ) + fadeIn(
-    animationSpec = tween(durationMillis = TRANSITION_DURATION * 2 / 3, easing = EmphasizedDecelerateEasing)
+    animationSpec = tween(durationMillis = 330, delayMillis = 130, easing = SmoothZoomInEasing)
 )
 
-// Forward Push: Exit — background screen recedes via ScreenWrapper (scale out + blur + dim)
-fun exitTransition(): ExitTransition = ExitTransition.None
-
-// Backward Pop: Enter — returning screen restores via ScreenWrapper (scale in + unblur + undim)
-fun popEnterTransition(): EnterTransition = EnterTransition.None
-
-// Backward Pop: Exit — top screen scales down and fades out cleanly
-fun popExitTransition(): ExitTransition = scaleOut(
-    animationSpec = tween(TRANSITION_DURATION, easing = EmphasizedAccelerateEasing),
-    targetScale = 0.90f,
+// Forward Push: Stage 1 — Previous screen zooms out (1.0f -> 0.80f) with blur and fades out
+fun exitTransition(): ExitTransition = scaleOut(
+    animationSpec = tween(durationMillis = 360, easing = SmoothZoomOutEasing),
+    targetScale = 0.80f,
     transformOrigin = TransformOrigin(0.5f, 0.5f)
 ) + fadeOut(
-    animationSpec = tween(durationMillis = TRANSITION_DURATION / 2, easing = EmphasizedAccelerateEasing)
+    animationSpec = tween(durationMillis = 300, delayMillis = 60, easing = SmoothZoomOutEasing)
+)
+
+// Backward Pop: Stage 2 — Previous screen zooms back in (0.80f -> 1.0f) as blur clears
+fun popEnterTransition(): EnterTransition = scaleIn(
+    animationSpec = tween(durationMillis = 380, delayMillis = 120, easing = SmoothZoomInEasing),
+    initialScale = 0.80f,
+    transformOrigin = TransformOrigin(0.5f, 0.5f)
+) + fadeIn(
+    animationSpec = tween(durationMillis = 320, delayMillis = 120, easing = SmoothZoomInEasing)
+)
+
+// Backward Pop: Stage 1 — Current top screen zooms out (1.0f -> 0.80f) and fades away
+fun popExitTransition(): ExitTransition = scaleOut(
+    animationSpec = tween(durationMillis = 340, easing = SmoothZoomOutEasing),
+    targetScale = 0.80f,
+    transformOrigin = TransformOrigin(0.5f, 0.5f)
+) + fadeOut(
+    animationSpec = tween(durationMillis = 280, easing = SmoothZoomOutEasing)
 )

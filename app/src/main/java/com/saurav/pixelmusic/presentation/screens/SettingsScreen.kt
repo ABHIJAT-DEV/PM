@@ -228,10 +228,6 @@ fun SettingsScreen(
             .fillMaxSize()
             .then(sweepModifier)
             .nestedScroll(nestedScrollConnection)
-            .graphicsLayer {
-                alpha = contentAlpha
-                translationY = contentOffset.toPx()
-            }
     ) {
         val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
         LazyColumn(
