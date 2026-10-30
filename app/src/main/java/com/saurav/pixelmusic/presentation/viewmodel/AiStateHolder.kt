@@ -59,6 +59,13 @@ class AiStateHolder @Inject constructor(
     private val _aiError = MutableStateFlow<String?>(null)
     val aiError = _aiError.asStateFlow()
 
+    private val _lastCreatedAiPlaylistId = MutableStateFlow<String?>(null)
+    val lastCreatedAiPlaylistId = _lastCreatedAiPlaylistId.asStateFlow()
+
+    fun clearLastCreatedAiPlaylistId() {
+        _lastCreatedAiPlaylistId.value = null
+    }
+
     private var _lastPlaylistPrompt: String? = null
     private var _lastMinLength: Int = 5
     private var _lastMaxLength: Int = 15
@@ -158,6 +165,7 @@ class AiStateHolder @Inject constructor(
             _isGeneratingAiPlaylist.value = true
             _aiError.value = null
             _aiSuccess.value = false
+            _lastCreatedAiPlaylistId.value = null
 
             // Step 1: Pre-generation analysis
             try {
@@ -197,11 +205,12 @@ class AiStateHolder @Inject constructor(
                                 existingNames = existingPlaylistNames
                             )
                             val songIds = generatedSongs.map { it.id }
-                            playlistPreferencesRepository.createPlaylist(
+                            val createdPlaylist = playlistPreferencesRepository.createPlaylist(
                                 name = resolvedPlaylistName,
                                 songIds = songIds,
                                 isAiGenerated = true
                             )
+                            _lastCreatedAiPlaylistId.value = createdPlaylist.id
                             _aiStatus.value = "Success! Your mix is ready."
                             _aiSuccess.value = true
                             notificationManager.showCompletion("Generation Complete", "Your AI Mix is ready to play.")

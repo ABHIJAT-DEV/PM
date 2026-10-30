@@ -649,21 +649,19 @@ fun LibraryScreen(
         }
     }
 
-    LaunchedEffect(
-        showCreateAiPlaylistDialog,
-        aiGenerationRequestedFromDialog,
-        isGeneratingAiPlaylist,
-        aiError
-    ) {
-        if (!showCreateAiPlaylistDialog || !aiGenerationRequestedFromDialog || isGeneratingAiPlaylist) {
-            return@LaunchedEffect
-        }
+    val lastCreatedAiPlaylistId by playerViewModel.lastCreatedAiPlaylistId.collectAsStateWithLifecycle()
+    val aiStatus by playerViewModel.aiStatus.collectAsStateWithLifecycle()
+    val aiSuccess by playerViewModel.aiSuccess.collectAsStateWithLifecycle()
 
-        if (aiError == null) {
+    LaunchedEffect(lastCreatedAiPlaylistId) {
+        lastCreatedAiPlaylistId?.let { playlistId ->
+            kotlinx.coroutines.delay(1200) // Allow extensive success celebration animation to complete
             showCreateAiPlaylistDialog = false
+            aiGenerationRequestedFromDialog = false
             playerViewModel.clearAiPlaylistError()
+            playerViewModel.clearLastCreatedAiPlaylistId()
+            navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
         }
-        aiGenerationRequestedFromDialog = false
     }
 
     LaunchedEffect(hasActiveAiProviderApiKey, showCreateAiPlaylistDialog) {
@@ -1614,11 +1612,14 @@ onViewToggleChange = { isChecked ->
     CreateAiPlaylistDialog(
         visible = showCreateAiPlaylistDialog && hasActiveAiProviderApiKey,
         isGenerating = isGeneratingAiPlaylist,
+        isSuccess = aiSuccess,
+        status = aiStatus,
         error = aiError,
         onDismiss = {
             showCreateAiPlaylistDialog = false
             aiGenerationRequestedFromDialog = false
             playerViewModel.clearAiPlaylistError()
+            playerViewModel.clearLastCreatedAiPlaylistId()
         },
         onGenerate = { playlistName, prompt, minLength, maxLength ->
             aiGenerationRequestedFromDialog = true

@@ -577,6 +577,11 @@ class PlayerViewModel @Inject constructor(
     val aiSuccess: StateFlow<Boolean> = aiStateHolder.aiSuccess
     val aiStatus: StateFlow<String?> = aiStateHolder.aiStatus
     val aiError: StateFlow<String?> = aiStateHolder.aiError
+    val lastCreatedAiPlaylistId: StateFlow<String?> = aiStateHolder.lastCreatedAiPlaylistId
+
+    fun clearLastCreatedAiPlaylistId() {
+        aiStateHolder.clearLastCreatedAiPlaylistId()
+    }
 
     // AI Metadata Generation States
     val isGeneratingAiMetadata: StateFlow<Boolean> = aiStateHolder.isGeneratingMetadata
