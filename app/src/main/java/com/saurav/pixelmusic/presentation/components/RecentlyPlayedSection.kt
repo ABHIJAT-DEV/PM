@@ -49,8 +49,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Song
+import androidx.compose.foundation.BorderStroke
 import com.saurav.pixelmusic.presentation.model.RecentlyPlayedSongUiModel
 import com.saurav.pixelmusic.presentation.viewmodel.ThemeStateHolder
+import com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme
 import com.saurav.pixelmusic.ui.theme.LocalPixelMusicDarkTheme
 
 private val HomeRecentlyPlayedPillHeight = 58.dp
@@ -259,21 +261,35 @@ private fun RecentlyPlayedPill(
     onMoreOptionsClick: ((Song) -> Unit)? = null
 ) {
     val isDark = LocalPixelMusicDarkTheme.current
+    val isBwTheme = LocalIsBlackAndWhiteTheme.current
     val albumColorSchemeState by remember(item.song.albumArtUriString, themeStateHolder) {
         themeStateHolder.getAlbumColorSchemeFlow(item.song.albumArtUriString.orEmpty())
     }.collectAsStateWithLifecycle()
 
-    val albumColorScheme = remember(albumColorSchemeState, isDark) {
-        albumColorSchemeState?.let { if (isDark) it.dark else it.light }
+    val albumColorScheme = remember(albumColorSchemeState, isDark, isBwTheme) {
+        if (isBwTheme) null
+        else albumColorSchemeState?.let { if (isDark) it.dark else it.light }
     }
 
-    val fallbackContainer = if (isCurrentSong) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
-    val fallbackTitle = if (isCurrentSong) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-    val fallbackArtist = if (isCurrentSong) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.80f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val fallbackContainer = if (isCurrentSong) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        if (isBwTheme) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer
+    }
+    val fallbackTitle = if (isCurrentSong) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    val fallbackArtist = if (isCurrentSong) {
+        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.80f)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
-    val targetContainerColor = albumColorScheme?.primaryContainer ?: fallbackContainer
-    val targetTitleColor = albumColorScheme?.onPrimaryContainer ?: fallbackTitle
-    val targetArtistColor = albumColorScheme?.onPrimaryContainer?.copy(alpha = 0.80f) ?: fallbackArtist
+    val targetContainerColor = if (isBwTheme) fallbackContainer else (albumColorScheme?.primaryContainer ?: fallbackContainer)
+    val targetTitleColor = if (isBwTheme) fallbackTitle else (albumColorScheme?.onPrimaryContainer ?: fallbackTitle)
+    val targetArtistColor = if (isBwTheme) fallbackArtist else (albumColorScheme?.onPrimaryContainer?.copy(alpha = 0.80f) ?: fallbackArtist)
 
     // The corner radius only changes slightly if it's the actively playing song
     val animatedCorner by animateDpAsState(
@@ -303,6 +319,7 @@ private fun RecentlyPlayedPill(
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = animatedContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = if (isCurrentSong && isBwTheme) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
         modifier = modifier
             .height(HomeRecentlyPlayedPillHeight)
             .clip(shape)

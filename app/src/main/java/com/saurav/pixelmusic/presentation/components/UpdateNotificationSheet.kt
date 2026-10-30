@@ -198,17 +198,21 @@ fun UpdateNotificationSheet(
                     }
 
                     val isLiquidGlass = LocalLiquidGlassEnabled.current
+                    val isBwTheme = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
                     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                     val buttonShape = AbsoluteSmoothCornerShape(18.dp, 60)
 
-                    val primaryButtonColor = if (isDark) {
-                        val hsl = FloatArray(3)
-                        ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
-                        hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
-                        Color(ColorUtils.HSLToColor(hsl))
-                    } else {
-                        MaterialTheme.colorScheme.primary
+                    val primaryButtonColor = when {
+                        isBwTheme -> if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary
+                        isDark -> {
+                            val hsl = FloatArray(3)
+                            ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
+                            hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
+                            Color(ColorUtils.HSLToColor(hsl))
+                        }
+                        else -> MaterialTheme.colorScheme.primary
                     }
+                    val buttonContentColor = if (isBwTheme && !isDark) MaterialTheme.colorScheme.onPrimary else Color.White
 
                     Button(
                         onClick = {
@@ -225,14 +229,14 @@ fun UpdateNotificationSheet(
                         shape = buttonShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isLiquidGlass) Color.Transparent else primaryButtonColor,
-                            contentColor = Color.White
+                            contentColor = buttonContentColor
                         ),
                         elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
                     ) {
                         Icon(
                             imageVector = if (isUpdateAvailable) Icons.Rounded.Download else Icons.Rounded.Check,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = buttonContentColor,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -240,7 +244,7 @@ fun UpdateNotificationSheet(
                             text = if (isUpdateAvailable) "Update Now" else "Awesome",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = Color.White
+                            color = buttonContentColor
                         )
                     }
 

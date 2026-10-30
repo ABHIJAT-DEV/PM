@@ -134,8 +134,11 @@ import kotlin.math.roundToInt
 import com.saurav.pixelmusic.utils.InAppUpdater
 import com.saurav.pixelmusic.utils.UpdateState
 import com.saurav.pixelmusic.presentation.components.UpdateNotificationSheet
+import com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils
 
 
 
@@ -527,8 +530,21 @@ private fun AboutHeroCard(
                             is UpdateState.Available -> {
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     val isLiquidGlass = LocalLiquidGlassEnabled.current
+                                    val isBwTheme = LocalIsBlackAndWhiteTheme.current
                                     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                                     val downloadShape = AbsoluteSmoothCornerShape(16.dp, 60)
+
+                                    val primaryButtonColor = when {
+                                        isBwTheme -> if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary
+                                        isDark -> {
+                                            val hsl = FloatArray(3)
+                                            ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
+                                            hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
+                                            Color(ColorUtils.HSLToColor(hsl))
+                                        }
+                                        else -> MaterialTheme.colorScheme.primary
+                                    }
+                                    val buttonContentColor = if (isBwTheme && !isDark) MaterialTheme.colorScheme.onPrimary else Color.White
                                     if (!state.changelog.isNullOrBlank()) {
                                         val previewLines = remember(state.changelog) {
                                             val nonBlankLines = state.changelog
@@ -660,25 +676,28 @@ private fun AboutHeroCard(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(52.dp)
-                                            .liquidGlassInteractiveSurface(shape = downloadShape),
+                                            .liquidGlassInteractiveSurface(
+                                                shape = downloadShape,
+                                                surfaceTint = if (isLiquidGlass) primaryButtonColor.copy(alpha = if (isDark) 0.65f else 0.80f) else null
+                                            ),
                                         shape = downloadShape,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f) else MaterialTheme.colorScheme.primary,
-                                            contentColor = Color.White
+                                            containerColor = if (isLiquidGlass) Color.Transparent else primaryButtonColor,
+                                            contentColor = buttonContentColor
                                         ),
                                         elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
                                     ) {
                                         Icon(
                                             Icons.Rounded.Download, 
                                             contentDescription = null, 
-                                            tint = Color.White,
+                                            tint = buttonContentColor,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
                                             "Download Version ${state.versionName}", 
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = buttonContentColor
                                         )
                                     }
                                 }
