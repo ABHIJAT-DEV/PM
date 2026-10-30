@@ -301,11 +301,7 @@ fun HomeScreen(
         yourMixSongs.isNotEmpty() || hasHomeLoadingMinimumElapsed || isBenchmarkMode
     }
 
-    val yourMixSong: String = if (activeCollagePattern == CollagePattern.FLUID_BLOB) {
-        "Biological Asymmetry"
-    } else {
-        "Today's Mix for you"
-    }
+    val yourMixSong: String = "Today's Mix for you"
 
     val currentSong by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState.map { it.currentSong }
