@@ -161,14 +161,14 @@ fun AlbumArtCollage(
 
 /**
  * Fluid Blob-Grid Overlay with biological asymmetry.
- * Displays 6 album covers clipped to organic fluid bezier blobs with soft ambient halos,
- * dreamy floating gradient bubbles, and song titles underneath each blob.
+ * Displays 6 album covers clipped to organic fluid bezier blobs with soft ambient halos
+ * and dreamy floating gradient bubbles tightly fitted together.
  */
 @Composable
 fun FluidBlobCollage(
     songs: ImmutableList<Song>,
     modifier: Modifier = Modifier,
-    height: Dp = 500.dp,
+    height: Dp = 390.dp,
     onSongClick: (Song) -> Unit
 ) {
     val songsToShow = remember(songs) {
@@ -200,46 +200,40 @@ fun FluidBlobCollage(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .padding(horizontal = 8.dp)
+            .padding(horizontal = 4.dp)
     ) {
         val totalWidth = maxWidth
         val totalHeight = maxHeight
 
         // Floating Dreamy Accent Orbs
         FloatingOrb(
-            size = 30.dp,
+            size = 28.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.44f, y = totalHeight * 0.17f)
+                .offset(x = totalWidth * 0.48f, y = totalHeight * 0.19f)
         )
         FloatingOrb(
             size = 22.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.13f, y = totalHeight * 0.38f)
+                .offset(x = totalWidth * 0.13f, y = totalHeight * 0.48f)
         )
         FloatingOrb(
-            size = 26.dp,
+            size = 20.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.12f, y = totalHeight * 0.60f)
-        )
-        FloatingOrb(
-            size = 18.dp,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.88f, y = totalHeight * 0.72f)
+                .offset(x = totalWidth * 0.88f, y = totalHeight * 0.70f)
         )
 
-        // 1. Top-Left: Vertical Egg / Droplet
+        // 1. Top-Left: Vertical Egg / Droplet (Prominent)
         FluidBlobItem(
             song = songsToShow.getOrNull(0),
             shape = remember { FluidBlobShape(FluidBlobType.EGG_DROPLET) },
-            width = (totalWidth * 0.42f).coerceIn(145.dp, 175.dp),
-            height = (totalHeight * 0.34f).coerceIn(165.dp, 195.dp),
+            width = (totalWidth * 0.47f).coerceIn(160.dp, 188.dp),
+            height = (totalHeight * 0.47f).coerceIn(170.dp, 198.dp),
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 10.dp, y = 8.dp),
+                .offset(x = 6.dp, y = 4.dp),
             onClick = { songsToShow.getOrNull(0)?.let(onSongClick) }
         )
 
@@ -247,36 +241,37 @@ fun FluidBlobCollage(
         FluidBlobItem(
             song = songsToShow.getOrNull(1),
             shape = remember { FluidBlobShape(FluidBlobType.HORIZONTAL_BEAN) },
-            width = (totalWidth * 0.38f).coerceIn(130.dp, 160.dp),
-            height = (totalHeight * 0.23f).coerceIn(110.dp, 130.dp),
+            width = (totalWidth * 0.46f).coerceIn(150.dp, 178.dp),
+            height = (totalHeight * 0.35f).coerceIn(125.dp, 148.dp),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset(x = (-12).dp, y = 14.dp),
+                .offset(x = (-8).dp, y = 8.dp),
             onClick = { songsToShow.getOrNull(1)?.let(onSongClick) }
         )
 
-        // 3. Center: Slanted Oval
+        // 3. Center: Slanted Oval (Tucked organically into middle)
         FluidBlobItem(
             song = songsToShow.getOrNull(2),
             shape = remember { FluidBlobShape(FluidBlobType.SLANTED_OVAL) },
-            rotation = -22f,
-            width = (totalWidth * 0.46f).coerceIn(155.dp, 185.dp),
-            height = (totalHeight * 0.27f).coerceIn(130.dp, 150.dp),
+            rotation = -24f,
+            width = (totalWidth * 0.50f).coerceIn(170.dp, 198.dp),
+            height = (totalHeight * 0.36f).coerceIn(130.dp, 150.dp),
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(x = (-8).dp, y = 10.dp),
+                .offset(x = (-10).dp, y = 4.dp),
             onClick = { songsToShow.getOrNull(2)?.let(onSongClick) }
         )
 
-        // 4. Middle-Right: Pebble Circle
+        // 4. Middle-Right: Pebble Circle (Tightly placed beside center oval)
+        val circleSize = (totalWidth * 0.24f).coerceIn(80.dp, 94.dp)
         FluidBlobItem(
             song = songsToShow.getOrNull(3),
             shape = remember { FluidBlobShape(FluidBlobType.PEBBLE_CIRCLE) },
-            width = 78.dp,
-            height = 78.dp,
+            width = circleSize,
+            height = circleSize,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .offset(x = (-14).dp, y = 38.dp),
+                .offset(x = (-8).dp, y = 30.dp),
             onClick = { songsToShow.getOrNull(3)?.let(onSongClick) }
         )
 
@@ -284,11 +279,11 @@ fun FluidBlobCollage(
         FluidBlobItem(
             song = songsToShow.getOrNull(4),
             shape = remember { FluidBlobShape(FluidBlobType.BULB_TEARDROP) },
-            width = (totalWidth * 0.42f).coerceIn(145.dp, 175.dp),
-            height = (totalHeight * 0.27f).coerceIn(130.dp, 150.dp),
+            width = (totalWidth * 0.47f).coerceIn(160.dp, 188.dp),
+            height = (totalHeight * 0.39f).coerceIn(140.dp, 162.dp),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .offset(x = 12.dp, y = (-8).dp),
+                .offset(x = 8.dp, y = (-4).dp),
             onClick = { songsToShow.getOrNull(4)?.let(onSongClick) }
         )
 
@@ -296,11 +291,11 @@ fun FluidBlobCollage(
         FluidBlobItem(
             song = songsToShow.getOrNull(5),
             shape = remember { FluidBlobShape(FluidBlobType.AMOEBA_WAVE) },
-            width = (totalWidth * 0.38f).coerceIn(130.dp, 160.dp),
-            height = (totalHeight * 0.25f).coerceIn(120.dp, 140.dp),
+            width = (totalWidth * 0.46f).coerceIn(155.dp, 182.dp),
+            height = (totalHeight * 0.37f).coerceIn(135.dp, 158.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .offset(x = (-12).dp, y = (-10).dp),
+                .offset(x = (-6).dp, y = (-6).dp),
             onClick = { songsToShow.getOrNull(5)?.let(onSongClick) }
         )
     }
@@ -320,80 +315,54 @@ private fun FluidBlobItem(
     val haloColor = if (isDark) {
         MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f)
     } else {
-        Color(0xFFEADFD4).copy(alpha = 0.75f)
+        Color(0xFFEADFD4).copy(alpha = 0.85f)
     }
 
     val interactionSource = remember { MutableInteractionSource() }
 
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+    Box(
+        modifier = modifier.wrapContentSize(),
+        contentAlignment = Alignment.Center
     ) {
+        // Organic Halo Layer
         Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.wrapContentSize()
-        ) {
-            // Organic Halo Layer
-            Box(
-                modifier = Modifier
-                    .size(width + 12.dp, height + 12.dp)
-                    .graphicsLayer {
-                        rotationZ = rotation
-                        clip = true
-                        this.shape = shape
-                    }
-                    .background(haloColor)
-            )
-
-            // Inner Artwork
-            Box(
-                modifier = Modifier
-                    .size(width, height)
-                    .graphicsLayer {
-                        rotationZ = rotation
-                        clip = true
-                        this.shape = shape
-                    }
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary),
-                        onClick = onClick
-                    )
-            ) {
-                if (song != null) {
-                    SmartImage(
-                        model = song.albumArtUriString,
-                        contentDescription = song.title,
-                        contentScale = ContentScale.Crop,
-                        crossfadeDurationMillis = 0,
-                        isThumbnail = true,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-        }
-
-        // Title below blob
-        Text(
-            text = song?.title.orEmpty(),
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
             modifier = Modifier
-                .widthIn(max = width + 12.dp)
+                .size(width + 14.dp, height + 14.dp)
+                .graphicsLayer {
+                    rotationZ = rotation
+                    clip = true
+                    this.shape = shape
+                }
+                .background(haloColor)
+        )
+
+        // Inner Artwork
+        Box(
+            modifier = Modifier
+                .size(width, height)
+                .graphicsLayer {
+                    rotationZ = rotation
+                    clip = true
+                    this.shape = shape
+                }
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .clickable(
                     interactionSource = interactionSource,
-                    indication = null,
+                    indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary),
                     onClick = onClick
                 )
-        )
+        ) {
+            if (song != null) {
+                SmartImage(
+                    model = song.albumArtUriString,
+                    contentDescription = song.title,
+                    contentScale = ContentScale.Crop,
+                    crossfadeDurationMillis = 0,
+                    isThumbnail = true,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
     }
 }
 
