@@ -52,7 +52,7 @@ fun AlbumArtCollage(
         FluidBlobCollage(
             songs = songs,
             modifier = modifier.padding(padding),
-            height = if (height < 480.dp) 500.dp else height,
+            height = height,
             onSongClick = onSongClick
         )
         return
@@ -160,15 +160,17 @@ fun AlbumArtCollage(
 }
 
 /**
- * Fluid Blob-Grid Overlay with biological asymmetry.
- * Displays 6 album covers clipped to organic fluid bezier blobs with soft ambient halos
- * and dreamy floating gradient bubbles tightly fitted together.
+ * Fluid Blob-Grid Overlay with biological asymmetry & Material You Expressive shapes:
+ * - 3 Rounded Triangle Blobs in Top-Left, Top-Right, and Bottom-Left corners
+ * - 1 Scalloped 7-Sided Cookie in the 4th corner (Bottom-Right)
+ * - Material 3 Expressive 4-Lobe Clover Pill & 10-Sided Sunny badge in the middle
+ * All items fit together with clean negative space and zero overlapping.
  */
 @Composable
 fun FluidBlobCollage(
     songs: ImmutableList<Song>,
     modifier: Modifier = Modifier,
-    height: Dp = 390.dp,
+    height: Dp = 415.dp,
     onSongClick: (Song) -> Unit
 ) {
     val songsToShow = remember(songs) {
@@ -205,98 +207,124 @@ fun FluidBlobCollage(
         val totalWidth = maxWidth
         val totalHeight = maxHeight
 
-        // Floating Dreamy Accent Orbs
-        FloatingOrb(
-            size = 28.dp,
+        // 1. Top-Left Corner: Rounded Triangle Blob
+        val tlW = totalWidth * 0.45f
+        val tlH = totalHeight * 0.41f
+        FluidBlobItem(
+            song = songsToShow.getOrNull(0),
+            shape = remember { FluidBlobShape(FluidBlobType.CORNER_TRIANGLE_TL) },
+            width = tlW,
+            height = tlH,
+            haloOffsetX = 3.dp,
+            haloOffsetY = 2.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.48f, y = totalHeight * 0.19f)
+                .offset(x = totalWidth * 0.24f - (tlW + 14.dp) * 0.5f, y = totalHeight * 0.215f - (tlH + 14.dp) * 0.5f),
+            onClick = { songsToShow.getOrNull(0)?.let(onSongClick) }
         )
-        FloatingOrb(
-            size = 22.dp,
+
+        // 2. Top-Right Corner: Rounded Triangle Blob
+        val trW = totalWidth * 0.40f
+        val trH = totalHeight * 0.33f
+        FluidBlobItem(
+            song = songsToShow.getOrNull(1),
+            shape = remember { FluidBlobShape(FluidBlobType.CORNER_TRIANGLE_TR) },
+            width = trW,
+            height = trH,
+            haloOffsetX = 2.dp,
+            haloOffsetY = 3.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.13f, y = totalHeight * 0.48f)
+                .offset(x = totalWidth * 0.76f - (trW + 14.dp) * 0.5f, y = totalHeight * 0.19f - (trH + 14.dp) * 0.5f),
+            onClick = { songsToShow.getOrNull(1)?.let(onSongClick) }
+        )
+
+        // 3. Center Middle: Material You Expressive 4-Lobe Clover Pill
+        val centerW = totalWidth * 0.47f
+        val centerH = totalHeight * 0.40f
+        FluidBlobItem(
+            song = songsToShow.getOrNull(2),
+            shape = remember { FluidBlobShape(FluidBlobType.CENTER_EXPRESSIVE_CLOVER_PILL) },
+            width = centerW,
+            height = centerH,
+            haloOffsetX = 2.dp,
+            haloOffsetY = 2.dp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = totalWidth * 0.47f - (centerW + 14.dp) * 0.5f, y = totalHeight * 0.495f - (centerH + 14.dp) * 0.5f),
+            onClick = { songsToShow.getOrNull(2)?.let(onSongClick) }
+        )
+
+        // 4. Middle-Right: Material You Expressive 10-Sided Sunny Badge
+        val sunnySize = minOf(totalWidth * 0.23f, totalHeight * 0.20f)
+        FluidBlobItem(
+            song = songsToShow.getOrNull(3),
+            shape = remember { FluidBlobShape(FluidBlobType.MIDDLE_EXPRESSIVE_SUNNY) },
+            width = sunnySize,
+            height = sunnySize,
+            haloOffsetX = 1.dp,
+            haloOffsetY = 2.dp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = totalWidth * 0.845f - (sunnySize + 14.dp) * 0.5f, y = totalHeight * 0.535f - (sunnySize + 14.dp) * 0.5f),
+            onClick = { songsToShow.getOrNull(3)?.let(onSongClick) }
+        )
+
+        // 5. Bottom-Left Corner: Rounded Triangle Blob
+        val blW = totalWidth * 0.44f
+        val blH = totalHeight * 0.36f
+        FluidBlobItem(
+            song = songsToShow.getOrNull(4),
+            shape = remember { FluidBlobShape(FluidBlobType.CORNER_TRIANGLE_BL) },
+            width = blW,
+            height = blH,
+            haloOffsetX = 3.dp,
+            haloOffsetY = (-2).dp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = totalWidth * 0.245f - (blW + 14.dp) * 0.5f, y = totalHeight * 0.81f - (blH + 14.dp) * 0.5f),
+            onClick = { songsToShow.getOrNull(4)?.let(onSongClick) }
+        )
+
+        // 6. Bottom-Right (4th Corner): 7-Sided Scalloped Cookie
+        val cookieSize = minOf(totalWidth * 0.36f, totalHeight * 0.31f)
+        FluidBlobItem(
+            song = songsToShow.getOrNull(5),
+            shape = remember { FluidBlobShape(FluidBlobType.CORNER_COOKIE_BR) },
+            width = cookieSize,
+            height = cookieSize,
+            haloOffsetX = 2.dp,
+            haloOffsetY = 2.dp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = totalWidth * 0.765f - (cookieSize + 14.dp) * 0.5f, y = totalHeight * 0.825f - (cookieSize + 14.dp) * 0.5f),
+            onClick = { songsToShow.getOrNull(5)?.let(onSongClick) }
+        )
+
+        // Floating Dreamy Accent Orbs on top of shape edges
+        FloatingOrb(
+            size = 26.dp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = totalWidth * 0.43f, y = totalHeight * 0.19f)
         )
         FloatingOrb(
             size = 20.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.88f, y = totalHeight * 0.70f)
+                .offset(x = totalWidth * 0.11f, y = totalHeight * 0.37f)
         )
-
-        // 1. Top-Left: Vertical Egg / Droplet (Prominent)
-        FluidBlobItem(
-            song = songsToShow.getOrNull(0),
-            shape = remember { FluidBlobShape(FluidBlobType.EGG_DROPLET) },
-            width = (totalWidth * 0.47f).coerceIn(160.dp, 188.dp),
-            height = (totalHeight * 0.47f).coerceIn(170.dp, 198.dp),
+        FloatingOrb(
+            size = 22.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 6.dp, y = 4.dp),
-            onClick = { songsToShow.getOrNull(0)?.let(onSongClick) }
+                .offset(x = totalWidth * 0.11f, y = totalHeight * 0.61f)
         )
-
-        // 2. Top-Right: Horizontal Bean
-        FluidBlobItem(
-            song = songsToShow.getOrNull(1),
-            shape = remember { FluidBlobShape(FluidBlobType.HORIZONTAL_BEAN) },
-            width = (totalWidth * 0.46f).coerceIn(150.dp, 178.dp),
-            height = (totalHeight * 0.35f).coerceIn(125.dp, 148.dp),
+        FloatingOrb(
+            size = 20.dp,
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = (-8).dp, y = 8.dp),
-            onClick = { songsToShow.getOrNull(1)?.let(onSongClick) }
-        )
-
-        // 3. Center: Slanted Oval (Tucked organically into middle)
-        FluidBlobItem(
-            song = songsToShow.getOrNull(2),
-            shape = remember { FluidBlobShape(FluidBlobType.SLANTED_OVAL) },
-            rotation = -24f,
-            width = (totalWidth * 0.50f).coerceIn(170.dp, 198.dp),
-            height = (totalHeight * 0.36f).coerceIn(130.dp, 150.dp),
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(x = (-10).dp, y = 4.dp),
-            onClick = { songsToShow.getOrNull(2)?.let(onSongClick) }
-        )
-
-        // 4. Middle-Right: Pebble Circle (Tightly placed beside center oval)
-        val circleSize = (totalWidth * 0.24f).coerceIn(80.dp, 94.dp)
-        FluidBlobItem(
-            song = songsToShow.getOrNull(3),
-            shape = remember { FluidBlobShape(FluidBlobType.PEBBLE_CIRCLE) },
-            width = circleSize,
-            height = circleSize,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .offset(x = (-8).dp, y = 30.dp),
-            onClick = { songsToShow.getOrNull(3)?.let(onSongClick) }
-        )
-
-        // 5. Bottom-Left: Bulb Teardrop
-        FluidBlobItem(
-            song = songsToShow.getOrNull(4),
-            shape = remember { FluidBlobShape(FluidBlobType.BULB_TEARDROP) },
-            width = (totalWidth * 0.47f).coerceIn(160.dp, 188.dp),
-            height = (totalHeight * 0.39f).coerceIn(140.dp, 162.dp),
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = 8.dp, y = (-4).dp),
-            onClick = { songsToShow.getOrNull(4)?.let(onSongClick) }
-        )
-
-        // 6. Bottom-Right: Amoeba Wave
-        FluidBlobItem(
-            song = songsToShow.getOrNull(5),
-            shape = remember { FluidBlobShape(FluidBlobType.AMOEBA_WAVE) },
-            width = (totalWidth * 0.46f).coerceIn(155.dp, 182.dp),
-            height = (totalHeight * 0.37f).coerceIn(135.dp, 158.dp),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = (-6).dp, y = (-6).dp),
-            onClick = { songsToShow.getOrNull(5)?.let(onSongClick) }
+                .align(Alignment.TopStart)
+                .offset(x = totalWidth * 0.86f, y = totalHeight * 0.88f)
         )
     }
 }
@@ -309,13 +337,15 @@ private fun FluidBlobItem(
     height: Dp,
     modifier: Modifier = Modifier,
     rotation: Float = 0f,
+    haloOffsetX: Dp = 0.dp,
+    haloOffsetY: Dp = 0.dp,
     onClick: () -> Unit
 ) {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val haloColor = if (isDark) {
         MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f)
     } else {
-        Color(0xFFEADFD4).copy(alpha = 0.85f)
+        Color(0xFFE5D4C6).copy(alpha = 0.88f)
     }
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -327,6 +357,7 @@ private fun FluidBlobItem(
         // Organic Halo Layer
         Box(
             modifier = Modifier
+                .offset(x = haloOffsetX, y = haloOffsetY)
                 .size(width + 14.dp, height + 14.dp)
                 .graphicsLayer {
                     rotationZ = rotation

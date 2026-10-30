@@ -6,18 +6,24 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
- * Biological Asymmetry Fluid Blob Shapes.
- * Each shape defines a smooth, non-self-intersecting organic contour using cubic Bezier curves.
+ * Biological Asymmetry & Material You Expressive Collage Shapes.
+ * Provides:
+ * - Rounded Triangle Blobs for 3 corners (Top-Left, Top-Right, Bottom-Left)
+ * - 7-lobed Scalloped Cookie for the 4th corner (Bottom-Right)
+ * - Material 3 Expressive 4-Lobe Clover Pill & 10-Sided Sunny badge for the middle
  */
 enum class FluidBlobType {
-    EGG_DROPLET,
-    HORIZONTAL_BEAN,
-    SLANTED_OVAL,
-    PEBBLE_CIRCLE,
-    BULB_TEARDROP,
-    AMOEBA_WAVE
+    CORNER_TRIANGLE_TL,
+    CORNER_TRIANGLE_TR,
+    CORNER_TRIANGLE_BL,
+    CORNER_COOKIE_BR,
+    CENTER_EXPRESSIVE_CLOVER_PILL,
+    MIDDLE_EXPRESSIVE_SUNNY
 }
 
 class FluidBlobShape(private val type: FluidBlobType) : Shape {
@@ -35,57 +41,73 @@ class FluidBlobShape(private val type: FluidBlobType) : Shape {
             return currentOutline
         }
 
-        val w = size.width
-        val h = size.height
+        val cx = size.width * 0.5f
+        val cy = size.height * 0.5f
+        val rx = size.width * 0.485f
+        val ry = size.height * 0.485f
+
         val path = Path().apply {
             when (type) {
-                FluidBlobType.EGG_DROPLET -> {
-                    moveTo(0.48f * w, 0.04f * h)
-                    cubicTo(0.78f * w, 0.04f * h, 0.98f * w, 0.22f * h, 0.94f * w, 0.52f * h)
-                    cubicTo(0.92f * w, 0.76f * h, 0.76f * w, 0.98f * h, 0.48f * w, 0.98f * h)
-                    cubicTo(0.20f * w, 0.98f * h, 0.04f * w, 0.76f * h, 0.04f * w, 0.48f * h)
-                    cubicTo(0.04f * w, 0.20f * h, 0.18f * w, 0.04f * h, 0.48f * w, 0.04f * h)
-                    close()
+                FluidBlobType.CORNER_TRIANGLE_TL -> {
+                    buildRoundedTriangle(
+                        cx = cx,
+                        cy = cy,
+                        rx = rx,
+                        ry = ry,
+                        rotDeg = 10f,
+                        cornerRatio = 0.44f
+                    )
                 }
-                FluidBlobType.HORIZONTAL_BEAN -> {
-                    moveTo(0.25f * w, 0.08f * h)
-                    cubicTo(0.55f * w, 0.02f * h, 0.85f * w, 0.06f * h, 0.96f * w, 0.35f * h)
-                    cubicTo(1.02f * w, 0.65f * h, 0.82f * w, 0.95f * h, 0.55f * w, 0.92f * h)
-                    cubicTo(0.35f * w, 0.88f * h, 0.15f * w, 0.96f * h, 0.04f * w, 0.70f * h)
-                    cubicTo(-0.02f * w, 0.45f * h, 0.05f * w, 0.16f * h, 0.25f * w, 0.08f * h)
-                    close()
+                FluidBlobType.CORNER_TRIANGLE_TR -> {
+                    buildRoundedTriangle(
+                        cx = cx,
+                        cy = cy,
+                        rx = rx,
+                        ry = ry,
+                        rotDeg = 46f,
+                        cornerRatio = 0.44f
+                    )
                 }
-                FluidBlobType.SLANTED_OVAL -> {
-                    moveTo(0.35f * w, 0.05f * h)
-                    cubicTo(0.70f * w, 0.02f * h, 0.96f * w, 0.18f * h, 0.92f * w, 0.50f * h)
-                    cubicTo(0.90f * w, 0.78f * h, 0.70f * w, 0.98f * h, 0.42f * w, 0.95f * h)
-                    cubicTo(0.18f * w, 0.92f * h, 0.04f * w, 0.72f * h, 0.05f * w, 0.42f * h)
-                    cubicTo(0.06f * w, 0.15f * h, 0.18f * w, 0.07f * h, 0.35f * w, 0.05f * h)
-                    close()
+                FluidBlobType.CORNER_TRIANGLE_BL -> {
+                    buildRoundedTriangle(
+                        cx = cx,
+                        cy = cy,
+                        rx = rx,
+                        ry = ry,
+                        rotDeg = 5f,
+                        cornerRatio = 0.44f
+                    )
                 }
-                FluidBlobType.PEBBLE_CIRCLE -> {
-                    moveTo(0.50f * w, 0.02f * h)
-                    cubicTo(0.80f * w, 0.02f * h, 0.98f * w, 0.20f * h, 0.98f * w, 0.50f * h)
-                    cubicTo(0.98f * w, 0.80f * h, 0.80f * w, 0.98f * h, 0.50f * w, 0.98f * h)
-                    cubicTo(0.20f * w, 0.98f * h, 0.02f * w, 0.80f * h, 0.02f * w, 0.50f * h)
-                    cubicTo(0.02f * w, 0.20f * h, 0.20f * w, 0.02f * h, 0.50f * w, 0.02f * h)
-                    close()
+                FluidBlobType.CORNER_COOKIE_BR -> {
+                    buildScallopedPolygon(
+                        cx = cx,
+                        cy = cy,
+                        rx = rx,
+                        ry = ry,
+                        sides = 7,
+                        curve = 0.135f,
+                        rotDeg = 18f
+                    )
                 }
-                FluidBlobType.BULB_TEARDROP -> {
-                    moveTo(0.32f * w, 0.06f * h)
-                    cubicTo(0.62f * w, 0.02f * h, 0.90f * w, 0.18f * h, 0.95f * w, 0.48f * h)
-                    cubicTo(0.98f * w, 0.78f * h, 0.80f * w, 0.98f * h, 0.50f * w, 0.98f * h)
-                    cubicTo(0.20f * w, 0.98f * h, 0.02f * w, 0.78f * h, 0.04f * w, 0.46f * h)
-                    cubicTo(0.05f * w, 0.20f * h, 0.15f * w, 0.10f * h, 0.32f * w, 0.06f * h)
-                    close()
+                FluidBlobType.CENTER_EXPRESSIVE_CLOVER_PILL -> {
+                    buildExpressiveCloverPill(
+                        cx = cx,
+                        cy = cy,
+                        rx = rx,
+                        ry = ry * 0.76f,
+                        rotDeg = -28f
+                    )
                 }
-                FluidBlobType.AMOEBA_WAVE -> {
-                    moveTo(0.40f * w, 0.04f * h)
-                    cubicTo(0.72f * w, 0.02f * h, 0.98f * w, 0.20f * h, 0.96f * w, 0.52f * h)
-                    cubicTo(0.94f * w, 0.80f * h, 0.78f * w, 0.98f * h, 0.46f * w, 0.96f * h)
-                    cubicTo(0.22f * w, 0.94f * h, 0.02f * w, 0.80f * h, 0.04f * w, 0.48f * h)
-                    cubicTo(0.05f * w, 0.22f * h, 0.18f * w, 0.06f * h, 0.40f * w, 0.04f * h)
-                    close()
+                FluidBlobType.MIDDLE_EXPRESSIVE_SUNNY -> {
+                    buildScallopedPolygon(
+                        cx = cx,
+                        cy = cy,
+                        rx = rx,
+                        ry = ry,
+                        sides = 10,
+                        curve = 0.055f,
+                        rotDeg = 15f
+                    )
                 }
             }
         }
@@ -95,5 +117,96 @@ class FluidBlobShape(private val type: FluidBlobType) : Shape {
         cachedHeight = size.height
         cachedOutline = outline
         return outline
+    }
+
+    private fun Path.buildRoundedTriangle(
+        cx: Float,
+        cy: Float,
+        rx: Float,
+        ry: Float,
+        rotDeg: Float,
+        cornerRatio: Float
+    ) {
+        val rot = (rotDeg * PI / 180.0)
+        val cosRot = cos(rot).toFloat()
+        val sinRot = sin(rot).toFloat()
+        val d = 1f - cornerRatio
+        val vertexAngles = doubleArrayOf(0.0, 2.0 * PI / 3.0, 4.0 * PI / 3.0)
+        val stepsPerCorner = 36
+
+        var isFirst = true
+        for (aMid in vertexAngles) {
+            val vxBase = (d * cos(aMid)).toFloat()
+            val vyBase = (d * sin(aMid)).toFloat()
+            val startAngle = aMid - PI / 3.0
+            val sweep = 2.0 * PI / 3.0
+
+            for (i in 0..stepsPerCorner) {
+                val t = startAngle + sweep * (i.toDouble() / stepsPerCorner)
+                val x0 = (vxBase + cornerRatio * cos(t).toFloat()) * rx
+                val y0 = (vyBase + cornerRatio * sin(t).toFloat()) * ry
+                val x = cx + x0 * cosRot - y0 * sinRot
+                val y = cy + x0 * sinRot + y0 * cosRot
+                if (isFirst) {
+                    moveTo(x, y)
+                    isFirst = false
+                } else {
+                    lineTo(x, y)
+                }
+            }
+        }
+        close()
+    }
+
+    private fun Path.buildExpressiveCloverPill(
+        cx: Float,
+        cy: Float,
+        rx: Float,
+        ry: Float,
+        rotDeg: Float
+    ) {
+        val rot = (rotDeg * PI / 180.0)
+        val cosRot = cos(rot).toFloat()
+        val sinRot = sin(rot).toFloat()
+        val steps = 120
+        val maxFactor = 1.11f
+
+        for (i in 0 until steps) {
+            val t = 2.0 * PI * i / steps
+            val factor = ((1.0 + 0.11 * cos(4.0 * t - PI)) / maxFactor).toFloat()
+            val x0 = rx * factor * cos(t).toFloat()
+            val y0 = ry * factor * sin(t).toFloat()
+            val x = cx + x0 * cosRot - y0 * sinRot
+            val y = cy + x0 * sinRot + y0 * cosRot
+            if (i == 0) moveTo(x, y) else lineTo(x, y)
+        }
+        close()
+    }
+
+    private fun Path.buildScallopedPolygon(
+        cx: Float,
+        cy: Float,
+        rx: Float,
+        ry: Float,
+        sides: Int,
+        curve: Float,
+        rotDeg: Float
+    ) {
+        val rot = (rotDeg * PI / 180.0)
+        val cosRot = cos(rot).toFloat()
+        val sinRot = sin(rot).toFloat()
+        val steps = 144
+        val maxFactor = 1f + curve
+
+        for (i in 0 until steps) {
+            val t = 2.0 * PI * i / steps
+            val factor = ((1.0 + curve * cos(sides * t)) / maxFactor).toFloat()
+            val x0 = rx * factor * cos(t).toFloat()
+            val y0 = ry * factor * sin(t).toFloat()
+            val x = cx + x0 * cosRot - y0 * sinRot
+            val y = cy + x0 * sinRot + y0 * cosRot
+            if (i == 0) moveTo(x, y) else lineTo(x, y)
+        }
+        close()
     }
 }

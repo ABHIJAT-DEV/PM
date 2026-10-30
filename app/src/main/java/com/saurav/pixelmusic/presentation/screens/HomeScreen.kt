@@ -638,11 +638,11 @@ fun HomeScreen(
                             key = "album_art_collage",
                             contentType = "album_art_collage"
                         ) {
-                            val collageHeight = if (activeCollagePattern == CollagePattern.FLUID_BLOB) 390.dp else 400.dp
+                            val collageHeight = if (activeCollagePattern == CollagePattern.FLUID_BLOB) 415.dp else 400.dp
                             AlbumArtCollage(
                                 modifier = Modifier.fillMaxWidth(),
                                 songs = filteredYourMixSongs,
-                                padding = 8.dp,
+                                padding = 6.dp,
                                 height = collageHeight,
                                 pattern = activeCollagePattern,
                                 onSongClick = { song ->
