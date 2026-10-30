@@ -16,18 +16,10 @@ import org.json.JSONObject
 /** Integer constants for the `source_type` column — faster than LIKE checks on URI scheme. */
 object SourceType {
     const val LOCAL = 0
-    const val TELEGRAM = 1
-    const val NETEASE = 2
-    const val GDRIVE = 3
-    const val NAVIDROME = 5
     const val YOUTUBE = 7
 
     /** Derive source type from a content URI string (fallback for migration / conversion). */
     fun fromContentUri(uri: String): Int = when {
-        uri.startsWith("telegram://") -> TELEGRAM
-        uri.startsWith("netease://") -> NETEASE
-        uri.startsWith("gdrive://") -> GDRIVE
-        uri.startsWith("navidrome://") -> NAVIDROME
         uri.startsWith("youtube://") -> YOUTUBE
         else -> LOCAL
     }
@@ -120,22 +112,11 @@ private fun SongEntity.toSongInternal(artists: List<ArtistRef>): Song {
         discNumber = this.discNumber,
         dateAdded = this.dateAdded,
         year = this.year,
-        // Parse Telegram metadata from contentUriString
-        telegramChatId = if (this.contentUriString.startsWith("telegram://")) {
-            this.contentUriString.removePrefix("telegram://").split("/").getOrNull(0)?.toLongOrNull()
-        } else null,
-        telegramFileId = if (this.contentUriString.startsWith("telegram://")) {
-            this.contentUriString.removePrefix("telegram://").split("/").getOrNull(1)?.toIntOrNull()
-        } else null,
-        neteaseId = if (this.contentUriString.startsWith("netease://")) {
-            this.contentUriString.removePrefix("netease://").toLongOrNull()
-        } else null,
-        gdriveFileId = if (this.contentUriString.startsWith("gdrive://")) {
-            this.contentUriString.removePrefix("gdrive://")
-        } else null,
-        navidromeId = if (this.contentUriString.startsWith("navidrome://")) {
-            this.contentUriString.removePrefix("navidrome://")
-        } else null,
+        telegramChatId = null,
+        telegramFileId = null,
+        neteaseId = null,
+        gdriveFileId = null,
+        navidromeId = null,
         mimeType = this.mimeType,
         bitrate = this.bitrate,
         sampleRate = this.sampleRate,

@@ -520,33 +520,7 @@ fun PlaylistItem(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    if (playlist.source == "NETEASE") {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            painter = painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_),
-                            contentDescription = "Netease Music",
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    if (playlist.source == "TELEGRAM" || playlist.source == "TELEGRAM_TOPIC") {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            painter = painterResource(R.drawable.telegram),
-                            contentDescription = "Telegram",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    if (playlist.source == "TELEGRAM_TOPIC") {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Rounded.Topic,
-                            contentDescription = "Topic",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+
                     if (playlist.source == "YOUTUBE") {
                         Spacer(modifier = Modifier.width(8.dp))
                         Image(

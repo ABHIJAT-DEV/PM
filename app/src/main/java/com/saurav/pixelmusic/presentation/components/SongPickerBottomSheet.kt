@@ -309,13 +309,11 @@ fun SongPickerSelectionPane(
             .map { songs ->
                 when (storageFilter) {
                     StorageFilter.OFFLINE -> songs.filter { s ->
-                        s.telegramFileId == null && s.neteaseId == null && s.gdriveFileId == null &&
-                                s.navidromeId == null
+                        s.youtubeId.isNullOrBlank() && !s.contentUriString.startsWith("youtube://")
                     }
 
                     StorageFilter.ONLINE -> songs.filter { s ->
-                        s.telegramFileId != null || s.neteaseId != null || s.gdriveFileId != null ||
-                                s.navidromeId != null
+                        !s.youtubeId.isNullOrBlank() || s.contentUriString.startsWith("youtube://")
                     }
 
                     else -> songs

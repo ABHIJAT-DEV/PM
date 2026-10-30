@@ -1571,10 +1571,7 @@ class PlayerViewModel @Inject constructor(
             } ?: return@launch
 
             val uriStr = currentItem.uri
-            if (uriStr.isNotBlank() && (
-                uriStr.startsWith("youtube://") ||
-                uriStr.startsWith("gdrive:")
-            )) {
+            if (uriStr.isNotBlank() && uriStr.startsWith("youtube://")) {
                 launch(Dispatchers.IO) {
                     try {
                         dualPlayerEngine.resolveCloudUri(uriStr.toUri())
@@ -5108,12 +5105,7 @@ class PlayerViewModel @Inject constructor(
             // This populates the resolvedUriCache so resolveDataSpec finds it instantly.
             val startingUri = MediaItemBuilder.playbackUri(effectiveStartSong)
             val scheme = startingUri.scheme
-            if (
-                scheme == "netease" ||
-                scheme == "navidrome" ||
-                scheme == "gdrive" ||
-                scheme == "youtube"
-            ) {
+            if (scheme == "youtube") {
                 if (scheme == "youtube") {
                     val videoId = startingUri.toString().substringAfter("youtube://")
                     val ytSong = try {
@@ -5177,12 +5169,7 @@ class PlayerViewModel @Inject constructor(
         val mediaItem = MediaItemBuilder.build(song)
         val originalUri = mediaItem.localConfiguration?.uri ?: return mediaItem
         val scheme = originalUri.scheme
-        if (
-            scheme != "netease" &&
-            scheme != "navidrome" &&
-            scheme != "gdrive" &&
-            scheme != "youtube"
-        ) {
+        if (scheme != "youtube") {
             return mediaItem
         }
 

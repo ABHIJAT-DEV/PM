@@ -1334,11 +1334,7 @@ constructor(
         const val PROGRESS_TOTAL = "progress_total"
         const val PROGRESS_PHASE = "progress_phase"
         const val OUTPUT_TOTAL_SONGS = "output_total_songs"
-        private const val NETEASE_SONG_ID_OFFSET = 3_000_000_000_000L
-        private const val NETEASE_ALBUM_ID_OFFSET = 4_000_000_000_000L
-        private const val NETEASE_ARTIST_ID_OFFSET = 5_000_000_000_000L
-        private const val NETEASE_PARENT_DIRECTORY = "/Cloud/Netease"
-        private const val NETEASE_GENRE = "Netease Cloud"
+
 
         private const val YOUTUBE_SONG_ID_OFFSET = 15_000_000_000_000L
         private const val YOUTUBE_ALBUM_ID_OFFSET = 16_000_000_000_000L

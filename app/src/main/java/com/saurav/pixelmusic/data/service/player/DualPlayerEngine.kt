@@ -81,7 +81,7 @@ class DualPlayerEngine @Inject constructor(
         private const val AUDIO_OFFLOAD_BUFFERING_FALLBACK_MS = 4_000L
         private const val MAX_AUXILIARY_TIMELINE_ITEMS = 200
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
-        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "gdrive", "youtube")
+        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "youtube")
     }
 
     data class TransitionTarget(

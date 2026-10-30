@@ -49,9 +49,6 @@
 ![Settings & Theming](assets/IMG_20260923_100325.jpg)
 
 
-![Subsonic Integration](assets/IMG_20260923_100349.jpg)
-
-
 ![Dynamic Island & Capsule](assets/IMG_20260923_100359.jpg)
 
 
@@ -87,11 +84,9 @@
 - **Offline `.lrc` Integration:** Injects synchronized lyrics into downloaded files for playback across third-party media apps.
 - **MediaStore Auto-Sync:** Instant indexation in Android system-wide media library.
 
-### ☁️ Multi-Cloud & Self-Hosted Sync
+### ☁️ Cloud & Library Sync
 
-- **Subsonic API Protocol:** Direct integration with self-hosted music servers including Navidrome, Airsonic, and Funkwhale.
 - **YouTube Music Synchronization:** Seamlessly sync playlists, liked songs, history, and artist subscriptions with bi-directional cloud actions.
-- **NetEase Music Cloud:** Access NetEase playlists, charts, and recommendations.
 - **Accidental Deletion Safeguards:** Confirmation safeguards for deleting custom playlists and tracks.
 
 ### 🏝️ System Capsules & Smart OEM Integrations
