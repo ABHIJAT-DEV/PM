@@ -301,7 +301,11 @@ fun HomeScreen(
         yourMixSongs.isNotEmpty() || hasHomeLoadingMinimumElapsed || isBenchmarkMode
     }
 
-    val yourMixSong: String = "Today's Mix for you"
+    val yourMixSong: String = if (activeCollagePattern == CollagePattern.FLUID_BLOB) {
+        "Biological Asymmetry"
+    } else {
+        "Today's Mix for you"
+    }
 
     val currentSong by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState.map { it.currentSong }
@@ -628,17 +632,7 @@ fun HomeScreen(
                             contentType = "your_mix_header"
                         ) {
                             YourMixHeader(
-                                subtitle = yourMixSong,
-                                featuredSong = filteredYourMixSongs.firstOrNull(),
-                                onSongClick = {
-                                    filteredYourMixSongs.firstOrNull()?.let { song ->
-                                        if (usesFallbackHomeMix) {
-                                            playerViewModel.showAndPlaySongFromLibrary(song, queueName = "Your Mix")
-                                        } else {
-                                            playerViewModel.showAndPlaySong(song, filteredYourMixSongs, "Your Mix")
-                                        }
-                                    }
-                                }
+                                subtitle = yourMixSong
                             )
                         }
                     }
@@ -648,11 +642,12 @@ fun HomeScreen(
                             key = "album_art_collage",
                             contentType = "album_art_collage"
                         ) {
+                            val collageHeight = if (activeCollagePattern == CollagePattern.FLUID_BLOB) 500.dp else 400.dp
                             AlbumArtCollage(
                                 modifier = Modifier.fillMaxWidth(),
                                 songs = filteredYourMixSongs,
                                 padding = 14.dp,
-                                height = 400.dp,
+                                height = collageHeight,
                                 pattern = activeCollagePattern,
                                 onSongClick = { song ->
                                     if (usesFallbackHomeMix) {
@@ -1106,60 +1101,32 @@ private val YourMixFeaturedShape = racra.compose.smooth_corner_rect_library.Abso
 @Composable
 fun YourMixHeader(
     subtitle: String,
-    featuredSong: Song?,
-    onSongClick: () -> Unit
+    featuredSong: Song? = null,
+    onSongClick: (() -> Unit)? = null
 ) {
     val titleStyle = YourMixTitleStyle
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 24.dp, vertical = 8.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp, top = 8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.home_your_mix_title),
-                style = titleStyle,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Clip
-            )
+        Text(
+            text = stringResource(R.string.home_your_mix_title),
+            style = titleStyle,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Clip
+        )
 
-            Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-
-        if (featuredSong != null) {
-            Surface(
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .size(86.dp),
-                shape = YourMixFeaturedShape,
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                onClick = onSongClick
-            ) {
-                SmartImage(
-                    model = featuredSong.albumArtUriString,
-                    contentDescription = featuredSong.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    crossfadeDurationMillis = 0
-                )
-            }
-        }
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
     }
 }
 
