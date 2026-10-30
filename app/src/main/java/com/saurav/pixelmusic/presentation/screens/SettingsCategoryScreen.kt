@@ -1711,7 +1711,21 @@ fun SettingsCategoryScreen(
                                                 label = stringResource(R.string.setcat_ai_model_label),
                                                 description = stringResource(R.string.setcat_ai_model_desc),
                                                 options = uiState.availableModels.associate { it.name to it.displayName },
-                                                selectedKey = currentAiModel.ifEmpty { uiState.availableModels.firstOrNull()?.name ?: "" },
+                                                selectedKey = currentAiModel.ifEmpty {
+                                                    uiState.availableModels.firstOrNull { model ->
+                                                        val combined = (model.name + " " + model.displayName).lowercase()
+                                                        combined.contains("3.5") && combined.contains("flash") && combined.contains("lite")
+                                                    }?.name
+                                                        ?: uiState.availableModels.firstOrNull { model ->
+                                                            val combined = (model.name + " " + model.displayName).lowercase()
+                                                            combined.contains("flash") && combined.contains("lite")
+                                                        }?.name
+                                                        ?: uiState.availableModels.firstOrNull { model ->
+                                                            val combined = (model.name + " " + model.displayName).lowercase()
+                                                            combined.contains("flash") && !combined.contains("tts")
+                                                        }?.name
+                                                        ?: uiState.availableModels.firstOrNull()?.name ?: ""
+                                                },
                                                 onSelectionChanged = { settingsViewModel.onAiModelChange(it) },
                                                 leadingIcon = {
                                                     Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary)

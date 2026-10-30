@@ -162,6 +162,7 @@ class GeminiModelService @Inject constructor(
     private fun getDefaultModels(): List<GeminiModel> {
         // Full curated list derived from latest supported JSON spec
         return listOf(
+            GeminiModel("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite"),
             GeminiModel("gemini-3-flash-preview", "Gemini 3.0 Flash (Free Default)"),
             GeminiModel("gemini-3.1-pro-preview", "Gemini 3.1 Pro Preview"),
             GeminiModel("gemini-3.1-flash-lite-preview", "Gemini 3.1 Flash Lite"),

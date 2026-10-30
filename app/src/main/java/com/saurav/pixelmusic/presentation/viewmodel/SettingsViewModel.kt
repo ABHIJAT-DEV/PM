@@ -399,7 +399,7 @@ class SettingsViewModel @Inject constructor(
             val providerStr = aiProvider.value
             val provider = AiProvider.fromString(providerStr)
             aiPreferencesRepository.setApiKey(provider, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, providerStr)
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, providerStr, isApiKeySave = true)
             else clearModelsState(providerStr)
         }
     }
@@ -414,63 +414,63 @@ class SettingsViewModel @Inject constructor(
     fun onGeminiApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.GEMINI, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GEMINI")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GEMINI", isApiKeySave = true)
             else clearModelsState("GEMINI")
         }
     }
     fun onDeepseekApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.DEEPSEEK, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "DEEPSEEK")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "DEEPSEEK", isApiKeySave = true)
             else clearModelsState("DEEPSEEK")
         }
     }
     fun onGroqApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.GROQ, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GROQ")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GROQ", isApiKeySave = true)
             else clearModelsState("GROQ")
         }
     }
     fun onMistralApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.MISTRAL, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "MISTRAL")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "MISTRAL", isApiKeySave = true)
             else clearModelsState("MISTRAL")
         }
     }
     fun onNvidiaApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.NVIDIA, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "NVIDIA")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "NVIDIA", isApiKeySave = true)
             else clearModelsState("NVIDIA")
         }
     }
     fun onKimiApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.KIMI, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "KIMI")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "KIMI", isApiKeySave = true)
             else clearModelsState("KIMI")
         }
     }
     fun onGlmApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.GLM, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GLM")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GLM", isApiKeySave = true)
             else clearModelsState("GLM")
         }
     }
     fun onOpenAiApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.OPENAI, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "OPENAI")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "OPENAI", isApiKeySave = true)
             else clearModelsState("OPENAI")
         }
     }
     fun onOpenrouterApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.OPENROUTER, apiKey)
-            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "OPENROUTER")
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "OPENROUTER", isApiKeySave = true)
             else clearModelsState("OPENROUTER")
         }
     }
@@ -1918,7 +1918,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private fun fetchAvailableModels(apiKey: String, providerName: String) {
+    private fun fetchAvailableModels(apiKey: String, providerName: String, isApiKeySave: Boolean = false) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingModels = true, modelsFetchError = null) }
             try {
@@ -1939,12 +1939,15 @@ class SettingsViewModel @Inject constructor(
                     ) 
                 }
 
-                // Auto-select first model if nothing is selected yet
                 val currentModel = aiPreferencesRepository.getModel(provider).first()
                 val availableModelNames = models.map { it.name }.toSet()
-                if (models.isNotEmpty() && (currentModel.isBlank() || currentModel !in availableModelNames)) {
-                    val firstModel = models.first().name
-                    aiPreferencesRepository.setModel(provider, firstModel)
+                val preferredFastModel = selectPreferredFastModel(provider, models)
+
+                if (models.isNotEmpty()) {
+                    // When pasting a new API key or if nothing valid is selected, auto-select a faster model (e.g. Gemini 3.5 Flash Lite)
+                    if (isApiKeySave || currentModel.isBlank() || currentModel !in availableModelNames) {
+                        aiPreferencesRepository.setModel(provider, preferredFastModel)
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.update {
@@ -1953,6 +1956,57 @@ class SettingsViewModel @Inject constructor(
                         modelsFetchError = e.message ?: context.getString(R.string.models_fetch_failed),
                     )
                 }
+            }
+        }
+    }
+
+    private fun selectPreferredFastModel(
+        provider: AiProvider,
+        models: List<com.saurav.pixelmusic.data.ai.GeminiModel>
+    ): String {
+        if (models.isEmpty()) return ""
+
+        return when (provider) {
+            AiProvider.GEMINI -> {
+                // Prioritize fast, lightweight models (e.g. Gemini 3.5 Flash Lite, Gemini Flash Lite)
+                models.firstOrNull { model ->
+                    val combined = (model.name + " " + model.displayName).lowercase()
+                    combined.contains("3.5") && combined.contains("flash") && combined.contains("lite")
+                }?.name
+                    ?: models.firstOrNull { model ->
+                        val combined = (model.name + " " + model.displayName).lowercase()
+                        combined.contains("flash") && combined.contains("lite")
+                    }?.name
+                    ?: models.firstOrNull { model ->
+                        val combined = (model.name + " " + model.displayName).lowercase()
+                        combined.contains("3.5") && combined.contains("flash")
+                    }?.name
+                    ?: models.firstOrNull { model ->
+                        val combined = (model.name + " " + model.displayName).lowercase()
+                        combined.contains("flash") && !combined.contains("tts") && !combined.contains("image")
+                    }?.name
+                    ?: models.first().name
+            }
+            AiProvider.GROQ -> {
+                models.firstOrNull { it.name.contains("8b-instant", ignoreCase = true) }?.name
+                    ?: models.firstOrNull { it.name.contains("instant", ignoreCase = true) }?.name
+                    ?: models.first().name
+            }
+            AiProvider.OPENAI -> {
+                models.firstOrNull { it.name.contains("gpt-4o-mini", ignoreCase = true) }?.name
+                    ?: models.firstOrNull { it.name.contains("mini", ignoreCase = true) }?.name
+                    ?: models.first().name
+            }
+            AiProvider.OPENROUTER -> {
+                models.firstOrNull { it.name.contains("flash-lite", ignoreCase = true) }?.name
+                    ?: models.firstOrNull { it.name.contains("mini", ignoreCase = true) }?.name
+                    ?: models.first().name
+            }
+            else -> {
+                models.firstOrNull { it.name.contains("flash-lite", ignoreCase = true) }?.name
+                    ?: models.firstOrNull { it.name.contains("mini", ignoreCase = true) }?.name
+                    ?: models.firstOrNull { it.name.contains("small", ignoreCase = true) }?.name
+                    ?: models.first().name
             }
         }
     }

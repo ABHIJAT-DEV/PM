@@ -32,7 +32,7 @@ import java.time.Duration
 class GeminiAiClient(private val apiKey: String) : AiClient {
 
     companion object {
-        private const val DEFAULT_GEMINI_MODEL = "gemini-3-flash-preview"
+        private const val DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
     }
@@ -240,6 +240,7 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
     }
 
     private fun getDefaultModels(): List<String> = listOf(
+        "gemini-3.5-flash-lite",
         "gemini-3-flash-preview",
         "gemini-3.1-pro-preview",
         "gemini-3.1-flash-lite-preview",
