@@ -100,13 +100,8 @@ fun ScreenWrapper(
         label = "depthBlur"
     )
 
-    // Soft 28dp rounded card corners while zooming out into the background
-    val targetRadius = if (shouldRunDepthEffects && isUnderneath) 28f else 0f
-    val cornerRadius by animateFloatAsState(
-        targetValue = targetRadius,
-        animationSpec = tween(durationMillis = 420, easing = depthEasing),
-        label = "cornerRadius"
-    )
+    // All screens running depth effects (zooming in, zooming out, or sitting underneath) stay smoothly rounded with modern 32dp card corners
+    val cornerRadius = if (shouldRunDepthEffects) 32f else 0f
 
     // Subtle dim overlay on the receding background page
     val targetDim = if (shouldRunDepthEffects && isUnderneath) 0.28f else 0f
