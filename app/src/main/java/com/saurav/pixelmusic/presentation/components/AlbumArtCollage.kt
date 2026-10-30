@@ -207,113 +207,117 @@ fun FluidBlobCollage(
             .height(height)
             .padding(horizontal = 4.dp)
     ) {
-        val totalWidthPx = maxWidth.value
-        val totalHeightPx = maxHeight.value
-        val scaleX = totalWidthPx / 832f
-        val scaleY = totalHeightPx / 1044f
+        val totalWidth = maxWidth
+        val totalHeight = maxHeight
 
         // 1. Top-Left Blob (Shape 1)
+        val tlWidth = totalWidth * 0.465f
+        val tlHeight = totalHeight * 0.365f
         FluidBlobItem(
             song = songsToShow.getOrNull(0),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_TOP_LEFT) },
-            width = (405f * scaleX).dp,
-            height = (421f * scaleY).dp,
+            width = tlWidth,
+            height = tlHeight,
             haloPadding = 8.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (55.5f * scaleX).dp, y = (75.5f * scaleY).dp),
+                .offset(x = totalWidth * 0.020f, y = totalHeight * 0.022f),
             onClick = { songsToShow.getOrNull(0)?.let(onSongClick) }
         )
 
         // 2. Top-Right Blob (Shape 2)
+        val trWidth = totalWidth * 0.385f
+        val trHeight = totalHeight * 0.332f
         FluidBlobItem(
             song = songsToShow.getOrNull(1),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_TOP_RIGHT) },
-            width = (308f * scaleX).dp,
-            height = (343f * scaleY).dp,
+            width = trWidth,
+            height = trHeight,
             haloPadding = 7.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (486.5f * scaleX).dp, y = (50.5f * scaleY).dp),
+                .offset(x = totalWidth * 0.550f, y = totalHeight * 0.022f),
             onClick = { songsToShow.getOrNull(1)?.let(onSongClick) }
         )
 
         // 3. Center Blob (Shape 3)
+        val centerWidth = totalWidth * 0.385f
+        val centerHeight = totalHeight * 0.332f
         FluidBlobItem(
             song = songsToShow.getOrNull(2),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_CENTER) },
-            width = (381f * scaleX).dp,
-            height = (379f * scaleY).dp,
+            width = centerWidth,
+            height = centerHeight,
             haloPadding = 7.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (239.0f * scaleX).dp, y = (304.5f * scaleY).dp),
+                .offset(x = totalWidth * 0.295f, y = totalHeight * 0.328f),
             onClick = { songsToShow.getOrNull(2)?.let(onSongClick) }
         )
 
         // 4. Right Circle (Shape 4)
+        val circleWidth = totalWidth * 0.225f
+        val circleHeight = totalHeight * 0.200f
         FluidBlobItem(
             song = songsToShow.getOrNull(3),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_RIGHT_CIRCLE) },
-            width = (180f * scaleX).dp,
-            height = (179f * scaleY).dp,
+            width = circleWidth,
+            height = circleHeight,
             haloPadding = 6.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (611.5f * scaleX).dp, y = (464.5f * scaleY).dp),
+                .offset(x = totalWidth * 0.720f, y = totalHeight * 0.422f),
             onClick = { songsToShow.getOrNull(3)?.let(onSongClick) }
         )
 
         // 5. Bottom-Left Blob (Shape 5)
+        val blWidth = totalWidth * 0.515f
+        val blHeight = totalHeight * 0.350f
         FluidBlobItem(
             song = songsToShow.getOrNull(4),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_BOTTOM_LEFT) },
-            width = (384f * scaleX).dp,
-            height = (349f * scaleY).dp,
+            width = blWidth,
+            height = blHeight,
             haloPadding = 8.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (72.5f * scaleX).dp, y = (609.5f * scaleY).dp),
+                .offset(x = totalWidth * 0.020f, y = totalHeight * 0.590f),
             onClick = { songsToShow.getOrNull(4)?.let(onSongClick) }
         )
 
         // 6. Bottom-Right Cookie (Shape 6)
+        val cookieWidth = totalWidth * 0.322f
+        val cookieHeight = totalHeight * 0.282f
         FluidBlobItem(
             song = songsToShow.getOrNull(5),
             shape = remember { FluidBlobShape(FluidBlobType.COOKIE_BOTTOM_RIGHT) },
-            width = (237f * scaleX).dp,
-            height = (235f * scaleY).dp,
+            width = cookieWidth,
+            height = cookieHeight,
             haloPadding = 6.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (512.0f * scaleX).dp, y = (694.6f * scaleY).dp),
+                .offset(x = totalWidth * 0.618f, y = totalHeight * 0.672f),
             onClick = { songsToShow.getOrNull(5)?.let(onSongClick) }
         )
 
         // Floating Dreamy Accent Orbs
         FloatingOrb(
-            size = 28.dp,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = (350f * scaleX).dp, y = (265f * scaleY).dp)
-        )
-        FloatingOrb(
             size = 20.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (98f * scaleX).dp, y = (478f * scaleY).dp)
+                .offset(x = totalWidth * 0.93f, y = totalHeight * 0.04f)
         )
         FloatingOrb(
-            size = 24.dp,
+            size = 18.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (100f * scaleX).dp, y = (698f * scaleY).dp)
+                .offset(x = totalWidth * 0.23f, y = totalHeight * 0.46f)
         )
         FloatingOrb(
-            size = 20.dp,
+            size = 16.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (695f * scaleX).dp, y = (835f * scaleY).dp)
+                .offset(x = totalWidth * 0.58f, y = totalHeight * 0.94f)
         )
     }
 }
