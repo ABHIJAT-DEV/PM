@@ -6,17 +6,27 @@
 
 package com.saurav.pixelmusic.presentation.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -24,49 +34,70 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Celebration
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DirectionsCar
+import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FlexibleBottomAppBar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FlexibleBottomAppBar
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeExtendedFloatingActionButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumExtendedFloatingActionButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -76,7 +107,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -85,32 +118,32 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.border
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import android.content.res.Resources
-import kotlin.math.max
-import kotlin.math.min
-import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
-import androidx.compose.ui.res.stringArrayResource
-import androidx.compose.ui.res.stringResource
 import com.saurav.pixelmusic.R
-import androidx.compose.ui.text.style.TextOverflow
+import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
+import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
+import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 @Composable
 fun PlaylistCreationTypeDialog(
@@ -144,14 +177,6 @@ fun PlaylistCreationTypeDialog(
             ) else listOf(
                 Color.White.copy(alpha = 0.14f),
                 Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-    val sheenBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                Color.Transparent
             )
         )
     }
@@ -294,25 +319,6 @@ private fun CreationModeCard(
 ) {
     val isLiquidGlass = LocalLiquidGlassEnabled.current
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-    val sheenBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                Color.Transparent
-            )
-        )
-    }
     val cardShape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = 22.dp,
         smoothnessAsPercentTL = 60,
@@ -373,746 +379,391 @@ private fun CreationModeCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateAiPlaylistDialog(
     visible: Boolean,
     isGenerating: Boolean,
+    isSuccess: Boolean = false,
+    status: String? = null,
     error: String?,
     onDismiss: () -> Unit,
     onGenerate: (playlistName: String?, prompt: String, minLength: Int, maxLength: Int) -> Unit
 ) {
-    val transitionState = remember { MutableTransitionState(false) }
-    transitionState.targetState = visible
+    if (visible) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    if (transitionState.currentState || transitionState.targetState) {
-        Dialog(
+        ModalBottomSheet(
             onDismissRequest = {
                 if (!isGenerating) {
                     onDismiss()
                 }
             },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                )
+            },
+            shape = AbsoluteSmoothCornerShape(
+                cornerRadiusTL = 28.dp,
+                smoothnessAsPercentTL = 60,
+                cornerRadiusTR = 28.dp,
+                smoothnessAsPercentTR = 60
             )
         ) {
-            AnimatedVisibility(
-                visibleState = transitionState,
-                enter = slideInVertically(initialOffsetY = { it / 7 }) + fadeIn(animationSpec = tween(220)),
-                exit = slideOutVertically(targetOffsetY = { it / 7 }) + fadeOut(animationSpec = tween(200)),
-                label = "create_ai_playlist_dialog"
-            ) {
-                CreateAiPlaylistContent(
-                    isGenerating = isGenerating,
-                    error = error,
-                    onDismiss = onDismiss,
-                    onGenerate = onGenerate
-                )
-            }
+            CreateAiPlaylistSheetContent(
+                isGenerating = isGenerating,
+                isSuccess = isSuccess,
+                status = status,
+                error = error,
+                onDismiss = onDismiss,
+                onGenerate = onGenerate
+            )
         }
     }
 }
 
 @Composable
-private fun CreateAiPlaylistContent(
+private fun CreateAiPlaylistSheetContent(
     isGenerating: Boolean,
+    isSuccess: Boolean,
+    status: String?,
     error: String?,
     onDismiss: () -> Unit,
     onGenerate: (playlistName: String?, prompt: String, minLength: Int, maxLength: Int) -> Unit
 ) {
-    var playlistName by rememberSaveable { mutableStateOf("") }
     var basePrompt by rememberSaveable { mutableStateOf("") }
-    var includeGenres by rememberSaveable { mutableStateOf("") }
-    var excludeGenres by rememberSaveable { mutableStateOf("") }
-    var preferredLanguage by rememberSaveable { mutableStateOf("") }
-    var minSongsInput by rememberSaveable { mutableStateOf("12") }
-    var maxSongsInput by rememberSaveable { mutableStateOf("24") }
-    var selectedMood by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedActivity by rememberSaveable { mutableStateOf<String?>(null) }
-    var energyLevel by rememberSaveable { mutableIntStateOf(3) }
-    var discoveryLevel by rememberSaveable { mutableIntStateOf(3) }
-    var prioritizeFavorites by rememberSaveable { mutableStateOf(true) }
-    var avoidExplicit by rememberSaveable { mutableStateOf(false) }
-    var localError by rememberSaveable { mutableStateOf<String?>(null) }
-    val controlsEnabled = !isGenerating
-    val resources = LocalContext.current.resources
+    var playlistName by rememberSaveable { mutableStateOf("") }
+    var selectedLength by rememberSaveable { mutableStateOf("Auto") }
+    var selectedEnergy by rememberSaveable { mutableStateOf("Auto") }
+    var isRefining by rememberSaveable { mutableStateOf(false) }
 
-    val moodOptions = stringArrayResource(R.array.presentation_batch_e_ai_mood_options).toList()
-    val activityOptions = stringArrayResource(R.array.presentation_batch_e_ai_activity_options).toList()
-    val eraOptionsList = stringArrayResource(R.array.presentation_batch_e_ai_era_options).toList()
-    var selectedEra by remember { mutableStateOf(eraOptionsList.first()) }
-
-    val generatedPromptPreview = buildAiPlaylistPrompt(
-        res = resources,
-        basePrompt = basePrompt,
-        mood = selectedMood,
-        activity = selectedActivity,
-        era = selectedEra,
-        includeGenres = includeGenres,
-        excludeGenres = excludeGenres,
-        preferredLanguage = preferredLanguage,
-        energyLevel = energyLevel,
-        discoveryLevel = discoveryLevel,
-        prioritizeFavorites = prioritizeFavorites,
-        avoidExplicit = avoidExplicit
-    )
-
-    val triggerGeneration: () -> Unit = generation@{
-        val minSongs = minSongsInput.toIntOrNull()
-        val maxSongs = maxSongsInput.toIntOrNull()
-
-        if (generatedPromptPreview.isBlank()) {
-            localError = resources.getString(R.string.presentation_batch_e_ai_error_add_instruction)
-            return@generation
+    val triggerGeneration: () -> Unit = {
+        if (basePrompt.isNotBlank()) {
+            val builtPrompt = buildString {
+                append(basePrompt.trim())
+                if (selectedEnergy != "Auto") {
+                    append(". Energy: $selectedEnergy.")
+                }
+                if (selectedLength != "Auto") {
+                    append(". Length: $selectedLength tracks.")
+                }
+            }
+            val (minCount, maxCount) = when (selectedLength) {
+                "Up to 15" -> 10 to 15
+                "Up to 25" -> 15 to 25
+                "Up to 50" -> 25 to 50
+                else -> 12 to 30
+            }
+            onGenerate(playlistName.trim().ifBlank { null }, builtPrompt, minCount, maxCount)
         }
-
-        if (minSongs == null || maxSongs == null) {
-            localError = resources.getString(R.string.presentation_batch_e_ai_error_song_range)
-            return@generation
-        }
-
-        val normalizedMin = min(minSongs.coerceIn(5, 150), maxSongs.coerceIn(5, 150))
-        val normalizedMax = max(minSongs.coerceIn(5, 150), maxSongs.coerceIn(5, 150))
-
-        localError = null
-        onGenerate(
-            playlistName.trim().ifBlank { null },
-            generatedPromptPreview,
-            normalizedMin,
-            normalizedMax
-        )
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.presentation_batch_e_ai_playlist_lab_title),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontFamily = GoogleSansRounded,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 28.sp
-                        )
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                navigationIcon = {
-                    FilledTonalIconButton(
-                        modifier = Modifier.padding(start = 6.dp),
-                        enabled = !isGenerating,
-                        onClick = onDismiss,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    ) {
-                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close))
-                    }
-                }
+    AnimatedContent(
+        targetState = isGenerating,
+        transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(200)) },
+        label = "ai_playlist_sheet_generation_state"
+    ) { generating ->
+        if (generating) {
+            AiPlaylistCreationAnimationView(
+                status = status,
+                isSuccess = isSuccess,
+                error = error,
+                onDismiss = onDismiss
             )
-        },
-        bottomBar = {
-            BottomAppBar(
-                windowInsets = WindowInsets.navigationBars,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                tonalElevation = 2.dp,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Absolute.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilledTonalButton(
-                        modifier = Modifier.padding(start = 10.dp),
-                        onClick = {
-                            playlistName = ""
-                            basePrompt = ""
-                            includeGenres = ""
-                            excludeGenres = ""
-                            preferredLanguage = ""
-                            minSongsInput = "12"
-                            maxSongsInput = "24"
-                            selectedMood = null
-                            selectedActivity = null
-                            selectedEra = eraOptionsList.first()
-                            energyLevel = 3
-                            discoveryLevel = 3
-                            prioritizeFavorites = true
-                            avoidExplicit = false
-                            localError = null
-                        },
-                        shape = CircleShape,
-                        enabled = !isGenerating,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
-                    ) {
-                        Text(stringResource(R.string.presentation_batch_e_ai_reset))
-                    }
-
-                    MediumExtendedFloatingActionButton(
-                        onClick = {
-                            if (!isGenerating) {
-                                triggerGeneration()
-                            }
-                        },
-                        modifier = Modifier.alpha(if (controlsEnabled) 1f else 0.72f),
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        shape = CircleShape
-                    ) {
-                        if (isGenerating) {
-                            LoadingIndicator(
-                                modifier = Modifier.height(28.dp),
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(stringResource(R.string.presentation_batch_e_ai_generating))
-                        } else {
-                            Icon(Icons.Rounded.AutoAwesome, contentDescription = null)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(stringResource(R.string.presentation_batch_e_ai_generate))
-                        }
-                    }
-                }
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surface
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
-                .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Spacer(modifier = Modifier.height(4.dp))
-
-            HeroAiCard()
-
-            AiSectionCard(
-                title = stringResource(R.string.presentation_batch_e_ai_section_intent),
-                enabled = controlsEnabled
-            ) {
-                OutlinedTextField(
-                    value = playlistName,
-                    onValueChange = { playlistName = it },
-                    label = { Text(stringResource(R.string.presentation_batch_e_ai_playlist_name_optional)) },
-                    placeholder = { Text("Auto-generated by AI if left blank") },
-                    enabled = controlsEnabled,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = basePrompt,
-                    onValueChange = { basePrompt = it },
-                    label = { Text(stringResource(R.string.presentation_batch_e_ai_feel_label)) },
-                    placeholder = { Text(stringResource(R.string.presentation_batch_e_ai_feel_placeholder)) },
-                    enabled = controlsEnabled,
-                    minLines = 2,
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            AiSectionCard(
-                title = stringResource(R.string.presentation_batch_e_ai_section_direction),
-                enabled = controlsEnabled
-            ) {
-                Text(stringResource(R.string.presentation_batch_e_ai_mood_label), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                ChipsSingleSelect(
-                    options = moodOptions,
-                    selected = selectedMood,
-                    enabled = controlsEnabled,
-                    onSelectedChange = { selectedMood = it }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(stringResource(R.string.presentation_batch_e_ai_activity_label), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                ChipsSingleSelect(
-                    options = activityOptions,
-                    selected = selectedActivity,
-                    enabled = controlsEnabled,
-                    onSelectedChange = { selectedActivity = it }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(stringResource(R.string.presentation_batch_e_ai_era_label), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                ChipsSingleSelect(
-                    options = eraOptionsList,
-                    selected = selectedEra,
-                    enabled = controlsEnabled,
-                    allowCustom = false,
-                    onSelectedChange = { selectedEra = it ?: eraOptionsList.first() }
-                )
-            }
-
-            AiSectionCard(
-                title = stringResource(R.string.presentation_batch_e_ai_section_curation),
-                enabled = controlsEnabled
-            ) {
-                LevelSelector(
-                    label = stringResource(R.string.presentation_batch_e_ai_energy_label),
-                    selectedLevel = energyLevel,
-                    enabled = controlsEnabled,
-                    description = stringResource(R.string.presentation_batch_e_ai_energy_description),
-                    onLevelSelected = { energyLevel = it }
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                LevelSelector(
-                    label = stringResource(R.string.presentation_batch_e_ai_discovery_label),
-                    selectedLevel = discoveryLevel,
-                    enabled = controlsEnabled,
-                    description = stringResource(R.string.presentation_batch_e_ai_discovery_description),
-                    onLevelSelected = { discoveryLevel = it }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = minSongsInput,
-                        onValueChange = { value: String ->
-                            minSongsInput = value.filter { ch: Char -> ch.isDigit() }.take(3)
-                        },
-                        label = { Text(stringResource(R.string.presentation_batch_e_ai_min_songs)) },
-                        enabled = controlsEnabled,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
+        } else {
+            AnimatedContent(
+                targetState = isRefining,
+                transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(180)) },
+                label = "ai_playlist_sheet_refine_state"
+            ) { refining ->
+                if (refining) {
+                    AiPlaylistRefineView(
+                        prompt = basePrompt,
+                        playlistName = playlistName,
+                        onPlaylistNameChange = { playlistName = it },
+                        selectedLength = selectedLength,
+                        onLengthChange = { selectedLength = it },
+                        selectedEnergy = selectedEnergy,
+                        onEnergyChange = { selectedEnergy = it },
+                        onBack = { isRefining = false },
+                        onDismiss = onDismiss
                     )
-                    OutlinedTextField(
-                        value = maxSongsInput,
-                        onValueChange = { value: String ->
-                            maxSongsInput = value.filter { ch: Char -> ch.isDigit() }.take(3)
-                        },
-                        label = { Text(stringResource(R.string.presentation_batch_e_ai_max_songs)) },
-                        enabled = controlsEnabled,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
+                } else {
+                    AiPlaylistMainTuneView(
+                        prompt = basePrompt,
+                        onPromptChange = { basePrompt = it },
+                        selectedLength = selectedLength,
+                        selectedEnergy = selectedEnergy,
+                        error = error,
+                        onOpenRefine = { isRefining = true },
+                        onDismiss = onDismiss,
+                        onGenerate = triggerGeneration
                     )
                 }
             }
-
-            AiSectionCard(
-                title = stringResource(R.string.presentation_batch_e_ai_section_filters),
-                enabled = controlsEnabled
-            ) {
-                OutlinedTextField(
-                    value = includeGenres,
-                    onValueChange = { includeGenres = it },
-                    label = { Text(stringResource(R.string.presentation_batch_e_ai_prioritize_genres)) },
-                    placeholder = { Text(stringResource(R.string.presentation_batch_e_ai_prioritize_genres_placeholder)) },
-                    enabled = controlsEnabled,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = excludeGenres,
-                    onValueChange = { excludeGenres = it },
-                    label = { Text(stringResource(R.string.presentation_batch_e_ai_avoid_genres)) },
-                    placeholder = { Text(stringResource(R.string.presentation_batch_e_ai_avoid_genres_placeholder)) },
-                    enabled = controlsEnabled,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = preferredLanguage,
-                    onValueChange = { preferredLanguage = it },
-                    label = { Text(stringResource(R.string.presentation_batch_e_ai_preferred_language)) },
-                    placeholder = { Text(stringResource(R.string.presentation_batch_e_ai_preferred_language_placeholder)) },
-                    enabled = controlsEnabled,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                ToggleRow(
-                    title = stringResource(R.string.presentation_batch_e_ai_prioritize_favorites),
-                    checked = prioritizeFavorites,
-                    enabled = controlsEnabled,
-                    onCheckedChange = { prioritizeFavorites = it }
-                )
-                ToggleRow(
-                    title = stringResource(R.string.presentation_batch_e_ai_avoid_explicit),
-                    checked = avoidExplicit,
-                    enabled = controlsEnabled,
-                    onCheckedChange = { avoidExplicit = it }
-                )
-            }
-
-            if (!localError.isNullOrBlank() || !error.isNullOrBlank()) {
-                Card(
-                    shape = AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = 16.dp,
-                        smoothnessAsPercentTL = 60,
-                        cornerRadiusTR = 16.dp,
-                        smoothnessAsPercentTR = 60,
-                        cornerRadiusBL = 16.dp,
-                        smoothnessAsPercentBL = 60,
-                        cornerRadiusBR = 16.dp,
-                        smoothnessAsPercentBR = 60
-                    ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = localError ?: error.orEmpty(),
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-            }
-
-            AiSectionCard(title = stringResource(R.string.presentation_batch_e_ai_section_prompt_preview)) {
-                Text(
-                    text = if (generatedPromptPreview.isBlank()) {
-                        stringResource(R.string.presentation_batch_e_ai_prompt_preview_empty)
-                    } else {
-                        generatedPromptPreview
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(96.dp))
         }
     }
 }
 
 @Composable
-private fun HeroAiCard() {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
-        ),
-        shape = AbsoluteSmoothCornerShape(
-            cornerRadiusTL = 30.dp,
-            smoothnessAsPercentTL = 60,
-            cornerRadiusTR = 20.dp,
-            smoothnessAsPercentTR = 60,
-            cornerRadiusBL = 20.dp,
-            smoothnessAsPercentBL = 60,
-            cornerRadiusBR = 30.dp,
-            smoothnessAsPercentBR = 60
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.14f),
-                    shape = AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = 14.dp,
-                        smoothnessAsPercentTL = 60,
-                        cornerRadiusTR = 28.dp,
-                        smoothnessAsPercentTR = 60,
-                        cornerRadiusBL = 28.dp,
-                        smoothnessAsPercentBL = 60,
-                        cornerRadiusBR = 14.dp,
-                        smoothnessAsPercentBR = 60
-                    )
-                ) {
-                    Row(modifier = Modifier.padding(12.dp)) {
-                        Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.presentation_batch_e_ai_hero_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Text(
-                        text = stringResource(R.string.presentation_batch_e_ai_hero_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
-                    )
-                }
-            }
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.22f)
-            )
-            Text(
-                text = stringResource(R.string.presentation_batch_e_ai_hero_library_note),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun AiSectionCard(
-    title: String,
-    enabled: Boolean = true,
-    content: @Composable ColumnScope.() -> Unit
+private fun AiPlaylistMainTuneView(
+    prompt: String,
+    onPromptChange: (String) -> Unit,
+    selectedLength: String,
+    selectedEnergy: String,
+    error: String?,
+    onOpenRefine: () -> Unit,
+    onDismiss: () -> Unit,
+    onGenerate: () -> Unit
 ) {
-    Card(
-        shape = AbsoluteSmoothCornerShape(
-            cornerRadiusTL = 20.dp,
-            smoothnessAsPercentTL = 60,
-            cornerRadiusTR = 20.dp,
-            smoothnessAsPercentTR = 60,
-            cornerRadiusBL = 20.dp,
-            smoothnessAsPercentBL = 60,
-            cornerRadiusBR = 20.dp,
-            smoothnessAsPercentBR = 60
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .alpha(if (enabled) 1f else 0.6f)
-                .padding(14.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            content()
-        }
-    }
-}
+    val haptic = LocalHapticFeedback.current
+    val scrollState = rememberScrollState()
 
-@Composable
-private fun ChipsSingleSelect(
-    options: List<String>,
-    selected: String?,
-    enabled: Boolean = true,
-    allowCustom: Boolean = true,
-    onSelectedChange: (String?) -> Unit
-) {
-    var showCustomDialog by remember { mutableStateOf(false) }
-    var customInputValue by remember { mutableStateOf("") }
-    
-    // Check if current selection is a custom value (not in predefined options)
-    val isCustomSelection = selected != null && options.none { it == selected }
-    
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 32.dp)
+            .imePadding(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        options.forEachIndexed { index, option ->
-            val isSelected = selected == option
-            val usePrimaryPalette = index % 2 == 0
-            val selectedContainer = if (usePrimaryPalette) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.tertiaryContainer
-            }
-            val selectedLabel = if (usePrimaryPalette) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onTertiaryContainer
-            }
-            FilterChip(
-                selected = isSelected,
-                enabled = enabled,
-                shape = CircleShape,
-                onClick = {
-                    onSelectedChange(if (isSelected) null else option)
-                },
-                border = BorderStroke(
-                    color = Color.Transparent,
-                    width = 0.dp
-                ),
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = selectedContainer,
-                    selectedLabelColor = selectedLabel,
-                    selectedLeadingIconColor = selectedLabel,
-                    containerColor = selectedContainer.copy(alpha = 0.24f),
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                label = { Text(option) }
-            )
-        }
-        
-        // Add custom chip
-        if (allowCustom) {
-            val customIndex = options.size
-            val usePrimaryPalette = customIndex % 2 == 0
-            val selectedContainer = if (usePrimaryPalette) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.tertiaryContainer
-            }
-            val selectedLabel = if (usePrimaryPalette) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onTertiaryContainer
-            }
-            
-            FilterChip(
-                selected = isCustomSelection,
-                enabled = enabled,
-                shape = CircleShape,
-                onClick = {
-                    if (isCustomSelection) {
-                        onSelectedChange(null)
-                    } else {
-                        customInputValue = selected ?: ""
-                        showCustomDialog = true
-                    }
-                },
-                border = BorderStroke(
-                    color = Color.Transparent,
-                    width = 0.dp
-                ),
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = selectedContainer,
-                    selectedLabelColor = selectedLabel,
-                    selectedLeadingIconColor = selectedLabel,
-                    containerColor = selectedContainer.copy(alpha = 0.24f),
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                leadingIcon = if (!isCustomSelection) {
-                    { Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp)) }
-                } else null,
-                label = { 
-                    Text(
-                        if (isCustomSelection) selected
-                        else stringResource(R.string.presentation_batch_e_ai_custom_chip)
-                    ) 
-                }
-            )
-        }
-    }
-    
-    // Custom input dialog
-    if (showCustomDialog) {
-        AlertDialog(
-            onDismissRequest = { showCustomDialog = false },
-            icon = { Icon(Icons.Rounded.Add, null) },
-            title = { Text(stringResource(R.string.presentation_batch_e_ai_enter_custom_title)) },
-            text = {
-                OutlinedTextField(
-                    value = customInputValue,
-                    onValueChange = { customInputValue = it },
-                    label = { Text(stringResource(R.string.presentation_batch_e_ai_enter_custom_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                FilledTonalButton(
-                    onClick = {
-                        if (customInputValue.isNotBlank()) {
-                            onSelectedChange(customInputValue.trim())
-                        }
-                        showCustomDialog = false
-                        customInputValue = ""
-                    }
-                ) {
-                    Text(stringResource(R.string.action_save), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            },
-            dismissButton = {
-                FilledTonalButton(onClick = { 
-                    showCustomDialog = false
-                    customInputValue = ""
-                }) {
-                    Text(stringResource(R.string.dismiss), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        )
-    }
-}
-
-@Composable
-private fun LevelSelector(
-    label: String,
-    selectedLevel: Int,
-    enabled: Boolean = true,
-    description: String? = null,
-    onLevelSelected: (Int) -> Unit
-) {
-    var showDescription by remember { mutableStateOf(false) }
-    
-    Column(modifier = Modifier.animateContentSize()) {
+        // Top Header Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                if (description != null) {
-                    IconButton(
-                        onClick = { showDescription = !showDescription },
-                        modifier = Modifier.size(28.dp)
-                    ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = Color(0xFFFF8F00).copy(alpha = 0.16f),
+                    shape = AbsoluteSmoothCornerShape(14.dp, 60)
+                ) {
+                    Box(modifier = Modifier.padding(8.dp)) {
                         Icon(
-                            imageVector = Icons.Outlined.Info,
+                            imageVector = Icons.Rounded.AutoAwesome,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = if (showDescription) {
-                                MaterialTheme.colorScheme.primary
+                            tint = Color(0xFFFF8F00),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Tune today's mix",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            FilledTonalIconButton(
+                onClick = onDismiss,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+            ) {
+                Icon(Icons.Rounded.Close, contentDescription = "Close")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Ambient glowing fluid orbs visual matching reference
+        GlowingOrbsAura(isPulsing = false)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Large Headline
+        Text(
+            text = "What do you want to hear?",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontFamily = GoogleSansRounded,
+                fontWeight = FontWeight.Bold,
+                fontSize = 26.sp
+            ),
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "Preview a change before using it today",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Prompt input container with gradient arrow action button
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    if (prompt.isEmpty()) {
+                        Text(
+                            text = "Upbeat morning",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                        )
+                    }
+                    BasicTextField(
+                        value = prompt,
+                        onValueChange = onPromptChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        singleLine = false,
+                        maxLines = 3
+                    )
+                }
+
+                // Gradient action button with arrow ->
+                val canSubmit = prompt.isNotBlank()
+                Surface(
+                    onClick = {
+                        if (canSubmit) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onGenerate()
+                        }
+                    },
+                    enabled = canSubmit,
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier
+                        .size(width = 62.dp, height = 54.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            brush = if (canSubmit) {
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFFFFA726), Color(0xFFFF7043))
+                                )
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        MaterialTheme.colorScheme.surfaceContainerHighest
+                                    )
+                                )
                             }
+                        )
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = "Generate",
+                            tint = if (canSubmit) Color.White else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
             }
-            Text(
-                text = stringResource(R.string.presentation_batch_e_ai_level_out_of_five, selectedLevel),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
         }
-        
-        if (showDescription && description != null) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp)
-            )
+
+        if (!error.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
         }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            (1..5).forEach { level ->
-                SegmentedButton(
-                    selected = selectedLevel == level,
-                    enabled = enabled,
-                    onClick = { onLevelSelected(level) },
-                    shape = SegmentedButtonDefaults.itemShape(index = level - 1, count = 5),
-                    label = { Text(level.toString()) }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Categorized quick vibe suggestions matching reference 259986.jpg
+        SuggestionChipsGrid(
+            onChipClick = { label ->
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onPromptChange(label)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Refine Section Card matching 259986.jpg
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .clickable(onClick = onOpenRefine)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Box(modifier = Modifier.padding(8.dp)) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Refine your mix",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RefineBadge(text = "Length: $selectedLength")
+                        RefineBadge(text = "Energy: $selectedEnergy")
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = "Refine options",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -1120,95 +771,560 @@ private fun LevelSelector(
 }
 
 @Composable
-private fun ToggleRow(
-    title: String,
-    checked: Boolean,
-    enabled: Boolean = true,
-    onCheckedChange: (Boolean) -> Unit
+private fun AiPlaylistRefineView(
+    prompt: String,
+    playlistName: String,
+    onPlaylistNameChange: (String) -> Unit,
+    selectedLength: String,
+    onLengthChange: (String) -> Unit,
+    selectedEnergy: String,
+    onEnergyChange: (String) -> Unit,
+    onBack: () -> Unit,
+    onDismiss: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 32.dp)
+            .imePadding()
+    ) {
+        // Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilledTonalIconButton(
+                onClick = onBack,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+            }
+
+            Text(
+                text = "Refine your mix",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            FilledTonalIconButton(
+                onClick = onDismiss,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+            ) {
+                Icon(Icons.Rounded.Close, contentDescription = "Close")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Prompt title echo matching reference 259990.jpg
+        Text(
+            text = prompt.ifBlank { "Your mix" },
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontFamily = GoogleSansRounded,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Playlist length card
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Playlist length",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Auto", "Up to 15", "Up to 25", "Up to 50").forEach { option ->
+                        ChoiceFilterChip(
+                            label = option,
+                            selected = selectedLength == option,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onLengthChange(option)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Energy card
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Energy",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Auto", "Calm", "Steady", "Energetic").forEach { option ->
+                        ChoiceFilterChip(
+                            label = option,
+                            selected = selectedEnergy == option,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onEnergyChange(option)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Optional custom playlist name
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Custom playlist title (optional)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = playlistName,
+                    onValueChange = onPlaylistNameChange,
+                    placeholder = { Text("Auto-generated by AI if left blank") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Auto follows your request. Selecting energy adds a requirement; fewer songs may match.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Done button matching 259990.jpg
+        Surface(
+            onClick = onBack,
+            shape = CircleShape,
+            color = Color.Transparent,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        listOf(Color(0xFFFFA726), Color(0xFFFF7043))
+                    )
+                )
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Done",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiPlaylistCreationAnimationView(
+    status: String?,
+    isSuccess: Boolean,
+    error: String?,
+    onDismiss: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "ai_generation_infinite")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "halo_rotation"
+    )
+
+    // Animated phases
+    val phases = listOf(
+        "Tuning to your taste & listening patterns…",
+        "Scanning local & cloud tracks for matching vibes…",
+        "Discovering fresh recommendations & flow…",
+        "Harmonizing energy transitions & playlist order…",
+        "Synthesizing smart titles & final touches…"
+    )
+    var phaseIndex by remember { mutableIntStateOf(0) }
+    LaunchedEffect(isSuccess, error) {
+        if (!isSuccess && error == null) {
+            while (true) {
+                kotlinx.coroutines.delay(2200)
+                phaseIndex = (phaseIndex + 1) % phases.size
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(top = 12.dp, bottom = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Orb aura and central icon
+        Box(
+            modifier = Modifier.size(160.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            GlowingOrbsAura(isPulsing = true)
+
+            // Central rotating / pulsing badge
+            Surface(
+                shape = CircleShape,
+                color = if (isSuccess) Color(0xFF2E7D32) else MaterialTheme.colorScheme.surfaceContainerHigh,
+                border = if (!isSuccess) BorderStroke(
+                    2.dp,
+                    Brush.sweepGradient(
+                        listOf(
+                            Color(0xFFFFA726),
+                            Color(0xFFFF7043),
+                            Color(0xFFAB47BC),
+                            Color(0xFFFFA726)
+                        )
+                    )
+                ) else null,
+                modifier = Modifier
+                    .size(72.dp)
+                    .graphicsLayer {
+                        if (!isSuccess) rotationZ = rotation
+                    }
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isSuccess) Icons.Rounded.CheckCircle else Icons.Rounded.AutoAwesome,
+                        contentDescription = null,
+                        tint = if (isSuccess) Color.White else Color(0xFFFF9800),
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Headline
+        Text(
+            text = if (isSuccess) "Mix synthesized!" else "Creating your AI Playlist…",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontFamily = GoogleSansRounded,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Animated stage subtitle
+        AnimatedContent(
+            targetState = if (isSuccess) {
+                "Opening your new playlist now…"
+            } else {
+                status ?: phases[phaseIndex]
+            },
+            transitionSpec = {
+                (slideInVertically { height -> height / 2 } + fadeIn()) togetherWith
+                        (slideOutVertically { height -> -height / 2 } + fadeOut())
+            },
+            label = "ai_generation_phase_text"
+        ) { currentText ->
+            Text(
+                text = currentText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Animated Equalizer Visualizer Bars
+        if (!isSuccess && error == null) {
+            AnimatedEqualizerBars()
+        }
+
+        // If error occurred
+        if (!error.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FilledTonalButton(onClick = onDismiss) {
+                        Text("Dismiss")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlowingOrbsAura(isPulsing: Boolean) {
+    val infiniteTransition = rememberInfiniteTransition(label = "orbs_infinite")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.28318f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isPulsing) 2500 else 5000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "orbs_phase"
+    )
+
+    val scaleMultiplier = if (isPulsing) 1.25f else 1.0f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(72.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        val orbColors = listOf(
+            Color(0xFFFFA726), // Amber
+            Color(0xFFFF7043), // Sunset Orange
+            Color(0xFFFF5252), // Coral
+            Color(0xFFFFB74D)  // Golden Peach
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            orbColors.forEachIndexed { index, color ->
+                val orbOffset = kotlin.math.sin(phase + index * 1.57f) * (if (isPulsing) 10f else 4f)
+                val orbScale = (1.0f + kotlin.math.cos(phase + index * 1.57f) * 0.18f) * scaleMultiplier
+
+                Box(
+                    modifier = Modifier
+                        .offset(y = orbOffset.dp)
+                        .size(34.dp)
+                        .graphicsLayer {
+                            scaleX = orbScale
+                            scaleY = orbScale
+                            alpha = if (isPulsing) 0.92f else 0.80f
+                        }
+                        .blur(8.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(color, color.copy(alpha = 0.5f), Color.Transparent)
+                            ),
+                            shape = CircleShape
+                        )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimatedEqualizerBars() {
+    val infiniteTransition = rememberInfiniteTransition(label = "eq_bars_transition")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.28318f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "eq_phase"
+    )
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.height(28.dp)
+    ) {
+        listOf(0.0f, 1.2f, 2.4f, 3.6f, 4.8f).forEach { offset ->
+            val heightFraction = 0.3f + 0.7f * ((kotlin.math.sin(phase + offset) + 1f) / 2f)
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height((24 * heightFraction).dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            listOf(Color(0xFFFFA726), Color(0xFFFF7043))
+                        )
+                    )
+            )
+        }
+    }
+}
+
+private data class VibeChip(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+
+@Composable
+private fun SuggestionChipsGrid(
+    onChipClick: (String) -> Unit
+) {
+    val chipsRow1 = listOf(
+        VibeChip("Feel good", Icons.Rounded.History),
+        VibeChip("YouTube", Icons.Rounded.GraphicEq),
+        VibeChip("Workout", Icons.Rounded.FitnessCenter)
+    )
+    val chipsRow2 = listOf(
+        VibeChip("Chill evening", Icons.Rounded.NightsStay),
+        VibeChip("Upbeat morning", Icons.Rounded.WbSunny),
+        VibeChip("Music to study", Icons.Rounded.Headphones)
+    )
+    val chipsRow3 = listOf(
+        VibeChip("Party", Icons.Rounded.Celebration),
+        VibeChip("Road trip", Icons.Rounded.DirectionsCar),
+        VibeChip("Late night", Icons.Rounded.Bedtime)
+    )
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            chipsRow1.forEach { chip ->
+                VibeSuggestionPill(chip = chip, onClick = { onChipClick(chip.label) })
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            chipsRow2.forEach { chip ->
+                VibeSuggestionPill(chip = chip, onClick = { onChipClick(chip.label) })
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            chipsRow3.forEach { chip ->
+                VibeSuggestionPill(chip = chip, onClick = { onChipClick(chip.label) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun VibeSuggestionPill(
+    chip: VibeChip,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = chip.icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = chip.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+private fun RefineBadge(text: String) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        Switch(
-            checked = checked,
-            enabled = enabled,
-            onCheckedChange = onCheckedChange
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
     }
 }
 
 @Composable
-private fun buildAiPlaylistPrompt(
-    res: Resources,
-    basePrompt: String,
-    mood: String?,
-    activity: String?,
-    era: String,
-    includeGenres: String,
-    excludeGenres: String,
-    preferredLanguage: String,
-    energyLevel: Int,
-    discoveryLevel: Int,
-    prioritizeFavorites: Boolean,
-    avoidExplicit: Boolean
-): String {
-    val anyEraText = res.getString(R.string.presentation_batch_e_ai_era_any)
-    val promptParts = mutableListOf<String>()
-
-    if (basePrompt.isNotBlank()) {
-        promptParts += res.getString(
-            R.string.presentation_batch_e_ai_prompt_core_request,
-            basePrompt.trim()
+private fun ChoiceFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
         )
     }
-    if (!mood.isNullOrBlank()) {
-        promptParts += res.getString(R.string.presentation_batch_e_ai_prompt_mood, mood)
-    }
-    if (!activity.isNullOrBlank()) {
-        promptParts += res.getString(R.string.presentation_batch_e_ai_prompt_activity, activity)
-    }
-    if (era != anyEraText) {
-        promptParts += res.getString(R.string.presentation_batch_e_ai_prompt_era, era)
-    }
-    if (includeGenres.isNotBlank()) {
-        promptParts += res.getString(
-            R.string.presentation_batch_e_ai_prompt_prioritize_genres,
-            includeGenres.trim()
-        )
-    }
-    if (excludeGenres.isNotBlank()) {
-        promptParts += res.getString(
-            R.string.presentation_batch_e_ai_prompt_avoid_genres,
-            excludeGenres.trim()
-        )
-    }
-    if (preferredLanguage.isNotBlank()) {
-        promptParts += res.getString(
-            R.string.presentation_batch_e_ai_prompt_preferred_language,
-            preferredLanguage.trim()
-        )
-    }
-
-    val e = energyLevel.coerceIn(1, 5)
-    val d = discoveryLevel.coerceIn(1, 5)
-    promptParts += res.getString(R.string.presentation_batch_e_ai_prompt_energy, e)
-    promptParts += res.getString(R.string.presentation_batch_e_ai_prompt_discovery, d)
-
-    if (prioritizeFavorites) {
-        promptParts += res.getString(R.string.presentation_batch_e_ai_prompt_prioritize_favorites)
-    }
-    if (avoidExplicit) {
-        promptParts += res.getString(R.string.presentation_batch_e_ai_prompt_avoid_explicit)
-    }
-
-    promptParts += res.getString(R.string.presentation_batch_e_ai_prompt_smooth_transitions)
-
-    return promptParts.joinToString(separator = " ").trim()
 }
