@@ -302,22 +302,22 @@ fun FluidBlobCollage(
 
         // Floating Dreamy Accent Orbs
         FloatingOrb(
-            size = 20.dp,
+            size = 28.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.93f, y = totalHeight * 0.04f)
+                .offset(x = totalWidth * 0.92f, y = totalHeight * 0.04f)
         )
         FloatingOrb(
-            size = 18.dp,
+            size = 26.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.23f, y = totalHeight * 0.46f)
+                .offset(x = totalWidth * 0.22f, y = totalHeight * 0.45f)
         )
         FloatingOrb(
-            size = 16.dp,
+            size = 24.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.58f, y = totalHeight * 0.94f)
+                .offset(x = totalWidth * 0.57f, y = totalHeight * 0.93f)
         )
     }
 }
