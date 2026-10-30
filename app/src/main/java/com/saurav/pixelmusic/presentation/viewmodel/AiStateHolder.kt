@@ -214,7 +214,6 @@ class AiStateHolder @Inject constructor(
                             _aiStatus.value = "Success! Your mix is ready."
                             _aiSuccess.value = true
                             notificationManager.showCompletion("Generation Complete", "Your AI Mix is ready to play.")
-                            toastEmitter?.invoke("AI Playlist created: $resolvedPlaylistName")
                             kotlinx.coroutines.delay(1200) // AI UI Optimization: Let the success animation breathe
                             dismissAiPlaylistSheet()
                         } else {

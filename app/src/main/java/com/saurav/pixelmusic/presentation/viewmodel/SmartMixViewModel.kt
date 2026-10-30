@@ -354,7 +354,7 @@ class SmartMixViewModel @Inject constructor(
                     it.copy(
                         isGenerating = false,
                         generatedPlaylistId = newPlaylist.id,
-                        toastMessage = "Smart Mix created successfully!"
+                        toastMessage = null
                     )
                 }
             } catch (e: Exception) {

@@ -11,6 +11,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
@@ -23,11 +24,16 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -125,9 +131,11 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -137,11 +145,24 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -506,47 +527,106 @@ private fun CreateAiPlaylistSheetContent(
         }
     }
 
-    AnimatedContent(
-        targetState = isGenerating,
-        transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(200)) },
-        label = "ai_playlist_sheet_generation_state"
-    ) { generating ->
-        if (generating) {
-            AiPlaylistCreationAnimationView(
-                status = status,
-                isSuccess = isSuccess,
-                error = error,
-                onDismiss = onDismiss
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
             )
-        } else {
-            AnimatedContent(
-                targetState = isRefining,
-                transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(180)) },
-                label = "ai_playlist_sheet_refine_state"
-            ) { refining ->
-                if (refining) {
-                    AiPlaylistRefineView(
-                        prompt = basePrompt,
-                        playlistName = playlistName,
-                        onPlaylistNameChange = { playlistName = it },
-                        selectedLength = selectedLength,
-                        onLengthChange = { selectedLength = it },
-                        selectedEnergy = selectedEnergy,
-                        onEnergyChange = { selectedEnergy = it },
-                        onBack = { isRefining = false },
-                        onDismiss = onDismiss
-                    )
-                } else {
-                    AiPlaylistMainTuneView(
-                        prompt = basePrompt,
-                        onPromptChange = { basePrompt = it },
-                        selectedLength = selectedLength,
-                        selectedEnergy = selectedEnergy,
-                        error = error,
-                        onOpenRefine = { isRefining = true },
-                        onDismiss = onDismiss,
-                        onGenerate = triggerGeneration
-                    )
+    ) {
+        AnimatedContent(
+            targetState = isRefining && !isGenerating,
+            transitionSpec = {
+                (fadeIn(tween(260, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.96f, animationSpec = tween(260, easing = FastOutSlowInEasing))) togetherWith
+                        (fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+                                scaleOut(targetScale = 0.96f, animationSpec = tween(180, easing = FastOutSlowInEasing)))
+            },
+            label = "ai_playlist_sheet_refine_state"
+        ) { showRefine ->
+            if (showRefine) {
+                AiPlaylistRefineView(
+                    prompt = basePrompt,
+                    playlistName = playlistName,
+                    onPlaylistNameChange = { playlistName = it },
+                    selectedLength = selectedLength,
+                    onLengthChange = { selectedLength = it },
+                    selectedEnergy = selectedEnergy,
+                    onEnergyChange = { selectedEnergy = it },
+                    onBack = { isRefining = false },
+                    onDismiss = onDismiss
+                )
+            } else {
+                val scrollState = rememberScrollState()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(bottom = 32.dp)
+                        .imePadding(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Top Row: Clean close button (hidden while actively generating)
+                    AnimatedVisibility(visible = !isGenerating) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = onDismiss,
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Close")
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(if (isGenerating) 18.dp else 8.dp))
+
+                    // Persistently mounted 4 large Material You expressive shapes with shadow + glow
+                    // Smoothly transitions from gentle floating to active spinning/zooming/moving/morphing
+                    FloatingExpressiveShapes(isGenerating = isGenerating && !isSuccess)
+
+                    Spacer(modifier = Modifier.height(22.dp))
+
+                    AnimatedContent(
+                        targetState = isGenerating,
+                        transitionSpec = {
+                            (fadeIn(tween(320, easing = FastOutSlowInEasing)) +
+                                    slideInVertically(animationSpec = tween(320, easing = FastOutSlowInEasing)) { it / 6 }) togetherWith
+                                    (fadeOut(tween(200, easing = FastOutSlowInEasing)) +
+                                            slideOutVertically(animationSpec = tween(200, easing = FastOutSlowInEasing)) { -it / 6 })
+                        },
+                        label = "ai_playlist_sheet_generation_state"
+                    ) { generating ->
+                        if (generating) {
+                            AiPlaylistCreationAnimationView(
+                                status = status,
+                                isSuccess = isSuccess,
+                                error = error,
+                                onDismiss = onDismiss
+                            )
+                        } else {
+                            AiPlaylistMainTuneView(
+                                prompt = basePrompt,
+                                onPromptChange = { basePrompt = it },
+                                selectedLength = selectedLength,
+                                selectedEnergy = selectedEnergy,
+                                error = error,
+                                onOpenRefine = { isRefining = true },
+                                onGenerate = triggerGeneration
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -561,45 +641,14 @@ private fun AiPlaylistMainTuneView(
     selectedEnergy: String,
     error: String?,
     onOpenRefine: () -> Unit,
-    onDismiss: () -> Unit,
     onGenerate: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    val scrollState = rememberScrollState()
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 32.dp)
-            .imePadding(),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Top Row: Clean close button only (Header text and icon removed per user request)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FilledTonalIconButton(
-                onClick = onDismiss,
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                )
-            ) {
-                Icon(Icons.Rounded.Close, contentDescription = "Close")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Floating Material You expressive shapes with dynamic shadow & glow
-        FloatingExpressiveShapes(isGenerating = false)
-
-        Spacer(modifier = Modifier.height(18.dp))
-
         // Large Headline
         Text(
             text = "What do you want to hear?",
@@ -609,7 +658,8 @@ private fun AiPlaylistMainTuneView(
                 fontSize = 26.sp
             ),
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -618,16 +668,19 @@ private fun AiPlaylistMainTuneView(
             text = "Describe a vibe, scenario, or mood",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         // Prompt input container with dynamic app palette & Material You arrow button
         Surface(
-            shape = AbsoluteSmoothCornerShape(26.dp, 60),
+            shape = AbsoluteSmoothCornerShape(28.dp, 60),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -676,7 +729,7 @@ private fun AiPlaylistMainTuneView(
                     label = "arrow_btn_scale"
                 )
                 val buttonCorner by animateDpAsState(
-                    targetValue = if (isPressed) 26.dp else 18.dp,
+                    targetValue = if (isPressed) 28.dp else 20.dp,
                     animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
                     label = "arrow_btn_corner"
                 )
@@ -716,7 +769,9 @@ private fun AiPlaylistMainTuneView(
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer,
                 shape = AbsoluteSmoothCornerShape(16.dp, 60),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
             ) {
                 Text(
                     text = error,
@@ -727,17 +782,18 @@ private fun AiPlaylistMainTuneView(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
-        // Thick Material You quick-select pills in a responsive FlowRow (no squishing, no wrapping bugs!)
-        ExpressiveQuickSelectGrid(
+        // Horizontal scrollable line of thick Material You expressive shortcut pills
+        ExpressiveQuickSelectRow(
+            selectedPrompt = prompt,
             onPillClick = { vibe ->
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onPromptChange(vibe)
             }
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         // Refine Section Card following app theme palette
         Surface(
@@ -745,6 +801,7 @@ private fun AiPlaylistMainTuneView(
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 20.dp)
                 .clip(AbsoluteSmoothCornerShape(22.dp, 60))
                 .clickable(onClick = onOpenRefine)
         ) {
@@ -1012,153 +1069,304 @@ private fun AiPlaylistRefineView(
 }
 
 /**
- * 4 Floating Material You expressive shapes with dynamic shadow + glow.
- * When isGenerating == true, they react by spinning, gently zooming in/out, moving along orbital paths, and morphing shapes!
+ * Material You Expressive polar shapes used for both the 4 large floating hero shapes
+ * and the 1:1 icon containers inside the horizontal shortcut pills.
+ */
+private enum class AiExpressiveShapeType {
+    PILL,
+    COOKIE,
+    FOUR_HEAD_COOKIE,
+    ROUNDED_TRIANGLE,
+    ROUNDED_SQUARE,
+    CIRCLE,
+    SIX_COOKIE,
+    SUNNY_COOKIE;
+
+    fun radiusAt(th: Double): Double {
+        return when (this) {
+            PILL -> {
+                val a = th + PI / 6.0
+                val c = abs(cos(a)) / 0.62
+                val s = abs(sin(a)) / 1.0
+                0.96 / (c.pow(4.2) + s.pow(4.2)).pow(1.0 / 4.2)
+            }
+            COOKIE -> {
+                // 9-sided Material You Cookie
+                0.84 + 0.16 * cos(9.0 * th)
+            }
+            FOUR_HEAD_COOKIE -> {
+                // 4-head Material You Cookie / Clover
+                0.80 + 0.20 * cos(4.0 * th + PI / 4.0)
+            }
+            ROUNDED_TRIANGLE -> {
+                // Smooth 3-vertex rounded equilateral triangle
+                val a = th - PI / 2.0
+                0.78 + 0.175 * cos(3.0 * a) + 0.035 * cos(6.0 * a)
+            }
+            ROUNDED_SQUARE -> {
+                // 1:1 Material You superellipse squircle
+                val c = abs(cos(th))
+                val s = abs(sin(th))
+                0.85 / (c.pow(4.4) + s.pow(4.4)).pow(1.0 / 4.4)
+            }
+            CIRCLE -> 0.90
+            SIX_COOKIE -> {
+                // 6-head Material You Cookie
+                0.83 + 0.17 * cos(6.0 * th)
+            }
+            SUNNY_COOKIE -> {
+                // 12-head Material You Sunny Cookie
+                0.86 + 0.14 * cos(12.0 * th)
+            }
+        }
+    }
+}
+
+private class AiMorphingExpressiveShape(
+    private val from: AiExpressiveShapeType,
+    private val to: AiExpressiveShapeType,
+    private val progress: Float,
+    private val steps: Int = 180
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val count = steps.coerceAtLeast(90)
+        val twoPi = 2.0 * PI
+        val clampedT = progress.coerceIn(0f, 1f).toDouble()
+
+        val baseRadius = min(size.width, size.height) * 0.485f
+        val centerX = size.width * 0.5f
+        val centerY = size.height * 0.5f
+
+        val path = Path().apply {
+            for (i in 0 until count) {
+                val theta = (twoPi * i) / count
+                val rFrom = from.radiusAt(theta)
+                val rTo = to.radiusAt(theta)
+                val r = (1.0 - clampedT) * rFrom + clampedT * rTo
+                val radiusPx = (baseRadius * r).toFloat()
+                val x = centerX + (radiusPx * cos(theta)).toFloat()
+                val y = centerY + (radiusPx * sin(theta)).toFloat()
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+
+        return Outline.Generic(path)
+    }
+}
+
+/**
+ * 4 Large Floating Material You Expressive shapes with rich, visible multi-layer shadow + glow.
+ * Idle: Large Pill, Cookie, Rounded Triangle, and 1:1 Rounded Square gently floating & breathing.
+ * Generating: Reacts smoothly by spinning, subtly zooming in/out, moving in orbital waves,
+ * and continuously morphing across Cookie, 4-Head Cookie, Circle, Rounded Triangle, 1:1 Shape, Pill, etc.
  */
 @Composable
 private fun FloatingExpressiveShapes(isGenerating: Boolean) {
-    val infiniteTransition = rememberInfiniteTransition(label = "floating_shapes_infinite")
-
-    // Continuous rotation for generation state
-    val spinAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 3000 else 9000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+    val activityFactor by animateFloatAsState(
+        targetValue = if (isGenerating) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessLow
         ),
-        label = "shape_spin"
+        label = "floating_shapes_activity"
     )
 
-    // Breathing phase for floating / zooming
-    val pulsePhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6.28318f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1800 else 4200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shape_pulse"
-    )
+    var spinPhase by remember { mutableFloatStateOf(0f) }
+    var orbitPhase by remember { mutableFloatStateOf(0f) }
+    var morphPhase by remember { mutableFloatStateOf(0f) }
 
-    // Corner morphing animation during generation
-    val morphProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1600 else 3800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shape_morph"
-    )
+    LaunchedEffect(Unit) {
+        var lastFrameMs = -1L
+        while (true) {
+            withInfiniteAnimationFrameMillis { frameMs ->
+                val dt = if (lastFrameMs < 0L) 0f else ((frameMs - lastFrameMs).coerceIn(0L, 64L) / 1000f)
+                lastFrameMs = frameMs
 
+                spinPhase = (spinPhase + dt * (14f + 82f * activityFactor)) % 3600f
+                orbitPhase = (orbitPhase + dt * (1.35f + 2.15f * activityFactor)) % 628.318f
+                morphPhase = (morphPhase + dt * (0.22f + 0.88f * activityFactor)) % 600f
+            }
+        }
+    }
+
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
     val secondary = MaterialTheme.colorScheme.secondary
-    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+    val fourthColor = lerp(
+        MaterialTheme.colorScheme.primaryContainer,
+        MaterialTheme.colorScheme.primary,
+        if (isDark) 0.28f else 0.48f
+    )
 
-    val colors = listOf(primary, tertiary, secondary, primaryContainer)
+    val colors = listOf(primary, tertiary, secondary, fourthColor)
+
+    val morphSequence = remember {
+        listOf(
+            AiExpressiveShapeType.PILL,
+            AiExpressiveShapeType.COOKIE,
+            AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            AiExpressiveShapeType.ROUNDED_TRIANGLE,
+            AiExpressiveShapeType.ROUNDED_SQUARE,
+            AiExpressiveShapeType.CIRCLE,
+            AiExpressiveShapeType.SIX_COOKIE,
+            AiExpressiveShapeType.SUNNY_COOKIE
+        )
+    }
+
+    val idleBaseShapes = remember {
+        listOf(
+            AiExpressiveShapeType.PILL,
+            AiExpressiveShapeType.COOKIE,
+            AiExpressiveShapeType.ROUNDED_TRIANGLE,
+            AiExpressiveShapeType.ROUNDED_SQUARE
+        )
+    }
+    val idleCompanionShapes = remember {
+        listOf(
+            AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            AiExpressiveShapeType.SUNNY_COOKIE,
+            AiExpressiveShapeType.SIX_COOKIE,
+            AiExpressiveShapeType.FOUR_HEAD_COOKIE
+        )
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(84.dp),
+            .height(126.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(22.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             colors.forEachIndexed { index, shapeColor ->
-                // Staggered orbital motion
                 val phaseOffset = index * 1.57f
-                val verticalMovement = kotlin.math.sin(pulsePhase + phaseOffset) * (if (isGenerating) 12f else 4f)
-                val horizontalMovement = kotlin.math.cos(pulsePhase + phaseOffset) * (if (isGenerating) 8f else 0f)
 
-                // Zooming in/out (little, not so much)
-                val baseScale = 1.0f + kotlin.math.sin(pulsePhase + phaseOffset) * (if (isGenerating) 0.12f else 0.04f)
+                // Smooth floating & orbital movement
+                val verticalAmp = 4.5f + 6.5f * activityFactor
+                val horizontalAmp = 1.5f + 5.5f * activityFactor
+                val verticalMovement = sin((orbitPhase + phaseOffset).toDouble()).toFloat() * verticalAmp
+                val horizontalMovement = cos((orbitPhase * 0.85f + phaseOffset).toDouble()).toFloat() * horizontalAmp
 
-                // Dynamic corner radius morphing
-                val cornerRadiusA = (8 + (morphProgress * 16)).dp
-                val cornerRadiusB = (24 - (morphProgress * 14)).dp
+                // Subtle zooming in/out ("little not so much")
+                val zoomAmp = 0.03f + 0.055f * activityFactor
+                val currentScale = 1.0f + sin((orbitPhase * 1.15f + phaseOffset).toDouble()).toFloat() * zoomAmp
 
-                val expressiveShape = when (index % 4) {
-                    0 -> AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = cornerRadiusA,
-                        cornerRadiusTR = cornerRadiusB,
-                        cornerRadiusBL = cornerRadiusB,
-                        cornerRadiusBR = cornerRadiusA,
-                        smoothnessAsPercentTL = 60,
-                        smoothnessAsPercentBR = 60
+                // Smooth rotation: gentle rocking when idle, continuous expressive spinning when generating
+                val idleRock = sin((orbitPhase * 0.6f + phaseOffset).toDouble()).toFloat() * 8f
+                val direction = if (index % 2 == 0) 1f else -1f
+                val speedMultiplier = 1f + (index % 3) * 0.12f
+                val activeSpin = spinPhase * direction * speedMultiplier
+                val rotationDegrees = idleRock * (1f - activityFactor) + activeSpin * activityFactor
+
+                // Expressive shape selection & continuous morphing
+                val expressiveShape = if (activityFactor < 0.05f) {
+                    val idleMorph = ((sin((orbitPhase * 0.5f + phaseOffset).toDouble()).toFloat() + 1f) * 0.5f) * 0.28f
+                    AiMorphingExpressiveShape(
+                        from = idleBaseShapes[index % idleBaseShapes.size],
+                        to = idleCompanionShapes[index % idleCompanionShapes.size],
+                        progress = idleMorph
                     )
-                    1 -> AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = cornerRadiusB,
-                        cornerRadiusTR = cornerRadiusA,
-                        cornerRadiusBL = cornerRadiusA,
-                        cornerRadiusBR = cornerRadiusB,
-                        smoothnessAsPercentTR = 60,
-                        smoothnessAsPercentBL = 60
-                    )
-                    2 -> AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = cornerRadiusA,
-                        cornerRadiusTR = cornerRadiusA,
-                        cornerRadiusBL = cornerRadiusB,
-                        cornerRadiusBR = cornerRadiusA,
-                        smoothnessAsPercentTL = 60
-                    )
-                    else -> AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = cornerRadiusB,
-                        cornerRadiusTR = cornerRadiusA,
-                        cornerRadiusBL = cornerRadiusB,
-                        cornerRadiusBR = cornerRadiusB,
-                        smoothnessAsPercentBR = 60
+                } else {
+                    val seqSize = morphSequence.size
+                    val cyclePos = (morphPhase + index * 1.75f) % seqSize
+                    val fromIdx = cyclePos.toInt() % seqSize
+                    val toIdx = (fromIdx + 1) % seqSize
+                    val rawT = cyclePos - cyclePos.toInt()
+                    val smoothT = ((1.0 - cos(rawT * PI)) * 0.5).toFloat()
+                    AiMorphingExpressiveShape(
+                        from = morphSequence[fromIdx],
+                        to = morphSequence[toIdx],
+                        progress = smoothT
                     )
                 }
 
+                val highlightTint = lerp(shapeColor, Color.White, if (isDark) 0.22f else 0.28f)
+                val deepShade = lerp(shapeColor, Color.Black, if (isDark) 0.18f else 0.12f)
+                val glowAlpha = 0.52f + 0.22f * activityFactor
+
                 Box(
                     modifier = Modifier
+                        .size(72.dp)
                         .offset(x = horizontalMovement.dp, y = verticalMovement.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Soft glow aura
+                    // Layer 1: Wide expensive ambient glow halo
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(92.dp)
+                            .offset(y = 7.dp)
                             .graphicsLayer {
-                                scaleX = baseScale
-                                scaleY = baseScale
-                                if (isGenerating) {
-                                    rotationZ = spinAngle * (if (index % 2 == 0) 1 else -1)
-                                }
+                                scaleX = currentScale * (1.12f + 0.08f * activityFactor)
+                                scaleY = currentScale * (1.12f + 0.08f * activityFactor)
                             }
-                            .blur(8.dp)
+                            .blur(20.dp)
                             .background(
                                 brush = Brush.radialGradient(
-                                    listOf(shapeColor.copy(alpha = 0.6f), shapeColor.copy(alpha = 0.2f), Color.Transparent)
+                                    colors = listOf(
+                                        shapeColor.copy(alpha = glowAlpha),
+                                        shapeColor.copy(alpha = glowAlpha * 0.48f),
+                                        Color.Transparent
+                                    )
                                 ),
                                 shape = CircleShape
                             )
                     )
 
-                    // Main expressive surface with Material You shadow
+                    // Layer 2: Shape-matched colored drop shadow bloom
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(64.dp)
+                            .offset(y = 6.dp)
                             .graphicsLayer {
-                                scaleX = baseScale
-                                scaleY = baseScale
-                                if (isGenerating) {
-                                    rotationZ = spinAngle * (if (index % 2 == 0) 1 else -1)
-                                }
+                                scaleX = currentScale
+                                scaleY = currentScale
+                                rotationZ = rotationDegrees
+                            }
+                            .blur(10.dp)
+                            .clip(expressiveShape)
+                            .background(shapeColor.copy(alpha = 0.48f + 0.16f * activityFactor))
+                    )
+
+                    // Layer 3: Large hero Material You Expressive shape with rich elevation & specular finish
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .graphicsLayer {
+                                scaleX = currentScale
+                                scaleY = currentScale
+                                rotationZ = rotationDegrees
                             }
                             .shadow(
-                                elevation = if (isGenerating) 10.dp else 4.dp,
+                                elevation = (10f + 6f * activityFactor).dp,
                                 shape = expressiveShape,
                                 ambientColor = shapeColor,
                                 spotColor = shapeColor
                             )
                             .clip(expressiveShape)
-                            .background(shapeColor)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(highlightTint, shapeColor, deepShade)
+                                )
+                            )
+                            .border(
+                                width = 1.dp,
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.38f),
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.10f)
+                                    )
+                                ),
+                                shape = expressiveShape
+                            )
                     )
                 }
             }
@@ -1167,44 +1375,112 @@ private fun FloatingExpressiveShapes(isGenerating: Boolean) {
 }
 
 /**
- * Grid of thick, full-filled Material You quick select pills arranged in a responsive FlowRow.
- * Each pill has an icon embedded in a distinct Material You expressive shape on the left,
- * text on the right, and rich touch/shape-morphing feedback!
+ * Horizontal scrollable line of thick, expressive Material You shortcut pills.
+ * Each pill has a left-side 1:1 Material You expressive shape (Cookie, 4-Head Cookie,
+ * Circle, Rounded Triangle, 1:1 Rounded Square, etc.) housing an icon, right-side text,
+ * and rich Material You shape-morphing touch feedback.
  */
 private data class VibeItem(
     val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val baseShape: AiExpressiveShapeType,
+    val morphedShape: AiExpressiveShapeType
 )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ExpressiveQuickSelectGrid(
+private fun ExpressiveQuickSelectRow(
+    selectedPrompt: String,
     onPillClick: (String) -> Unit
 ) {
-    val vibes = listOf(
-        VibeItem("Feel good", Icons.Rounded.Whatshot),
-        VibeItem("Upbeat morning", Icons.Rounded.WbSunny),
-        VibeItem("Workout energy", Icons.Rounded.FitnessCenter),
-        VibeItem("Chill evening", Icons.Rounded.NightsStay),
-        VibeItem("Late night drive", Icons.Rounded.DirectionsCar),
-        VibeItem("Music to study", Icons.Rounded.Headphones),
-        VibeItem("Party hype", Icons.Rounded.Celebration),
-        VibeItem("Acoustic coffee", Icons.Rounded.MusicNote),
-        VibeItem("Nostalgic 2000s", Icons.Rounded.History),
-        VibeItem("Piano peaceful", Icons.Rounded.Piano),
-        VibeItem("Deep focus", Icons.Rounded.Star),
-        VibeItem("Radio hits", Icons.Rounded.GraphicEq)
-    )
+    val vibes = remember {
+        listOf(
+            VibeItem(
+                label = "Feel good",
+                icon = Icons.Rounded.Whatshot,
+                baseShape = AiExpressiveShapeType.COOKIE,
+                morphedShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE
+            ),
+            VibeItem(
+                label = "Upbeat morning",
+                icon = Icons.Rounded.WbSunny,
+                baseShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+                morphedShape = AiExpressiveShapeType.SUNNY_COOKIE
+            ),
+            VibeItem(
+                label = "Workout energy",
+                icon = Icons.Rounded.FitnessCenter,
+                baseShape = AiExpressiveShapeType.ROUNDED_TRIANGLE,
+                morphedShape = AiExpressiveShapeType.SIX_COOKIE
+            ),
+            VibeItem(
+                label = "Chill evening",
+                icon = Icons.Rounded.NightsStay,
+                baseShape = AiExpressiveShapeType.CIRCLE,
+                morphedShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE
+            ),
+            VibeItem(
+                label = "Late night drive",
+                icon = Icons.Rounded.DirectionsCar,
+                baseShape = AiExpressiveShapeType.ROUNDED_SQUARE,
+                morphedShape = AiExpressiveShapeType.COOKIE
+            ),
+            VibeItem(
+                label = "Music to study",
+                icon = Icons.Rounded.Headphones,
+                baseShape = AiExpressiveShapeType.SIX_COOKIE,
+                morphedShape = AiExpressiveShapeType.ROUNDED_TRIANGLE
+            ),
+            VibeItem(
+                label = "Party hype",
+                icon = Icons.Rounded.Celebration,
+                baseShape = AiExpressiveShapeType.SUNNY_COOKIE,
+                morphedShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE
+            ),
+            VibeItem(
+                label = "Acoustic coffee",
+                icon = Icons.Rounded.MusicNote,
+                baseShape = AiExpressiveShapeType.COOKIE,
+                morphedShape = AiExpressiveShapeType.ROUNDED_SQUARE
+            ),
+            VibeItem(
+                label = "Nostalgic 2000s",
+                icon = Icons.Rounded.History,
+                baseShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+                morphedShape = AiExpressiveShapeType.CIRCLE
+            ),
+            VibeItem(
+                label = "Piano peaceful",
+                icon = Icons.Rounded.Piano,
+                baseShape = AiExpressiveShapeType.ROUNDED_SQUARE,
+                morphedShape = AiExpressiveShapeType.SIX_COOKIE
+            ),
+            VibeItem(
+                label = "Deep focus",
+                icon = Icons.Rounded.Star,
+                baseShape = AiExpressiveShapeType.ROUNDED_TRIANGLE,
+                morphedShape = AiExpressiveShapeType.COOKIE
+            ),
+            VibeItem(
+                label = "Radio hits",
+                icon = Icons.Rounded.GraphicEq,
+                baseShape = AiExpressiveShapeType.CIRCLE,
+                morphedShape = AiExpressiveShapeType.SUNNY_COOKIE
+            )
+        )
+    }
 
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth()
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        vibes.forEachIndexed { index, vibe ->
+        itemsIndexed(vibes, key = { _, item -> item.label }) { index, vibe ->
+            val isSelected = selectedPrompt.trim().equals(vibe.label, ignoreCase = true)
             ExpressiveQuickSelectPill(
                 vibe = vibe,
-                shapeVariant = index % 3,
+                index = index,
+                isSelected = isSelected,
                 onClick = { onPillClick(vibe.label) }
             )
         }
@@ -1214,111 +1490,192 @@ private fun ExpressiveQuickSelectGrid(
 @Composable
 private fun ExpressiveQuickSelectPill(
     vibe: VibeItem,
-    shapeVariant: Int,
+    index: Int,
+    isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // Smooth touch scale animation
+    // Tap pulse animation so even a quick tap plays a full, lush Material You shape-morphing effect
+    val tapPulse = remember { Animatable(0f) }
+
+    val activeMorphTarget = when {
+        isPressed -> 1f
+        tapPulse.value > 0.01f -> tapPulse.value
+        isSelected -> 0.65f
+        else -> 0f
+    }
+
+    val morphFraction by animateFloatAsState(
+        targetValue = activeMorphTarget,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "pill_morph_fraction"
+    )
+
+    // Bouncy touch scale feedback
     val pillScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.94f else 1.0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        targetValue = when {
+            isPressed -> 0.93f
+            tapPulse.value > 0.5f -> 1.03f
+            else -> 1.0f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
         label = "pill_scale"
     )
 
-    // Shape corner morphing on touch
-    val outerCorner by animateDpAsState(
-        targetValue = if (isPressed) 26.dp else 16.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "pill_outer_corner"
-    )
+    // True full stadium pill (32.dp radius on 64.dp height) when idle,
+    // morphing into an expressive asymmetric Material You contour on touch/selection
+    val primaryRadius = (32f - 14f * morphFraction).coerceAtLeast(14f).dp
+    val secondaryRadius = 32.dp
 
-    val innerCorner by animateDpAsState(
-        targetValue = if (isPressed) 6.dp else 11.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "pill_inner_corner"
-    )
-
-    // Material You expressive shape for the inner icon badge
-    val innerShape = when (shapeVariant) {
-        0 -> AbsoluteSmoothCornerShape(
-            cornerRadiusTL = innerCorner,
-            cornerRadiusTR = innerCorner * 1.5f,
-            cornerRadiusBL = innerCorner * 1.5f,
-            cornerRadiusBR = innerCorner,
-            smoothnessAsPercentTL = 60
+    val pillShape = if (index % 2 == 0) {
+        AbsoluteSmoothCornerShape(
+            cornerRadiusTL = primaryRadius,
+            smoothnessAsPercentTL = 60,
+            cornerRadiusTR = secondaryRadius,
+            smoothnessAsPercentTR = 60,
+            cornerRadiusBL = secondaryRadius,
+            smoothnessAsPercentBL = 60,
+            cornerRadiusBR = primaryRadius,
+            smoothnessAsPercentBR = 60
         )
-        1 -> AbsoluteSmoothCornerShape(
-            cornerRadiusTL = innerCorner * 1.5f,
-            cornerRadiusTR = innerCorner,
-            cornerRadiusBL = innerCorner,
-            cornerRadiusBR = innerCorner * 1.5f,
-            smoothnessAsPercentTR = 60
+    } else {
+        AbsoluteSmoothCornerShape(
+            cornerRadiusTL = secondaryRadius,
+            smoothnessAsPercentTL = 60,
+            cornerRadiusTR = primaryRadius,
+            smoothnessAsPercentTR = 60,
+            cornerRadiusBL = primaryRadius,
+            smoothnessAsPercentBL = 60,
+            cornerRadiusBR = secondaryRadius,
+            smoothnessAsPercentBR = 60
         )
-        else -> AbsoluteSmoothCornerShape(innerCorner, 60)
     }
 
+    // Left-side 1:1 Material You expressive shape (Cookie, 4-Head Cookie, Circle, Rounded Triangle, 1:1 Square, etc.)
+    val leftIconExpressiveShape = remember(vibe.baseShape, vibe.morphedShape, morphFraction) {
+        AiMorphingExpressiveShape(
+            from = vibe.baseShape,
+            to = vibe.morphedShape,
+            progress = morphFraction
+        )
+    }
+
+    val isHighlighted = isPressed || isSelected || tapPulse.value > 0.25f
+
     val pillContainerColor by animateColorAsState(
-        targetValue = if (isPressed) {
+        targetValue = if (isHighlighted) {
             MaterialTheme.colorScheme.primaryContainer
         } else {
             MaterialTheme.colorScheme.surfaceContainerHigh
         },
-        animationSpec = tween(150),
+        animationSpec = tween(180),
         label = "pill_bg_color"
     )
 
-    val pillShape = AbsoluteSmoothCornerShape(outerCorner, 60)
+    val badgeContainerColor by animateColorAsState(
+        targetValue = if (isHighlighted) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.secondaryContainer
+        },
+        animationSpec = tween(180),
+        label = "pill_badge_color"
+    )
+
+    val badgeIconTint by animateColorAsState(
+        targetValue = if (isHighlighted) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        },
+        animationSpec = tween(180),
+        label = "pill_icon_tint"
+    )
 
     Surface(
-        onClick = onClick,
+        onClick = {
+            onClick()
+            scope.launch {
+                tapPulse.snapTo(0.25f)
+                tapPulse.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                )
+                tapPulse.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                )
+            }
+        },
         interactionSource = interactionSource,
         shape = pillShape,
         color = pillContainerColor,
-        shadowElevation = if (isPressed) 1.dp else 2.dp,
+        shadowElevation = if (isHighlighted) 4.dp else 2.dp,
         modifier = Modifier
+            .height(64.dp)
             .graphicsLayer {
                 scaleX = pillScale
                 scaleY = pillScale
             }
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.padding(start = 10.dp, end = 22.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left side: Icon inside a Material You expressive shape
-            Surface(
-                shape = innerShape,
-                color = if (isPressed) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.secondaryContainer
-                },
-                modifier = Modifier.size(28.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = vibe.icon,
-                        contentDescription = null,
-                        tint = if (isPressed) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        },
-                        modifier = Modifier.size(16.dp)
+            // Left side: Icon inside a 1:1 Material You expressive shape with morphing & rotation
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .graphicsLayer {
+                        rotationZ = morphFraction * 26f * (if (index % 2 == 0) 1f else -1f)
+                        val iconScale = 1f + 0.08f * morphFraction
+                        scaleX = iconScale
+                        scaleY = iconScale
+                    }
+                    .shadow(
+                        elevation = if (isHighlighted) 4.dp else 1.dp,
+                        shape = leftIconExpressiveShape,
+                        ambientColor = badgeContainerColor,
+                        spotColor = badgeContainerColor
                     )
-                }
+                    .clip(leftIconExpressiveShape)
+                    .background(badgeContainerColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = vibe.icon,
+                    contentDescription = null,
+                    tint = badgeIconTint,
+                    modifier = Modifier.size(22.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             // Right side: Bold text label
             Text(
                 text = vibe.label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isPressed) {
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                ),
+                color = if (isHighlighted) {
                     MaterialTheme.colorScheme.onPrimaryContainer
                 } else {
                     MaterialTheme.colorScheme.onSurface
@@ -1439,16 +1796,11 @@ private fun AiPlaylistCreationAnimationView(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
-            .padding(top = 16.dp, bottom = 48.dp),
+            .padding(top = 4.dp, bottom = 36.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Floating reactive Material You expressive shapes that spin, zoom in/out, move and morph!
-        FloatingExpressiveShapes(isGenerating = !isSuccess)
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        // Headline
+        // Headline (the 4 floating Material You expressive shapes remain mounted right above this view)
         Text(
             text = if (isSuccess) "Mix synthesized!" else "Creating your AI Playlist…",
             style = MaterialTheme.typography.headlineSmall.copy(
