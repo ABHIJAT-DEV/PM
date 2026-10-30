@@ -2587,10 +2587,32 @@ class PlayerViewModel @Inject constructor(
             }
         }
 
-        // Initialize AiStateHolder
+        // Initialize AiStateHolder with combined local and cloud/streaming libraries
         aiStateHolder.initialize(
             scope = viewModelScope,
-            allSongsProvider = { musicRepository.getAllSongsOnce() },
+            allSongsProvider = {
+                val localSongs = musicRepository.getAllSongsOnce()
+                val ytSongs = try {
+                    val ytPlaylists = com.saurav.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                        .playlistRepository()
+                        .observeAll()
+                        .first()
+                    ytPlaylists.flatMap { it.songs }.map { it.toNativeSong() }
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                val downloadedSongs = try {
+                    com.saurav.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                        .songRepository()
+                        .getDownloadedSongs()
+                        .map { it.toNativeSong() }
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                (localSongs + ytSongs + downloadedSongs).distinctBy {
+                    "${it.displayArtist.trim().lowercase()} - ${it.title.trim().lowercase()}"
+                }
+            },
             favoriteSongIdsProvider = { favoriteSongIds.value },
             toastEmitter = { msg -> viewModelScope.launch { _toastEvents.emit(msg) } },
             playSongsCallback = { songs, startSong, queueName -> playSongs(songs, startSong, queueName) },

@@ -44,10 +44,21 @@ class UserProfileDigestGenerator @Inject constructor(
         val sb = StringBuilder()
         sb.append("USER_PROFILE\n")
         
-        // --- 1. Behavioral & Pattern Metrics (compact) ---
-        sb.append("STATS: plays=${summary.totalPlayCount}, uniq=${summary.uniqueSongs}\n")
-        sb.append("GENRES: ${summary.topGenres.take(3).joinToString(",") { it.genre }}\n")
-        sb.append("ARTISTS: ${summary.topArtists.take(5).joinToString(",") { it.artist }}\n")
+        // --- 1. Behavioral & Taste Telemetry Metrics ---
+        sb.append("<taste_telemetry>\n")
+        sb.append("TOTAL_PLAYS: ${summary.totalPlayCount} across ${summary.uniqueSongs} unique tracks\n")
+        val topGenres = summary.topGenres.take(5).map { it.genre }
+        if (topGenres.isNotEmpty()) {
+            sb.append("TOP_GENRES: ${topGenres.joinToString(", ")}\n")
+        }
+        val topArtists = summary.topArtists.take(8).map { it.artist }
+        if (topArtists.isNotEmpty()) {
+            sb.append("TOP_ARTISTS: ${topArtists.joinToString(", ")}\n")
+        }
+        val heavyRotation = summary.songs.filter { it.playCount > 1 }.take(5).map { "${it.title} by ${it.artist}".take(35) }
+        if (heavyRotation.isNotEmpty()) {
+            sb.append("HEAVY_ROTATION: ${heavyRotation.joinToString("; ")}\n")
+        }
         
         summary.dayListeningDistribution?.let { dist ->
             val phases = dist.buckets.groupBy { bucket ->
@@ -59,16 +70,22 @@ class UserProfileDigestGenerator @Inject constructor(
                     else -> "Night"
                 }
             }.mapValues { it.value.sumOf { b -> b.totalDurationMs } }
-            sb.append("PHASE: ${phases.maxByOrNull { it.value }?.key ?: "Unknown"}\n")
+            sb.append("DOMINANT_TIME_OF_DAY: ${phases.maxByOrNull { it.value }?.key ?: "Unknown"}\n")
         }
         
         val variety = if (summary.totalPlayCount > 0) summary.uniqueSongs.toDouble() / summary.totalPlayCount else 0.0
-        sb.append("VAR: ${"%.2f".format(variety)}\n")
+        val style = when {
+            variety > 0.8 -> "High Explorer"
+            variety > 0.45 -> "Balanced"
+            else -> "Comfort/Repeater"
+        }
+        sb.append("LISTENING_STYLE: $style (variety_ratio=${"%.2f".format(variety)})\n")
         
         val playlistLimit = if (isSafeLimit) 5 else 20
         if (playlists.isNotEmpty()) {
-            sb.append("PL: ${playlists.take(playlistLimit).joinToString(",") { it.playlist.name }}\n")
+            sb.append("FAVORITE_PLAYLIST_THEMES: ${playlists.take(playlistLimit).joinToString(", ") { it.playlist.name }}\n")
         }
+        sb.append("</taste_telemetry>\n")
         
         // --- 2. Listened Tracks (capped) ---
         // Compact format: ID|plays|mins|fav|title-artist

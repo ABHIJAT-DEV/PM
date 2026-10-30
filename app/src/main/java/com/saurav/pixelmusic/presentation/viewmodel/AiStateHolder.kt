@@ -187,11 +187,12 @@ class AiStateHolder @Inject constructor(
                     candidateSongs = candidatePool
                 )
 
-                result.onSuccess { generatedSongs ->
+                result.onSuccess { genResult ->
+                    val generatedSongs = genResult.songs
                     if (generatedSongs.isNotEmpty()) {
                         if (saveAsPlaylist) {
                             val resolvedPlaylistName = resolveAiPlaylistName(
-                                requestedName = playlistName,
+                                requestedName = playlistName ?: genResult.title,
                                 prompt = prompt,
                                 existingNames = existingPlaylistNames
                             )
@@ -204,16 +205,17 @@ class AiStateHolder @Inject constructor(
                             _aiStatus.value = "Success! Your mix is ready."
                             _aiSuccess.value = true
                             notificationManager.showCompletion("Generation Complete", "Your AI Mix is ready to play.")
-                            toastEmitter?.invoke("AI Playlist created!")
+                            toastEmitter?.invoke("AI Playlist created: $resolvedPlaylistName")
                             kotlinx.coroutines.delay(1200) // AI UI Optimization: Let the success animation breathe
                             dismissAiPlaylistSheet()
                         } else {
                             // Play immediately logic
                             _aiStatus.value = "Starting playback..."
                             _aiSuccess.value = true
+                            val sessionName = genResult.title ?: "AI: $prompt"
                             notificationManager.showCompletion("Generation Complete", "Starting your personalized session.")
                             dailyMixStateHolder.setDailyMixSongs(generatedSongs)
-                            playSongsCallback?.invoke(generatedSongs, generatedSongs.first(), "AI: $prompt")
+                            playSongsCallback?.invoke(generatedSongs, generatedSongs.first(), sessionName)
                             openPlayerSheetCallback?.invoke()
                             kotlinx.coroutines.delay(800)
                             dismissAiPlaylistSheet()
@@ -283,9 +285,10 @@ class AiStateHolder @Inject constructor(
                     candidateSongs = candidatePool, type = AiSystemPromptType.DAILY_MIX
                 )
 
-                result.onSuccess { generatedSongs ->
-                    if (generatedSongs.isNotEmpty()) {
-                        dailyMixStateHolder.setDailyMixSongs(generatedSongs)
+                result.onSuccess { genResult ->
+                    val songs = genResult.songs
+                    if (songs.isNotEmpty()) {
+                        dailyMixStateHolder.setDailyMixSongs(songs)
                         toastEmitter?.invoke(context.getString(R.string.ai_daily_mix_updated))
                     } else {
                         toastEmitter?.invoke(context.getString(R.string.ai_no_songs_for_mix))

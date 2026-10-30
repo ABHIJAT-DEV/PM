@@ -85,7 +85,7 @@
     <string name="presentation_batch_e_ai_prompt_preview_empty">Your final prompt will appear here once you add preferences.</string>
     <string name="presentation_batch_e_ai_hero_title">Curate with precision</string>
     <string name="presentation_batch_e_ai_hero_subtitle">Define mood, activity, constraints and depth.</string>
-    <string name="presentation_batch_e_ai_hero_library_note">The AI will only use songs from your local library.</string>
+    <string name="presentation_batch_e_ai_hero_library_note">Uses your local &amp; cloud music library, with online discovery for matching vibes.</string>
     <string name="presentation_batch_e_ai_error_add_instruction">Add at least one instruction for AI.</string>
     <string name="presentation_batch_e_ai_error_song_range">Set a valid song range.</string>
     <string name="presentation_batch_e_ai_level_out_of_five">%1$d/5</string>

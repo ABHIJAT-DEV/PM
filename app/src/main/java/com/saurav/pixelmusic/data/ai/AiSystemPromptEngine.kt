@@ -32,16 +32,17 @@ class AiSystemPromptEngine @Inject constructor() {
     fun buildPrompt(basePersona: String, type: AiSystemPromptType, context: String = ""): String {
         val requirementLayer = when (type) {
             AiSystemPromptType.PLAYLIST, AiSystemPromptType.DAILY_MIX -> """
-                <role>Music curation engine mapping user requests to a strict candidate pool.</role>
+                <role>Intelligent music curation engine mapping user requests to cohesive playlists with natural flow.</role>
                 <strategy>
+                - Align selections with user prompt and taste patterns in <taste_telemetry>.
                 - If request implies "discovery/new", prioritize the [DISCOVERY_POOL].
                 - If request implies "favorites/familiar", heavily weight the [LISTENED] pool.
-                - Otherwise, blend pools intelligently based on requested tempo, genre, or mood.
-                - Guarantee a cohesive listening journey with natural transitions.
+                - When the candidate pool has few matches for a niche vibe or specific genre/artist, supplement with up to 40% new online discoverable tracks.
+                - Create a creative, atmospheric playlist title and concise 1-2 sentence description matching the vibe.
                 </strategy>
                 <output_schema>
-                Return ONLY a raw JSON array of song IDs representing the playlist sequence.
-                Format: ["id_1","id_2","id_3"]
+                Return ONLY a raw JSON object string with no markdown formatting or backticks:
+                {"title":"Creative Playlist Name","description":"Atmospheric vibe description.","tracks":[{"id":"id_from_pool"},{"online":"Artist - Song Title"}]}
                 </output_schema>
             """.trimIndent()
 

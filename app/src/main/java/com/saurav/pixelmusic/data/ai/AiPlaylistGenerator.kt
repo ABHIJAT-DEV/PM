@@ -4,17 +4,42 @@ package com.saurav.pixelmusic.data.ai
 import com.saurav.pixelmusic.data.DailyMixManager
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.preferences.AiPreferencesRepository
+import com.saurav.pixelmusic.data.remote.youtube.toNativeSong
+import com.saurav.pixelmusic.data.repository.MusicRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
+import org.json.JSONArray
+import org.json.JSONObject
+import saurav.shru.pixelmusic.innertube.YouTube
+import saurav.shru.pixelmusic.innertube.models.SongItem
+import timber.log.Timber
 import javax.inject.Inject
 import kotlin.math.max
+
+data class AiPlaylistGenerationResult(
+    val songs: List<Song>,
+    val title: String? = null,
+    val description: String? = null
+)
+
+private sealed interface TrackSelectionItem {
+    data class Local(val id: String) : TrackSelectionItem
+    data class Online(val query: String) : TrackSelectionItem
+}
+
+private data class ParsedPlaylistResponse(
+    val title: String?,
+    val description: String?,
+    val trackItems: List<TrackSelectionItem>
+)
 
 class AiPlaylistGenerator @Inject constructor(
     private val dailyMixManager: DailyMixManager,
     private val aiOrchestrator: AiOrchestrator,
     private val digestGenerator: UserProfileDigestGenerator,
     private val preferencesRepo: AiPreferencesRepository,
-    private val json: Json
+    private val json: Json,
+    private val musicRepository: MusicRepository
 ) {
 
     suspend fun generate(
@@ -24,7 +49,7 @@ class AiPlaylistGenerator @Inject constructor(
         maxLength: Int,
         candidateSongs: List<Song>? = null,
         type: AiSystemPromptType = AiSystemPromptType.PLAYLIST
-    ): Result<List<Song>> {
+    ): Result<AiPlaylistGenerationResult> {
         return try {
 
             // Get offline scored candidates to pass to LLM (much smaller context window than the whole library)
@@ -80,15 +105,45 @@ class AiPlaylistGenerator @Inject constructor(
 
             val responseText = aiOrchestrator.generateContent(fullPrompt, type)
 
-            val songIds = extractPlaylistSongIds(responseText)
+            val parsedResponse = extractPlaylistData(responseText)
 
             val songMap = allSongs.associateBy { it.id }
-            val generatedPlaylist = songIds.mapNotNull { songMap[it] }
+            val generatedPlaylist = mutableListOf<Song>()
+            val seenSongKeys = mutableSetOf<String>()
+
+            for (trackItem in parsedResponse.trackItems) {
+                when (trackItem) {
+                    is TrackSelectionItem.Local -> {
+                        val localSong = songMap[trackItem.id]
+                        if (localSong != null) {
+                            val key = "${localSong.displayArtist.trim().lowercase()} - ${localSong.title.trim().lowercase()}"
+                            if (seenSongKeys.add(key)) {
+                                generatedPlaylist.add(localSong)
+                            }
+                        }
+                    }
+                    is TrackSelectionItem.Online -> {
+                        val resolvedSong = resolveOnlineTrack(trackItem.query)
+                        if (resolvedSong != null) {
+                            val key = "${resolvedSong.displayArtist.trim().lowercase()} - ${resolvedSong.title.trim().lowercase()}"
+                            if (seenSongKeys.add(key)) {
+                                generatedPlaylist.add(resolvedSong)
+                            }
+                        }
+                    }
+                }
+            }
 
             if (generatedPlaylist.isEmpty()) {
-                Result.failure(IllegalArgumentException("AI returned song IDs that don't match your library. Try again or adjust your prompt."))
+                Result.failure(IllegalArgumentException("AI returned song selections that don't match your library or online catalog. Try adjusting your prompt."))
             } else {
-                Result.success(generatedPlaylist)
+                Result.success(
+                    AiPlaylistGenerationResult(
+                        songs = generatedPlaylist,
+                        title = parsedResponse.title,
+                        description = parsedResponse.description
+                    )
+                )
             }
 
         } catch (e: IllegalArgumentException) {
@@ -96,6 +151,29 @@ class AiPlaylistGenerator @Inject constructor(
         } catch (e: Exception) {
             val errorDetails = buildDetailedErrorMessage(e)
             Result.failure(Exception(errorDetails, e))
+        }
+    }
+
+    private suspend fun resolveOnlineTrack(query: String): Song? {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return null
+        return try {
+            val searchResult = YouTube.search(
+                query = trimmed,
+                filter = YouTube.SearchFilter.FILTER_SONG
+            ).getOrNull()
+
+            val songItem = searchResult?.items?.filterIsInstance<SongItem>()?.firstOrNull()
+            if (songItem != null) {
+                val nativeSong = songItem.toNativeSong()
+                musicRepository.insertYoutubeSongs(listOf(nativeSong))
+                nativeSong
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.tag("AiPlaylist").w(e, "Failed to resolve online track for query: $trimmed")
+            null
         }
     }
 
@@ -150,55 +228,90 @@ class AiPlaylistGenerator @Inject constructor(
         }
     }
 
-    private fun extractPlaylistSongIds(rawResponse: String): List<String> {
+    private fun extractPlaylistData(rawResponse: String): ParsedPlaylistResponse {
         val sanitized = rawResponse
             .replace("```json", "")
             .replace("```", "")
             .trim()
 
-        for (startIndex in sanitized.indices) {
-            if (sanitized[startIndex] != '[') continue
+        // 1. Try parsing JSON object: {"title": "...", "description": "...", "tracks": [...]}
+        val firstBrace = sanitized.indexOf('{')
+        val lastBrace = sanitized.lastIndexOf('}')
+        if (firstBrace != -1 && lastBrace > firstBrace) {
+            val candidate = sanitized.substring(firstBrace, lastBrace + 1)
+            val parsed = runCatching {
+                val obj = JSONObject(candidate)
+                val title = obj.optString("title").takeIf { it.isNotBlank() }
+                    ?: obj.optString("playlist_title").takeIf { it.isNotBlank() }
+                val description = obj.optString("description").takeIf { it.isNotBlank() }
+                    ?: obj.optString("playlist_description").takeIf { it.isNotBlank() }
 
-            var depth = 0
-            var inString = false
-            var isEscaped = false
+                val tracksArr = obj.optJSONArray("tracks")
+                    ?: obj.optJSONArray("songs")
+                    ?: obj.optJSONArray("playlist")
 
-            for (index in startIndex until sanitized.length) {
-                val character = sanitized[index]
-
-                if (inString) {
-                    if (isEscaped) {
-                        isEscaped = false
-                        continue
-                    }
-
-                    when (character) {
-                        '\\' -> isEscaped = true
-                        '"' -> inString = false
-                    }
-                    continue
-                }
-
-                when (character) {
-                    '"' -> inString = true
-                    '[' -> depth++
-                    ']' -> {
-                        depth--
-                        if (depth == 0) {
-                            val candidate = sanitized.substring(startIndex, index + 1)
-                            val decoded = runCatching { json.decodeFromString<List<String>>(candidate) }
-                            if (decoded.isSuccess) {
-                                return decoded.getOrThrow()
+                val items = mutableListOf<TrackSelectionItem>()
+                if (tracksArr != null) {
+                    for (i in 0 until tracksArr.length()) {
+                        when (val elem = tracksArr.opt(i)) {
+                            is JSONObject -> {
+                                val id = elem.optString("id").takeIf { it.isNotBlank() }
+                                val online = elem.optString("online").takeIf { it.isNotBlank() }
+                                    ?: elem.optString("online_query").takeIf { it.isNotBlank() }
+                                    ?: elem.optString("query").takeIf { it.isNotBlank() }
+                                when {
+                                    id != null -> items.add(TrackSelectionItem.Local(id))
+                                    online != null -> items.add(TrackSelectionItem.Online(online))
+                                }
                             }
-                            break
+                            is String -> {
+                                if (elem.isNotBlank()) items.add(TrackSelectionItem.Local(elem))
+                            }
                         }
                     }
                 }
+                ParsedPlaylistResponse(title, description, items)
+            }.getOrNull()
+
+            if (parsed != null && parsed.trackItems.isNotEmpty()) {
+                return parsed
+            }
+        }
+
+        // 2. Try parsing raw JSON array: ["id1", "id2"] or [{"id": "id1"}, {"online": "..."}]
+        val firstBracket = sanitized.indexOf('[')
+        val lastBracket = sanitized.lastIndexOf(']')
+        if (firstBracket != -1 && lastBracket > firstBracket) {
+            val candidate = sanitized.substring(firstBracket, lastBracket + 1)
+            val parsed = runCatching {
+                val arr = JSONArray(candidate)
+                val items = mutableListOf<TrackSelectionItem>()
+                for (i in 0 until arr.length()) {
+                    when (val elem = arr.opt(i)) {
+                        is JSONObject -> {
+                            val id = elem.optString("id").takeIf { it.isNotBlank() }
+                            val online = elem.optString("online").takeIf { it.isNotBlank() }
+                                ?: elem.optString("online_query").takeIf { it.isNotBlank() }
+                            when {
+                                id != null -> items.add(TrackSelectionItem.Local(id))
+                                online != null -> items.add(TrackSelectionItem.Online(online))
+                            }
+                        }
+                        is String -> {
+                            if (elem.isNotBlank()) items.add(TrackSelectionItem.Local(elem))
+                        }
+                    }
+                }
+                ParsedPlaylistResponse(null, null, items)
+            }.getOrNull()
+
+            if (parsed != null && parsed.trackItems.isNotEmpty()) {
+                return parsed
             }
         }
 
         throw IllegalArgumentException(
-            "AI returned an invalid response format. Expected a JSON array of song IDs but got something else. " +
+            "AI returned an invalid response format. Expected a playlist structure with song selections. " +
             "This usually happens with smaller models. Try selecting a more capable model in AI Settings."
         )
     }

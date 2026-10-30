@@ -1865,8 +1865,9 @@ class PlaylistViewModel @Inject constructor(
                     maxLength = maxLength
                 )
 
-                result.onSuccess { selectedSongs ->
-                    val playlistName = "AI: $prompt".take(50)
+                result.onSuccess { genResult ->
+                    val selectedSongs = genResult.songs
+                    val playlistName = (genResult.title ?: "AI: $prompt").take(50)
 
                     playlistPreferencesRepository.createPlaylist(
                         name = playlistName,
