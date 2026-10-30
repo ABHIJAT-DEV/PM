@@ -207,21 +207,21 @@ fun FluidBlobCollage(
             .height(height)
             .padding(horizontal = 4.dp)
     ) {
-        val totalWidth = maxWidth
-        val totalHeight = maxHeight
-        val scaleX = totalWidth / 832f
-        val scaleY = totalHeight / 1044f
+        val totalWidthPx = maxWidth.value
+        val totalHeightPx = maxHeight.value
+        val scaleX = totalWidthPx / 832f
+        val scaleY = totalHeightPx / 1044f
 
         // 1. Top-Left Blob (Shape 1)
         FluidBlobItem(
             song = songsToShow.getOrNull(0),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_TOP_LEFT) },
-            width = 405f * scaleX,
-            height = 421f * scaleY,
+            width = (405f * scaleX).dp,
+            height = (421f * scaleY).dp,
             haloPadding = 8.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 55.5f * scaleX, y = 75.5f * scaleY),
+                .offset(x = (55.5f * scaleX).dp, y = (75.5f * scaleY).dp),
             onClick = { songsToShow.getOrNull(0)?.let(onSongClick) }
         )
 
@@ -229,12 +229,12 @@ fun FluidBlobCollage(
         FluidBlobItem(
             song = songsToShow.getOrNull(1),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_TOP_RIGHT) },
-            width = 308f * scaleX,
-            height = 343f * scaleY,
+            width = (308f * scaleX).dp,
+            height = (343f * scaleY).dp,
             haloPadding = 7.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 486.5f * scaleX, y = 50.5f * scaleY),
+                .offset(x = (486.5f * scaleX).dp, y = (50.5f * scaleY).dp),
             onClick = { songsToShow.getOrNull(1)?.let(onSongClick) }
         )
 
@@ -242,12 +242,12 @@ fun FluidBlobCollage(
         FluidBlobItem(
             song = songsToShow.getOrNull(2),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_CENTER) },
-            width = 381f * scaleX,
-            height = 379f * scaleY,
+            width = (381f * scaleX).dp,
+            height = (379f * scaleY).dp,
             haloPadding = 7.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 239.0f * scaleX, y = 304.5f * scaleY),
+                .offset(x = (239.0f * scaleX).dp, y = (304.5f * scaleY).dp),
             onClick = { songsToShow.getOrNull(2)?.let(onSongClick) }
         )
 
@@ -255,12 +255,12 @@ fun FluidBlobCollage(
         FluidBlobItem(
             song = songsToShow.getOrNull(3),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_RIGHT_CIRCLE) },
-            width = 180f * scaleX,
-            height = 179f * scaleY,
+            width = (180f * scaleX).dp,
+            height = (179f * scaleY).dp,
             haloPadding = 6.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 611.5f * scaleX, y = 464.5f * scaleY),
+                .offset(x = (611.5f * scaleX).dp, y = (464.5f * scaleY).dp),
             onClick = { songsToShow.getOrNull(3)?.let(onSongClick) }
         )
 
@@ -268,12 +268,12 @@ fun FluidBlobCollage(
         FluidBlobItem(
             song = songsToShow.getOrNull(4),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_BOTTOM_LEFT) },
-            width = 384f * scaleX,
-            height = 349f * scaleY,
+            width = (384f * scaleX).dp,
+            height = (349f * scaleY).dp,
             haloPadding = 8.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 72.5f * scaleX, y = 609.5f * scaleY),
+                .offset(x = (72.5f * scaleX).dp, y = (609.5f * scaleY).dp),
             onClick = { songsToShow.getOrNull(4)?.let(onSongClick) }
         )
 
@@ -281,12 +281,12 @@ fun FluidBlobCollage(
         FluidBlobItem(
             song = songsToShow.getOrNull(5),
             shape = remember { FluidBlobShape(FluidBlobType.COOKIE_BOTTOM_RIGHT) },
-            width = 237f * scaleX,
-            height = 235f * scaleY,
+            width = (237f * scaleX).dp,
+            height = (235f * scaleY).dp,
             haloPadding = 6.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 512.0f * scaleX, y = 694.6f * scaleY),
+                .offset(x = (512.0f * scaleX).dp, y = (694.6f * scaleY).dp),
             onClick = { songsToShow.getOrNull(5)?.let(onSongClick) }
         )
 
@@ -295,25 +295,25 @@ fun FluidBlobCollage(
             size = 28.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 350f * scaleX, y = 265f * scaleY)
+                .offset(x = (350f * scaleX).dp, y = (265f * scaleY).dp)
         )
         FloatingOrb(
             size = 20.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 98f * scaleX, y = 478f * scaleY)
+                .offset(x = (98f * scaleX).dp, y = (478f * scaleY).dp)
         )
         FloatingOrb(
             size = 24.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 100f * scaleX, y = 698f * scaleY)
+                .offset(x = (100f * scaleX).dp, y = (698f * scaleY).dp)
         )
         FloatingOrb(
             size = 20.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 695f * scaleX, y = 835f * scaleY)
+                .offset(x = (695f * scaleX).dp, y = (835f * scaleY).dp)
         )
     }
 }
