@@ -581,8 +581,8 @@ private fun CreateAiPlaylistSheetContent(
 
                 Spacer(modifier = Modifier.height(if (isGenerating) 18.dp else 8.dp))
 
-                // Persistently mounted expressive blob
-                AiBlobHeroAnimation(isGenerating = isGenerating && !isSuccess)
+                // Persistently mounted library indicators
+                AiLibraryIndicatorsAnimation(isGenerating = isGenerating && !isSuccess)
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -1151,125 +1151,61 @@ private class AiMorphingExpressiveShape(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AiBlobHeroAnimation(isGenerating: Boolean) {
-    val infiniteTransition = rememberInfiniteTransition(label = "blob_infinite")
-
-    // Slow spin when idle, fast spin when generating
-    val rotation by infiniteTransition.animateFloat(
+private fun AiLibraryIndicatorsAnimation(isGenerating: Boolean) {
+    val infiniteTransition = rememberInfiniteTransition(label = "lib_indicators")
+    
+    // Smooth floating orbit phase
+    val floatPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 360f,
+        targetValue = 6.28318f, // 2 * PI
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1800 else 7000, easing = LinearEasing),
+            animation = tween(if (isGenerating) 1200 else 4000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "blob_spin"
+        label = "float_phase"
     )
-
-    // Morphing progress for organic shape shifting
-    val morphProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1200 else 4000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blob_morph"
-    )
-
-    // Zooming / pulsing effect
-    val scale by infiniteTransition.animateFloat(
-        initialValue = if (isGenerating) 1.25f else 0.95f,
-        targetValue = if (isGenerating) 1.45f else 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 800 else 3000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blob_scale"
-    )
-
-    // Subtle floating movement
-    val verticalMovement by infiniteTransition.animateFloat(
-        initialValue = -8f,
-        targetValue = 8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1000 else 3500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blob_float"
-    )
-
-    // Uses your existing AiMorphingExpressiveShape engine
-    val currentShape = remember(morphProgress, isGenerating) {
-        AiMorphingExpressiveShape(
-            from = AiExpressiveShapeType.COOKIE,
-            to = if (isGenerating) AiExpressiveShapeType.SUNNY_COOKIE else AiExpressiveShapeType.FOUR_HEAD_COOKIE,
-            progress = morphProgress
-        )
-    }
-
-    val primary = MaterialTheme.colorScheme.primary
-    val tertiary = MaterialTheme.colorScheme.tertiary
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val highlightTint = lerp(tertiary, Color.White, if (isDark) 0.25f else 0.30f)
-    val deepShade = lerp(primary, Color.Black, if (isDark) 0.18f else 0.12f)
-    val glowAlpha = if (isGenerating) 0.85f else 0.45f
-
-    Box(
+    
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(140.dp),
-        contentAlignment = Alignment.Center
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .graphicsLayer {
-                    translationY = verticalMovement
-                    scaleX = scale
-                    scaleY = scale
-                    rotationZ = rotation
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            // Ambient wide glow halo
+        for (i in 0 until 3) {
+            val state = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
+            
+            val scaleTarget = if (isGenerating) 1.5f else 1.0f
+            val scaleAnim by animateFloatAsState(
+                targetValue = scaleTarget,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "scale"
+            )
+            
+            // Stagger the movement for each indicator
+            val offset = i * (6.28318f / 3f)
+            
             Box(
                 modifier = Modifier
-                    .size(120.dp)
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                tertiary.copy(alpha = glowAlpha),
-                                primary.copy(alpha = glowAlpha * 0.40f),
-                                Color.Transparent
-                            )
-                        ),
-                        shape = CircleShape
-                    )
-            )
-
-            // Hero morphing blob
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clip(currentShape)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(highlightTint, tertiary, primary, deepShade)
-                        )
-                    )
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.5f),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.2f)
-                            )
-                        ),
-                        shape = currentShape
-                    )
-            )
+                    .padding(horizontal = 12.dp)
+                    .graphicsLayer {
+                        scaleX = scaleAnim
+                        scaleY = scaleAnim
+                        translationY = kotlin.math.sin((floatPhase + offset).toDouble()).toFloat() * (if (isGenerating) 16f else 6f)
+                        translationX = kotlin.math.cos((floatPhase + offset).toDouble()).toFloat() * (if (isGenerating) 8f else 2f)
+                    }
+            ) {
+                androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.LoadingIndicator(
+                    state = state,
+                    isRefreshing = true,
+                    modifier = Modifier.size(52.dp)
+                )
+            }
         }
     }
 }
