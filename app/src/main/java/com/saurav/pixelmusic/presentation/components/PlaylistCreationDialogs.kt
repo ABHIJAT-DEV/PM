@@ -41,6 +41,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -458,11 +460,9 @@ fun CreateAiPlaylistDialog(
         )
 
         ModalBottomSheet(
-            onDismissRequest = {
-                if (!isGenerating) {
-                    onDismiss()
-                }
-            },
+            // Dismissing only hides this sheet; generation continues in the ViewModel.
+            // Always let users return to the Library while background work is running.
+            onDismissRequest = onDismiss,
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             dragHandle = {
@@ -1333,6 +1333,7 @@ private data class VibeItem(
     val morphedShape: AiExpressiveShapeType
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExpressiveQuickSelectRow(
     selectedPrompt: String,
@@ -1415,19 +1416,20 @@ private fun ExpressiveQuickSelectRow(
         )
     }
 
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        maxItemsInEachRow = 3,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        itemsIndexed(vibes, key = { _, item -> item.label }) { index, vibe ->
+        vibes.forEachIndexed { index, vibe ->
             val isSelected = selectedPrompt.trim().equals(vibe.label, ignoreCase = true)
             ExpressiveQuickSelectPill(
                 vibe = vibe,
                 index = index,
                 isSelected = isSelected,
-                onClick = { onPillClick(vibe.label) }
+                onClick = { onPillClick(vibe.label) },
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -1438,7 +1440,8 @@ private fun ExpressiveQuickSelectPill(
     vibe: VibeItem,
     index: Int,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -1535,21 +1538,21 @@ private fun ExpressiveQuickSelectPill(
         shape = pillShape,
         color = containerColor,
         shadowElevation = if (isHighlighted) 3.dp else 1.dp,
-        modifier = Modifier
-            .height(58.dp)
+        modifier = modifier
+            .height(48.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left side 1:1 Material You expressive shape
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(30.dp)
                     .graphicsLayer {
                         rotationZ = morphFraction * (if (index % 2 == 0) 25f else -25f)
                     }
@@ -1573,14 +1576,16 @@ private fun ExpressiveQuickSelectPill(
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = GoogleSansRounded,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontSize = 12.sp
                 ),
                 color = if (isHighlighted) {
                     MaterialTheme.colorScheme.onPrimaryContainer
                 } else {
                     MaterialTheme.colorScheme.onSurface
                 },
-                modifier = Modifier.padding(end = 6.dp)
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(end = 3.dp)
             )
         }
     }
@@ -1642,13 +1647,15 @@ private fun ExpressiveChoiceChip(
             }
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }
