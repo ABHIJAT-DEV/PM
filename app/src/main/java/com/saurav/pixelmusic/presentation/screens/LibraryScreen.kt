@@ -669,7 +669,7 @@ fun LibraryScreen(
             val sheetWasOpen = showCreateAiPlaylistDialog || aiGenerationRequestedFromDialog
             withContext(NonCancellable) {
                 if (sheetWasOpen) {
-                    kotlinx.coroutines.delay(1000)
+                    kotlinx.coroutines.delay(1800)
                 }
                 showCreateAiPlaylistDialog = false
                 aiGenerationRequestedFromDialog = false
