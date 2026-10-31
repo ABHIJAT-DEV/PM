@@ -1109,7 +1109,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         DrawerDestination.Settings -> navController.navigateSafely(Screen.Settings.route)
-                        else -> { }
                     }
                 }
             ) {
