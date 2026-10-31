@@ -662,8 +662,11 @@ fun LibraryScreen(
         }
     }
 
-    LaunchedEffect(lastCreatedAiPlaylistId) {
+    LaunchedEffect(lastCreatedAiPlaylistId, aiSuccess) {
         lastCreatedAiPlaylistId?.let { playlistId ->
+            // FIX: Prevent old playlist IDs from instantly closing the sheet when reopened via notification
+            if (!aiSuccess) return@let 
+
             val sheetWasOpen = showCreateAiPlaylistDialog
             if (sheetWasOpen) kotlinx.coroutines.delay(1200) // Let the success celebration play out
             showCreateAiPlaylistDialog = false

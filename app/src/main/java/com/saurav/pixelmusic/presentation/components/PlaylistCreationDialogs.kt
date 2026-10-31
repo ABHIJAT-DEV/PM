@@ -58,6 +58,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -578,9 +582,8 @@ private fun CreateAiPlaylistSheetContent(
 
                 Spacer(modifier = Modifier.height(if (isGenerating) 18.dp else 8.dp))
 
-                // Persistently mounted 4 large Material You expressive shapes with rich shadow + glow
-                // Transitions smoothly from gentle floating to active spinning, zooming, moving, and morphing
-                FloatingExpressiveShapes(isGenerating = isGenerating && !isSuccess)
+                // Persistently mounted expressive blob
+                AiBlobHeroAnimation(isGenerating = isGenerating && !isSuccess)
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -1149,171 +1152,125 @@ private class AiMorphingExpressiveShape(
     }
 }
 
-/**
- * 4 Large Floating Material You Expressive shapes with rich, visible ambient glow and shadow.
- * Idle: Pill, Cookie, Rounded Triangle, and 1:1 Rounded Square gently floating & breathing.
- * Generating: Reacts smoothly by spinning, subtly zooming in/out, orbital movement, and morphing shapes!
- * Driven 100% in hardware via graphicsLayer with zero CPU blur passes or tessellation stalls.
- */
 @Composable
-private fun FloatingExpressiveShapes(isGenerating: Boolean) {
-    val infiniteTransition = rememberInfiniteTransition(label = "floating_shapes_infinite")
+private fun AiBlobHeroAnimation(isGenerating: Boolean) {
+    val infiniteTransition = rememberInfiniteTransition(label = "blob_infinite")
 
-    val spinAngle by infiniteTransition.animateFloat(
+    // Slow spin when idle, fast spin when generating
+    val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 2800 else 8000, easing = LinearEasing),
+            animation = tween(if (isGenerating) 1800 else 7000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "floating_spin"
+        label = "blob_spin"
     )
 
-    val orbitPhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6.28318f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1800 else 4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "floating_orbit"
-    )
-
+    // Morphing progress for organic shape shifting
     val morphProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1600 else 3600, easing = FastOutSlowInEasing),
+            animation = tween(if (isGenerating) 1200 else 4000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "floating_morph"
+        label = "blob_morph"
     )
 
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    // Zooming / pulsing effect
+    val scale by infiniteTransition.animateFloat(
+        initialValue = if (isGenerating) 1.25f else 0.95f,
+        targetValue = if (isGenerating) 1.45f else 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isGenerating) 800 else 3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "blob_scale"
+    )
+
+    // Subtle floating movement
+    val verticalMovement by infiniteTransition.animateFloat(
+        initialValue = -8f,
+        targetValue = 8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isGenerating) 1000 else 3500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "blob_float"
+    )
+
+    // Uses your existing AiMorphingExpressiveShape engine
+    val currentShape = remember(morphProgress, isGenerating) {
+        AiMorphingExpressiveShape(
+            from = AiExpressiveShapeType.COOKIE,
+            to = if (isGenerating) AiExpressiveShapeType.SUNNY_COOKIE else AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            progress = morphProgress
+        )
+    }
+
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
-    val secondary = MaterialTheme.colorScheme.secondary
-    val fourthColor = lerp(
-        MaterialTheme.colorScheme.primaryContainer,
-        MaterialTheme.colorScheme.primary,
-        if (isDark) 0.35f else 0.50f
-    )
-
-    val colors = remember(primary, tertiary, secondary, fourthColor) {
-        listOf(primary, tertiary, secondary, fourthColor)
-    }
-
-    val idleShapes = remember {
-        listOf(
-            AiExpressiveShapeType.PILL,
-            AiExpressiveShapeType.COOKIE,
-            AiExpressiveShapeType.ROUNDED_TRIANGLE,
-            AiExpressiveShapeType.ROUNDED_SQUARE
-        )
-    }
-
-    val generatingTargetShapes = remember {
-        listOf(
-            AiExpressiveShapeType.FOUR_HEAD_COOKIE,
-            AiExpressiveShapeType.SUNNY_COOKIE,
-            AiExpressiveShapeType.SIX_COOKIE,
-            AiExpressiveShapeType.CIRCLE
-        )
-    }
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val highlightTint = lerp(tertiary, Color.White, if (isDark) 0.25f else 0.30f)
+    val deepShade = lerp(primary, Color.Black, if (isDark) 0.18f else 0.12f)
+    val glowAlpha = if (isGenerating) 0.85f else 0.45f
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(118.dp),
+            .height(140.dp),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .graphicsLayer {
+                    translationY = verticalMovement
+                    scaleX = scale
+                    scaleY = scale
+                    rotationZ = rotation
+                },
+            contentAlignment = Alignment.Center
         ) {
-            colors.forEachIndexed { index, shapeColor ->
-                val phaseOffset = index * 1.57f
-
-                // Staggered orbital wave movement in graphicsLayer
-                val verticalMovement = sin((orbitPhase + phaseOffset).toDouble()).toFloat() * (if (isGenerating) 14f else 4.5f)
-                val horizontalMovement = cos((orbitPhase + phaseOffset).toDouble()).toFloat() * (if (isGenerating) 8f else 1.5f)
-                val scale = 1.0f + sin((orbitPhase + phaseOffset).toDouble()).toFloat() * (if (isGenerating) 0.08f else 0.03f)
-                val rotation = if (isGenerating) {
-                    spinAngle * (if (index % 2 == 0) 1f else -1f)
-                } else {
-                    sin((orbitPhase + phaseOffset).toDouble()).toFloat() * 6f
-                }
-
-                val currentShape = if (isGenerating) {
-                    AiMorphingExpressiveShape(
-                        from = idleShapes[index % idleShapes.size],
-                        to = generatingTargetShapes[index % generatingTargetShapes.size],
-                        progress = morphProgress
-                    )
-                } else {
-                    AiMorphingExpressiveShape(
-                        from = idleShapes[index % idleShapes.size],
-                        to = idleShapes[index % idleShapes.size],
-                        progress = 0f
-                    )
-                }
-
-                val highlightTint = lerp(shapeColor, Color.White, if (isDark) 0.25f else 0.30f)
-                val deepShade = lerp(shapeColor, Color.Black, if (isDark) 0.18f else 0.12f)
-                val glowAlpha = if (isGenerating) 0.65f else 0.45f
-
-                Box(
-                    modifier = Modifier
-                        .size(68.dp)
-                        .graphicsLayer {
-                            translationX = horizontalMovement
-                            translationY = verticalMovement
-                            scaleX = scale
-                            scaleY = scale
-                            rotationZ = rotation
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Wide ambient glow halo (pure hardware accelerated gradient, zero blur overhead)
-                    Box(
-                        modifier = Modifier
-                            .size(88.dp)
-                            .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        shapeColor.copy(alpha = glowAlpha),
-                                        shapeColor.copy(alpha = glowAlpha * 0.40f),
-                                        Color.Transparent
-                                    )
-                                ),
-                                shape = CircleShape
+            // Ambient wide glow halo
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                tertiary.copy(alpha = glowAlpha),
+                                primary.copy(alpha = glowAlpha * 0.40f),
+                                Color.Transparent
                             )
+                        ),
+                        shape = CircleShape
                     )
+            )
 
-                    // Hero Material You Expressive shape
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(currentShape)
-                            .background(
-                                brush = Brush.linearGradient(
-                                    colors = listOf(highlightTint, shapeColor, deepShade)
-                                )
-                            )
-                            .border(
-                                width = 1.dp,
-                                brush = Brush.linearGradient(
-                                    colors = listOf(
-                                        Color.White.copy(alpha = 0.42f),
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.15f)
-                                    )
-                                ),
-                                shape = currentShape
-                            )
+            // Hero morphing blob
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(currentShape)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(highlightTint, tertiary, primary, deepShade)
+                        )
                     )
-                }
-            }
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.5f),
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.2f)
+                            )
+                        ),
+                        shape = currentShape
+                    )
+            )
         }
     }
 }
@@ -1414,20 +1371,23 @@ private fun ExpressiveQuickSelectRow(
         )
     }
 
-    FlowRow(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-        maxItemsInEachRow = 3,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    LazyHorizontalGrid(
+        rows = GridCells.Fixed(3), 
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(174.dp), // Safely fits 3 rows of 48dp pills + spacing
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        vibes.forEachIndexed { index, vibe ->
+        itemsIndexed(vibes) { index, vibe ->
             val isSelected = selectedPrompt.trim().equals(vibe.label, ignoreCase = true)
             ExpressiveQuickSelectPill(
                 vibe = vibe,
                 index = index,
                 isSelected = isSelected,
                 onClick = { onPillClick(vibe.label) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.width(185.dp) // Locks pill width so they stay uniform while sliding horizontally
             )
         }
     }
