@@ -1202,9 +1202,10 @@ private fun AiLibraryIndicatorsAnimation(isGenerating: Boolean) {
             MaterialTheme.colorScheme.secondary
         )
 
+        // Hoist the state outside the loop to prevent recreation/recomposition flashing
+        val pullRefreshState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
+
         for (i in 0 until 3) {
-            val state = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
-            
             // Stagger the movement phase for each indicator so they don't move identically
             val offset = i * (6.28318f / 3f)
             
@@ -1229,7 +1230,7 @@ private fun AiLibraryIndicatorsAnimation(isGenerating: Boolean) {
                     }
             ) {
                 androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.LoadingIndicator(
-                    state = state,
+                    state = pullRefreshState,
                     isRefreshing = true,
                     modifier = Modifier.size(52.dp),
                     color = colors[i % colors.size]
