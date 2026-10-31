@@ -563,12 +563,18 @@ private fun AiPlaylistGeneratingFullScreenPage(
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    AiPlaylistCreationAnimationView(
-                        status = status,
-                        isSuccess = isSuccess,
-                        error = error,
-                        onDismiss = onDismiss
-                    )
+                    AnimatedVisibility(
+                        visible = !isSuccess,
+                        enter = fadeIn(),
+                        exit = fadeOut(tween(250))
+                    ) {
+                        AiPlaylistCreationAnimationView(
+                            status = status,
+                            isSuccess = isSuccess,
+                            error = error,
+                            onDismiss = onDismiss
+                        )
+                    }
                 }
             }
         }
@@ -1286,9 +1292,9 @@ private fun AiLibraryIndicatorsAnimation(
         label = "idle_scale_phase"
     )
 
-    // Base indicator size: 66dp when idle -> 76dp when generating
+    // Base indicator size: 108dp when idle -> 124dp when generating (matches user's comparison in 260243.jpg)
     val baseIndicatorSize by animateDpAsState(
-        targetValue = if (isGenerating) 76.dp else 66.dp,
+        targetValue = if (isGenerating) 124.dp else 108.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -1296,9 +1302,9 @@ private fun AiLibraryIndicatorsAnimation(
         label = "base_indicator_size"
     )
 
-    // Animate container height: 160dp when idle -> 230dp when generating
+    // Animate container height: 230dp when idle -> 290dp when generating
     val containerHeight by animateDpAsState(
-        targetValue = if (isGenerating) 230.dp else 160.dp,
+        targetValue = if (isGenerating) 290.dp else 230.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessLow
@@ -1308,16 +1314,16 @@ private fun AiLibraryIndicatorsAnimation(
 
     // Horizontal spacing between indicators relative to the center
     val spacingPx = with(density) {
-        if (isGenerating) 86.dp.toPx() else 76.dp.toPx()
+        if (isGenerating) 96.dp.toPx() else 84.dp.toPx()
     }
 
-    // Success animation driver: handles the convergence of the 3 pieces and supernova expansion
+    // Success animation driver: handles convergence, edge-to-edge supernova expansion, and dissolve reveal
     val successProgress = remember { Animatable(0f) }
     LaunchedEffect(isSuccess) {
         if (isSuccess) {
             successProgress.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(1700, easing = LinearEasing)
+                animationSpec = tween(1900, easing = LinearEasing)
             )
         } else {
             successProgress.snapTo(0f)
@@ -1360,23 +1366,27 @@ private fun AiLibraryIndicatorsAnimation(
                 else -> 0f
             }
 
-            // Convergence & Expansion math
-            // Phase 1 (0f..0.50f): 3 pieces orbit and merge directly to center
-            val convergeT = (p / 0.50f).coerceIn(0f, 1f)
+            // Convergence, Edge-to-Edge Expansion, and Dissolve Reveal math
+            // Phase 1 (0f..0.42f): 3 pieces orbit and merge directly to center
+            val convergeT = (p / 0.42f).coerceIn(0f, 1f)
             val convergeEase = FastOutSlowInEasing.transform(convergeT)
 
-            // Phase 2 (0.50f..1.0f): Merged center component expands exponentially into the portal
-            val expandT = ((p - 0.50f) / 0.50f).coerceIn(0f, 1f)
+            // Phase 2 (0.42f..0.72f): Merged center component expands dramatically (up to 45x) covering the entire screen edge to edge
+            val expandT = ((p - 0.42f) / 0.30f).coerceIn(0f, 1f)
             val expandCurve = FastOutLinearInEasing.transform(expandT)
+
+            // Phase 3 (0.72f..1.0f): Portal smoothly dissolves/fades away, revealing the newly created playlist page
+            val revealT = ((p - 0.72f) / 0.28f).coerceIn(0f, 1f)
+            val portalAlpha = (1f - FastOutSlowInEasing.transform(revealT)).coerceIn(0f, 1f)
 
             // Dynamic scale: side components shrink smoothly into center as they converge
             val scale = when {
                 isSuccessActive -> {
                     if (i == 1) {
-                        // Center component swells smoothly as it absorbs side pieces (1.0x -> 1.35x),
-                        // and then expands dramatically into the edge-to-edge portal (up to 19x)
-                        val convergeSwell = 1.0f + (convergeEase * 0.35f)
-                        val portalExpansion = expandCurve * expandCurve * 18.0f
+                        // Center component swells smoothly as it absorbs side pieces (1.0x -> 1.4x),
+                        // and then expands dramatically into the full edge-to-edge screen portal (up to 45x)
+                        val convergeSwell = 1.0f + (convergeEase * 0.40f)
+                        val portalExpansion = expandCurve * expandCurve * 45.0f
                         convergeSwell + portalExpansion
                     } else {
                         // Side components contract and dissolve seamlessly into the center (no clipping)
@@ -1441,8 +1451,8 @@ private fun AiLibraryIndicatorsAnimation(
                             this.translationX = transX
                             this.translationY = transY
                             this.rotationZ = rotZ
-                            // Keep alpha at 1f so hardware RenderNode does NOT allocate a bounded offscreen layer
-                            // which previously created rectangular box clipping artifacts
+                            // In Phase 3, smoothly dissolve the expanded portal so the playlist page underneath is revealed
+                            this.alpha = if (isSuccessActive && i == 1) portalAlpha else 1f
                         },
                     contentAlignment = Alignment.Center
                 ) {

@@ -669,15 +669,14 @@ fun LibraryScreen(
             val sheetWasOpen = showCreateAiPlaylistDialog || aiGenerationRequestedFromDialog
             withContext(NonCancellable) {
                 if (sheetWasOpen) {
-                    // 1. Let the 3 shapes merge in center and the middle component expand to fill screen (1350ms)
+                    // 1. Wait for convergence and full screen edge-to-edge expansion (1350ms)
                     kotlinx.coroutines.delay(1350)
-                    // 2. Screen is now 100% covered edge-to-edge by the expanded portal.
-                    // Preload and navigate to the playlist detail in the background while covered!
+                    // 2. Preload and navigate to the playlist detail in the background while completely covered!
                     navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
-                    // 3. Allow 450ms for PlaylistDetailScreen to mount and settle
-                    kotlinx.coroutines.delay(450)
+                    // 3. Allow 600ms for portal dissolve animation to gracefully unveil the playlist page
+                    kotlinx.coroutines.delay(600)
                 }
-                // 4. Dismiss the dialog: reveals the already-loaded playlist page with zero double-screen flash
+                // 4. Dismiss the dialog: playlist page is already in place and active
                 showCreateAiPlaylistDialog = false
                 aiGenerationRequestedFromDialog = false
                 playerViewModel.clearAiPlaylistError()
