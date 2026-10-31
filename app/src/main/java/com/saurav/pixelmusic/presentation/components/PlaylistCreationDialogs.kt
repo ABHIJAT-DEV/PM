@@ -1242,9 +1242,9 @@ private fun AiLibraryIndicatorsAnimation(
         label = "idle_scale_phase"
     )
 
-    // Animate base indicator size: 74dp when idle -> 98dp when generating
+    // Base indicator size: 66dp when idle -> 76dp when generating
     val baseIndicatorSize by animateDpAsState(
-        targetValue = if (isGenerating) 98.dp else 74.dp,
+        targetValue = if (isGenerating) 76.dp else 66.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -1252,9 +1252,9 @@ private fun AiLibraryIndicatorsAnimation(
         label = "base_indicator_size"
     )
 
-    // Animate container height: 160dp when idle -> 240dp when generating
+    // Animate container height: 160dp when idle -> 230dp when generating
     val containerHeight by animateDpAsState(
-        targetValue = if (isGenerating) 240.dp else 160.dp,
+        targetValue = if (isGenerating) 230.dp else 160.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessLow
@@ -1262,12 +1262,10 @@ private fun AiLibraryIndicatorsAnimation(
         label = "container_height"
     )
 
-    // Dynamic horizontal spacing between indicators
-    val itemSpacing by animateDpAsState(
-        targetValue = if (isGenerating) 16.dp else 14.dp,
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "item_spacing"
-    )
+    // Horizontal spacing between indicators relative to the center
+    val spacingPx = with(density) {
+        if (isGenerating) 86.dp.toPx() else 76.dp.toPx()
+    }
 
     // Success animation driver: handles the convergence of the 3 pieces and supernova expansion
     val successProgress = remember { Animatable(0f) }
@@ -1288,15 +1286,11 @@ private fun AiLibraryIndicatorsAnimation(
         MaterialTheme.colorScheme.secondary
     )
 
-    // Translation distance in pixels between adjacent items in the Row
-    val distX = with(density) { (itemSpacing + baseIndicatorSize).toPx() }
-
-    Row(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(containerHeight),
-        horizontalArrangement = Arrangement.spacedBy(itemSpacing, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically
+        contentAlignment = Alignment.Center
     ) {
         for (i in 0 until 3) {
             val offset = i * (6.2831855f / 3f)
@@ -1305,8 +1299,15 @@ private fun AiLibraryIndicatorsAnimation(
             val p = successProgress.value
             val isSuccessActive = isSuccess && p > 0f
 
+            // Base position relative to exact center of screen
+            val baseX = when (i) {
+                0 -> -spacingPx
+                2 -> spacingPx
+                else -> 0f
+            }
+
             // Convergence & Expansion math
-            // Phase 1 (0f..0.50f): 3 pieces orbit and merge to center
+            // Phase 1 (0f..0.50f): 3 pieces orbit and merge directly to center
             val convergeT = (p / 0.50f).coerceIn(0f, 1f)
             val convergeEase = FastOutSlowInEasing.transform(convergeT)
 
@@ -1314,64 +1315,52 @@ private fun AiLibraryIndicatorsAnimation(
             val expandT = ((p - 0.50f) / 0.50f).coerceIn(0f, 1f)
             val expandCurve = FastOutLinearInEasing.transform(expandT)
 
-            // Dynamic scale: idle subtle breathing, generating dynamic pulsing, success portal zoom
+            // Dynamic scale
             val scale = when {
                 isSuccessActive -> {
                     if (i == 1) {
                         // Center component swells and expands dramatically into the playlist portal
-                        1f + (expandCurve * expandCurve * 7.5f)
+                        1f + (expandCurve * expandCurve * 9f)
                     } else {
-                        // Side components contract slightly as they dissolve into center
-                        (1f - convergeEase * 0.4f).coerceAtLeast(0.1f)
+                        // Side components dissolve into center
+                        (1f - convergeEase * 0.5f).coerceAtLeast(0.01f)
                     }
                 }
-                isGenerating -> 1.07f + 0.17f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat()
+                isGenerating -> 1.06f + 0.14f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat()
                 else -> 1.0f + 0.035f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat()
             }
 
-            // Alpha: in success, side components dissolve into the center
+            // Alpha: in success, side components dissolve completely as they touch center
             val itemAlpha = if (isSuccessActive) {
-                if (i == 1) 1f else (1f - convergeEase).coerceIn(0f, 1f)
+                if (i == 1) 1f else (1f - convergeEase * 1.3f).coerceIn(0f, 1f)
             } else {
                 1f
             }
 
-            // Translation X & Y in true screen pixels (LocalDensity)
+            // Floating translations
             val idleFloatY = with(density) { 14.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
             val idleFloatX = with(density) { 10.dp.toPx() } * kotlin.math.cos((idleFloatPhase + offset).toDouble()).toFloat()
 
-            val genFloatY = with(density) { 18.dp.toPx() } * kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat()
-            val genFloatX = with(density) { 12.dp.toPx() } * kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat()
+            val genFloatY = with(density) { 16.dp.toPx() } * kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat()
+            val genFloatX = with(density) { 10.dp.toPx() } * kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat()
 
             // Swirl / orbit offset during convergence
             val swirlAngle = convergeEase * 3.14159f * 1.5f
-            val swirlRadius = with(density) { 28.dp.toPx() } * (1f - convergeEase)
+            val swirlRadius = with(density) { 24.dp.toPx() } * (1f - convergeEase)
             val swirlOffsetY = when (i) {
                 0 -> -kotlin.math.sin(swirlAngle) * swirlRadius
                 2 -> kotlin.math.sin(swirlAngle) * swirlRadius
-                else -> kotlin.math.cos(swirlAngle) * (swirlRadius * 0.5f)
+                else -> kotlin.math.cos(swirlAngle) * (swirlRadius * 0.4f)
             }
 
-            val transX = if (isSuccessActive) {
-                val baseMergeX = when (i) {
-                    0 -> distX * convergeEase
-                    2 -> -distX * convergeEase
-                    else -> 0f
-                }
-                baseMergeX + (genFloatX * (1f - convergeEase))
-            } else if (isGenerating) {
-                genFloatX
-            } else {
-                idleFloatX
-            }
+            // Total translation X & Y:
+            // When success is active, baseX gracefully interpolates to 0 (converging to center)
+            val currentBaseX = if (isSuccessActive) baseX * (1f - convergeEase) else baseX
+            val floatX = if (isSuccessActive) genFloatX * (1f - convergeEase) else (if (isGenerating) genFloatX else idleFloatX)
+            val floatY = if (isSuccessActive) swirlOffsetY + (genFloatY * (1f - convergeEase)) else (if (isGenerating) genFloatY else idleFloatY)
 
-            val transY = if (isSuccessActive) {
-                swirlOffsetY + (genFloatY * (1f - convergeEase))
-            } else if (isGenerating) {
-                genFloatY
-            } else {
-                idleFloatY
-            }
+            val transX = currentBaseX + floatX
+            val transY = floatY
 
             // Rotation
             val rotZ = when {
@@ -1384,13 +1373,14 @@ private fun AiLibraryIndicatorsAnimation(
 
             // Glow expansion scale for the merged component
             val glowExpansion = if (isSuccessActive && i == 1) {
-                1f + expandCurve * 5f
+                1f + expandCurve * 6f
             } else {
                 1f
             }
 
             Box(
                 modifier = Modifier
+                    .size(baseIndicatorSize)
                     .graphicsLayer {
                         this.scaleX = scale
                         this.scaleY = scale
@@ -1401,15 +1391,15 @@ private fun AiLibraryIndicatorsAnimation(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                // Soft depth shadow on the sheet surface in both idle and generating modes
+                // Soft depth shadow on the sheet surface
                 Box(
                     modifier = Modifier
                         .size(baseIndicatorSize * 0.95f)
-                        .offset(y = if (isGenerating) 14.dp else 9.dp)
+                        .offset(y = if (isGenerating) 12.dp else 8.dp)
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.scrim.copy(alpha = if (isGenerating) 0.30f else 0.18f),
+                                    MaterialTheme.colorScheme.scrim.copy(alpha = if (isGenerating) 0.28f else 0.16f),
                                     Color.Transparent
                                 )
                             ),
@@ -1417,10 +1407,15 @@ private fun AiLibraryIndicatorsAnimation(
                         )
                 )
 
-                // Layer 1: Ambient wide glow aura
+                // Layer 1: Ambient wide glow aura (scaled via graphicsLayer so layout isn't expanded)
                 Box(
                     modifier = Modifier
-                        .size(baseIndicatorSize * (if (isGenerating) 1.95f else 1.65f) * glowExpansion)
+                        .size(baseIndicatorSize)
+                        .graphicsLayer {
+                            val s = (if (isGenerating) 2.05f else 1.75f) * glowExpansion
+                            scaleX = s
+                            scaleY = s
+                        }
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
@@ -1433,10 +1428,15 @@ private fun AiLibraryIndicatorsAnimation(
                         )
                 )
 
-                // Layer 2: Radiant core glow
+                // Layer 2: Radiant core glow (scaled via graphicsLayer)
                 Box(
                     modifier = Modifier
-                        .size(baseIndicatorSize * (if (isGenerating) 1.35f else 1.20f) * glowExpansion)
+                        .size(baseIndicatorSize)
+                        .graphicsLayer {
+                            val s = (if (isGenerating) 1.40f else 1.25f) * glowExpansion
+                            scaleX = s
+                            scaleY = s
+                        }
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
