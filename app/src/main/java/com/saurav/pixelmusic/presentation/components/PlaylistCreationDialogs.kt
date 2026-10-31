@@ -51,6 +51,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
@@ -162,8 +163,10 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -550,9 +553,19 @@ private fun CreateAiPlaylistSheetContent(
             )
         } else {
             val scrollState = rememberScrollState()
+            val configuration = LocalConfiguration.current
+            val screenHeight = configuration.screenHeightDp.dp
+            val targetMinHeight = if (isGenerating) (screenHeight * 0.65f).coerceIn(480.dp, 620.dp) else 0.dp
+            val contentMinHeight by animateDpAsState(
+                targetValue = targetMinHeight,
+                animationSpec = tween(400, easing = FastOutSlowInEasing),
+                label = "ai_sheet_content_min_height"
+            )
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = contentMinHeight)
                     .verticalScroll(scrollState)
                     .padding(bottom = 32.dp)
                     .imePadding(),
@@ -584,7 +597,7 @@ private fun CreateAiPlaylistSheetContent(
                 // Persistently mounted library indicators
                 AiLibraryIndicatorsAnimation(isGenerating = isGenerating && !isSuccess)
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(if (isGenerating) 24.dp else 20.dp))
 
                 AnimatedContent(
                     targetState = isGenerating,
@@ -1151,89 +1164,165 @@ private class AiMorphingExpressiveShape(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AiLibraryIndicatorsAnimation(isGenerating: Boolean) {
+private fun AiLibraryIndicatorsAnimation(
+    isGenerating: Boolean,
+    modifier: Modifier = Modifier
+) {
     val infiniteTransition = rememberInfiniteTransition(label = "lib_indicators")
-    
-    // Smooth floating orbit phase for translation (slow when idle, fast when generating)
-    val floatPhase by infiniteTransition.animateFloat(
+
+    // Slow floating translation when idle (cycle 6000ms)
+    val idleFloatPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 6.28318f, // 2 * PI
+        targetValue = 6.2831855f, // 2 * PI
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1600 else 6000, easing = LinearEasing),
+            animation = tween(6000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "float_phase"
+        label = "idle_float_phase"
     )
 
-    // Zooming in and out (subtle pulse when idle, large pulsing when generating)
-    val scalePulse by infiniteTransition.animateFloat(
-        initialValue = if (isGenerating) 1.2f else 0.9f,
-        targetValue = if (isGenerating) 1.55f else 1.05f,
+    // Fast dynamic movement when generating (cycle 1400ms)
+    val genFloatPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1000 else 3000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
-        label = "scale_pulse"
+        label = "gen_float_phase"
     )
 
-    // Continuous rotation applied to the container for rapid "spinning"
-    val containerRotation by infiniteTransition.animateFloat(
+    // Slow gentle continuous rotation when idle (cycle 10000ms)
+    val idleRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 2000 else 8000, easing = LinearEasing),
+            animation = tween(10000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "container_rotation"
+        label = "idle_rotation"
     )
-    
+
+    // Fast spinning when generating (cycle 1500ms)
+    val genSpinRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gen_spin_rotation"
+    )
+
+    // Fast zooming in/out pulse phase when generating (cycle 800ms)
+    val genScalePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.2831855f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gen_scale_phase"
+    )
+
+    // Subtle gentle breathing pulse phase when idle (cycle 3000ms)
+    val idleScalePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.2831855f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "idle_scale_phase"
+    )
+
+    // Animate base indicator size: 48dp when idle -> 70dp when generating
+    val baseIndicatorSize by animateDpAsState(
+        targetValue = if (isGenerating) 70.dp else 48.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "base_indicator_size"
+    )
+
+    // Animate container height: 124dp when idle -> 210dp when generating to fit them nicely
+    val containerHeight by animateDpAsState(
+        targetValue = if (isGenerating) 210.dp else 124.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "container_height"
+    )
+
+    // Dynamic horizontal spacing between indicators
+    val itemSpacing by animateDpAsState(
+        targetValue = if (isGenerating) 18.dp else 14.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "item_spacing"
+    )
+
+    val colors = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.tertiary,
+        MaterialTheme.colorScheme.secondary
+    )
+
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(140.dp),
-        horizontalArrangement = Arrangement.Center,
+            .height(containerHeight),
+        horizontalArrangement = Arrangement.spacedBy(itemSpacing, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val colors = listOf(
-            MaterialTheme.colorScheme.primary,
-            MaterialTheme.colorScheme.tertiary,
-            MaterialTheme.colorScheme.secondary
-        )
-
-        // Hoist the state outside the loop to prevent recreation/recomposition flashing
-        val pullRefreshState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
-
         for (i in 0 until 3) {
-            // Stagger the movement phase for each indicator so they don't move identically
-            val offset = i * (6.28318f / 3f)
-            
+            val offset = i * (6.2831855f / 3f)
+
+            // Dynamic scale: zooming in/out and getting larger/reducing size faster when generating
+            val scale = if (isGenerating) {
+                1.08f + 0.32f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat()
+            } else {
+                1.0f + 0.04f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat()
+            }
+
+            // Translation: faster and larger amplitude when generating, slow and gentle when idle
+            val transY = if (isGenerating) {
+                kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat() * 20f
+            } else {
+                kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat() * 6f
+            }
+
+            val transX = if (isGenerating) {
+                kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat() * 12f
+            } else {
+                kotlin.math.cos((idleFloatPhase + offset).toDouble()).toFloat() * 4f
+            }
+
+            // Rotation: fast spinning (alternating directions) when generating, slow continuous rotation when idle
+            val rotZ = if (isGenerating) {
+                genSpinRotation * (if (i % 2 == 0) 1f else -1f)
+            } else {
+                (idleRotation + i * 45f) % 360f
+            }
+
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp)
                     .graphicsLayer {
-                        // Zooming in and out
-                        scaleX = scalePulse
-                        scaleY = scalePulse
-                        
-                        // Moving slowly/faster
-                        translationY = kotlin.math.sin((floatPhase + offset).toDouble()).toFloat() * (if (isGenerating) 18f else 6f)
-                        translationX = kotlin.math.cos((floatPhase + offset).toDouble()).toFloat() * (if (isGenerating) 10f else 3f)
-                        
-                        // Spinning
-                        rotationZ = if (isGenerating) {
-                            containerRotation * (if (i % 2 == 0) 1f else -1f) // Spin rapidly in opposite directions
-                        } else {
-                            kotlin.math.sin((floatPhase + offset).toDouble()).toFloat() * 15f // Gentle wobble when idle
-                        }
-                    }
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = transX
+                        translationY = transY
+                        rotationZ = rotZ
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.LoadingIndicator(
-                    state = pullRefreshState,
-                    isRefreshing = true,
-                    modifier = Modifier.size(52.dp),
-                    color = colors[i % colors.size]
+                LoadingIndicator(
+                    color = colors[i % colors.size],
+                    modifier = Modifier
+                        .size(baseIndicatorSize)
+                        .testTag("loading_indicator")
                 )
             }
         }
