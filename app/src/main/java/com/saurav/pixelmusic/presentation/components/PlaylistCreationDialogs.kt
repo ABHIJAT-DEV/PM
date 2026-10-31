@@ -1175,6 +1175,16 @@ internal enum class AiExpressiveShapeType {
             val s = abs(sin(th))
             return (0.92 / (c * c + 0.55 * s * s).pow(0.5)).toFloat()
         }
+    },
+    STAR {
+        override fun radiusAt(th: Double): Float = (0.70 + 0.30 * cos(5.0 * th - PI / 2.0)).toFloat()
+    },
+    DIAMOND {
+        override fun radiusAt(th: Double): Float {
+            val c = abs(cos(th))
+            val s = abs(sin(th))
+            return (0.84 / (c.pow(1.3) + s.pow(1.3)).pow(1.0 / 1.3)).toFloat()
+        }
     };
 
     abstract fun radiusAt(th: Double): Float
@@ -1216,6 +1226,179 @@ private class AiMorphingExpressiveShape(
         return Outline.Generic(path)
     }
 }
+
+private class AiExpressiveShape(
+    private val shapeType: AiExpressiveShapeType
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val radii = shapeType.radii
+        val baseRadius = min(size.width, size.height) * 0.485f
+        val centerX = size.width * 0.5f
+        val centerY = size.height * 0.5f
+
+        val path = Path().apply {
+            for (i in 0 until SHAPE_STEP_COUNT) {
+                val radiusPx = baseRadius * radii[i]
+                val x = centerX + radiusPx * COS_TABLE[i]
+                val y = centerY + radiusPx * SIN_TABLE[i]
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
+private data class AiFloatingShapeSpec(
+    val shapeType: AiExpressiveShapeType,
+    val sizeDp: Float,
+    val initialX: Float,
+    val initialY: Float,
+    val initialRotation: Float,
+    val colorIndex: Int,
+    val floatSpeedMultiplier: Float = 1.0f,
+    val floatRadiusMultiplier: Float = 1.0f,
+    val spinDirection: Float = 1.0f
+)
+
+private val FLOATING_EXPRESSIVE_SHAPES = listOf(
+    // Top far-left: Olive Oval
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.OVAL,
+        sizeDp = 42f,
+        initialX = -142f,
+        initialY = -88f,
+        initialRotation = -24f,
+        colorIndex = 4,
+        floatSpeedMultiplier = 0.9f,
+        floatRadiusMultiplier = 0.9f,
+        spinDirection = -1f
+    ),
+    // Top left-mid: Peach 4-Head Cookie
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+        sizeDp = 46f,
+        initialX = -58f,
+        initialY = -98f,
+        initialRotation = 16f,
+        colorIndex = 3,
+        floatSpeedMultiplier = 1.1f,
+        floatRadiusMultiplier = 1.1f,
+        spinDirection = 1f
+    ),
+    // Top center-mid: Tan 6-Pointed Cookie
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.SIX_COOKIE,
+        sizeDp = 40f,
+        initialX = 48f,
+        initialY = -100f,
+        initialRotation = -14f,
+        colorIndex = 5,
+        floatSpeedMultiplier = 0.85f,
+        floatRadiusMultiplier = 0.95f,
+        spinDirection = -1f
+    ),
+    // Top right: Brown 5-Pointed Star
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.STAR,
+        sizeDp = 48f,
+        initialX = 140f,
+        initialY = -82f,
+        initialRotation = 22f,
+        colorIndex = 0,
+        floatSpeedMultiplier = 1.05f,
+        floatRadiusMultiplier = 1.05f,
+        spinDirection = 1f
+    ),
+    // Bottom far-left: Tan 8-Pointed Cookie / Star
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.COOKIE,
+        sizeDp = 46f,
+        initialX = -146f,
+        initialY = 64f,
+        initialRotation = 12f,
+        colorIndex = 5,
+        floatSpeedMultiplier = 0.95f,
+        floatRadiusMultiplier = 1.0f,
+        spinDirection = -1f
+    ),
+    // Bottom left-mid: Sage Diamond
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.DIAMOND,
+        sizeDp = 32f,
+        initialX = -60f,
+        initialY = 92f,
+        initialRotation = 45f,
+        colorIndex = 1,
+        floatSpeedMultiplier = 1.15f,
+        floatRadiusMultiplier = 1.1f,
+        spinDirection = 1f
+    ),
+    // Bottom center-right: Rust 12-Pointed Sun Cookie
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.SUNNY_COOKIE,
+        sizeDp = 38f,
+        initialX = 56f,
+        initialY = 94f,
+        initialRotation = -20f,
+        colorIndex = 3,
+        floatSpeedMultiplier = 0.9f,
+        floatRadiusMultiplier = 0.95f,
+        spinDirection = -1f
+    ),
+    // Bottom right: Sage Rounded Square
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.ROUNDED_SQUARE,
+        sizeDp = 44f,
+        initialX = 138f,
+        initialY = 62f,
+        initialRotation = 30f,
+        colorIndex = 4,
+        floatSpeedMultiplier = 1.0f,
+        floatRadiusMultiplier = 1.0f,
+        spinDirection = 1f
+    ),
+    // Accent small star: High top-left
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.STAR,
+        sizeDp = 24f,
+        initialX = -106f,
+        initialY = -118f,
+        initialRotation = 6f,
+        colorIndex = 2,
+        floatSpeedMultiplier = 1.25f,
+        floatRadiusMultiplier = 0.8f,
+        spinDirection = -1f
+    ),
+    // Accent small 4-head cookie: High top-right
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+        sizeDp = 26f,
+        initialX = 104f,
+        initialY = -120f,
+        initialRotation = -18f,
+        colorIndex = 1,
+        floatSpeedMultiplier = 1.2f,
+        floatRadiusMultiplier = 0.85f,
+        spinDirection = 1f
+    ),
+    // Accent small diamond: Low bottom-center
+    AiFloatingShapeSpec(
+        shapeType = AiExpressiveShapeType.DIAMOND,
+        sizeDp = 22f,
+        initialX = 0f,
+        initialY = 110f,
+        initialRotation = 35f,
+        colorIndex = 2,
+        floatSpeedMultiplier = 1.1f,
+        floatRadiusMultiplier = 0.9f,
+        spinDirection = 1f
+    )
+)
 
 @Composable
 private fun AiLibraryIndicatorsAnimation(
@@ -1292,9 +1475,42 @@ private fun AiLibraryIndicatorsAnimation(
         label = "idle_scale_phase"
     )
 
-    // Base indicator size: 108dp when idle -> 124dp when generating (matches user's comparison in 260243.jpg)
+    // Gentle continuous rotation for shapes when idle
+    val idleShapeSpin by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(32000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "idle_shape_spin"
+    )
+
+    // Gentle swaying tilt for shapes when idle
+    val idleShapeSway by infiniteTransition.animateFloat(
+        initialValue = -16f,
+        targetValue = 16f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "idle_shape_sway"
+    )
+
+    // Smooth spinning for shapes when generating
+    val genShapeSpin by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(7200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gen_shape_spin"
+    )
+
+    // Base indicator size: 162dp when idle -> 186dp when generating (1.5x of previous 108dp / 124dp)
     val baseIndicatorSize by animateDpAsState(
-        targetValue = if (isGenerating) 124.dp else 108.dp,
+        targetValue = if (isGenerating) 186.dp else 162.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -1302,9 +1518,9 @@ private fun AiLibraryIndicatorsAnimation(
         label = "base_indicator_size"
     )
 
-    // Animate container height: 230dp when idle -> 290dp when generating
+    // Animate container height: 280dp when idle -> 350dp when generating
     val containerHeight by animateDpAsState(
-        targetValue = if (isGenerating) 290.dp else 230.dp,
+        targetValue = if (isGenerating) 350.dp else 280.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessLow
@@ -1312,9 +1528,9 @@ private fun AiLibraryIndicatorsAnimation(
         label = "container_height"
     )
 
-    // Horizontal spacing between indicators relative to the center
+    // Horizontal spacing between indicators relative to the center (1.5x scale)
     val spacingPx = with(density) {
-        if (isGenerating) 96.dp.toPx() else 84.dp.toPx()
+        if (isGenerating) 144.dp.toPx() else 126.dp.toPx()
     }
 
     // Success animation driver: handles convergence, edge-to-edge supernova expansion, and dissolve reveal
@@ -1345,19 +1561,92 @@ private fun AiLibraryIndicatorsAnimation(
         if (isDark) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.secondaryContainer
     )
 
+    val shapeCache = remember {
+        AiExpressiveShapeType.entries.associateWith { AiExpressiveShape(it) }
+    }
+
+    val scheme = MaterialTheme.colorScheme
+    val shapeColorPalette = remember(
+        scheme.primary,
+        scheme.tertiary,
+        scheme.secondary,
+        scheme.primaryContainer,
+        scheme.tertiaryContainer,
+        scheme.secondaryContainer,
+        isDark
+    ) {
+        listOf(
+            if (isDark) scheme.primary.copy(alpha = 0.85f) else scheme.primary.copy(alpha = 0.75f),
+            if (isDark) scheme.tertiary.copy(alpha = 0.85f) else scheme.tertiary.copy(alpha = 0.75f),
+            if (isDark) scheme.secondary.copy(alpha = 0.85f) else scheme.secondary.copy(alpha = 0.75f),
+            if (isDark) scheme.primaryContainer.copy(alpha = 0.90f) else scheme.primaryContainer.copy(alpha = 0.80f),
+            if (isDark) scheme.tertiaryContainer.copy(alpha = 0.90f) else scheme.tertiaryContainer.copy(alpha = 0.80f),
+            if (isDark) scheme.secondaryContainer.copy(alpha = 0.90f) else scheme.secondaryContainer.copy(alpha = 0.80f)
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(containerHeight),
         contentAlignment = Alignment.Center
     ) {
+        val p = successProgress.value
+        val isSuccessActive = isSuccess && p > 0f
+        val convergeT = (p / 0.42f).coerceIn(0f, 1f)
+        val convergeEase = FastOutSlowInEasing.transform(convergeT)
+
+        // Floating Expressive Material You shapes around the 3 main components
+        for ((index, spec) in FLOATING_EXPRESSIVE_SHAPES.withIndex()) {
+            val currentRot = if (isGenerating) {
+                spec.initialRotation + (genShapeSpin * spec.spinDirection)
+            } else {
+                spec.initialRotation + (idleShapeSway * spec.spinDirection) + (idleShapeSpin * 0.15f * spec.spinDirection)
+            }
+
+            val phase = (if (isGenerating) genFloatPhase else idleFloatPhase) * spec.floatSpeedMultiplier + (index * 0.85f)
+            val floatAmp = with(density) {
+                (if (isGenerating) 12.dp else 6.dp).toPx() * spec.floatRadiusMultiplier
+            }
+            val floatX = floatAmp * kotlin.math.cos(phase.toDouble()).toFloat()
+            val floatY = floatAmp * kotlin.math.sin((phase * 1.25).toDouble()).toFloat()
+
+            val basePosX = with(density) { spec.initialX.dp.toPx() }
+            val basePosY = with(density) { spec.initialY.dp.toPx() }
+
+            val posX = if (isSuccessActive) (basePosX + floatX) * (1f - convergeEase) else (basePosX + floatX)
+            val posY = if (isSuccessActive) (basePosY + floatY) * (1f - convergeEase) else (basePosY + floatY)
+
+            val shapeAlpha = ((if (isDark) 0.85f else 0.75f) * (if (isSuccessActive) (1f - convergeEase) else 1f)).coerceIn(0f, 1f)
+
+            val shapeScale = when {
+                isSuccessActive -> (1f - convergeEase).coerceAtLeast(0f)
+                isGenerating -> 1.0f + 0.10f * kotlin.math.sin((genScalePhase + index).toDouble()).toFloat()
+                else -> 1.0f + 0.04f * kotlin.math.sin((idleScalePhase + index).toDouble()).toFloat()
+            }
+
+            if (shapeAlpha > 0.01f && shapeScale > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .size(spec.sizeDp.dp)
+                        .graphicsLayer {
+                            this.translationX = posX
+                            this.translationY = posY
+                            this.rotationZ = currentRot
+                            this.scaleX = shapeScale
+                            this.scaleY = shapeScale
+                            this.alpha = shapeAlpha
+                        }
+                        .clip(shapeCache[spec.shapeType] ?: CircleShape)
+                        .background(shapeColorPalette[spec.colorIndex % shapeColorPalette.size])
+                )
+            }
+        }
+
         for (i in 0 until 3) {
             val offset = i * (6.2831855f / 3f)
             val color = indicatorColors[i % indicatorColors.size]
             val glowColor = glowColors[i % glowColors.size]
-
-            val p = successProgress.value
-            val isSuccessActive = isSuccess && p > 0f
 
             // Base position relative to exact center of screen
             val baseX = when (i) {
@@ -1365,11 +1654,6 @@ private fun AiLibraryIndicatorsAnimation(
                 2 -> spacingPx
                 else -> 0f
             }
-
-            // Convergence, Edge-to-Edge Expansion, and Dissolve Reveal math
-            // Phase 1 (0f..0.42f): 3 pieces orbit and merge directly to center
-            val convergeT = (p / 0.42f).coerceIn(0f, 1f)
-            val convergeEase = FastOutSlowInEasing.transform(convergeT)
 
             // Phase 2 (0.42f..0.72f): Merged center component expands dramatically (up to 45x) covering the entire screen edge to edge
             val expandT = ((p - 0.42f) / 0.30f).coerceIn(0f, 1f)
@@ -1400,16 +1684,16 @@ private fun AiLibraryIndicatorsAnimation(
             // Fade multiplier for converging side pieces (applied directly to colors, avoiding layer clipping)
             val convergeFade = if (isSuccessActive && i != 1) (1f - convergeEase).coerceIn(0f, 1f) else 1f
 
-            // Floating translations
-            val idleFloatY = with(density) { 14.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
-            val idleFloatX = with(density) { 10.dp.toPx() } * kotlin.math.cos((idleFloatPhase + offset).toDouble()).toFloat()
+            // Floating translations (scaled 1.5x)
+            val idleFloatY = with(density) { 16.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
+            val idleFloatX = with(density) { 12.dp.toPx() } * kotlin.math.cos((idleFloatPhase + offset).toDouble()).toFloat()
 
-            val genFloatY = with(density) { 16.dp.toPx() } * kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat()
-            val genFloatX = with(density) { 10.dp.toPx() } * kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat()
+            val genFloatY = with(density) { 20.dp.toPx() } * kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat()
+            val genFloatX = with(density) { 14.dp.toPx() } * kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat()
 
             // Swirl / orbit offset during convergence
             val swirlAngle = convergeEase * 3.14159f * 1.5f
-            val swirlRadius = with(density) { 24.dp.toPx() } * (1f - convergeEase)
+            val swirlRadius = with(density) { 36.dp.toPx() } * (1f - convergeEase)
             val swirlOffsetY = when (i) {
                 0 -> -kotlin.math.sin(swirlAngle) * swirlRadius
                 2 -> kotlin.math.sin(swirlAngle) * swirlRadius
