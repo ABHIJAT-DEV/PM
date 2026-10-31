@@ -1055,11 +1055,11 @@ private fun AiPlaylistRefineView(
     }
 }
 
-private const val SHAPE_STEP_COUNT = 60
-private val COS_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
+internal const val SHAPE_STEP_COUNT = 60
+internal val COS_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
     cos((2.0 * PI * i) / SHAPE_STEP_COUNT).toFloat()
 }
-private val SIN_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
+internal val SIN_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
     sin((2.0 * PI * i) / SHAPE_STEP_COUNT).toFloat()
 }
 
@@ -1067,7 +1067,7 @@ private val SIN_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
  * Material You Expressive polar shapes with precomputed lookup tables.
  * Used for both the 4 large floating hero shapes and the 1:1 icon containers inside the shortcut pills.
  */
-private enum class AiExpressiveShapeType {
+internal enum class AiExpressiveShapeType {
     PILL {
         override fun radiusAt(th: Double): Float {
             val c = abs(cos(th)) / 0.65
@@ -1099,6 +1099,16 @@ private enum class AiExpressiveShapeType {
     },
     SUNNY_COOKIE {
         override fun radiusAt(th: Double): Float = (0.86 + 0.14 * cos(12.0 * th)).toFloat()
+    },
+    FIVE_COOKIE {
+        override fun radiusAt(th: Double): Float = (0.84 + 0.16 * cos(5.0 * th)).toFloat()
+    },
+    OVAL {
+        override fun radiusAt(th: Double): Float {
+            val c = abs(cos(th))
+            val s = abs(sin(th))
+            return (0.92 / (c * c + 0.55 * s * s).pow(0.5)).toFloat()
+        }
     };
 
     abstract fun radiusAt(th: Double): Float

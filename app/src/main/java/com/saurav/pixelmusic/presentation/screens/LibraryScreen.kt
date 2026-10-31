@@ -1633,10 +1633,6 @@ onViewToggleChange = { isChecked ->
             playerViewModel.clearAiPlaylistError()
             playerViewModel.clearLastCreatedAiPlaylistId()
         },
-        onMinimize = {
-            showCreateAiPlaylistDialog = false
-            Toast.makeText(context, "Still creating your mix. We'll let you know when it's ready.", Toast.LENGTH_SHORT).show()
-        },
         onGenerate = { playlistName, prompt, minLength, maxLength ->
             aiGenerationRequestedFromDialog = true
             playerViewModel.generateAiPlaylist(
