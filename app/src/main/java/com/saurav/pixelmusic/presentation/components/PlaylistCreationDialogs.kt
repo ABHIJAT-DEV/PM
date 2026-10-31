@@ -1156,15 +1156,37 @@ private class AiMorphingExpressiveShape(
 private fun AiLibraryIndicatorsAnimation(isGenerating: Boolean) {
     val infiniteTransition = rememberInfiniteTransition(label = "lib_indicators")
     
-    // Smooth floating orbit phase
+    // Smooth floating orbit phase for translation (slow when idle, fast when generating)
     val floatPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.28318f, // 2 * PI
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isGenerating) 1200 else 4000, easing = LinearEasing),
+            animation = tween(if (isGenerating) 1600 else 6000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "float_phase"
+    )
+
+    // Zooming in and out (subtle pulse when idle, large pulsing when generating)
+    val scalePulse by infiniteTransition.animateFloat(
+        initialValue = if (isGenerating) 1.2f else 0.9f,
+        targetValue = if (isGenerating) 1.55f else 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isGenerating) 1000 else 3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale_pulse"
+    )
+
+    // Continuous rotation applied to the container for rapid "spinning"
+    val containerRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isGenerating) 2000 else 8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "container_rotation"
     )
     
     Row(
@@ -1174,36 +1196,43 @@ private fun AiLibraryIndicatorsAnimation(isGenerating: Boolean) {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val colors = listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.secondary
+        )
+
         for (i in 0 until 3) {
             val state = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
             
-            val scaleTarget = if (isGenerating) 1.5f else 1.0f
-            val scaleAnim by animateFloatAsState(
-                targetValue = scaleTarget,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                ),
-                label = "scale"
-            )
-            
-            // Stagger the movement for each indicator
+            // Stagger the movement phase for each indicator so they don't move identically
             val offset = i * (6.28318f / 3f)
             
             Box(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
                     .graphicsLayer {
-                        scaleX = scaleAnim
-                        scaleY = scaleAnim
-                        translationY = kotlin.math.sin((floatPhase + offset).toDouble()).toFloat() * (if (isGenerating) 16f else 6f)
-                        translationX = kotlin.math.cos((floatPhase + offset).toDouble()).toFloat() * (if (isGenerating) 8f else 2f)
+                        // Zooming in and out
+                        scaleX = scalePulse
+                        scaleY = scalePulse
+                        
+                        // Moving slowly/faster
+                        translationY = kotlin.math.sin((floatPhase + offset).toDouble()).toFloat() * (if (isGenerating) 18f else 6f)
+                        translationX = kotlin.math.cos((floatPhase + offset).toDouble()).toFloat() * (if (isGenerating) 10f else 3f)
+                        
+                        // Spinning
+                        rotationZ = if (isGenerating) {
+                            containerRotation * (if (i % 2 == 0) 1f else -1f) // Spin rapidly in opposite directions
+                        } else {
+                            kotlin.math.sin((floatPhase + offset).toDouble()).toFloat() * 15f // Gentle wobble when idle
+                        }
                     }
             ) {
                 androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.LoadingIndicator(
                     state = state,
                     isRefreshing = true,
-                    modifier = Modifier.size(52.dp)
+                    modifier = Modifier.size(52.dp),
+                    color = colors[i % colors.size]
                 )
             }
         }
