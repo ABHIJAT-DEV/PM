@@ -56,7 +56,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -461,46 +465,118 @@ fun CreateAiPlaylistDialog(
     onGenerate: (playlistName: String?, prompt: String, minLength: Int, maxLength: Int) -> Unit
 ) {
     if (visible) {
-        val sheetState = rememberBottomSheetState(
-            initialValue = SheetValue.Hidden,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
-        )
-
-        ModalBottomSheet(
-            // Dismissing only hides this sheet; generation continues in the ViewModel.
-            // Always let users return to the Library while background work is running.
-            onDismissRequest = onDismiss,
-            sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-            dragHandle = {
-                BottomSheetDefaults.DragHandle(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                )
-            },
-            shape = AbsoluteSmoothCornerShape(
-                cornerRadiusTL = 28.dp,
-                smoothnessAsPercentTL = 60,
-                cornerRadiusTR = 28.dp,
-                smoothnessAsPercentTR = 60
-            )
-        ) {
-            CreateAiPlaylistSheetContent(
-                isGenerating = isGenerating,
+        if (isGenerating || isSuccess) {
+            // Full Screen Edge-to-Edge Generating Page
+            AiPlaylistGeneratingFullScreenPage(
                 isSuccess = isSuccess,
                 status = status,
                 error = error,
-                onDismiss = onDismiss,
-                onGenerate = onGenerate
+                onDismiss = onDismiss
             )
+        } else {
+            // Idle Prompt & Vibe Selection Bottom Sheet
+            val sheetState = rememberBottomSheetState(
+                initialValue = SheetValue.Hidden,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+            )
+
+            ModalBottomSheet(
+                onDismissRequest = onDismiss,
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                dragHandle = {
+                    BottomSheetDefaults.DragHandle(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                    )
+                },
+                shape = AbsoluteSmoothCornerShape(
+                    cornerRadiusTL = 28.dp,
+                    smoothnessAsPercentTL = 60,
+                    cornerRadiusTR = 28.dp,
+                    smoothnessAsPercentTR = 60
+                )
+            ) {
+                CreateAiPlaylistSheetContent(
+                    error = error,
+                    onDismiss = onDismiss,
+                    onGenerate = onGenerate
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiPlaylistGeneratingFullScreenPage(
+    isSuccess: Boolean,
+    status: String?,
+    error: String?,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+            ) {
+                // Minimize/Close button at top right
+                AnimatedVisibility(
+                    visible = !isSuccess,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                ) {
+                    FilledTonalIconButton(
+                        onClick = onDismiss,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Close")
+                    }
+                }
+
+                // Centered content
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AiLibraryIndicatorsAnimation(
+                        isGenerating = true,
+                        isSuccess = isSuccess
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    AiPlaylistCreationAnimationView(
+                        status = status,
+                        isSuccess = isSuccess,
+                        error = error,
+                        onDismiss = onDismiss
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun CreateAiPlaylistSheetContent(
-    isGenerating: Boolean,
-    isSuccess: Boolean,
-    status: String?,
     error: String?,
     onDismiss: () -> Unit,
     onGenerate: (playlistName: String?, prompt: String, minLength: Int, maxLength: Int) -> Unit
@@ -533,7 +609,7 @@ private fun CreateAiPlaylistSheetContent(
     }
 
     AnimatedContent(
-        targetState = isRefining && !isGenerating,
+        targetState = isRefining,
         transitionSpec = {
             (fadeIn(tween(240, easing = FastOutSlowInEasing)) +
                     scaleIn(initialScale = 0.96f, animationSpec = tween(240, easing = FastOutSlowInEasing))) togetherWith
@@ -556,81 +632,49 @@ private fun CreateAiPlaylistSheetContent(
             )
         } else {
             val scrollState = rememberScrollState()
-            val configuration = LocalConfiguration.current
-            val screenHeight = configuration.screenHeightDp.dp
-            val targetMinHeight = if (isGenerating) (screenHeight * 0.70f).coerceIn(540.dp, 680.dp) else 0.dp
-            val contentMinHeight by animateDpAsState(
-                targetValue = targetMinHeight,
-                animationSpec = tween(400, easing = FastOutSlowInEasing),
-                label = "ai_sheet_content_min_height"
-            )
-
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = contentMinHeight)
                     .verticalScroll(scrollState)
                     .padding(bottom = 32.dp)
                     .imePadding(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Row: Clean close button (hidden while actively generating)
-                AnimatedVisibility(visible = !isGenerating) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+                // Top Row: Clean close button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalIconButton(
+                        onClick = onDismiss,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     ) {
-                        FilledTonalIconButton(
-                            onClick = onDismiss,
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            )
-                        ) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Close")
-                        }
+                        Icon(Icons.Rounded.Close, contentDescription = "Close")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(if (isGenerating) 18.dp else 8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Persistently mounted library indicators
-                AiLibraryIndicatorsAnimation(isGenerating = isGenerating, isSuccess = isSuccess)
+                // Persistently mounted library indicators in idle mode
+                AiLibraryIndicatorsAnimation(isGenerating = false, isSuccess = false)
 
-                Spacer(modifier = Modifier.height(if (isGenerating) 24.dp else 20.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                AnimatedContent(
-                    targetState = isGenerating,
-                    transitionSpec = {
-                        (fadeIn(tween(300, easing = FastOutSlowInEasing)) +
-                                slideInVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) { it / 6 }) togetherWith
-                                (fadeOut(tween(180, easing = FastOutSlowInEasing)) +
-                                        slideOutVertically(animationSpec = tween(180, easing = FastOutSlowInEasing)) { -it / 6 })
-                    },
-                    label = "ai_playlist_sheet_generation_state"
-                ) { generating ->
-                    if (generating) {
-                        AiPlaylistCreationAnimationView(
-                            status = status,
-                            isSuccess = isSuccess,
-                            error = error,
-                            onDismiss = onDismiss
-                        )
-                    } else {
-                        AiPlaylistMainTuneView(
-                            prompt = basePrompt,
-                            onPromptChange = { basePrompt = it },
-                            selectedLength = selectedLength,
-                            selectedEnergy = selectedEnergy,
-                            error = error,
-                            onOpenRefine = { isRefining = true },
-                            onGenerate = triggerGeneration
-                        )
-                    }
-                }
+                AiPlaylistMainTuneView(
+                    prompt = basePrompt,
+                    onPromptChange = { basePrompt = it },
+                    selectedLength = selectedLength,
+                    selectedEnergy = selectedEnergy,
+                    error = error,
+                    onOpenRefine = { isRefining = true },
+                    onGenerate = triggerGeneration
+                )
             }
         }
     }
@@ -1280,10 +1324,19 @@ private fun AiLibraryIndicatorsAnimation(
         }
     }
 
-    val colors = listOf(
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
+    val indicatorColors = listOf(
         MaterialTheme.colorScheme.primary,
         MaterialTheme.colorScheme.tertiary,
         MaterialTheme.colorScheme.secondary
+    )
+
+    // For glows: in dark mode, vibrant bright tones; in light mode, luminous pastel container tones
+    val glowColors = listOf(
+        if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+        if (isDark) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.tertiaryContainer,
+        if (isDark) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.secondaryContainer
     )
 
     Box(
@@ -1294,7 +1347,8 @@ private fun AiLibraryIndicatorsAnimation(
     ) {
         for (i in 0 until 3) {
             val offset = i * (6.2831855f / 3f)
-            val color = colors[i % colors.size]
+            val color = indicatorColors[i % indicatorColors.size]
+            val glowColor = glowColors[i % glowColors.size]
 
             val p = successProgress.value
             val isSuccessActive = isSuccess && p > 0f
@@ -1315,12 +1369,12 @@ private fun AiLibraryIndicatorsAnimation(
             val expandT = ((p - 0.50f) / 0.50f).coerceIn(0f, 1f)
             val expandCurve = FastOutLinearInEasing.transform(expandT)
 
-            // Dynamic scale
+            // Dynamic scale: expands edge-to-edge across full screen during success
             val scale = when {
                 isSuccessActive -> {
                     if (i == 1) {
-                        // Center component swells and expands dramatically into the playlist portal
-                        1f + (expandCurve * expandCurve * 9f)
+                        // Center component swells dramatically across the full screen display
+                        1f + (expandCurve * expandCurve * 15f)
                     } else {
                         // Side components dissolve into center
                         (1f - convergeEase * 0.5f).coerceAtLeast(0.01f)
@@ -1391,7 +1445,7 @@ private fun AiLibraryIndicatorsAnimation(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                // Soft depth shadow on the sheet surface
+                // Soft depth shadow on the surface
                 Box(
                     modifier = Modifier
                         .size(baseIndicatorSize * 0.95f)
@@ -1399,7 +1453,7 @@ private fun AiLibraryIndicatorsAnimation(
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.scrim.copy(alpha = if (isGenerating) 0.28f else 0.16f),
+                                    if (isDark) Color.Black.copy(alpha = 0.35f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                                     Color.Transparent
                                 )
                             ),
@@ -1412,15 +1466,15 @@ private fun AiLibraryIndicatorsAnimation(
                     modifier = Modifier
                         .size(baseIndicatorSize)
                         .graphicsLayer {
-                            val s = (if (isGenerating) 2.05f else 1.75f) * glowExpansion
+                            val s = (if (isGenerating) 2.20f else 1.80f) * glowExpansion
                             scaleX = s
                             scaleY = s
                         }
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    color.copy(alpha = if (isGenerating) 0.65f else 0.45f),
-                                    color.copy(alpha = if (isGenerating) 0.30f else 0.16f),
+                                    glowColor.copy(alpha = if (isDark) 0.60f else 0.45f),
+                                    glowColor.copy(alpha = if (isDark) 0.25f else 0.18f),
                                     Color.Transparent
                                 )
                             ),
@@ -1433,15 +1487,15 @@ private fun AiLibraryIndicatorsAnimation(
                     modifier = Modifier
                         .size(baseIndicatorSize)
                         .graphicsLayer {
-                            val s = (if (isGenerating) 1.40f else 1.25f) * glowExpansion
+                            val s = (if (isGenerating) 1.45f else 1.25f) * glowExpansion
                             scaleX = s
                             scaleY = s
                         }
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    color.copy(alpha = if (isGenerating) 0.85f else 0.60f),
-                                    color.copy(alpha = if (isGenerating) 0.40f else 0.22f),
+                                    glowColor.copy(alpha = if (isDark) 0.85f else 0.65f),
+                                    glowColor.copy(alpha = if (isDark) 0.35f else 0.25f),
                                     Color.Transparent
                                 )
                             ),
