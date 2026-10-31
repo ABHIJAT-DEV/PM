@@ -1373,8 +1373,11 @@ private fun AiLibraryIndicatorsAnimation(
             val scale = when {
                 isSuccessActive -> {
                     if (i == 1) {
-                        // Center component swells dramatically across the full screen display
-                        1f + (expandCurve * expandCurve * 15f)
+                        // Center component swells smoothly as it absorbs side pieces (1.0x -> 1.35x),
+                        // and then expands dramatically into the edge-to-edge portal (up to 19x)
+                        val convergeSwell = 1.0f + (convergeEase * 0.35f)
+                        val portalExpansion = expandCurve * expandCurve * 18.0f
+                        convergeSwell + portalExpansion
                     } else {
                         // Side components contract and dissolve seamlessly into the center (no clipping)
                         (1f - convergeEase).coerceAtLeast(0f)
@@ -1423,7 +1426,7 @@ private fun AiLibraryIndicatorsAnimation(
 
             // Glow expansion scale for the merged component
             val glowExpansion = if (isSuccessActive && i == 1) {
-                1f + expandCurve * 6f
+                1f + (convergeEase * 0.5f) + (expandCurve * 12f)
             } else {
                 1f
             }
