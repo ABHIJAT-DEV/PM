@@ -1064,34 +1064,44 @@ private val SIN_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
  * Used for both the 4 large floating hero shapes and the 1:1 icon containers inside the shortcut pills.
  */
 private enum class AiExpressiveShapeType {
-    PILL,
-    COOKIE,
-    FOUR_HEAD_COOKIE,
-    ROUNDED_TRIANGLE,
-    ROUNDED_SQUARE,
-    CIRCLE,
-    SIX_COOKIE,
-    SUNNY_COOKIE;
+    PILL {
+        override fun radiusAt(th: Double): Float {
+            val c = abs(cos(th)) / 0.65
+            val s = abs(sin(th))
+            return (0.95 / (c.pow(4.0) + s.pow(4.0)).pow(0.25)).toFloat()
+        }
+    },
+    COOKIE {
+        override fun radiusAt(th: Double): Float = (0.85 + 0.15 * cos(8.0 * th)).toFloat()
+    },
+    FOUR_HEAD_COOKIE {
+        override fun radiusAt(th: Double): Float = (0.82 + 0.18 * cos(4.0 * th)).toFloat()
+    },
+    ROUNDED_TRIANGLE {
+        override fun radiusAt(th: Double): Float = (0.82 + 0.18 * cos(3.0 * th + PI / 2.0)).toFloat()
+    },
+    ROUNDED_SQUARE {
+        override fun radiusAt(th: Double): Float {
+            val c = abs(cos(th))
+            val s = abs(sin(th))
+            return (0.88 / (c.pow(4.0) + s.pow(4.0)).pow(0.25)).toFloat()
+        }
+    },
+    CIRCLE {
+        override fun radiusAt(th: Double): Float = 0.90f
+    },
+    SIX_COOKIE {
+        override fun radiusAt(th: Double): Float = (0.84 + 0.16 * cos(6.0 * th)).toFloat()
+    },
+    SUNNY_COOKIE {
+        override fun radiusAt(th: Double): Float = (0.86 + 0.14 * cos(12.0 * th)).toFloat()
+    };
 
-    val radii: FloatArray = FloatArray(SHAPE_STEP_COUNT) { i ->
-        val th = (2.0 * PI * i) / SHAPE_STEP_COUNT
-        when (this) {
-            PILL -> {
-                val c = abs(cos(th)) / 0.65
-                val s = abs(sin(th))
-                (0.95 / (c.pow(4.0) + s.pow(4.0)).pow(0.25)).toFloat()
-            }
-            COOKIE -> (0.85 + 0.15 * cos(8.0 * th)).toFloat()
-            FOUR_HEAD_COOKIE -> (0.82 + 0.18 * cos(4.0 * th)).toFloat()
-            ROUNDED_TRIANGLE -> (0.82 + 0.18 * cos(3.0 * th + PI / 2.0)).toFloat()
-            ROUNDED_SQUARE -> {
-                val c = abs(cos(th))
-                val s = abs(sin(th))
-                (0.88 / (c.pow(4.0) + s.pow(4.0)).pow(0.25)).toFloat()
-            }
-            CIRCLE -> 0.90f
-            SIX_COOKIE -> (0.84 + 0.16 * cos(6.0 * th)).toFloat()
-            SUNNY_COOKIE -> (0.86 + 0.14 * cos(12.0 * th)).toFloat()
+    abstract fun radiusAt(th: Double): Float
+
+    val radii: FloatArray by lazy {
+        FloatArray(SHAPE_STEP_COUNT) { i ->
+            radiusAt((2.0 * PI * i) / SHAPE_STEP_COUNT)
         }
     }
 }
