@@ -480,8 +480,19 @@ class AiStateHolder @Inject constructor(
         existingNames: Set<String>
     ): String {
         val normalizedExisting = existingNames.map { it.lowercase() }.toSet()
-        val baseName = requestedName?.trim().takeUnless { it.isNullOrEmpty() }
+        val rawName = requestedName?.trim().takeUnless { it.isNullOrEmpty() }
             ?: generateShortAiTitle(prompt)
+
+        // Sanitize to a short 1-2 word title (strip colons, dashes, and extra words)
+        val beforeDelimiter = rawName.split(':', '-', '—', '|', '•').first().trim()
+        val words = beforeDelimiter.split(Regex("\\s+")).filter { it.isNotBlank() }
+        val baseName = if (words.size > 2) {
+            words.take(2).joinToString(" ")
+        } else if (words.isNotEmpty()) {
+            words.joinToString(" ")
+        } else {
+            "Mix"
+        }
 
         var candidate = baseName.ifBlank { "AI Mix" }
         if (candidate.lowercase() !in normalizedExisting) {

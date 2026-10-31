@@ -1369,27 +1369,23 @@ private fun AiLibraryIndicatorsAnimation(
             val expandT = ((p - 0.50f) / 0.50f).coerceIn(0f, 1f)
             val expandCurve = FastOutLinearInEasing.transform(expandT)
 
-            // Dynamic scale: expands edge-to-edge across full screen during success
+            // Dynamic scale: side components shrink smoothly into center as they converge
             val scale = when {
                 isSuccessActive -> {
                     if (i == 1) {
                         // Center component swells dramatically across the full screen display
                         1f + (expandCurve * expandCurve * 15f)
                     } else {
-                        // Side components dissolve into center
-                        (1f - convergeEase * 0.5f).coerceAtLeast(0.01f)
+                        // Side components contract and dissolve seamlessly into the center (no clipping)
+                        (1f - convergeEase).coerceAtLeast(0f)
                     }
                 }
                 isGenerating -> 1.06f + 0.14f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat()
                 else -> 1.0f + 0.035f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat()
             }
 
-            // Alpha: in success, side components dissolve completely as they touch center
-            val itemAlpha = if (isSuccessActive) {
-                if (i == 1) 1f else (1f - convergeEase * 1.3f).coerceIn(0f, 1f)
-            } else {
-                1f
-            }
+            // Fade multiplier for converging side pieces (applied directly to colors, avoiding layer clipping)
+            val convergeFade = if (isSuccessActive && i != 1) (1f - convergeEase).coerceIn(0f, 1f) else 1f
 
             // Floating translations
             val idleFloatY = with(density) { 14.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
@@ -1432,83 +1428,77 @@ private fun AiLibraryIndicatorsAnimation(
                 1f
             }
 
-            Box(
-                modifier = Modifier
-                    .size(baseIndicatorSize)
-                    .graphicsLayer {
-                        this.scaleX = scale
-                        this.scaleY = scale
-                        this.translationX = transX
-                        this.translationY = transY
-                        this.rotationZ = rotZ
-                        this.alpha = itemAlpha
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                // Soft depth shadow on the surface
-                Box(
-                    modifier = Modifier
-                        .size(baseIndicatorSize * 0.95f)
-                        .offset(y = if (isGenerating) 12.dp else 8.dp)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    if (isDark) Color.Black.copy(alpha = 0.35f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                    Color.Transparent
-                                )
-                            ),
-                            shape = CircleShape
-                        )
-                )
-
-                // Layer 1: Ambient wide glow aura (scaled via graphicsLayer so layout isn't expanded)
+            if (scale > 0.001f) {
                 Box(
                     modifier = Modifier
                         .size(baseIndicatorSize)
                         .graphicsLayer {
-                            val s = (if (isGenerating) 2.20f else 1.80f) * glowExpansion
-                            scaleX = s
-                            scaleY = s
-                        }
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    glowColor.copy(alpha = if (isDark) 0.60f else 0.45f),
-                                    glowColor.copy(alpha = if (isDark) 0.25f else 0.18f),
-                                    Color.Transparent
-                                )
-                            ),
-                            shape = CircleShape
-                        )
-                )
+                            this.scaleX = scale
+                            this.scaleY = scale
+                            this.translationX = transX
+                            this.translationY = transY
+                            this.rotationZ = rotZ
+                            // Keep alpha at 1f so hardware RenderNode does NOT allocate a bounded offscreen layer
+                            // which previously created rectangular box clipping artifacts
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Soft depth shadow on the surface
+                    val shadowAlpha = (if (isDark) 0.35f else 0.08f) * convergeFade
+                    Box(
+                        modifier = Modifier
+                            .size(baseIndicatorSize * 0.95f)
+                            .offset(y = if (isGenerating) 12.dp else 8.dp)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        if (isDark) Color.Black.copy(alpha = shadowAlpha) else MaterialTheme.colorScheme.onSurface.copy(alpha = shadowAlpha),
+                                        Color.Transparent
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                    )
 
-                // Layer 2: Radiant core glow (scaled via graphicsLayer)
-                Box(
-                    modifier = Modifier
-                        .size(baseIndicatorSize)
-                        .graphicsLayer {
-                            val s = (if (isGenerating) 1.45f else 1.25f) * glowExpansion
-                            scaleX = s
-                            scaleY = s
-                        }
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    glowColor.copy(alpha = if (isDark) 0.85f else 0.65f),
-                                    glowColor.copy(alpha = if (isDark) 0.35f else 0.25f),
-                                    Color.Transparent
-                                )
-                            ),
-                            shape = CircleShape
-                        )
-                )
+                    // Layer 1: Ambient wide glow aura
+                    Box(
+                        modifier = Modifier
+                            .size(baseIndicatorSize * (if (isGenerating) 2.20f else 1.80f) * glowExpansion)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        glowColor.copy(alpha = (if (isDark) 0.60f else 0.45f) * convergeFade),
+                                        glowColor.copy(alpha = (if (isDark) 0.25f else 0.18f) * convergeFade),
+                                        Color.Transparent
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                    )
 
-                LoadingIndicator(
-                    color = color,
-                    modifier = Modifier
-                        .size(baseIndicatorSize)
-                        .testTag("loading_indicator")
-                )
+                    // Layer 2: Radiant core glow
+                    Box(
+                        modifier = Modifier
+                            .size(baseIndicatorSize * (if (isGenerating) 1.45f else 1.25f) * glowExpansion)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        glowColor.copy(alpha = (if (isDark) 0.85f else 0.65f) * convergeFade),
+                                        glowColor.copy(alpha = (if (isDark) 0.35f else 0.25f) * convergeFade),
+                                        Color.Transparent
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                    )
+
+                    LoadingIndicator(
+                        color = color.copy(alpha = convergeFade),
+                        modifier = Modifier
+                            .size(baseIndicatorSize)
+                            .testTag("loading_indicator")
+                    )
+                }
             }
         }
     }

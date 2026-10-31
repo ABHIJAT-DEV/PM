@@ -38,11 +38,12 @@ class AiSystemPromptEngine @Inject constructor() {
                 - If request implies "discovery/new", prioritize the [DISCOVERY_POOL].
                 - If request implies "favorites/familiar", heavily weight the [LISTENED] pool.
                 - When the candidate pool has few matches for a niche vibe or specific genre/artist, supplement with up to 40% new online discoverable tracks.
-                - Create a creative, atmospheric playlist title and concise 1-2 sentence description matching the vibe.
+                - Create a short, punchy playlist title of strictly 1 or 2 words (never a long phrase or subtitle, no colons or hyphens). Examples: "Pulse", "Night Drive", "Chill Vibe", "Morning Flow", "Study Beats", "Afterglow", "Serene Focus".
+                - Provide a concise 1-2 sentence description matching the vibe.
                 </strategy>
                 <output_schema>
                 Return ONLY a raw JSON object string with no markdown formatting or backticks:
-                {"title":"Creative Playlist Name","description":"Atmospheric vibe description.","tracks":[{"id":"id_from_pool"},{"online":"Artist - Song Title"}]}
+                {"title":"Short Name","description":"Atmospheric vibe description.","tracks":[{"id":"id_from_pool"},{"online":"Artist - Song Title"}]}
                 </output_schema>
             """.trimIndent()
 
