@@ -391,6 +391,7 @@ class MainActivity : ComponentActivity() {
                         action == Intent.ACTION_SEND ||
                         action == MainActivityIntentContract.ACTION_SHUFFLE_ALL ||
                         action == MainActivityIntentContract.ACTION_OPEN_PLAYLIST ||
+                        action == MainActivityIntentContract.ACTION_OPEN_AI_PLAYLIST_SHEET ||
                         action == "com.saurav.pixelmusic.ACTION_PLAY_SONG" ||
                         intent?.getBooleanExtra("ACTION_SHOW_PLAYER", false) == true ||
                         intent?.getBooleanExtra("NAVIGATE_TO_ABOUT", false) == true
@@ -534,6 +535,12 @@ class MainActivity : ComponentActivity() {
             }
             
             // Handle playlist shortcut
+            intent.action == MainActivityIntentContract.ACTION_OPEN_AI_PLAYLIST_SHEET -> {
+                playerViewModel.requestOpenAiGenerationSheet()
+                _pendingRouteNavigation.value = Screen.Library.route
+                intent.action = null
+            }
+
             intent.action == MainActivityIntentContract.ACTION_OPEN_PLAYLIST -> {
                 intent.getStringExtra(MainActivityIntentContract.EXTRA_PLAYLIST_ID)?.let { playlistId ->
                     _pendingPlaylistNavigation.value = playlistId

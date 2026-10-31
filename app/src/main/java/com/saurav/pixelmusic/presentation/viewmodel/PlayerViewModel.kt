@@ -578,6 +578,7 @@ class PlayerViewModel @Inject constructor(
     val aiStatus: StateFlow<String?> = aiStateHolder.aiStatus
     val aiError: StateFlow<String?> = aiStateHolder.aiError
     val lastCreatedAiPlaylistId: StateFlow<String?> = aiStateHolder.lastCreatedAiPlaylistId
+    val aiSheetReopenRequested: StateFlow<Boolean> get() = aiStateHolder.aiSheetReopenRequested
 
     fun clearLastCreatedAiPlaylistId() {
         aiStateHolder.clearLastCreatedAiPlaylistId()
@@ -6261,6 +6262,14 @@ class PlayerViewModel @Inject constructor(
 
     fun showAiPlaylistSheet() {
         aiStateHolder.showAiPlaylistSheet()
+    }
+
+    fun requestOpenAiGenerationSheet() {
+        aiStateHolder.requestOpenGenerationSheet()
+    }
+
+    fun consumeAiGenerationSheetRequest() {
+        aiStateHolder.consumeGenerationSheetRequest()
     }
 
     fun setAlbumsListView(isList: Boolean) {

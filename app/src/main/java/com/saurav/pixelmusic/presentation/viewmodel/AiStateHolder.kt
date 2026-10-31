@@ -66,6 +66,19 @@ class AiStateHolder @Inject constructor(
         _lastCreatedAiPlaylistId.value = null
     }
 
+    // Set when the user taps the generation notification; the library screen consumes it and
+    // brings the progress sheet back.
+    private val _aiSheetReopenRequested = MutableStateFlow(false)
+    val aiSheetReopenRequested = _aiSheetReopenRequested.asStateFlow()
+
+    fun requestOpenGenerationSheet() {
+        _aiSheetReopenRequested.value = true
+    }
+
+    fun consumeGenerationSheetRequest() {
+        _aiSheetReopenRequested.value = false
+    }
+
     private var _lastPlaylistPrompt: String? = null
     private var _lastMinLength: Int = 5
     private var _lastMaxLength: Int = 15
@@ -170,6 +183,7 @@ class AiStateHolder @Inject constructor(
             // Step 1: Pre-generation analysis
             try {
                 _aiStatus.value = "Analyzing your library stats..."
+                notificationManager.showProgress("Creating your AI mix", "Analyzing your library…", 12, reopenSheet = true)
                 val existingPlaylistNames = playlistPreferencesRepository.userPlaylistsFlow.first()
                     .map { it.name.trim() }
                     .filter { it.isNotEmpty() }
@@ -177,6 +191,7 @@ class AiStateHolder @Inject constructor(
 
                 // Generate candidate pool using DailyMixManager logic
                 _aiStatus.value = "Selecting best candidates..."
+                notificationManager.showProgress("Creating your AI mix", "Picking candidate tracks…", 30, reopenSheet = true)
                 val candidatePool = dailyMixManager.generateDailyMix(
                     allSongs = allSongs,
                     favoriteSongIds = favoriteIds,
@@ -185,7 +200,7 @@ class AiStateHolder @Inject constructor(
 
                 // Step 2: Invoke AI Generation Engine
                 _aiStatus.value = "Consulting the Daily Mix guide..."
-                notificationManager.showProgress("AI Curation", "Synthesizing your Daily Mix...", 50)
+                notificationManager.showProgress("Creating your AI mix", "Curating the perfect tracks…", 0, indeterminate = true, reopenSheet = true)
                 
                 val result = aiPlaylistGenerator.generate(
                     userPrompt = prompt,
@@ -213,7 +228,11 @@ class AiStateHolder @Inject constructor(
                             _lastCreatedAiPlaylistId.value = createdPlaylist.id
                             _aiStatus.value = "Success! Your mix is ready."
                             _aiSuccess.value = true
-                            notificationManager.showCompletion("Generation Complete", "Your AI Mix is ready to play.")
+                            notificationManager.showCompletion(
+                                "Your AI mix is ready",
+                                "$resolvedPlaylistName · ${generatedSongs.size} songs. Tap to open it.",
+                                playlistId = createdPlaylist.id
+                            )
                             kotlinx.coroutines.delay(1200) // AI UI Optimization: Let the success animation breathe
                             dismissAiPlaylistSheet()
                         } else {
@@ -221,7 +240,7 @@ class AiStateHolder @Inject constructor(
                             _aiStatus.value = "Starting playback..."
                             _aiSuccess.value = true
                             val sessionName = genResult.title ?: "AI: $prompt"
-                            notificationManager.showCompletion("Generation Complete", "Starting your personalized session.")
+                            notificationManager.showCompletion("Your AI mix is playing", "Tap to open the player.", openPlayer = true)
                             dailyMixStateHolder.setDailyMixSongs(generatedSongs)
                             playSongsCallback?.invoke(generatedSongs, generatedSongs.first(), sessionName)
                             openPlayerSheetCallback?.invoke()
@@ -231,20 +250,20 @@ class AiStateHolder @Inject constructor(
                     } else {
                         _aiStatus.value = null
                         _aiError.value = context.getString(R.string.ai_no_songs_found)
-                        notificationManager.hideProgress()
+                        notificationManager.showCompletion("No matching songs found", "Tap to adjust your prompt and try again.", reopenSheet = true)
                     }
                 }.onFailure { error ->
                     Timber.tag("AiPlaylist").e(error, "AI playlist generation failed")
                     _aiStatus.value = null
                     val detail = extractAiErrorDetail(error)
                     _aiError.value = resolveAiErrorMessage(error)
-                    notificationManager.showCompletion("Generation Failed", detail.take(140))
+                    notificationManager.showCompletion("Couldn't create your mix", detail.take(140), reopenSheet = true)
                 }
             } catch (e: Exception) {
                 Timber.tag("AiPlaylist").e(e, "AI playlist generation threw unhandled exception")
                 _aiStatus.value = null
                 _aiError.value = resolveAiErrorMessage(e)
-                notificationManager.showCompletion("Generation Failed", extractAiErrorDetail(e).take(140))
+                notificationManager.showCompletion("Couldn't create your mix", extractAiErrorDetail(e).take(140), reopenSheet = true)
             } finally {
                 _isGeneratingAiPlaylist.value = false
                 _aiStatus.value = null

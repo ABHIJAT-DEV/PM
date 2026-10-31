@@ -652,15 +652,27 @@ fun LibraryScreen(
     val lastCreatedAiPlaylistId by playerViewModel.lastCreatedAiPlaylistId.collectAsStateWithLifecycle()
     val aiStatus by playerViewModel.aiStatus.collectAsStateWithLifecycle()
     val aiSuccess by playerViewModel.aiSuccess.collectAsStateWithLifecycle()
+    val aiSheetReopenRequested by playerViewModel.aiSheetReopenRequested.collectAsStateWithLifecycle()
+
+    // Notification tap while a mix is generating (or failed): bring the sheet back
+    LaunchedEffect(aiSheetReopenRequested, hasActiveAiProviderApiKey) {
+        if (aiSheetReopenRequested && hasActiveAiProviderApiKey) {
+            showCreateAiPlaylistDialog = true
+            playerViewModel.consumeAiGenerationSheetRequest()
+        }
+    }
 
     LaunchedEffect(lastCreatedAiPlaylistId) {
         lastCreatedAiPlaylistId?.let { playlistId ->
-            kotlinx.coroutines.delay(1200) // Allow extensive success celebration animation to complete
+            val sheetWasOpen = showCreateAiPlaylistDialog
+            if (sheetWasOpen) kotlinx.coroutines.delay(1200) // Let the success celebration play out
             showCreateAiPlaylistDialog = false
             aiGenerationRequestedFromDialog = false
             playerViewModel.clearAiPlaylistError()
             playerViewModel.clearLastCreatedAiPlaylistId()
-            navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
+            if (sheetWasOpen) {
+                navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
+            }
         }
     }
 
@@ -1620,6 +1632,10 @@ onViewToggleChange = { isChecked ->
             aiGenerationRequestedFromDialog = false
             playerViewModel.clearAiPlaylistError()
             playerViewModel.clearLastCreatedAiPlaylistId()
+        },
+        onMinimize = {
+            showCreateAiPlaylistDialog = false
+            Toast.makeText(context, "Still creating your mix. We'll let you know when it's ready.", Toast.LENGTH_SHORT).show()
         },
         onGenerate = { playlistName, prompt, minLength, maxLength ->
             aiGenerationRequestedFromDialog = true
