@@ -555,7 +555,7 @@ private fun CreateAiPlaylistSheetContent(
             val scrollState = rememberScrollState()
             val configuration = LocalConfiguration.current
             val screenHeight = configuration.screenHeightDp.dp
-            val targetMinHeight = if (isGenerating) (screenHeight * 0.65f).coerceIn(480.dp, 620.dp) else 0.dp
+            val targetMinHeight = if (isGenerating) (screenHeight * 0.68f).coerceIn(520.dp, 660.dp) else 0.dp
             val contentMinHeight by animateDpAsState(
                 targetValue = targetMinHeight,
                 animationSpec = tween(400, easing = FastOutSlowInEasing),
@@ -1171,75 +1171,75 @@ private fun AiLibraryIndicatorsAnimation(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "lib_indicators")
 
-    // Slow floating translation when idle (cycle 6000ms)
+    // Very slow gentle floating translation when idle (cycle 7000ms)
     val idleFloatPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f, // 2 * PI
         animationSpec = infiniteRepeatable(
-            animation = tween(6000, easing = LinearEasing),
+            animation = tween(7000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "idle_float_phase"
     )
 
-    // Fast dynamic movement when generating (cycle 1400ms)
+    // Smooth dynamic movement when generating (cycle 2000ms)
     val genFloatPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = LinearEasing),
+            animation = tween(2000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gen_float_phase"
     )
 
-    // Slow gentle continuous rotation when idle (cycle 10000ms)
+    // Extra slow, graceful continuous rotation when idle (cycle 26000ms)
     val idleRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
+            animation = tween(26000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "idle_rotation"
     )
 
-    // Fast spinning when generating (cycle 1500ms)
+    // Measured, smooth spinning when generating (cycle 4200ms)
     val genSpinRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
+            animation = tween(4200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gen_spin_rotation"
     )
 
-    // Fast zooming in/out pulse phase when generating (cycle 800ms)
+    // Zooming in/out pulse phase when generating (cycle 1100ms)
     val genScalePhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = LinearEasing),
+            animation = tween(1100, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gen_scale_phase"
     )
 
-    // Subtle gentle breathing pulse phase when idle (cycle 3000ms)
+    // Subtle gentle breathing pulse phase when idle (cycle 3600ms)
     val idleScalePhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
+            animation = tween(3600, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "idle_scale_phase"
     )
 
-    // Animate base indicator size: 48dp when idle -> 70dp when generating
+    // Animate base indicator size: 62dp when idle -> 92dp when generating (noticeably bigger)
     val baseIndicatorSize by animateDpAsState(
-        targetValue = if (isGenerating) 70.dp else 48.dp,
+        targetValue = if (isGenerating) 92.dp else 62.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -1247,9 +1247,9 @@ private fun AiLibraryIndicatorsAnimation(
         label = "base_indicator_size"
     )
 
-    // Animate container height: 124dp when idle -> 210dp when generating to fit them nicely
+    // Animate container height: 144dp when idle -> 230dp when generating to fit them with glow
     val containerHeight by animateDpAsState(
-        targetValue = if (isGenerating) 210.dp else 124.dp,
+        targetValue = if (isGenerating) 230.dp else 144.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessLow
@@ -1259,7 +1259,7 @@ private fun AiLibraryIndicatorsAnimation(
 
     // Dynamic horizontal spacing between indicators
     val itemSpacing by animateDpAsState(
-        targetValue = if (isGenerating) 18.dp else 14.dp,
+        targetValue = if (isGenerating) 16.dp else 14.dp,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "item_spacing"
     )
@@ -1279,32 +1279,33 @@ private fun AiLibraryIndicatorsAnimation(
     ) {
         for (i in 0 until 3) {
             val offset = i * (6.2831855f / 3f)
+            val color = colors[i % colors.size]
 
-            // Dynamic scale: zooming in/out and getting larger/reducing size faster when generating
+            // Dynamic scale: zooming in & out when generating (0.90x to 1.24x), gentle breath when idle
             val scale = if (isGenerating) {
-                1.08f + 0.32f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat()
+                1.07f + 0.17f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat()
             } else {
-                1.0f + 0.04f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat()
+                1.0f + 0.035f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat()
             }
 
-            // Translation: faster and larger amplitude when generating, slow and gentle when idle
+            // Translation: smooth amplitude when generating, extra slow & gentle when idle
             val transY = if (isGenerating) {
-                kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat() * 20f
+                kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat() * 16f
             } else {
                 kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat() * 6f
             }
 
             val transX = if (isGenerating) {
-                kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat() * 12f
+                kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat() * 10f
             } else {
                 kotlin.math.cos((idleFloatPhase + offset).toDouble()).toFloat() * 4f
             }
 
-            // Rotation: fast spinning (alternating directions) when generating, slow continuous rotation when idle
+            // Rotation: smooth spin (alternating directions) when generating, extra slow rotation when idle
             val rotZ = if (isGenerating) {
                 genSpinRotation * (if (i % 2 == 0) 1f else -1f)
             } else {
-                (idleRotation + i * 45f) % 360f
+                (idleRotation + i * 30f) % 360f
             }
 
             Box(
@@ -1318,8 +1319,40 @@ private fun AiLibraryIndicatorsAnimation(
                     },
                 contentAlignment = Alignment.Center
             ) {
+                // Soft depth shadow on the sheet surface in both idle and generating modes
+                Box(
+                    modifier = Modifier
+                        .size(baseIndicatorSize * 0.92f)
+                        .offset(y = if (isGenerating) 12.dp else 7.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.scrim.copy(alpha = if (isGenerating) 0.26f else 0.16f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
+                // Soft ambient colored glow behind each expressive indicator
+                Box(
+                    modifier = Modifier
+                        .size(baseIndicatorSize * (if (isGenerating) 1.55f else 1.35f))
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    color.copy(alpha = if (isGenerating) 0.52f else 0.32f),
+                                    color.copy(alpha = if (isGenerating) 0.22f else 0.10f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
                 LoadingIndicator(
-                    color = colors[i % colors.size],
+                    color = color,
                     modifier = Modifier
                         .size(baseIndicatorSize)
                         .testTag("loading_indicator")

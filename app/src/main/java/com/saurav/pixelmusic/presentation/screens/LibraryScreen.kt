@@ -239,6 +239,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -663,18 +664,20 @@ fun LibraryScreen(
     }
 
     LaunchedEffect(lastCreatedAiPlaylistId, aiSuccess) {
-        lastCreatedAiPlaylistId?.let { playlistId ->
-            // FIX: Prevent old playlist IDs from instantly closing the sheet when reopened via notification
-            if (!aiSuccess) return@let 
-
-            val sheetWasOpen = showCreateAiPlaylistDialog
-            if (sheetWasOpen) kotlinx.coroutines.delay(1200) // Let the success celebration play out
-            showCreateAiPlaylistDialog = false
-            aiGenerationRequestedFromDialog = false
-            playerViewModel.clearAiPlaylistError()
-            playerViewModel.clearLastCreatedAiPlaylistId()
-            if (sheetWasOpen) {
-                navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
+        val playlistId = lastCreatedAiPlaylistId
+        if (playlistId != null && aiSuccess) {
+            val sheetWasOpen = showCreateAiPlaylistDialog || aiGenerationRequestedFromDialog
+            withContext(NonCancellable) {
+                if (sheetWasOpen) {
+                    kotlinx.coroutines.delay(1000)
+                }
+                showCreateAiPlaylistDialog = false
+                aiGenerationRequestedFromDialog = false
+                playerViewModel.clearAiPlaylistError()
+                playerViewModel.clearLastCreatedAiPlaylistId()
+                if (sheetWasOpen) {
+                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
+                }
             }
         }
     }
