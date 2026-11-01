@@ -1260,13 +1260,15 @@ private data class AiFloatingShapeSpec(
     val initialY: Float,
     val initialRotation: Float,
     val colorIndex: Int,
-    val floatSpeedMultiplier: Float = 1.0f,
-    val floatRadiusMultiplier: Float = 1.0f,
-    val spinDirection: Float = 1.0f
+    val phaseOffset: Float,
+    val floatRadiusX: Float = 8f,
+    val floatRadiusY: Float = 10f,
+    val spinDirection: Float = 1.0f,
+    val harmonic: Float = 1.0f
 )
 
 private val FLOATING_EXPRESSIVE_SHAPES = listOf(
-    // Top far-left: Olive Oval
+    // 1. Top far-left: Olive Oval
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.OVAL,
         sizeDp = 42f,
@@ -1274,11 +1276,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = -88f,
         initialRotation = -24f,
         colorIndex = 4,
-        floatSpeedMultiplier = 0.9f,
-        floatRadiusMultiplier = 0.9f,
+        phaseOffset = 0.0f,
+        floatRadiusX = 8f,
+        floatRadiusY = 10f,
         spinDirection = -1f
     ),
-    // Top left-mid: Peach 4-Head Cookie
+    // 2. Top left-mid: Peach 4-Head Cookie
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
         sizeDp = 46f,
@@ -1286,11 +1289,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = -98f,
         initialRotation = 16f,
         colorIndex = 3,
-        floatSpeedMultiplier = 1.1f,
-        floatRadiusMultiplier = 1.1f,
+        phaseOffset = 0.57f,
+        floatRadiusX = 9f,
+        floatRadiusY = 11f,
         spinDirection = 1f
     ),
-    // Top center-mid: Tan 6-Pointed Cookie
+    // 3. Top center-mid: Tan 6-Pointed Cookie
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.SIX_COOKIE,
         sizeDp = 40f,
@@ -1298,11 +1302,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = -100f,
         initialRotation = -14f,
         colorIndex = 5,
-        floatSpeedMultiplier = 0.85f,
-        floatRadiusMultiplier = 0.95f,
+        phaseOffset = 1.14f,
+        floatRadiusX = 7f,
+        floatRadiusY = 9f,
         spinDirection = -1f
     ),
-    // Top right: Brown 5-Pointed Star
+    // 4. Top right: Brown 5-Pointed Star
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.STAR,
         sizeDp = 48f,
@@ -1310,11 +1315,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = -82f,
         initialRotation = 22f,
         colorIndex = 0,
-        floatSpeedMultiplier = 1.05f,
-        floatRadiusMultiplier = 1.05f,
+        phaseOffset = 1.71f,
+        floatRadiusX = 10f,
+        floatRadiusY = 12f,
         spinDirection = 1f
     ),
-    // Bottom far-left: Tan 8-Pointed Cookie / Star
+    // 5. Bottom far-left: Tan 8-Pointed Cookie / Star
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.COOKIE,
         sizeDp = 46f,
@@ -1322,11 +1328,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = 64f,
         initialRotation = 12f,
         colorIndex = 5,
-        floatSpeedMultiplier = 0.95f,
-        floatRadiusMultiplier = 1.0f,
+        phaseOffset = 2.28f,
+        floatRadiusX = 9f,
+        floatRadiusY = 10f,
         spinDirection = -1f
     ),
-    // Bottom left-mid: Sage Diamond
+    // 6. Bottom left-mid: Sage Diamond
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.DIAMOND,
         sizeDp = 32f,
@@ -1334,11 +1341,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = 92f,
         initialRotation = 45f,
         colorIndex = 1,
-        floatSpeedMultiplier = 1.15f,
-        floatRadiusMultiplier = 1.1f,
+        phaseOffset = 2.85f,
+        floatRadiusX = 8f,
+        floatRadiusY = 9f,
         spinDirection = 1f
     ),
-    // Bottom center-right: Rust 12-Pointed Sun Cookie
+    // 7. Bottom center-right: Rust 12-Pointed Sun Cookie
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.SUNNY_COOKIE,
         sizeDp = 38f,
@@ -1346,11 +1354,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = 94f,
         initialRotation = -20f,
         colorIndex = 3,
-        floatSpeedMultiplier = 0.9f,
-        floatRadiusMultiplier = 0.95f,
+        phaseOffset = 3.42f,
+        floatRadiusX = 8f,
+        floatRadiusY = 11f,
         spinDirection = -1f
     ),
-    // Bottom right: Sage Rounded Square
+    // 8. Bottom right: Sage Rounded Square
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.ROUNDED_SQUARE,
         sizeDp = 44f,
@@ -1358,11 +1367,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = 62f,
         initialRotation = 30f,
         colorIndex = 4,
-        floatSpeedMultiplier = 1.0f,
-        floatRadiusMultiplier = 1.0f,
+        phaseOffset = 4.0f,
+        floatRadiusX = 9f,
+        floatRadiusY = 10f,
         spinDirection = 1f
     ),
-    // Accent small star: High top-left
+    // 9. Accent small star: High top-left
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.STAR,
         sizeDp = 24f,
@@ -1370,11 +1380,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = -118f,
         initialRotation = 6f,
         colorIndex = 2,
-        floatSpeedMultiplier = 1.25f,
-        floatRadiusMultiplier = 0.8f,
+        phaseOffset = 4.57f,
+        floatRadiusX = 6f,
+        floatRadiusY = 8f,
         spinDirection = -1f
     ),
-    // Accent small 4-head cookie: High top-right
+    // 10. Accent small 4-head cookie: High top-right
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
         sizeDp = 26f,
@@ -1382,11 +1393,12 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = -120f,
         initialRotation = -18f,
         colorIndex = 1,
-        floatSpeedMultiplier = 1.2f,
-        floatRadiusMultiplier = 0.85f,
+        phaseOffset = 5.14f,
+        floatRadiusX = 7f,
+        floatRadiusY = 8f,
         spinDirection = 1f
     ),
-    // Accent small diamond: Low bottom-center
+    // 11. Accent small diamond: Low bottom-center
     AiFloatingShapeSpec(
         shapeType = AiExpressiveShapeType.DIAMOND,
         sizeDp = 22f,
@@ -1394,8 +1406,9 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
         initialY = 110f,
         initialRotation = 35f,
         colorIndex = 2,
-        floatSpeedMultiplier = 1.1f,
-        floatRadiusMultiplier = 0.9f,
+        phaseOffset = 5.71f,
+        floatRadiusX = 6f,
+        floatRadiusY = 7f,
         spinDirection = 1f
     )
 )
@@ -1475,34 +1488,23 @@ private fun AiLibraryIndicatorsAnimation(
         label = "idle_scale_phase"
     )
 
-    // Gentle continuous rotation for shapes when idle
+    // Gentle continuous smooth rotation for shapes when idle (28s cycle, completely continuous, no stopping)
     val idleShapeSpin by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(32000, easing = LinearEasing),
+            animation = tween(28000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "idle_shape_spin"
     )
 
-    // Gentle swaying tilt for shapes when idle
-    val idleShapeSway by infiniteTransition.animateFloat(
-        initialValue = -16f,
-        targetValue = 16f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "idle_shape_sway"
-    )
-
-    // Smooth spinning for shapes when generating
+    // Smooth continuous spinning for shapes when generating (6s cycle)
     val genShapeSpin by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(7200, easing = LinearEasing),
+            animation = tween(6000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gen_shape_spin"
@@ -1598,18 +1600,14 @@ private fun AiLibraryIndicatorsAnimation(
 
         // Floating Expressive Material You shapes around the 3 main components
         for ((index, spec) in FLOATING_EXPRESSIVE_SHAPES.withIndex()) {
-            val currentRot = if (isGenerating) {
-                spec.initialRotation + (genShapeSpin * spec.spinDirection)
-            } else {
-                spec.initialRotation + (idleShapeSway * spec.spinDirection) + (idleShapeSpin * 0.15f * spec.spinDirection)
-            }
+            val currentRot = spec.initialRotation + (if (isGenerating) genShapeSpin else idleShapeSpin) * spec.spinDirection
 
-            val phase = (if (isGenerating) genFloatPhase else idleFloatPhase) * spec.floatSpeedMultiplier + (index * 0.85f)
-            val floatAmp = with(density) {
-                (if (isGenerating) 12.dp else 6.dp).toPx() * spec.floatRadiusMultiplier
-            }
-            val floatX = floatAmp * kotlin.math.cos(phase.toDouble()).toFloat()
-            val floatY = floatAmp * kotlin.math.sin((phase * 1.25).toDouble()).toFloat()
+            val basePhase = if (isGenerating) genFloatPhase else idleFloatPhase
+            val phase = basePhase * spec.harmonic + spec.phaseOffset
+            val ampMult = if (isGenerating) 1.5f else 1.0f
+
+            val floatX = with(density) { (spec.floatRadiusX * ampMult).dp.toPx() } * kotlin.math.cos(phase.toDouble()).toFloat()
+            val floatY = with(density) { (spec.floatRadiusY * ampMult).dp.toPx() } * kotlin.math.sin(phase.toDouble()).toFloat()
 
             val basePosX = with(density) { spec.initialX.dp.toPx() }
             val basePosY = with(density) { spec.initialY.dp.toPx() }
@@ -1619,10 +1617,11 @@ private fun AiLibraryIndicatorsAnimation(
 
             val shapeAlpha = ((if (isDark) 0.85f else 0.75f) * (if (isSuccessActive) (1f - convergeEase) else 1f)).coerceIn(0f, 1f)
 
+            val scalePhase = (if (isGenerating) genScalePhase else idleScalePhase) + spec.phaseOffset
+            val scaleAmp = if (isGenerating) 0.10f else 0.04f
             val shapeScale = when {
                 isSuccessActive -> (1f - convergeEase).coerceAtLeast(0f)
-                isGenerating -> 1.0f + 0.10f * kotlin.math.sin((genScalePhase + index).toDouble()).toFloat()
-                else -> 1.0f + 0.04f * kotlin.math.sin((idleScalePhase + index).toDouble()).toFloat()
+                else -> 1.0f + scaleAmp * kotlin.math.sin(scalePhase.toDouble()).toFloat()
             }
 
             if (shapeAlpha > 0.01f && shapeScale > 0.01f) {

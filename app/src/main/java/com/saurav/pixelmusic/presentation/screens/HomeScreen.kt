@@ -148,8 +148,14 @@ import com.saurav.pixelmusic.presentation.components.subcomps.PlayingEqIcon
 import com.saurav.pixelmusic.presentation.components.subcomps.SineWaveLine
 import com.saurav.pixelmusic.presentation.model.collectRecentlyPlayedSongIds
 import com.saurav.pixelmusic.presentation.model.mapRecentlyPlayedSongs
+import android.widget.Toast
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material3.ButtonDefaults
+import com.saurav.pixelmusic.presentation.components.CreateAiPlaylistDialog
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import com.saurav.pixelmusic.presentation.navigation.navigateSafelyReplacing
 import com.saurav.pixelmusic.presentation.viewmodel.AccountsViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.ExternalServiceAccount
@@ -343,6 +349,15 @@ fun HomeScreen(
     val artistReleases by favoriteArtistReleasesViewModel.releases.collectAsStateWithLifecycle()
     var isRefreshing by remember { mutableStateOf(false) }
 
+    val hasActiveAiProviderApiKey by playerViewModel.hasActiveAiProviderApiKey.collectAsStateWithLifecycle()
+    val isGeneratingAiPlaylist by playerViewModel.isGeneratingAiPlaylist.collectAsStateWithLifecycle()
+    val lastCreatedAiPlaylistId by playerViewModel.lastCreatedAiPlaylistId.collectAsStateWithLifecycle()
+    val aiStatus by playerViewModel.aiStatus.collectAsStateWithLifecycle()
+    val aiSuccess by playerViewModel.aiSuccess.collectAsStateWithLifecycle()
+    val aiError by playerViewModel.aiError.collectAsStateWithLifecycle()
+    var showCreateAiPlaylistDialog by remember { mutableStateOf(false) }
+    var aiGenerationRequestedFromDialog by remember { mutableStateOf(false) }
+
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val isScrolledPastThreshold by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24 }
@@ -393,6 +408,32 @@ fun HomeScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(lastCreatedAiPlaylistId, aiSuccess) {
+        val playlistId = lastCreatedAiPlaylistId
+        if (playlistId != null && aiSuccess) {
+            val sheetWasOpen = showCreateAiPlaylistDialog || aiGenerationRequestedFromDialog
+            withContext(NonCancellable) {
+                if (sheetWasOpen) {
+                    kotlinx.coroutines.delay(1350)
+                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
+                    kotlinx.coroutines.delay(600)
+                }
+                showCreateAiPlaylistDialog = false
+                aiGenerationRequestedFromDialog = false
+                playerViewModel.clearAiPlaylistError()
+                playerViewModel.clearLastCreatedAiPlaylistId()
+            }
+        }
+    }
+
+    LaunchedEffect(hasActiveAiProviderApiKey, showCreateAiPlaylistDialog) {
+        if (!hasActiveAiProviderApiKey && showCreateAiPlaylistDialog) {
+            showCreateAiPlaylistDialog = false
+            aiGenerationRequestedFromDialog = false
+            playerViewModel.clearAiPlaylistError()
+        }
     }
 
     LaunchedEffect(
@@ -628,7 +669,20 @@ fun HomeScreen(
                             contentType = "your_mix_header"
                         ) {
                             YourMixHeader(
-                                subtitle = yourMixSong
+                                subtitle = yourMixSong,
+                                onAiCreateClick = {
+                                    if (hasActiveAiProviderApiKey) {
+                                        playerViewModel.clearAiPlaylistError()
+                                        showCreateAiPlaylistDialog = true
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.toast_set_ai_provider_api_key_first),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        navController.navigateSafely(Screen.SettingsCategory.createRoute("ai"))
+                                    }
+                                }
                             )
                         }
                     }
@@ -958,6 +1012,30 @@ fun HomeScreen(
         )
     }
 
+    CreateAiPlaylistDialog(
+        visible = showCreateAiPlaylistDialog && hasActiveAiProviderApiKey,
+        isGenerating = isGeneratingAiPlaylist,
+        isSuccess = aiSuccess,
+        status = aiStatus,
+        error = aiError,
+        onDismiss = {
+            showCreateAiPlaylistDialog = false
+            aiGenerationRequestedFromDialog = false
+            playerViewModel.clearAiPlaylistError()
+            playerViewModel.clearLastCreatedAiPlaylistId()
+        },
+        onGenerate = { playlistName, prompt, minLength, maxLength ->
+            aiGenerationRequestedFromDialog = true
+            playerViewModel.generateAiPlaylist(
+                prompt = prompt,
+                minLength = minLength,
+                maxLength = maxLength,
+                saveAsPlaylist = true,
+                playlistName = playlistName
+            )
+        }
+    )
+
 
 }
 
@@ -1098,31 +1176,66 @@ private val YourMixFeaturedShape = racra.compose.smooth_corner_rect_library.Abso
 fun YourMixHeader(
     subtitle: String,
     featuredSong: Song? = null,
-    onSongClick: (() -> Unit)? = null
+    onSongClick: (() -> Unit)? = null,
+    onAiCreateClick: (() -> Unit)? = null
 ) {
     val titleStyle = YourMixTitleStyle
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .padding(horizontal = 24.dp, vertical = 8.dp)
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = stringResource(R.string.home_your_mix_title),
-            style = titleStyle,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Clip
-        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.home_your_mix_title),
+                style = titleStyle,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Clip
+            )
 
-        Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+        }
+
+        if (onAiCreateClick != null) {
+            FilledTonalButton(
+                onClick = onAiCreateClick,
+                shape = AbsoluteSmoothCornerShape(20.dp, 60),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = "Create AI Playlist",
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "AI Mix",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
     }
 }
 
