@@ -113,6 +113,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FlexibleBottomAppBar
@@ -188,6 +189,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
+import com.saurav.pixelmusic.utils.shapes.RoundedStarShape
 import kotlin.math.max
 import kotlin.math.min
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
@@ -1255,144 +1257,45 @@ private class AiExpressiveShape(
 }
 
 /**
- * Expressive Material You 6-head Cookie button with dynamic shape-morphing and reactive touch feedback.
- * Features a glowing physical shadow and reactive magic spark logo.
+ * Expressive AI Playlist Creation button copying the exact shape and size
+ * of the Daily Mix generator button: RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f)
+ * on a LargeExtendedFloatingActionButton with liquid glass support.
  */
 @Composable
 fun AiMixCookieButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    size: Dp = 124.dp
+    modifier: Modifier = Modifier
 ) {
-    val haptic = LocalHapticFeedback.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    val pressMorph by animateFloatAsState(
-        targetValue = if (isPressed) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "ai_cookie_press_morph"
-    )
-
-    val buttonScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.90f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "ai_cookie_button_scale"
-    )
-
-    val iconScale by animateFloatAsState(
-        targetValue = if (isPressed) 1.25f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioHighBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "ai_cookie_icon_scale"
-    )
-
-    val iconRotation by animateFloatAsState(
-        targetValue = if (isPressed) 45f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "ai_cookie_icon_rot"
-    )
-
-    // 6-head cookie that morphs to 4-head cookie on touch
-    val cookieShape = remember(pressMorph) {
-        AiMorphingExpressiveShape(
-            from = AiExpressiveShapeType.SIX_COOKIE,
-            to = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
-            progress = pressMorph
+    val isLiquidGlassGen = LocalLiquidGlassEnabled.current
+    val isDarkGen = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val starShape = remember {
+        RoundedStarShape(
+            sides = 8,
+            curve = 0.05,
+            rotation = 0f
         )
     }
 
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-    ) {
-        // Layer 1: Ambient primary glow halo
-        Box(
-            modifier = Modifier
-                .size(size * 1.12f)
-                .graphicsLayer {
-                    scaleX = buttonScale * (if (isPressed) 1.15f else 1.0f)
-                    scaleY = buttonScale * (if (isPressed) 1.15f else 1.0f)
-                    alpha = if (isPressed) 0.55f else (if (isDark) 0.32f else 0.20f)
-                }
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-
-        // Layer 2: Soft depth drop shadow
-        Box(
-            modifier = Modifier
-                .size(size * 0.96f)
-                .offset(y = if (isPressed) 3.dp else 6.dp)
-                .graphicsLayer {
-                    scaleX = buttonScale
-                    scaleY = buttonScale
-                    alpha = if (isPressed) 0.25f else (if (isDark) 0.45f else 0.20f)
-                }
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.65f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-
-        // Layer 3: 6-head Cookie shape button body with shape-morphing Skia clip
-        Box(
-            modifier = Modifier
-                .size(size)
-                .graphicsLayer {
-                    scaleX = buttonScale
-                    scaleY = buttonScale
-                }
-                .clip(cookieShape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onClick()
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.AutoAwesome,
-                contentDescription = "Create AI Playlist",
-                tint = if (isPressed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier
-                    .size(size * 0.46f)
-                    .graphicsLayer {
-                        scaleX = iconScale
-                        scaleY = iconScale
-                        rotationZ = iconRotation
-                    }
-            )
+    LargeExtendedFloatingActionButton(
+        modifier = modifier.liquidGlassInteractiveSurface(shape = starShape),
+        onClick = onClick,
+        shape = starShape,
+        containerColor = if (isLiquidGlassGen) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDarkGen) 0.55f else 0.70f)
+        } else {
+            MaterialTheme.colorScheme.primaryContainer
+        },
+        elevation = if (isLiquidGlassGen) {
+            FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
+        } else {
+            FloatingActionButtonDefaults.elevation()
         }
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.AutoAwesome,
+            contentDescription = "Create AI Playlist",
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
