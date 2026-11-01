@@ -151,6 +151,7 @@ import com.saurav.pixelmusic.presentation.model.mapRecentlyPlayedSongs
 import android.widget.Toast
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.ButtonDefaults
+import com.saurav.pixelmusic.presentation.components.AiMixCookieButton
 import com.saurav.pixelmusic.presentation.components.CreateAiPlaylistDialog
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
@@ -1212,29 +1213,9 @@ fun YourMixHeader(
         }
 
         if (onAiCreateClick != null) {
-            FilledTonalButton(
-                onClick = onAiCreateClick,
-                shape = AbsoluteSmoothCornerShape(20.dp, 60),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
-                    contentDescription = "Create AI Playlist",
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "AI Mix",
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
+            AiMixCookieButton(
+                onClick = onAiCreateClick
+            )
         }
     }
 }

@@ -1253,6 +1253,152 @@ private class AiExpressiveShape(
     }
 }
 
+/**
+ * Expressive Material You Cookie button with dynamic shape-morphing and reactive touch feedback.
+ * Features a glowing physical shadow and reactive magic spark logo.
+ */
+@Composable
+fun AiMixCookieButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val infiniteTransition = rememberInfiniteTransition(label = "ai_cookie_infinite")
+    val idleMorphProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ai_cookie_idle_morph"
+    )
+    val idleRotation by infiniteTransition.animateFloat(
+        initialValue = -7f,
+        targetValue = 7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ai_cookie_idle_rot"
+    )
+
+    val pressMorph by animateFloatAsState(
+        targetValue = if (isPressed) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "ai_cookie_press_morph"
+    )
+
+    val buttonScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "ai_cookie_button_scale"
+    )
+
+    val iconScale by animateFloatAsState(
+        targetValue = if (isPressed) 1.25f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioHighBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "ai_cookie_icon_scale"
+    )
+
+    val iconRotation by animateFloatAsState(
+        targetValue = if (isPressed) 45f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "ai_cookie_icon_rot"
+    )
+
+    // Blend subtle idle breathing morph with interactive touch morph
+    val totalMorph = (idleMorphProgress * 0.22f + pressMorph * 0.78f).coerceIn(0f, 1f)
+
+    val cookieShape = remember(totalMorph) {
+        AiMorphingExpressiveShape(
+            from = AiExpressiveShapeType.COOKIE,
+            to = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            progress = totalMorph
+        )
+    }
+
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+    ) {
+        // Soft ambient glow behind the cookie
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .graphicsLayer {
+                    scaleX = if (isPressed) 1.25f else 1.08f
+                    scaleY = if (isPressed) 1.25f else 1.08f
+                    alpha = if (isPressed) 0.60f else (if (isDark) 0.35f else 0.22f)
+                }
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        Surface(
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            },
+            interactionSource = interactionSource,
+            shape = cookieShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            shadowElevation = if (isPressed) 2.dp else 6.dp,
+            tonalElevation = 4.dp,
+            modifier = Modifier
+                .size(58.dp)
+                .graphicsLayer {
+                    scaleX = buttonScale
+                    scaleY = buttonScale
+                    rotationZ = idleRotation
+                }
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = "Create AI Playlist",
+                    tint = if (isPressed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .graphicsLayer {
+                            scaleX = iconScale
+                            scaleY = iconScale
+                            rotationZ = iconRotation
+                        }
+                )
+            }
+        }
+    }
+}
+
 private data class AiFloatingShapeSpec(
     val shapeType: AiExpressiveShapeType,
     val sizeDp: Float,
