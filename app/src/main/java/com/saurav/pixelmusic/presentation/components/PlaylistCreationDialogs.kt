@@ -180,6 +180,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -1254,13 +1255,14 @@ private class AiExpressiveShape(
 }
 
 /**
- * Expressive Material You Cookie button with dynamic shape-morphing and reactive touch feedback.
+ * Expressive Material You 6-head Cookie button with dynamic shape-morphing and reactive touch feedback.
  * Features a glowing physical shadow and reactive magic spark logo.
  */
 @Composable
 fun AiMixCookieButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    size: Dp = 124.dp
 ) {
     val haptic = LocalHapticFeedback.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -1276,7 +1278,7 @@ fun AiMixCookieButton(
     )
 
     val buttonScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.88f else 1.0f,
+        targetValue = if (isPressed) 0.90f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -1285,7 +1287,7 @@ fun AiMixCookieButton(
     )
 
     val iconScale by animateFloatAsState(
-        targetValue = if (isPressed) 1.28f else 1.0f,
+        targetValue = if (isPressed) 1.25f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioHighBouncy,
             stiffness = Spring.StiffnessMediumLow
@@ -1302,9 +1304,10 @@ fun AiMixCookieButton(
         label = "ai_cookie_icon_rot"
     )
 
+    // 6-head cookie that morphs to 4-head cookie on touch
     val cookieShape = remember(pressMorph) {
         AiMorphingExpressiveShape(
-            from = AiExpressiveShapeType.COOKIE,
+            from = AiExpressiveShapeType.SIX_COOKIE,
             to = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
             progress = pressMorph
         )
@@ -1319,10 +1322,10 @@ fun AiMixCookieButton(
         // Layer 1: Ambient primary glow halo
         Box(
             modifier = Modifier
-                .size(62.dp)
+                .size(size * 1.12f)
                 .graphicsLayer {
-                    scaleX = buttonScale * (if (isPressed) 1.18f else 1.0f)
-                    scaleY = buttonScale * (if (isPressed) 1.18f else 1.0f)
+                    scaleX = buttonScale * (if (isPressed) 1.15f else 1.0f)
+                    scaleY = buttonScale * (if (isPressed) 1.15f else 1.0f)
                     alpha = if (isPressed) 0.55f else (if (isDark) 0.32f else 0.20f)
                 }
                 .background(
@@ -1339,8 +1342,8 @@ fun AiMixCookieButton(
         // Layer 2: Soft depth drop shadow
         Box(
             modifier = Modifier
-                .size(56.dp)
-                .offset(y = if (isPressed) 2.dp else 4.dp)
+                .size(size * 0.96f)
+                .offset(y = if (isPressed) 3.dp else 6.dp)
                 .graphicsLayer {
                     scaleX = buttonScale
                     scaleY = buttonScale
@@ -1357,10 +1360,10 @@ fun AiMixCookieButton(
                 )
         )
 
-        // Layer 3: Cookie shape button body with shape-morphing Skia clip
+        // Layer 3: 6-head Cookie shape button body with shape-morphing Skia clip
         Box(
             modifier = Modifier
-                .size(58.dp)
+                .size(size)
                 .graphicsLayer {
                     scaleX = buttonScale
                     scaleY = buttonScale
@@ -1382,7 +1385,7 @@ fun AiMixCookieButton(
                 contentDescription = "Create AI Playlist",
                 tint = if (isPressed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(size * 0.46f)
                     .graphicsLayer {
                         scaleX = iconScale
                         scaleY = iconScale
