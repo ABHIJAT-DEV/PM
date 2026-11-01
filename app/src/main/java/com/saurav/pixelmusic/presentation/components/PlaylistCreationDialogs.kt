@@ -1266,26 +1266,6 @@ fun AiMixCookieButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val infiniteTransition = rememberInfiniteTransition(label = "ai_cookie_infinite")
-    val idleMorphProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "ai_cookie_idle_morph"
-    )
-    val idleRotation by infiniteTransition.animateFloat(
-        initialValue = -7f,
-        targetValue = 7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "ai_cookie_idle_rot"
-    )
-
     val pressMorph by animateFloatAsState(
         targetValue = if (isPressed) 1f else 0f,
         animationSpec = spring(
@@ -1305,7 +1285,7 @@ fun AiMixCookieButton(
     )
 
     val iconScale by animateFloatAsState(
-        targetValue = if (isPressed) 1.25f else 1.0f,
+        targetValue = if (isPressed) 1.28f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioHighBouncy,
             stiffness = Spring.StiffnessMediumLow
@@ -1322,14 +1302,11 @@ fun AiMixCookieButton(
         label = "ai_cookie_icon_rot"
     )
 
-    // Blend subtle idle breathing morph with interactive touch morph
-    val totalMorph = (idleMorphProgress * 0.22f + pressMorph * 0.78f).coerceIn(0f, 1f)
-
-    val cookieShape = remember(totalMorph) {
+    val cookieShape = remember(pressMorph) {
         AiMorphingExpressiveShape(
             from = AiExpressiveShapeType.COOKIE,
             to = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
-            progress = totalMorph
+            progress = pressMorph
         )
     }
 
@@ -1339,14 +1316,14 @@ fun AiMixCookieButton(
         contentAlignment = Alignment.Center,
         modifier = modifier
     ) {
-        // Soft ambient glow behind the cookie
+        // Layer 1: Ambient primary glow halo
         Box(
             modifier = Modifier
-                .size(54.dp)
+                .size(62.dp)
                 .graphicsLayer {
-                    scaleX = if (isPressed) 1.25f else 1.08f
-                    scaleY = if (isPressed) 1.25f else 1.08f
-                    alpha = if (isPressed) 0.60f else (if (isDark) 0.35f else 0.22f)
+                    scaleX = buttonScale * (if (isPressed) 1.18f else 1.0f)
+                    scaleY = buttonScale * (if (isPressed) 1.18f else 1.0f)
+                    alpha = if (isPressed) 0.55f else (if (isDark) 0.32f else 0.20f)
                 }
                 .background(
                     brush = Brush.radialGradient(
@@ -1359,42 +1336,59 @@ fun AiMixCookieButton(
                 )
         )
 
-        Surface(
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onClick()
-            },
-            interactionSource = interactionSource,
-            shape = cookieShape,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            shadowElevation = if (isPressed) 2.dp else 6.dp,
-            tonalElevation = 4.dp,
+        // Layer 2: Soft depth drop shadow
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .offset(y = if (isPressed) 2.dp else 4.dp)
+                .graphicsLayer {
+                    scaleX = buttonScale
+                    scaleY = buttonScale
+                    alpha = if (isPressed) 0.25f else (if (isDark) 0.45f else 0.20f)
+                }
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.65f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        // Layer 3: Cookie shape button body with shape-morphing Skia clip
+        Box(
             modifier = Modifier
                 .size(58.dp)
                 .graphicsLayer {
                     scaleX = buttonScale
                     scaleY = buttonScale
-                    rotationZ = idleRotation
                 }
+                .clip(cookieShape)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onClick()
+                    }
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
-                    contentDescription = "Create AI Playlist",
-                    tint = if (isPressed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier
-                        .size(28.dp)
-                        .graphicsLayer {
-                            scaleX = iconScale
-                            scaleY = iconScale
-                            rotationZ = iconRotation
-                        }
-                )
-            }
+            Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = "Create AI Playlist",
+                tint = if (isPressed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier
+                    .size(28.dp)
+                    .graphicsLayer {
+                        scaleX = iconScale
+                        scaleY = iconScale
+                        rotationZ = iconRotation
+                    }
+            )
         }
     }
 }
