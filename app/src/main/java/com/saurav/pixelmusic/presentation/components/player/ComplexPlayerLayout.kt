@@ -1,7 +1,9 @@
 package com.saurav.pixelmusic.presentation.components.player
 
+import android.os.SystemClock
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -42,7 +44,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -62,6 +63,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -73,12 +75,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -89,6 +91,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -102,7 +105,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -114,11 +116,14 @@ import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Artist
 import com.saurav.pixelmusic.data.model.Lyrics
 import com.saurav.pixelmusic.data.model.Song
+import com.saurav.pixelmusic.data.model.SyncedLine
 import com.saurav.pixelmusic.data.preferences.AlbumArtQuality
 import com.saurav.pixelmusic.presentation.components.AutoScrollingTextOnDemand
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.SmartImage
+import com.saurav.pixelmusic.presentation.components.clusterSyncedWords
 import com.saurav.pixelmusic.presentation.components.sanitizeLyricLineText
+import com.saurav.pixelmusic.presentation.components.sanitizeSyncedWords
 import com.saurav.pixelmusic.presentation.components.scoped.rememberSmoothProgress
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerSheetState
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
@@ -128,6 +133,7 @@ import com.saurav.pixelmusic.utils.ThumbnailUrlUtils
 import com.saurav.pixelmusic.utils.formatDuration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import kotlin.math.abs
@@ -136,6 +142,18 @@ import kotlin.math.cos
 import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
+
+// Visual lead-in (ms) so the spring pop-in animation starts slightly before the vocal transient
+// and lands right as the singer pronounces the word.
+private const val VOCAL_ONSET_LEAD_IN_MS = 85L
+
+private val FastFunctionWords = setOf(
+    "a", "an", "the", "to", "in", "on", "of", "at", "by", "or", "is", "it", "as", "be",
+    "ka", "ke", "ki", "ko", "se", "ye", "ya", "na", "ho", "to", "bhi", "aur", "ek", "ne", "pe"
+)
+
+private val VowelGroupRegex = Regex("[aeiouyAEIOUY]+")
+private val SustainedVowelRegex = Regex("(?i)(aa|ee|oo|ai|au|ei|ou|aie|gae|gaye|hai|haan|jaan|sha|dil|chain)")
 
 /**
  * Custom shape that clips the bottom of the top-half artwork in a large circular/scooped arc.
@@ -440,10 +458,10 @@ fun ComplexPlayerLayout(
                 .padding(
                     top = lowerContentTopPadding,
                     bottom = navBarBottomPadding + 16.dp,
-                    start = 24.dp,
+                    start = 20.dp,
                     end = 20.dp
                 ),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             // LEFT AREA: Song Title / Artist + Glowing Word-by-Word Karaoke Lyrics
@@ -456,7 +474,9 @@ fun ComplexPlayerLayout(
             ) {
                 // Song Title + Artist + Subtle Options Button
                 Column(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -471,7 +491,8 @@ fun ComplexPlayerLayout(
                                 fontSize = 23.sp,
                                 color = contentColor
                             ),
-                            gradientEdgeColor = Color.Transparent,
+                            // Must be an opaque color (alpha = 1f) because AutoScrollingText uses BlendMode.DstIn
+                            gradientEdgeColor = Color.Black,
                             expansionFractionProvider = expansionFractionProvider,
                             modifier = Modifier.weight(1f)
                         )
@@ -516,10 +537,11 @@ fun ComplexPlayerLayout(
                     )
                 }
 
-                // Glowing Word-by-Word Karaoke Lyrics Stage
+                // Glowing Word-by-Word Karaoke Lyrics Stage (UNCLIPPED so glow radiates freely)
                 ComplexKaraokeLyricsStage(
                     lyrics = lyricsProvider(),
                     playbackPositionFlow = playbackPositionFlow,
+                    isPlayingProvider = isPlayingProvider,
                     syncOffsetMs = lyricsSyncOffset,
                     textColor = contentColor,
                     accentColor = accentColor,
@@ -527,7 +549,6 @@ fun ComplexPlayerLayout(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
                 )
             }
 
@@ -919,34 +940,204 @@ private fun CurvedArcSeekBar(
 }
 
 /**
- * Karaoke word-by-word lyrics display where each active word glows and gets bigger.
+ * High-precision 60fps interpolated playback clock.
+ * Because PlaybackStateHolder emits position ticks every 250ms, waiting for raw StateFlow
+ * updates can delay word appearance by up to a quarter second. This interpolates smoothly
+ * between ticks using SystemClock.elapsedRealtime() while playing.
+ */
+@Composable
+private fun rememberInterpolatedPlaybackPositionMs(
+    playbackPositionFlow: StateFlow<Long>,
+    isPlayingProvider: () -> Boolean
+): State<Long> {
+    val rawPositionMs by playbackPositionFlow.collectAsStateWithLifecycle()
+    val isPlaying = isPlayingProvider()
+    val interpolatedState = remember { mutableLongStateOf(rawPositionMs) }
+    val anchorPosRef = remember { longArrayOf(rawPositionMs) }
+    val anchorElapsedRef = remember { longArrayOf(SystemClock.elapsedRealtime()) }
+
+    LaunchedEffect(rawPositionMs) {
+        anchorPosRef[0] = rawPositionMs
+        anchorElapsedRef[0] = SystemClock.elapsedRealtime()
+        interpolatedState.longValue = rawPositionMs
+    }
+
+    LaunchedEffect(isPlaying) {
+        if (!isPlaying) {
+            interpolatedState.longValue = anchorPosRef[0]
+            return@LaunchedEffect
+        }
+        anchorElapsedRef[0] = SystemClock.elapsedRealtime()
+        while (isActive) {
+            withFrameNanos {
+                val elapsedSinceTick = (SystemClock.elapsedRealtime() - anchorElapsedRef[0]).coerceIn(0L, 320L)
+                interpolatedState.longValue = anchorPosRef[0] + elapsedSinceTick
+            }
+        }
+    }
+
+    return interpolatedState
+}
+
+/**
+ * Smart vocal-cadence word timing resolver:
+ * 1. If explicit word-level timestamps exist, clusters multi-syllable fragments into whole words
+ *    so words don't split awkwardly, preserving exact vocal start/end timestamps.
+ * 2. If only line-level timestamps exist, estimates each word's vocal duration using phonetic
+ *    syllable nuclei, sustained vowel digraphs (aa, ee, oo, ai, haan, hai, etc.), fast function-word
+ *    compression, mid-line comma/punctuation breath pauses, and instrumental tail capping so words
+ *    appear right as the singer pronounces them.
+ */
+private fun resolveSmartVocalWords(
+    syncedLine: SyncedLine?,
+    nextLineTimeMs: Long
+): List<DisplayWord> {
+    if (syncedLine == null) return emptyList()
+
+    val sanitizedExplicit = syncedLine.words?.let(::sanitizeSyncedWords)
+    if (!sanitizedExplicit.isNullOrEmpty()) {
+        val clusters = clusterSyncedWords(sanitizedExplicit)
+        if (clusters.isNotEmpty()) {
+            return clusters.mapIndexed { idx, cluster ->
+                val startMs = cluster.words.first().time.toLong()
+                val nextClusterStartMs = if (idx < clusters.lastIndex) {
+                    clusters[idx + 1].words.first().time.toLong()
+                } else {
+                    maxOf(cluster.words.last().time.toLong() + 420L, nextLineTimeMs)
+                }
+                val mergedWord = cluster.words.joinToString("") { it.word }
+                DisplayWord(
+                    word = mergedWord,
+                    startTimeMs = startMs,
+                    endTimeMs = nextClusterStartMs.coerceAtLeast(startMs + 80L)
+                )
+            }
+        }
+    }
+
+    val sanitizedLine = sanitizeLyricLineText(syncedLine.line)
+    val rawTokens = sanitizedLine.split("\\s+".toRegex()).filter { it.isNotBlank() }
+    if (rawTokens.isEmpty()) return emptyList()
+
+    val lineStart = syncedLine.time.toLong()
+    val rawLineGapMs = (nextLineTimeMs - lineStart).coerceAtLeast(900L)
+
+    // Analyze each token's phonetic weight and post-word breath pause
+    data class TokenTimingProfile(
+        val word: String,
+        val vocalWeight: Float,
+        val breathPauseAfterMs: Long
+    )
+
+    val profiles = rawTokens.mapIndexed { idx, token ->
+        val cleanLetters = token.trim { !it.isLetterOrDigit() }.lowercase()
+        val vowelMatches = VowelGroupRegex.findAll(cleanLetters).count().coerceAtLeast(1)
+        val hasSustainedVowel = SustainedVowelRegex.containsMatchIn(cleanLetters)
+        val isFastParticle = cleanLetters in FastFunctionWords && idx != rawTokens.lastIndex
+
+        var weight = vowelMatches.toFloat() * 1.05f + (cleanLetters.length.coerceAtMost(8) * 0.12f)
+        if (hasSustainedVowel) weight *= 1.26f
+        if (isFastParticle) weight *= 0.62f
+        if (idx == rawTokens.lastIndex) weight *= 1.32f // Singers sustain the final word of a line
+
+        val trimmedEnd = token.trimEnd()
+        val lastChar = trimmedEnd.lastOrNull()
+        val hasMidLineBreath = idx < rawTokens.lastIndex &&
+            (lastChar == ',' || lastChar == ';' || lastChar == ':' || lastChar == '-' ||
+                lastChar == '—' || lastChar == ')' || lastChar == '!' || lastChar == '?')
+
+        if (hasMidLineBreath) {
+            weight *= 1.18f // Pre-boundary vowel lengthening before a comma/clause break
+        }
+
+        val pauseAfterMs = when {
+            idx >= rawTokens.lastIndex -> 0L
+            trimmedEnd.endsWith("...") || lastChar == '?' || lastChar == '!' || lastChar == ')' -> 280L
+            hasMidLineBreath -> 230L
+            else -> 0L
+        }
+
+        TokenTimingProfile(
+            word = token,
+            vocalWeight = weight.coerceAtLeast(0.45f),
+            breathPauseAfterMs = pauseAfterMs
+        )
+    }
+
+    val totalBreathPausesMs = profiles.sumOf { it.breathPauseAfterMs }
+    val totalWeight = profiles.sumOf { it.vocalWeight.toDouble() }.toFloat().coerceAtLeast(1f)
+
+    // Cap natural singing duration so long instrumental gaps after a short line don't stretch words late
+    val naturalMaxVocalMs = (totalWeight * 295f).toLong() + totalBreathPausesMs + 320L
+    val effectiveLineSpanMs = minOf((rawLineGapMs * 0.86f).toLong(), naturalMaxVocalMs)
+        .coerceAtLeast(minOf(rawLineGapMs, 1050L))
+    val availableSingingMs = (effectiveLineSpanMs - totalBreathPausesMs).coerceAtLeast(600L)
+
+    var cursorMs = lineStart
+    return profiles.mapIndexed { idx, profile ->
+        val rawWordDuration = ((profile.vocalWeight / totalWeight) * availableSingingMs)
+            .toLong()
+            .coerceAtLeast(110L)
+        val wordStart = cursorMs
+        val wordEnd = if (idx == profiles.lastIndex) {
+            // Let the last word stay lit cleanly through the end of the vocal phrase
+            maxOf(wordStart + rawWordDuration, minOf(nextLineTimeMs - 120L, wordStart + rawWordDuration + 650L))
+        } else {
+            wordStart + rawWordDuration
+        }
+        cursorMs = wordStart + rawWordDuration + profile.breathPauseAfterMs
+        DisplayWord(
+            word = profile.word,
+            startTimeMs = wordStart,
+            endTimeMs = wordEnd
+        )
+    }
+}
+
+private data class KaraokeLineState(
+    val lineIndex: Int,
+    val lineTimeMs: Int,
+    val syncedLine: SyncedLine?,
+    val nextLineTimeMs: Long,
+    val nextLineText: String
+)
+
+/**
+ * Karaoke word-by-word lyrics display where:
+ * - Each line transition uses the iOS Dynamic Island spring expansion + motion blur animation
+ *   (matching MusicRecognitionOverlay's card appear animation).
+ * - Words appear at the exact time the song speaks them and glow without any rectangular box clipping.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ComplexKaraokeLyricsStage(
     lyrics: Lyrics?,
     playbackPositionFlow: StateFlow<Long>,
+    isPlayingProvider: () -> Boolean,
     syncOffsetMs: Int,
     textColor: Color,
     accentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val currentPositionMs by playbackPositionFlow.collectAsStateWithLifecycle()
-    val effectivePosition = currentPositionMs + syncOffsetMs
+    val interpolatedPositionMs by rememberInterpolatedPlaybackPositionMs(
+        playbackPositionFlow = playbackPositionFlow,
+        isPlayingProvider = isPlayingProvider
+    )
+    val effectivePosition = interpolatedPositionMs + syncOffsetMs + VOCAL_ONSET_LEAD_IN_MS
 
     val syncedLines = lyrics?.synced ?: emptyList()
     val plainLines = lyrics?.plain?.filter { it.isNotBlank() } ?: emptyList()
 
+    // IMPORTANT: No .clip() here so word glow and scale animations radiate freely without box edges!
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             )
-            .padding(vertical = 6.dp, horizontal = 2.dp),
+            .padding(vertical = 12.dp, horizontal = 6.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         when {
@@ -954,50 +1145,85 @@ private fun ComplexKaraokeLyricsStage(
                 val currentLineIndex = remember(effectivePosition, syncedLines) {
                     syncedLines.indexOfLast { it.time <= effectivePosition }
                 }
-                val currentLine = if (currentLineIndex >= 0) syncedLines[currentLineIndex] else syncedLines.firstOrNull()
-                val nextLine = if (currentLineIndex + 1 in syncedLines.indices) {
-                    syncedLines[currentLineIndex + 1]
-                } else {
-                    null
-                }
-                val nextLineTimeMs = remember(currentLineIndex, syncedLines) {
-                    if (currentLineIndex in 0 until syncedLines.lastIndex) {
-                        syncedLines[currentLineIndex + 1].time.toLong()
-                    } else if (currentLineIndex >= 0) {
-                        syncedLines[currentLineIndex].time.toLong() + 7000L
-                    } else {
-                        7000L
+
+                val activeLineState = remember(currentLineIndex, syncedLines) {
+                    val resolvedIdx = if (currentLineIndex >= 0) currentLineIndex else 0
+                    val line = syncedLines.getOrNull(resolvedIdx)
+                    val nextLine = syncedLines.getOrNull(resolvedIdx + 1)
+                    val nextTimeMs = when {
+                        nextLine != null -> nextLine.time.toLong()
+                        line != null -> line.time.toLong() + 6500L
+                        else -> 6500L
                     }
+                    KaraokeLineState(
+                        lineIndex = resolvedIdx,
+                        lineTimeMs = line?.time ?: -1,
+                        syncedLine = line,
+                        nextLineTimeMs = nextTimeMs,
+                        nextLineText = nextLine?.line?.let(::sanitizeLyricLineText).orEmpty()
+                    )
                 }
 
-                val displayWords = remember(currentLine, nextLineTimeMs) {
-                    resolveDisplayWords(currentLine, nextLineTimeMs)
-                }
-                val nextLineText = remember(nextLine) {
-                    nextLine?.line?.let(::sanitizeLyricLineText).orEmpty()
-                }
-
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
-                ) {
-                    AnimatedContent(
-                        targetState = currentLine?.time ?: -1,
-                        transitionSpec = {
-                            (fadeIn(tween(260)) +
-                                slideInVertically(
-                                    initialOffsetY = { it / 3 },
-                                    animationSpec = spring(dampingRatio = 0.78f, stiffness = 220f)
-                                )) togetherWith
-                                (fadeOut(tween(180)) +
+                // iOS Dynamic Island / Music Recognition Card appear animation on every line change!
+                // SizeTransform(clip = false) ensures glow and scaling words are NEVER clipped in a box.
+                AnimatedContent(
+                    targetState = activeLineState,
+                    contentKey = { it.lineTimeMs to it.lineIndex },
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(durationMillis = 360)) +
+                            scaleIn(
+                                initialScale = 0.44f,
+                                transformOrigin = TransformOrigin(0.12f, 0f),
+                                animationSpec = spring(dampingRatio = 0.82f, stiffness = 100f)
+                            ) +
+                            slideInVertically(
+                                initialOffsetY = { -it / 2 - 32 },
+                                animationSpec = spring(dampingRatio = 0.82f, stiffness = 100f)
+                            ))
+                            .togetherWith(
+                                fadeOut(animationSpec = tween(durationMillis = 220)) +
+                                    scaleOut(
+                                        targetScale = 0.76f,
+                                        transformOrigin = TransformOrigin(0.12f, 1f),
+                                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 120f)
+                                    ) +
                                     slideOutVertically(
-                                        targetOffsetY = { -it / 3 },
-                                        animationSpec = tween(180)
-                                    ))
-                        },
-                        label = "complexKaraokeLineTransition"
-                    ) { lineKey ->
-                        if (displayWords.isEmpty()) {
+                                        targetOffsetY = { it / 2 + 16 },
+                                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 120f)
+                                    )
+                            )
+                            .using(SizeTransform(clip = false))
+                    },
+                    label = "complexDynamicIslandLineTransition",
+                    modifier = Modifier.fillMaxWidth()
+                ) { lineState ->
+                    val lineWords = remember(lineState.syncedLine, lineState.nextLineTimeMs) {
+                        resolveSmartVocalWords(lineState.syncedLine, lineState.nextLineTimeMs)
+                    }
+
+                    // Dynamic Island vertical motion blur that settles to 0.dp as the line springs into place
+                    val islandBlurAnim = remember(lineState.lineTimeMs, lineState.lineIndex) {
+                        Animatable(16f)
+                    }
+                    LaunchedEffect(lineState.lineTimeMs, lineState.lineIndex) {
+                        islandBlurAnim.animateTo(
+                            targetValue = 0f,
+                            animationSpec = spring(dampingRatio = 0.82f, stiffness = 100f)
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp, vertical = 8.dp)
+                            .blur(
+                                radiusX = 0.dp,
+                                radiusY = islandBlurAnim.value.dp,
+                                edgeTreatment = BlurredEdgeTreatment.Unbounded
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)
+                    ) {
+                        if (lineWords.isEmpty()) {
                             Text(
                                 text = "•••",
                                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -1005,118 +1231,168 @@ private fun ComplexKaraokeLyricsStage(
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 24.sp
                                 ),
-                                color = accentColor.copy(alpha = 0.75f)
+                                color = accentColor.copy(alpha = 0.80f)
                             )
                         } else {
                             FlowRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                                maxLines = 4
+                                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.Start),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                displayWords.forEachIndexed { index, item ->
+                                lineWords.forEachIndexed { index, item ->
+                                    val hasAppeared = effectivePosition >= item.startTimeMs
                                     val isCurrent = effectivePosition in item.startTimeMs until item.endTimeMs
-                                    val isPast = effectivePosition >= item.endTimeMs
 
-                                    key("${lineKey}_${item.startTimeMs}_$index") {
-                                        val wordScale by animateFloatAsState(
+                                    key("${lineState.lineTimeMs}_${item.startTimeMs}_$index") {
+                                        // iOS Dynamic Island word pop-in: words materialize right when spoken
+                                        val appearScale by animateFloatAsState(
                                             targetValue = when {
-                                                isCurrent -> 1.24f
-                                                isPast -> 1.0f
-                                                else -> 0.94f
+                                                !hasAppeared -> 0.42f
+                                                isCurrent -> 1.15f
+                                                else -> 1.0f
                                             },
                                             animationSpec = spring(
-                                                dampingRatio = 0.56f,
-                                                stiffness = Spring.StiffnessLow
+                                                dampingRatio = if (isCurrent) 0.62f else 0.78f,
+                                                stiffness = if (hasAppeared) 150f else 220f
                                             ),
-                                            label = "karaokeWordScale"
+                                            label = "wordAppearScale"
                                         )
-                                        val wordLiftPx by animateFloatAsState(
-                                            targetValue = if (isCurrent) -6f else 0f,
+                                        val appearAlpha by animateFloatAsState(
+                                            targetValue = when {
+                                                !hasAppeared -> 0f
+                                                isCurrent -> 1f
+                                                else -> 0.86f
+                                            },
+                                            animationSpec = tween(durationMillis = if (hasAppeared) 170 else 90),
+                                            label = "wordAppearAlpha"
+                                        )
+                                        val wordOffsetY by animateFloatAsState(
+                                            targetValue = when {
+                                                !hasAppeared -> 18f
+                                                isCurrent -> -3f
+                                                else -> 0f
+                                            },
                                             animationSpec = spring(
-                                                dampingRatio = 0.62f,
-                                                stiffness = Spring.StiffnessMediumLow
+                                                dampingRatio = 0.74f,
+                                                stiffness = 140f
                                             ),
-                                            label = "karaokeWordLift"
+                                            label = "wordOffsetY"
                                         )
-                                        val glowFraction by animateFloatAsState(
+                                        val wordMotionBlur by animateDpAsState(
+                                            targetValue = if (hasAppeared) 0.dp else 10.dp,
+                                            animationSpec = tween(durationMillis = 190),
+                                            label = "wordMotionBlur"
+                                        )
+                                        val glowStrength by animateFloatAsState(
                                             targetValue = when {
                                                 isCurrent -> 1f
-                                                isPast -> 0.18f
+                                                hasAppeared -> 0.14f
                                                 else -> 0f
                                             },
                                             animationSpec = tween(durationMillis = 160),
-                                            label = "karaokeWordGlow"
+                                            label = "wordGlowStrength"
                                         )
                                         val wordColor by animateColorAsState(
-                                            targetValue = when {
-                                                isCurrent -> Color.White
-                                                isPast -> textColor.copy(alpha = 0.88f)
-                                                else -> textColor.copy(alpha = 0.38f)
-                                            },
-                                            animationSpec = tween(durationMillis = 160),
-                                            label = "karaokeWordColor"
+                                            targetValue = if (isCurrent) Color.White else textColor.copy(alpha = 0.90f),
+                                            animationSpec = tween(durationMillis = 150),
+                                            label = "wordColor"
+                                        )
+                                        // Dynamic horizontal breathing room so enlarged active words never touch neighbors
+                                        val activeHorizontalSpace by animateDpAsState(
+                                            targetValue = if (isCurrent) 4.dp else 0.dp,
+                                            animationSpec = spring(
+                                                dampingRatio = 0.75f,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            ),
+                                            label = "activeHorizontalSpace"
                                         )
 
-                                        Text(
-                                            text = item.word,
-                                            style = MaterialTheme.typography.titleLarge.copy(
-                                                fontFamily = GoogleSansRounded,
-                                                fontWeight = if (isCurrent) FontWeight.Black else FontWeight.Bold,
-                                                fontSize = 22.sp,
-                                                shadow = Shadow(
-                                                    color = accentColor.copy(alpha = (0.95f * glowFraction).coerceIn(0f, 1f)),
-                                                    offset = Offset.Zero,
-                                                    blurRadius = if (isCurrent) 30f else 8f
-                                                )
-                                            ),
-                                            color = wordColor,
+                                        Box(
                                             modifier = Modifier
-                                                .drawBehind {
-                                                    if (glowFraction > 0.05f) {
-                                                        val radius = (size.maxDimension * 0.72f).coerceAtLeast(18f)
-                                                        drawCircle(
-                                                            brush = Brush.radialGradient(
-                                                                colors = listOf(
-                                                                    accentColor.copy(alpha = 0.34f * glowFraction),
-                                                                    Color.Transparent
-                                                                ),
-                                                                center = center,
-                                                                radius = radius
-                                                            ),
-                                                            radius = radius,
-                                                            center = center
-                                                        )
-                                                    }
-                                                }
+                                                .padding(
+                                                    horizontal = activeHorizontalSpace,
+                                                    vertical = 2.dp
+                                                )
                                                 .graphicsLayer {
-                                                    scaleX = wordScale
-                                                    scaleY = wordScale
-                                                    translationY = wordLiftPx
+                                                    scaleX = appearScale
+                                                    scaleY = appearScale
+                                                    translationY = wordOffsetY
+                                                    alpha = appearAlpha
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            // Layer 1: Unbounded soft neon letter-glow aura (no rectangular box!)
+                                            if (glowStrength > 0.04f) {
+                                                Text(
+                                                    text = item.word,
+                                                    style = MaterialTheme.typography.titleLarge.copy(
+                                                        fontFamily = GoogleSansRounded,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 22.sp,
+                                                        shadow = Shadow(
+                                                            color = accentColor.copy(alpha = (0.95f * glowStrength).coerceIn(0f, 1f)),
+                                                            offset = Offset.Zero,
+                                                            blurRadius = 38f
+                                                        )
+                                                    ),
+                                                    color = accentColor.copy(alpha = (0.70f * glowStrength).coerceIn(0f, 1f)),
+                                                    modifier = Modifier.blur(
+                                                        radius = 8.dp,
+                                                        edgeTreatment = BlurredEdgeTreatment.Unbounded
+                                                    )
+                                                )
+                                            }
+
+                                            // Layer 2: Crisp foreground word with halo shadow
+                                            Text(
+                                                text = item.word,
+                                                style = MaterialTheme.typography.titleLarge.copy(
+                                                    fontFamily = GoogleSansRounded,
+                                                    fontWeight = if (isCurrent) FontWeight.Black else FontWeight.Bold,
+                                                    fontSize = 22.sp,
+                                                    shadow = Shadow(
+                                                        color = accentColor.copy(alpha = (0.85f * glowStrength).coerceIn(0f, 1f)),
+                                                        offset = Offset.Zero,
+                                                        blurRadius = if (isCurrent) 24f else 6f
+                                                    )
+                                                ),
+                                                color = wordColor,
+                                                modifier = if (wordMotionBlur > 0.5.dp) {
+                                                    Modifier.blur(
+                                                        radiusX = 0.dp,
+                                                        radiusY = wordMotionBlur,
+                                                        edgeTreatment = BlurredEdgeTreatment.Unbounded
+                                                    )
+                                                } else {
+                                                    Modifier
                                                 }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // Upcoming line preview for extra frosted depth
-                    if (nextLineText.isNotBlank()) {
-                        Text(
-                            text = nextLineText,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontFamily = GoogleSansRounded,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp
-                            ),
-                            color = textColor.copy(alpha = 0.34f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .blur(0.6.dp)
-                        )
+                        // Upcoming line preview for frosted depth
+                        if (lineState.nextLineText.isNotBlank()) {
+                            Text(
+                                text = lineState.nextLineText,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 15.sp
+                                ),
+                                color = textColor.copy(alpha = 0.34f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .blur(
+                                        radius = 0.6.dp,
+                                        edgeTreatment = BlurredEdgeTreatment.Unbounded
+                                    )
+                            )
+                        }
                     }
                 }
             }
@@ -1132,7 +1408,8 @@ private fun ComplexKaraokeLyricsStage(
                     ),
                     color = textColor.copy(alpha = 0.82f),
                     maxLines = 4,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 6.dp)
                 )
             }
 
