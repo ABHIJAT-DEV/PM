@@ -1,6 +1,9 @@
 # Add project specific ProGuard rules here.
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
+
+# Limit R8 optimization to 1 pass to avoid repeated multi-pass analysis loops and accelerate CI build times
+-optimizationpasses 1
 #
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
