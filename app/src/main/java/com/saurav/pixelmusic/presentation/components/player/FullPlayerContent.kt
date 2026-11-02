@@ -331,6 +331,7 @@ fun FullPlayerContent(
     val isImmersive = playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE || 
                       playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE_EXTENDED
     val isImmersiveExtended = playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE_EXTENDED
+    val isComplex = playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.COMPLEX
 
     // Single subscription — replaces 11 independent collectAsStateWithLifecycle calls.
     // distinctUntilChanged in the ViewModel ensures this only emits when something
@@ -824,7 +825,7 @@ fun FullPlayerContent(
         topBar = {
             // MD3: TopAppBar 在竖屏时滑入，横屏时向上滑出淡出
             AnimatedVisibility(
-                visible = !isLandscape,
+                visible = !isLandscape && !isComplex,
                 enter = fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
                         slideInVertically(
                             initialOffsetY = { -it / 2 },
@@ -1668,7 +1669,34 @@ fun FullPlayerContent(
                     )
                 }
             }
-            if (isLandscape) {
+            if (isComplex) {
+                ComplexPlayerLayout(
+                    song = song,
+                    currentSongArtists = currentSongArtists,
+                    albumArtQuality = albumArtQuality,
+                    aodScreenEnabled = aodScreenEnabled,
+                    onEnterAodScreen = { showAodScreen = true },
+                    expansionFractionProvider = expansionFractionProvider,
+                    currentSheetState = currentSheetState,
+                    allowRealtimeUpdates = allowRealtimeUpdates,
+                    currentPositionProvider = currentPositionProvider,
+                    totalDurationValue = totalDurationValue,
+                    isPlayingProvider = isPlayingProvider,
+                    isFavoriteProvider = isFavoriteProvider,
+                    lyricsProvider = lyricsProvider,
+                    playbackPositionFlow = playerViewModel.currentPlaybackPosition,
+                    lyricsSyncOffset = lyricsSyncOffset,
+                    onPlayPause = onPlayPause,
+                    onSeek = onSeek,
+                    onNext = onNextWithOptimisticCarousel,
+                    onPrevious = onPreviousWithOptimisticCarousel,
+                    onFavoriteToggle = onFavoriteToggle,
+                    onCollapse = onCollapse,
+                    onLyricsClick = onLyricsClick,
+                    onArtistClick = onSongMetadataArtistClick,
+                    onMoreOptionsClick = { showSongInfoBottomSheet = true }
+                )
+            } else if (isLandscape) {
                 FullPlayerLandscapeContent(
                     paddingValues = paddingValues,
                     albumCoverSection = albumCoverSection,

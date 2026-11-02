@@ -120,7 +120,8 @@ enum class SearchSource {
 enum class PlayerDesignStyle {
     DEFAULT, 
     IMMERSIVE, 
-    IMMERSIVE_EXTENDED
+    IMMERSIVE_EXTENDED,
+    COMPLEX
 }
 
 enum class NowPlayingLyricsStyle {

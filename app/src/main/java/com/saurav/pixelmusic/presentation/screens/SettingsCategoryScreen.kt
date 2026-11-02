@@ -881,7 +881,8 @@ fun SettingsCategoryScreen(
                                         options = mapOf(
                                             com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.DEFAULT.name to "Default",
                                             com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE.name to "Immersive",
-                                            com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE_EXTENDED.name to "Immersive Extended"
+                                            com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE_EXTENDED.name to "Immersive Extended",
+                                            com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.COMPLEX.name to "Complex"
                                         ),
                                         selectedKey = playerDesignStyle.name,
                                         onSelectionChanged = { key ->
