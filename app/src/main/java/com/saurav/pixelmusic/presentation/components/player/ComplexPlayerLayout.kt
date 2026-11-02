@@ -19,10 +19,10 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -118,7 +118,6 @@ import com.saurav.pixelmusic.data.model.Lyrics
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.model.SyncedLine
 import com.saurav.pixelmusic.data.preferences.AlbumArtQuality
-import com.saurav.pixelmusic.presentation.components.AutoScrollingTextOnDemand
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.SmartImage
 import com.saurav.pixelmusic.presentation.components.clusterSyncedWords
@@ -130,7 +129,6 @@ import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme
 import com.saurav.pixelmusic.ui.theme.LocalPixelMusicDarkTheme
 import com.saurav.pixelmusic.utils.ThumbnailUrlUtils
-import com.saurav.pixelmusic.utils.formatDuration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
@@ -147,6 +145,9 @@ import kotlin.math.sqrt
 // and lands right as the singer pronounces the word.
 private const val VOCAL_ONSET_LEAD_IN_MS = 85L
 
+// Pushes the lowest point (M) of the circular arch to the left side: (C--M--------C)
+private const val ARCH_CENTER_X_FRACTION = 0.25f
+
 private val FastFunctionWords = setOf(
     "a", "an", "the", "to", "in", "on", "of", "at", "by", "or", "is", "it", "as", "be",
     "ka", "ke", "ki", "ko", "se", "ye", "ya", "na", "ho", "to", "bhi", "aur", "ek", "ne", "pe"
@@ -155,40 +156,86 @@ private val FastFunctionWords = setOf(
 private val VowelGroupRegex = Regex("[aeiouyAEIOUY]+")
 private val SustainedVowelRegex = Regex("(?i)(aa|ee|oo|ai|au|ei|ou|aie|gae|gaye|hai|haan|jaan|sha|dil|chain)")
 
+private data class AsymmetricArchCircle(
+    val cx: Float,
+    val cy: Float,
+    val radius: Float,
+    val rightEdgeY: Float,
+    val leftEdgeY: Float,
+    val alphaRightDeg: Float,
+    val alphaLeftDeg: Float
+)
+
 /**
- * Custom shape that clips the bottom of the top-half artwork in a large circular/scooped arc.
+ * Computes the circle geometry where the lowest point (M) of the arch is shifted to the left
+ * at `cx = widthPx * centerXFraction` (`C--M--------C`), and the right edge rises by `rightRisePx`.
+ */
+private fun computeAsymmetricArchCircle(
+    widthPx: Float,
+    bottomVertexYPx: Float,
+    rightRisePx: Float,
+    centerXFraction: Float = ARCH_CENTER_X_FRACTION
+): AsymmetricArchCircle {
+    val w = widthPx.coerceAtLeast(1f)
+    val cx = w * centerXFraction
+    val dxRight = (w - cx).coerceAtLeast(1f)
+    val sRight = rightRisePx.coerceIn(16f, bottomVertexYPx * 0.55f)
+
+    // Circle passing through lowest vertex (cx, bottomVertexYPx) and right edge (w, bottomVertexYPx - sRight)
+    val radius = (sRight / 2f) + ((dxRight * dxRight) / (2f * sRight))
+    val cy = bottomVertexYPx - radius
+
+    val sinRight = (dxRight / radius).coerceIn(-1f, 1f)
+    val sinLeft = (cx / radius).coerceIn(-1f, 1f)
+    val alphaRightDeg = Math.toDegrees(asin(sinRight.toDouble())).toFloat()
+    val alphaLeftDeg = Math.toDegrees(asin(sinLeft.toDouble())).toFloat()
+
+    val rightEdgeY = bottomVertexYPx - sRight
+    val leftEdgeY = cy + sqrt((radius * radius - cx * cx).coerceAtLeast(0f))
+
+    return AsymmetricArchCircle(
+        cx = cx,
+        cy = cy,
+        radius = radius,
+        rightEdgeY = rightEdgeY,
+        leftEdgeY = leftEdgeY,
+        alphaRightDeg = alphaRightDeg,
+        alphaLeftDeg = alphaLeftDeg
+    )
+}
+
+/**
+ * Custom shape that clips the bottom of the top-half artwork in a left-shifted circular arch (C--M--------C).
  */
 private class ScoopedArcBottomShape(
-    private val sagittaPx: Float
+    private val rightRisePx: Float,
+    private val centerXFraction: Float = ARCH_CENTER_X_FRACTION
 ) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
-        val w = size.width
-        val h = size.height
-        val s = sagittaPx.coerceIn(12f, h * 0.45f)
-        val halfW = w / 2f
-        val radius = (s / 2f) + ((halfW * halfW) / (2f * s))
-        val cx = halfW
-        val cy = h - radius
-        val sinAlpha = (halfW / radius).coerceIn(-1f, 1f)
-        val alphaDeg = Math.toDegrees(asin(sinAlpha.toDouble())).toFloat()
+        val circle = computeAsymmetricArchCircle(
+            widthPx = size.width,
+            bottomVertexYPx = size.height,
+            rightRisePx = rightRisePx,
+            centerXFraction = centerXFraction
+        )
 
         val path = Path().apply {
             moveTo(0f, 0f)
-            lineTo(w, 0f)
-            lineTo(w, h - s)
+            lineTo(size.width, 0f)
+            lineTo(size.width, circle.rightEdgeY)
             arcTo(
                 rect = Rect(
-                    left = cx - radius,
-                    top = cy - radius,
-                    right = cx + radius,
-                    bottom = cy + radius
+                    left = circle.cx - circle.radius,
+                    top = circle.cy - circle.radius,
+                    right = circle.cx + circle.radius,
+                    bottom = circle.cy + circle.radius
                 ),
-                startAngleDegrees = 90f - alphaDeg,
-                sweepAngleDegrees = 2f * alphaDeg,
+                startAngleDegrees = 90f - circle.alphaRightDeg,
+                sweepAngleDegrees = circle.alphaRightDeg + circle.alphaLeftDeg,
                 forceMoveTo = false
             )
             lineTo(0f, 0f)
@@ -199,9 +246,10 @@ private class ScoopedArcBottomShape(
 }
 
 private enum class VerticalControlButton {
-    LIKE, PREVIOUS, PLAY_PAUSE, NEXT
+    MORE, LIKE, PREVIOUS, PLAY_PAUSE, NEXT
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ComplexPlayerLayout(
     song: Song,
@@ -277,6 +325,20 @@ fun ComplexPlayerLayout(
     val statusBarTopPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+    // Reliable non-empty song title & artist resolution
+    val resolvedTitle = remember(song.id, song.title) {
+        song.title.takeIf { it.isNotBlank() } ?: "Unknown Title"
+    }
+    val resolvedArtist = remember(song.id, song.displayArtist, song.artist, currentSongArtists) {
+        song.displayArtist.takeIf { it.isNotBlank() }
+            ?: currentSongArtists
+                .mapNotNull { it.name.takeIf(String::isNotBlank) }
+                .joinToString(", ")
+                .takeIf { it.isNotBlank() }
+            ?: song.artist.takeIf { it.isNotBlank() }
+            ?: "Unknown Artist"
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -284,10 +346,16 @@ fun ComplexPlayerLayout(
     ) {
         val screenWidthDp = maxWidth
         val screenHeightDp = maxHeight
+        // Lowest point M of the arch sits at ~52% height and 25% from the left (C--M--------C)
         val artHeightDp = screenHeightDp * 0.52f
-        val sagittaDp = (screenWidthDp * 0.145f).coerceIn(46.dp, 68.dp)
-        val sagittaPx = with(density) { sagittaDp.toPx() }
-        val scoopedShape = remember(sagittaPx) { ScoopedArcBottomShape(sagittaPx) }
+        val rightRiseDp = (screenWidthDp * 0.23f).coerceIn(74.dp, 108.dp)
+        val rightRisePx = with(density) { rightRiseDp.toPx() }
+        val scoopedShape = remember(rightRisePx) {
+            ScoopedArcBottomShape(
+                rightRisePx = rightRisePx,
+                centerXFraction = ARCH_CENTER_X_FRACTION
+            )
+        }
 
         // =====================================================================
         // LAYER 1: Heavy Frosted-Glass / Blurred Cover Wash in Lower Half
@@ -334,7 +402,7 @@ fun ComplexPlayerLayout(
         )
 
         // =====================================================================
-        // LAYER 2: Edge-to-Edge Top Artwork with Curved, Scooped Cutoff
+        // LAYER 2: Edge-to-Edge Top Artwork with Left-Shifted Arch (C--M--------C)
         // =====================================================================
         val shouldApplyPausedScale = !isPlayingProvider()
         val artScale by animateFloatAsState(
@@ -379,7 +447,7 @@ fun ComplexPlayerLayout(
         ) {
             SmartImage(
                 model = optimizedAlbumArtUri,
-                contentDescription = song.title,
+                contentDescription = resolvedTitle,
                 contentScale = ContentScale.Crop,
                 targetSize = coil.size.Size.ORIGINAL,
                 modifier = Modifier
@@ -390,34 +458,18 @@ fun ComplexPlayerLayout(
                     }
             )
 
-            // Top scrim for status bar, drag handle, and collapse chevron legibility
+            // Top scrim for status bar and drag handle legibility
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(116.dp)
+                    .height(104.dp)
                     .align(Alignment.TopCenter)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.44f),
-                                Color.Black.copy(alpha = 0.14f),
+                                Color.Black.copy(alpha = 0.38f),
+                                Color.Black.copy(alpha = 0.10f),
                                 Color.Transparent
-                            )
-                        )
-                    )
-            )
-
-            // Soft vignette near the curved bottom edge of the artwork
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(92.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                washColor.copy(alpha = 0.38f)
                             )
                         )
                     )
@@ -425,12 +477,12 @@ fun ComplexPlayerLayout(
         }
 
         // =====================================================================
-        // LAYER 3: Curved Progress / Seek Bar Following the Arc
+        // LAYER 3: Bold Material You Expressive Curved Progress Bar on the Arch
         // =====================================================================
         CurvedArcSeekBar(
             songId = song.id,
             artHeightDp = artHeightDp,
-            sagittaDp = sagittaDp,
+            rightRiseDp = rightRiseDp,
             currentPositionProvider = currentPositionProvider,
             totalDurationValue = totalDurationValue,
             songDurationHintMs = song.duration,
@@ -438,9 +490,9 @@ fun ComplexPlayerLayout(
             expansionFractionProvider = expansionFractionProvider,
             currentSheetState = currentSheetState,
             allowRealtimeUpdates = allowRealtimeUpdates,
-            activeColor = accentColor,
-            inactiveColor = contentColor.copy(alpha = 0.26f),
-            textColor = contentColor.copy(alpha = 0.80f),
+            activeTrackColor = baseTheme.primary,
+            inactiveTrackColor = baseTheme.secondaryContainer,
+            thumbColor = baseTheme.primary,
             onSeek = onSeek,
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -448,20 +500,22 @@ fun ComplexPlayerLayout(
         )
 
         // =====================================================================
-        // LAYER 4: Lower Half Content (Left: Song + Karaoke Lyrics | Right: Vertical Control Stack)
+        // LAYER 4: Lower Half Content
+        // Left: Reliable Song Title/Artist + Glowing Karaoke Lyrics
+        // Right: Solid-Filled Vertical Stack (3-Dot Menu, Like, Previous, Play/Pause, Next)
         // =====================================================================
-        val lowerContentTopPadding = artHeightDp - sagittaDp + 28.dp
+        val rightColumnTopDp = (artHeightDp - rightRiseDp + 24.dp).coerceAtLeast(statusBarTopPadding + 64.dp)
+        val leftColumnTopDp = artHeightDp + 18.dp
 
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    top = lowerContentTopPadding,
                     bottom = navBarBottomPadding + 16.dp,
-                    start = 20.dp,
+                    start = 22.dp,
                     end = 20.dp
                 ),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             // LEFT AREA: Song Title / Artist + Glowing Word-by-Word Karaoke Lyrics
@@ -469,72 +523,67 @@ fun ComplexPlayerLayout(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(top = (sagittaDp - 14.dp).coerceAtLeast(18.dp)),
+                    .padding(top = leftColumnTopDp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Song Title + Artist + Subtle Options Button
+                // Song Title & Artist — direct marquee Text so it never blanks out or flickers
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        AutoScrollingTextOnDemand(
-                            text = song.title,
+                    key(song.id, resolvedTitle) {
+                        Text(
+                            text = resolvedTitle,
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontFamily = GoogleSansRounded,
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 23.sp,
-                                color = contentColor
+                                fontSize = 24.sp,
+                                lineHeight = 30.sp
                             ),
-                            // Must be an opaque color (alpha = 1f) because AutoScrollingText uses BlendMode.DstIn
-                            gradientEdgeColor = Color.Black,
-                            expansionFractionProvider = expansionFractionProvider,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        // Minimal translucent more-options trigger
-                        Box(
+                            color = contentColor,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Clip,
                             modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(contentColor.copy(alpha = 0.12f))
-                                .clickable(onClick = onMoreOptionsClick),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.MoreHoriz,
-                                contentDescription = stringResource(R.string.cd_player_more_options),
-                                tint = contentColor.copy(alpha = 0.85f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                                .fillMaxWidth()
+                                .basicMarquee(
+                                    iterations = Int.MAX_VALUE,
+                                    initialDelayMillis = 1600,
+                                    velocity = 28.dp
+                                )
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                    Text(
-                        text = song.displayArtist,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = GoogleSansRounded,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp,
-                            color = contentColor.copy(alpha = 0.72f)
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = onArtistClick
-                            )
-                    )
+                    key(song.id, resolvedArtist) {
+                        Text(
+                            text = resolvedArtist,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                lineHeight = 20.sp
+                            ),
+                            color = contentColor.copy(alpha = 0.78f),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .basicMarquee(
+                                    iterations = Int.MAX_VALUE,
+                                    initialDelayMillis = 2000,
+                                    velocity = 24.dp
+                                )
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onArtistClick
+                                )
+                        )
+                    }
                 }
 
                 // Glowing Word-by-Word Karaoke Lyrics Stage (UNCLIPPED so glow radiates freely)
@@ -552,36 +601,45 @@ fun ComplexPlayerLayout(
                 )
             }
 
-            // RIGHT AREA: Vertical Control Stack (Like, Previous, Play/Pause, Next)
-            VerticalExpressiveControlStack(
-                isPlayingProvider = isPlayingProvider,
-                isFavoriteProvider = isFavoriteProvider,
-                onFavoriteToggle = onFavoriteToggle,
-                onPrevious = onPrevious,
-                onPlayPause = onPlayPause,
-                onNext = onNext,
-                accentColor = accentColor,
-                onAccentColor = baseTheme.onPrimary,
-                secondaryContainerColor = baseTheme.secondaryContainer.copy(alpha = if (isDarkTheme) 0.88f else 0.92f),
-                onSecondaryContainerColor = baseTheme.onSecondaryContainer,
-                tertiaryColor = baseTheme.tertiary,
-                onTertiaryColor = baseTheme.onTertiary,
-                surfaceButtonColor = contentColor.copy(alpha = 0.16f),
-                onSurfaceButtonColor = contentColor,
+            // RIGHT AREA: Solid-Filled Material You Expressive Vertical Control Stack
+            // Order: 3-Dot Menu -> Like -> Previous -> Play/Pause -> Next
+            Box(
                 modifier = Modifier
-                    .width(68.dp)
-                    .height(282.dp)
-            )
+                    .fillMaxHeight()
+                    .padding(top = rightColumnTopDp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                VerticalExpressiveControlStack(
+                    isPlayingProvider = isPlayingProvider,
+                    isFavoriteProvider = isFavoriteProvider,
+                    onMoreOptionsClick = onMoreOptionsClick,
+                    onFavoriteToggle = onFavoriteToggle,
+                    onPrevious = onPrevious,
+                    onPlayPause = onPlayPause,
+                    onNext = onNext,
+                    playPauseContainerColor = baseTheme.primary,
+                    onPlayPauseContainerColor = baseTheme.onPrimary,
+                    skipContainerColor = baseTheme.secondaryContainer,
+                    onSkipContainerColor = baseTheme.onSecondaryContainer,
+                    likedContainerColor = baseTheme.tertiary,
+                    onLikedContainerColor = baseTheme.onTertiary,
+                    neutralContainerColor = baseTheme.surfaceContainerHighest,
+                    onNeutralContainerColor = baseTheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .width(68.dp)
+                        .height(332.dp)
+                )
+            }
         }
 
         // =====================================================================
-        // LAYER 5: Minimal Chrome (Small Top Drag Handle + Top-Right Collapse Chevron)
+        // LAYER 5: Minimal Chrome (Small Top Drag Handle + Solid Filled Top-Right Collapse Button)
         // =====================================================================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = statusBarTopPadding + 10.dp, start = 20.dp, end = 20.dp)
-                .height(44.dp)
+                .height(46.dp)
                 .align(Alignment.TopCenter)
         ) {
             // Small drag handle at top center
@@ -592,23 +650,19 @@ fun ComplexPlayerLayout(
                     .width(38.dp)
                     .height(4.5.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.78f))
+                    .background(Color.White.copy(alpha = 0.82f))
             )
 
-            // Collapse chevron at top right
+            // Solid filled collapse chevron button at top right (NO border, NO transparent fill)
             val collapseOffsetY = remember { Animatable(0f) }
             val collapseScale = remember { Animatable(1f) }
 
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .size(42.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.34f))
-                    .border(
-                        BorderStroke(0.75.dp, Color.White.copy(alpha = 0.24f)),
-                        CircleShape
-                    )
+                    .background(baseTheme.secondaryContainer, CircleShape)
                     .clickable {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         coroutineScope.launch {
@@ -640,7 +694,7 @@ fun ComplexPlayerLayout(
                 Icon(
                     painter = painterResource(R.drawable.rounded_keyboard_arrow_down_24),
                     contentDescription = stringResource(R.string.presentation_batch_g_player_cd_collapse),
-                    tint = Color.White,
+                    tint = baseTheme.onSecondaryContainer,
                     modifier = Modifier
                         .size(26.dp)
                         .graphicsLayer {
@@ -655,13 +709,14 @@ fun ComplexPlayerLayout(
 }
 
 /**
- * Curved seekbar that hugs the concave/scooped circular arc at the bottom of the artwork.
+ * Bold Material You Expressive curved progress bar that follows the asymmetric (C--M--------C) arch.
+ * Features a thick split track with a clean gap around a bold perpendicular pill thumb, and no time labels.
  */
 @Composable
 private fun CurvedArcSeekBar(
     songId: String,
     artHeightDp: Dp,
-    sagittaDp: Dp,
+    rightRiseDp: Dp,
     currentPositionProvider: () -> Long,
     totalDurationValue: Long,
     songDurationHintMs: Long,
@@ -669,9 +724,9 @@ private fun CurvedArcSeekBar(
     expansionFractionProvider: () -> Float,
     currentSheetState: PlayerSheetState,
     allowRealtimeUpdates: Boolean,
-    activeColor: Color,
-    inactiveColor: Color,
-    textColor: Color,
+    activeTrackColor: Color,
+    inactiveTrackColor: Color,
+    thumbColor: Color,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -739,29 +794,21 @@ private fun CurvedArcSeekBar(
     }.coerceIn(0f, 1f)
 
     val isDragging = sliderDragValue != null
-    val thumbScale by animateFloatAsState(
-        targetValue = if (isDragging) 1.45f else 1.0f,
+    val thumbLengthScale by animateFloatAsState(
+        targetValue = if (isDragging) 1.32f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
         ),
-        label = "curvedThumbScale"
+        label = "expressiveThumbScale"
     )
 
-    val effectivePositionMs = (currentProgress * durationForCalc).roundToLong().coerceIn(0L, displayDurationValue)
-    val posStr = remember(effectivePositionMs / 1000L, isVisible) {
-        if (isVisible) formatDuration((effectivePositionMs / 1000L) * 1000L) else "--:--"
-    }
-    val durStr = remember(displayDurationValue, isVisible) {
-        if (isVisible) formatDuration(displayDurationValue) else "--:--"
-    }
-
-    val touchBandTopDp = artHeightDp - sagittaDp - 24.dp
-    val touchBandHeightDp = sagittaDp + 52.dp
-    val sagittaPx = with(density) { sagittaDp.toPx() }
-    val topOffsetPx = with(density) { (artHeightDp - touchBandTopDp).toPx() }
-    val edgeInsetPx = with(density) { 16.dp.toPx() }
-    val hitTolerancePx = with(density) { 36.dp.toPx() }
+    val touchBandTopDp = (artHeightDp - rightRiseDp - 28.dp).coerceAtLeast(0.dp)
+    val touchBandHeightDp = rightRiseDp + 56.dp
+    val rightRisePx = with(density) { rightRiseDp.toPx() }
+    val bottomVertexOffsetPx = with(density) { (artHeightDp - touchBandTopDp).toPx() }
+    val edgeInsetPx = with(density) { 18.dp.toPx() }
+    val hitTolerancePx = with(density) { 38.dp.toPx() }
 
     val latestOnSeek by rememberUpdatedState(onSeek)
     val latestDurationForCalc by rememberUpdatedState(durationForCalc)
@@ -770,21 +817,22 @@ private fun CurvedArcSeekBar(
         modifier = modifier
             .padding(top = touchBandTopDp)
             .height(touchBandHeightDp)
-            .pointerInput(songId, sagittaPx, topOffsetPx) {
+            .pointerInput(songId, rightRisePx, bottomVertexOffsetPx) {
                 var lastQuantizedStep = -1
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val w = size.width.toFloat()
                     if (w <= 0f) return@awaitEachGesture
 
-                    val s = sagittaPx
-                    val halfW = w / 2f
-                    val radius = (s / 2f) + ((halfW * halfW) / (2f * s))
-                    val cx = halfW
-                    val cy = topOffsetPx - radius
+                    val circle = computeAsymmetricArchCircle(
+                        widthPx = w,
+                        bottomVertexYPx = bottomVertexOffsetPx,
+                        rightRisePx = rightRisePx,
+                        centerXFraction = ARCH_CENTER_X_FRACTION
+                    )
 
-                    val dx = (down.position.x - cx).coerceIn(-radius * 0.99f, radius * 0.99f)
-                    val curveYAtTouchX = cy + sqrt((radius * radius) - (dx * dx))
+                    val dx = (down.position.x - circle.cx).coerceIn(-circle.radius * 0.99f, circle.radius * 0.99f)
+                    val curveYAtTouchX = circle.cy + sqrt((circle.radius * circle.radius) - (dx * dx))
 
                     if (abs(down.position.y - curveYAtTouchX) > hitTolerancePx) {
                         return@awaitEachGesture
@@ -820,120 +868,76 @@ private fun CurvedArcSeekBar(
             val w = size.width
             if (w <= 0f) return@Canvas
 
-            val s = sagittaPx
-            val halfW = w / 2f
-            val radius = (s / 2f) + ((halfW * halfW) / (2f * s))
-            val cx = halfW
-            val cy = topOffsetPx - radius
-
-            val effectiveHalfChord = (halfW - edgeInsetPx).coerceAtLeast(1f)
-            val sinAlpha = (effectiveHalfChord / radius).coerceIn(-1f, 1f)
-            val alphaDeg = Math.toDegrees(asin(sinAlpha.toDouble())).toFloat()
-
-            // Start at left edge of arc (90 + alpha) and sweep to right edge (90 - alpha)
-            val startAngleDeg = 90f + alphaDeg
-            val totalSweepDeg = -2f * alphaDeg
-            val activeSweepDeg = totalSweepDeg * currentProgress
-
-            val arcRectTopLeft = Offset(cx - radius, cy - radius)
-            val arcRectSize = Size(radius * 2f, radius * 2f)
-
-            // 1. Subtle glass rim along the full arc edge
-            val fullSinAlpha = (halfW / radius).coerceIn(-1f, 1f)
-            val fullAlphaDeg = Math.toDegrees(asin(fullSinAlpha.toDouble())).toFloat()
-            drawArc(
-                color = Color.White.copy(alpha = 0.16f),
-                startAngle = 90f + fullAlphaDeg,
-                sweepAngle = -2f * fullAlphaDeg,
-                useCenter = false,
-                topLeft = arcRectTopLeft,
-                size = arcRectSize,
-                style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
+            val circle = computeAsymmetricArchCircle(
+                widthPx = w,
+                bottomVertexYPx = bottomVertexOffsetPx,
+                rightRisePx = rightRisePx,
+                centerXFraction = ARCH_CENTER_X_FRACTION
             )
 
-            // 2. Inactive progress track on the curve
-            drawArc(
-                color = inactiveColor,
-                startAngle = startAngleDeg,
-                sweepAngle = totalSweepDeg,
-                useCenter = false,
-                topLeft = arcRectTopLeft,
-                size = arcRectSize,
-                style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
-            )
+            val leftChord = (circle.cx - edgeInsetPx).coerceAtLeast(0f)
+            val rightChord = ((w - edgeInsetPx) - circle.cx).coerceAtLeast(0f)
 
-            // 3. Soft glow behind active progress arc
-            if (currentProgress > 0.001f) {
+            val alphaStartDeg = Math.toDegrees(asin((leftChord / circle.radius).coerceIn(-1f, 1f).toDouble())).toFloat()
+            val alphaEndDeg = Math.toDegrees(asin((rightChord / circle.radius).coerceIn(-1f, 1f).toDouble())).toFloat()
+
+            // Start at left edge (90 + alphaStartDeg) and sweep counter-clockwise to right edge (90 - alphaEndDeg)
+            val startAngleDeg = 90f + alphaStartDeg
+            val totalSweepDeg = -(alphaStartDeg + alphaEndDeg)
+            val thumbAngleDeg = startAngleDeg + (totalSweepDeg * currentProgress)
+
+            val trackStrokePx = 10.dp.toPx()
+            // Angular gap around the expressive pill thumb (Material 3 Expressive split track)
+            val gapArcLengthPx = 13.dp.toPx()
+            val gapDeg = Math.toDegrees((gapArcLengthPx / circle.radius).toDouble()).toFloat()
+
+            val arcRectTopLeft = Offset(circle.cx - circle.radius, circle.cy - circle.radius)
+            val arcRectSize = Size(circle.radius * 2f, circle.radius * 2f)
+
+            // 1. Bold Active Track (left start -> thumb - gap)
+            val activeSweepDeg = (thumbAngleDeg - startAngleDeg) + gapDeg
+            if (activeSweepDeg < -0.15f) {
                 drawArc(
-                    color = activeColor.copy(alpha = 0.34f),
+                    color = activeTrackColor,
                     startAngle = startAngleDeg,
-                    sweepAngle = activeSweepDeg,
+                    sweepAngle = activeSweepDeg.coerceAtLeast(totalSweepDeg),
                     useCenter = false,
                     topLeft = arcRectTopLeft,
                     size = arcRectSize,
-                    style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
-                )
-
-                // 4. Crisp active progress arc
-                drawArc(
-                    color = activeColor,
-                    startAngle = startAngleDeg,
-                    sweepAngle = activeSweepDeg,
-                    useCenter = false,
-                    topLeft = arcRectTopLeft,
-                    size = arcRectSize,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = trackStrokePx, cap = StrokeCap.Round)
                 )
             }
 
-            // 5. Glowing thumb riding along the curve
-            val thumbAngleRad = Math.toRadians((startAngleDeg + activeSweepDeg).toDouble())
-            val thumbX = cx + radius * cos(thumbAngleRad).toFloat()
-            val thumbY = cy + radius * sin(thumbAngleRad).toFloat()
-            val thumbCenter = Offset(thumbX, thumbY)
+            // 2. Bold Inactive Track (thumb + gap -> right end)
+            val inactiveStartDeg = thumbAngleDeg - gapDeg
+            val endAngleDeg = startAngleDeg + totalSweepDeg
+            val inactiveSweepDeg = endAngleDeg - inactiveStartDeg
+            if (inactiveSweepDeg < -0.15f) {
+                drawArc(
+                    color = inactiveTrackColor,
+                    startAngle = inactiveStartDeg,
+                    sweepAngle = inactiveSweepDeg,
+                    useCenter = false,
+                    topLeft = arcRectTopLeft,
+                    size = arcRectSize,
+                    style = Stroke(width = trackStrokePx, cap = StrokeCap.Round)
+                )
+            }
 
-            drawCircle(
-                color = activeColor.copy(alpha = if (isDragging) 0.42f else 0.26f),
-                radius = 13.dp.toPx() * thumbScale,
-                center = thumbCenter
-            )
-            drawCircle(
-                color = activeColor,
-                radius = 7.5.dp.toPx() * thumbScale,
-                center = thumbCenter
-            )
-            drawCircle(
-                color = Color.White,
-                radius = 3.2.dp.toPx() * thumbScale,
-                center = thumbCenter
-            )
-        }
+            // 3. Bold Material You Expressive Pill Thumb oriented perpendicular (normal) to the curve
+            val thumbAngleRad = Math.toRadians(thumbAngleDeg.toDouble())
+            val cosA = cos(thumbAngleRad).toFloat()
+            val sinA = sin(thumbAngleRad).toFloat()
+            val halfThumbLenPx = 12.dp.toPx() * thumbLengthScale
+            val innerR = circle.radius - halfThumbLenPx
+            val outerR = circle.radius + halfThumbLenPx
 
-        // Compact elapsed & total duration labels tucked just under the left and right ends of the curve
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 34.dp, start = 18.dp, end = 18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = posStr,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontFamily = GoogleSansRounded,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                ),
-                color = textColor
-            )
-            Text(
-                text = durStr,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontFamily = GoogleSansRounded,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                ),
-                color = textColor
+            drawLine(
+                color = thumbColor,
+                start = Offset(circle.cx + innerR * cosA, circle.cy + innerR * sinA),
+                end = Offset(circle.cx + outerR * cosA, circle.cy + outerR * sinA),
+                strokeWidth = 7.dp.toPx(),
+                cap = StrokeCap.Round
             )
         }
     }
@@ -1022,7 +1026,6 @@ private fun resolveSmartVocalWords(
     val lineStart = syncedLine.time.toLong()
     val rawLineGapMs = (nextLineTimeMs - lineStart).coerceAtLeast(900L)
 
-    // Analyze each token's phonetic weight and post-word breath pause
     data class TokenTimingProfile(
         val word: String,
         val vocalWeight: Float,
@@ -1038,7 +1041,7 @@ private fun resolveSmartVocalWords(
         var weight = vowelMatches.toFloat() * 1.05f + (cleanLetters.length.coerceAtMost(8) * 0.12f)
         if (hasSustainedVowel) weight *= 1.26f
         if (isFastParticle) weight *= 0.62f
-        if (idx == rawTokens.lastIndex) weight *= 1.32f // Singers sustain the final word of a line
+        if (idx == rawTokens.lastIndex) weight *= 1.32f
 
         val trimmedEnd = token.trimEnd()
         val lastChar = trimmedEnd.lastOrNull()
@@ -1047,7 +1050,7 @@ private fun resolveSmartVocalWords(
                 lastChar == '—' || lastChar == ')' || lastChar == '!' || lastChar == '?')
 
         if (hasMidLineBreath) {
-            weight *= 1.18f // Pre-boundary vowel lengthening before a comma/clause break
+            weight *= 1.18f
         }
 
         val pauseAfterMs = when {
@@ -1067,7 +1070,6 @@ private fun resolveSmartVocalWords(
     val totalBreathPausesMs = profiles.sumOf { it.breathPauseAfterMs }
     val totalWeight = profiles.sumOf { it.vocalWeight.toDouble() }.toFloat().coerceAtLeast(1f)
 
-    // Cap natural singing duration so long instrumental gaps after a short line don't stretch words late
     val naturalMaxVocalMs = (totalWeight * 295f).toLong() + totalBreathPausesMs + 320L
     val effectiveLineSpanMs = minOf((rawLineGapMs * 0.86f).toLong(), naturalMaxVocalMs)
         .coerceAtLeast(minOf(rawLineGapMs, 1050L))
@@ -1080,7 +1082,6 @@ private fun resolveSmartVocalWords(
             .coerceAtLeast(110L)
         val wordStart = cursorMs
         val wordEnd = if (idx == profiles.lastIndex) {
-            // Let the last word stay lit cleanly through the end of the vocal phrase
             maxOf(wordStart + rawWordDuration, minOf(nextLineTimeMs - 120L, wordStart + rawWordDuration + 650L))
         } else {
             wordStart + rawWordDuration
@@ -1244,7 +1245,6 @@ private fun ComplexKaraokeLyricsStage(
                                     val isCurrent = effectivePosition in item.startTimeMs until item.endTimeMs
 
                                     key("${lineState.lineTimeMs}_${item.startTimeMs}_$index") {
-                                        // iOS Dynamic Island word pop-in: words materialize right when spoken
                                         val appearScale by animateFloatAsState(
                                             targetValue = when {
                                                 !hasAppeared -> 0.42f
@@ -1297,7 +1297,6 @@ private fun ComplexKaraokeLyricsStage(
                                             animationSpec = tween(durationMillis = 150),
                                             label = "wordColor"
                                         )
-                                        // Dynamic horizontal breathing room so enlarged active words never touch neighbors
                                         val activeHorizontalSpace by animateDpAsState(
                                             targetValue = if (isCurrent) 4.dp else 0.dp,
                                             animationSpec = spring(
@@ -1416,8 +1415,7 @@ private fun ComplexKaraokeLyricsStage(
             else -> {
                 Surface(
                     shape = RoundedCornerShape(18.dp),
-                    color = textColor.copy(alpha = 0.10f),
-                    border = BorderStroke(0.75.dp, textColor.copy(alpha = 0.16f))
+                    color = LocalMaterialTheme.current.secondaryContainer
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1427,7 +1425,7 @@ private fun ComplexKaraokeLyricsStage(
                         Icon(
                             painter = painterResource(R.drawable.rounded_lyrics_24),
                             contentDescription = null,
-                            tint = accentColor,
+                            tint = LocalMaterialTheme.current.onSecondaryContainer,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
@@ -1436,7 +1434,7 @@ private fun ComplexKaraokeLyricsStage(
                                 fontFamily = GoogleSansRounded,
                                 fontWeight = FontWeight.Bold
                             ),
-                            color = textColor.copy(alpha = 0.84f)
+                            color = LocalMaterialTheme.current.onSecondaryContainer
                         )
                     }
                 }
@@ -1446,26 +1444,26 @@ private fun ComplexKaraokeLyricsStage(
 }
 
 /**
- * Vertical control stack on the right: Like, Previous, Play/Pause, and Next
- * with Material 3 Expressive rounded pills, touch-responsive spring physics,
- * and shape morphing animations.
+ * Solid-filled Material 3 Expressive vertical control stack on the right:
+ * 3-Dot Menu -> Like -> Previous -> Play/Pause -> Next
  */
 @Composable
 private fun VerticalExpressiveControlStack(
     isPlayingProvider: () -> Boolean,
     isFavoriteProvider: () -> Boolean,
+    onMoreOptionsClick: () -> Unit,
     onFavoriteToggle: () -> Unit,
     onPrevious: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
-    accentColor: Color,
-    onAccentColor: Color,
-    secondaryContainerColor: Color,
-    onSecondaryContainerColor: Color,
-    tertiaryColor: Color,
-    onTertiaryColor: Color,
-    surfaceButtonColor: Color,
-    onSurfaceButtonColor: Color,
+    playPauseContainerColor: Color,
+    onPlayPauseContainerColor: Color,
+    skipContainerColor: Color,
+    onSkipContainerColor: Color,
+    likedContainerColor: Color,
+    onLikedContainerColor: Color,
+    neutralContainerColor: Color,
+    onNeutralContainerColor: Color,
     modifier: Modifier = Modifier
 ) {
     val isPlaying = isPlayingProvider()
@@ -1498,9 +1496,9 @@ private fun VerticalExpressiveControlStack(
 
     fun weightFor(button: VerticalControlButton, baseWeight: Float): Float {
         return when (activeButton) {
-            button -> baseWeight * 1.24f
+            button -> baseWeight * 1.22f
             null -> baseWeight
-            else -> baseWeight * 0.86f
+            else -> baseWeight * 0.88f
         }
     }
 
@@ -1514,19 +1512,47 @@ private fun VerticalExpressiveControlStack(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 1. LIKE BUTTON
+        // 1. 3-DOT MORE OPTIONS BUTTON (Over the Like button)
+        val moreWeight by animateFloatAsState(
+            targetValue = weightFor(VerticalControlButton.MORE, 0.74f),
+            animationSpec = weightSpec,
+            label = "moreVerticalWeight"
+        )
+        ExpressiveMorphingStackButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(moreWeight),
+            defaultCornerDp = 34.dp,
+            pressedCornerDp = 14.dp,
+            isActive = activeButton == VerticalControlButton.MORE,
+            containerColor = neutralContainerColor,
+            onClick = {
+                activeButton = VerticalControlButton.MORE
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onMoreOptionsClick()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.MoreHoriz,
+                contentDescription = stringResource(R.string.cd_player_more_options),
+                tint = onNeutralContainerColor,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+
+        // 2. LIKE BUTTON
         val likeWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.LIKE, 0.86f),
+            targetValue = weightFor(VerticalControlButton.LIKE, 0.88f),
             animationSpec = weightSpec,
             label = "likeVerticalWeight"
         )
         val likeContainerColor by animateColorAsState(
-            targetValue = if (isFavorite) tertiaryColor else surfaceButtonColor,
+            targetValue = if (isFavorite) likedContainerColor else neutralContainerColor,
             animationSpec = tween(220),
             label = "likeContainerColor"
         )
         val likeIconColor by animateColorAsState(
-            targetValue = if (isFavorite) onTertiaryColor else onSurfaceButtonColor,
+            targetValue = if (isFavorite) onLikedContainerColor else onNeutralContainerColor,
             animationSpec = tween(220),
             label = "likeIconColor"
         )
@@ -1566,9 +1592,9 @@ private fun VerticalExpressiveControlStack(
             )
         }
 
-        // 2. PREVIOUS BUTTON
+        // 3. PREVIOUS BUTTON
         val prevWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.PREVIOUS, 0.98f),
+            targetValue = weightFor(VerticalControlButton.PREVIOUS, 0.96f),
             animationSpec = weightSpec,
             label = "prevVerticalWeight"
         )
@@ -1579,7 +1605,7 @@ private fun VerticalExpressiveControlStack(
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
             isActive = activeButton == VerticalControlButton.PREVIOUS,
-            containerColor = secondaryContainerColor,
+            containerColor = skipContainerColor,
             onClick = {
                 activeButton = VerticalControlButton.PREVIOUS
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -1589,14 +1615,14 @@ private fun VerticalExpressiveControlStack(
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = "Previous",
-                tint = onSecondaryContainerColor,
+                tint = onSkipContainerColor,
                 modifier = Modifier.size(32.dp)
             )
         }
 
-        // 3. PLAY / PAUSE BUTTON (Hero Expressive Morphing Button)
+        // 4. PLAY / PAUSE BUTTON (Hero Expressive Morphing Button)
         val playWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.PLAY_PAUSE, 1.34f),
+            targetValue = weightFor(VerticalControlButton.PLAY_PAUSE, 1.32f),
             animationSpec = weightSpec,
             label = "playVerticalWeight"
         )
@@ -1607,7 +1633,7 @@ private fun VerticalExpressiveControlStack(
             defaultCornerDp = if (playPauseVisualState) 20.dp else 34.dp,
             pressedCornerDp = 14.dp,
             isActive = activeButton == VerticalControlButton.PLAY_PAUSE,
-            containerColor = accentColor,
+            containerColor = playPauseContainerColor,
             onClick = {
                 activeButton = VerticalControlButton.PLAY_PAUSE
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -1622,15 +1648,15 @@ private fun VerticalExpressiveControlStack(
                 Icon(
                     imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = if (playing) "Pause" else "Play",
-                    tint = onAccentColor,
+                    tint = onPlayPauseContainerColor,
                     modifier = Modifier.size(36.dp)
                 )
             }
         }
 
-        // 4. NEXT BUTTON
+        // 5. NEXT BUTTON
         val nextWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.NEXT, 0.98f),
+            targetValue = weightFor(VerticalControlButton.NEXT, 0.96f),
             animationSpec = weightSpec,
             label = "nextVerticalWeight"
         )
@@ -1641,7 +1667,7 @@ private fun VerticalExpressiveControlStack(
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
             isActive = activeButton == VerticalControlButton.NEXT,
-            containerColor = secondaryContainerColor,
+            containerColor = skipContainerColor,
             onClick = {
                 activeButton = VerticalControlButton.NEXT
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -1651,13 +1677,17 @@ private fun VerticalExpressiveControlStack(
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = "Next",
-                tint = onSecondaryContainerColor,
+                tint = onSkipContainerColor,
                 modifier = Modifier.size(32.dp)
             )
         }
     }
 }
 
+/**
+ * Solid-filled Material You Expressive button with smooth corner morphing and spring press scale.
+ * No outlines/borders or transparent fills.
+ */
 @Composable
 private fun ExpressiveMorphingStackButton(
     defaultCornerDp: Dp,
@@ -1707,10 +1737,6 @@ private fun ExpressiveMorphingStackButton(
             }
             .clip(shape)
             .background(containerColor, shape)
-            .border(
-                BorderStroke(0.75.dp, Color.White.copy(alpha = 0.14f)),
-                shape
-            )
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
