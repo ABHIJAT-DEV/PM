@@ -55,6 +55,10 @@ jobs:
           # 3. Change App Name to strictly "Test"
           sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Test<\/string>/g' app/src/main/res/values/strings.xml
 
+          # 4. Configure ABI splits to build ONLY arm64-v8a
+          sed -i 's/include("arm64-v8a", "armeabi-v7a")/include("arm64-v8a")/' app/build.gradle.kts
+          sed -i 's/isUniversalApk = true/isUniversalApk = false/' app/build.gradle.kts
+
       - name: Calculate Sequential Version
         run: |
           # Fetch the latest release tag from the Test-px repository
@@ -91,6 +95,10 @@ jobs:
             cat changelog.txt >> release_notes.txt
           fi
 
+      - name: Filter arm64-v8a APK Only
+        run: |
+          find app/build/outputs/apk/release -name "*.apk" ! -name "*arm64-v8a*" -delete
+
       - name: Upload to Testing Repository
         uses: softprops/action-gh-release@v2
         with:
@@ -100,7 +108,7 @@ jobs:
           name: Test Build ${{ env.NEXT_NUM }}
           make_latest: true
           body_path: release_notes.txt
-          files: app/build/outputs/apk/release/*.apk
+          files: app/build/outputs/apk/release/*arm64-v8a*.apk
 
       - name: 🧹 Clean Up Older Releases (Keep Last 3)
         env:
