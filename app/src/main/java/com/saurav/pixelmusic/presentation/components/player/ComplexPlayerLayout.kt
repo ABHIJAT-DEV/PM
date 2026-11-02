@@ -504,14 +504,16 @@ fun ComplexPlayerLayout(
         // Left: Reliable Song Title/Artist + Glowing Karaoke Lyrics
         // Right: Solid-Filled Vertical Stack (3-Dot Menu, Like, Previous, Play/Pause, Next)
         // =====================================================================
-        val rightColumnTopDp = (artHeightDp - rightRiseDp + 24.dp).coerceAtLeast(statusBarTopPadding + 64.dp)
-        val leftColumnTopDp = artHeightDp + 18.dp
+        val rightColumnTopDp = (artHeightDp - rightRiseDp + 24.dp)
+            .coerceAtLeast(statusBarTopPadding + 64.dp)
+            .coerceAtLeast(0.dp)
+        val leftColumnTopDp = (artHeightDp + 18.dp).coerceAtLeast(0.dp)
 
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    bottom = navBarBottomPadding + 16.dp,
+                    bottom = (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp),
                     start = 22.dp,
                     end = 20.dp
                 ),
@@ -638,7 +640,11 @@ fun ComplexPlayerLayout(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = statusBarTopPadding + 10.dp, start = 20.dp, end = 20.dp)
+                .padding(
+                    top = (statusBarTopPadding + 10.dp).coerceAtLeast(0.dp),
+                    start = 20.dp,
+                    end = 20.dp
+                )
                 .height(46.dp)
                 .align(Alignment.TopCenter)
         ) {
@@ -1202,26 +1208,10 @@ private fun ComplexKaraokeLyricsStage(
                         resolveSmartVocalWords(lineState.syncedLine, lineState.nextLineTimeMs)
                     }
 
-                    // Dynamic Island vertical motion blur that settles to 0.dp as the line springs into place
-                    val islandBlurAnim = remember(lineState.lineTimeMs, lineState.lineIndex) {
-                        Animatable(16f)
-                    }
-                    LaunchedEffect(lineState.lineTimeMs, lineState.lineIndex) {
-                        islandBlurAnim.animateTo(
-                            targetValue = 0f,
-                            animationSpec = spring(dampingRatio = 0.82f, stiffness = 100f)
-                        )
-                    }
-
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 6.dp, vertical = 8.dp)
-                            .blur(
-                                radiusX = 0.dp,
-                                radiusY = islandBlurAnim.value.dp,
-                                edgeTreatment = BlurredEdgeTreatment.Unbounded
-                            ),
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)
                     ) {
                         if (lineWords.isEmpty()) {
@@ -1237,7 +1227,7 @@ private fun ComplexKaraokeLyricsStage(
                         } else {
                             FlowRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.Start),
+                                horizontalArrangement = Arrangement.spacedBy(11.dp, Alignment.Start),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 lineWords.forEachIndexed { index, item ->
@@ -1248,7 +1238,7 @@ private fun ComplexKaraokeLyricsStage(
                                         val appearScale by animateFloatAsState(
                                             targetValue = when {
                                                 !hasAppeared -> 0.42f
-                                                isCurrent -> 1.15f
+                                                isCurrent -> 1.14f
                                                 else -> 1.0f
                                             },
                                             animationSpec = spring(
@@ -1261,7 +1251,7 @@ private fun ComplexKaraokeLyricsStage(
                                             targetValue = when {
                                                 !hasAppeared -> 0f
                                                 isCurrent -> 1f
-                                                else -> 0.86f
+                                                else -> 0.82f
                                             },
                                             animationSpec = tween(durationMillis = if (hasAppeared) 170 else 90),
                                             label = "wordAppearAlpha"
@@ -1278,95 +1268,50 @@ private fun ComplexKaraokeLyricsStage(
                                             ),
                                             label = "wordOffsetY"
                                         )
-                                        val wordMotionBlur by animateDpAsState(
-                                            targetValue = if (hasAppeared) 0.dp else 10.dp,
-                                            animationSpec = tween(durationMillis = 190),
-                                            label = "wordMotionBlur"
-                                        )
                                         val glowStrength by animateFloatAsState(
-                                            targetValue = when {
-                                                isCurrent -> 1f
-                                                hasAppeared -> 0.14f
-                                                else -> 0f
-                                            },
+                                            targetValue = if (isCurrent) 1f else 0f,
                                             animationSpec = tween(durationMillis = 160),
                                             label = "wordGlowStrength"
                                         )
-                                        val wordColor by animateColorAsState(
-                                            targetValue = if (isCurrent) Color.White else textColor.copy(alpha = 0.90f),
+                                        val baseWordColor by animateColorAsState(
+                                            targetValue = if (isCurrent) accentColor else textColor,
                                             animationSpec = tween(durationMillis = 150),
                                             label = "wordColor"
                                         )
-                                        val activeHorizontalSpace by animateDpAsState(
-                                            targetValue = if (isCurrent) 4.dp else 0.dp,
-                                            animationSpec = spring(
-                                                dampingRatio = 0.75f,
-                                                stiffness = Spring.StiffnessMediumLow
-                                            ),
-                                            label = "activeHorizontalSpace"
+
+                                        val effectiveWordColor = baseWordColor.copy(
+                                            alpha = (baseWordColor.alpha * appearAlpha).coerceIn(0f, 1f)
+                                        )
+                                        val effectiveShadowColor = accentColor.copy(
+                                            alpha = (0.55f * glowStrength * appearAlpha).coerceIn(0f, 1f)
                                         )
 
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(
-                                                    horizontal = activeHorizontalSpace,
-                                                    vertical = 2.dp
-                                                )
-                                                .graphicsLayer {
-                                                    scaleX = appearScale
-                                                    scaleY = appearScale
-                                                    translationY = wordOffsetY
-                                                    alpha = appearAlpha
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            // Layer 1: Unbounded soft neon letter-glow aura (no rectangular box!)
-                                            if (glowStrength > 0.04f) {
-                                                Text(
-                                                    text = item.word,
-                                                    style = MaterialTheme.typography.titleLarge.copy(
-                                                        fontFamily = GoogleSansRounded,
-                                                        fontWeight = FontWeight.Black,
-                                                        fontSize = 22.sp,
-                                                        shadow = Shadow(
-                                                            color = accentColor.copy(alpha = (0.95f * glowStrength).coerceIn(0f, 1f)),
-                                                            offset = Offset.Zero,
-                                                            blurRadius = 38f
-                                                        )
-                                                    ),
-                                                    color = accentColor.copy(alpha = (0.70f * glowStrength).coerceIn(0f, 1f)),
-                                                    modifier = Modifier.blur(
-                                                        radius = 8.dp,
-                                                        edgeTreatment = BlurredEdgeTreatment.Unbounded
-                                                    )
-                                                )
-                                            }
-
-                                            // Layer 2: Crisp foreground word with halo shadow
-                                            Text(
-                                                text = item.word,
-                                                style = MaterialTheme.typography.titleLarge.copy(
-                                                    fontFamily = GoogleSansRounded,
-                                                    fontWeight = if (isCurrent) FontWeight.Black else FontWeight.Bold,
-                                                    fontSize = 22.sp,
-                                                    shadow = Shadow(
-                                                        color = accentColor.copy(alpha = (0.85f * glowStrength).coerceIn(0f, 1f)),
+                                        // Direct Text rendering with NO Modifier.blur and NO graphicsLayer alpha < 1f
+                                        // so Android's hardware RenderNode never allocates a rectangular clipping box!
+                                        Text(
+                                            text = item.word,
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontFamily = GoogleSansRounded,
+                                                fontWeight = if (isCurrent) FontWeight.Black else FontWeight.Bold,
+                                                fontSize = 22.sp,
+                                                shadow = if (glowStrength > 0.02f) {
+                                                    Shadow(
+                                                        color = effectiveShadowColor,
                                                         offset = Offset.Zero,
-                                                        blurRadius = if (isCurrent) 24f else 6f
-                                                    )
-                                                ),
-                                                color = wordColor,
-                                                modifier = if (wordMotionBlur > 0.5.dp) {
-                                                    Modifier.blur(
-                                                        radiusX = 0.dp,
-                                                        radiusY = wordMotionBlur,
-                                                        edgeTreatment = BlurredEdgeTreatment.Unbounded
+                                                        blurRadius = 14f
                                                     )
                                                 } else {
-                                                    Modifier
+                                                    null
                                                 }
-                                            )
-                                        }
+                                            ),
+                                            color = effectiveWordColor,
+                                            modifier = Modifier.graphicsLayer {
+                                                clip = false
+                                                scaleX = appearScale
+                                                scaleY = appearScale
+                                                translationY = wordOffsetY
+                                            }
+                                        )
                                     }
                                 }
                             }
@@ -1381,15 +1326,10 @@ private fun ComplexKaraokeLyricsStage(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 15.sp
                                 ),
-                                color = textColor.copy(alpha = 0.34f),
+                                color = textColor.copy(alpha = 0.36f),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .blur(
-                                        radius = 0.6.dp,
-                                        edgeTreatment = BlurredEdgeTreatment.Unbounded
-                                    )
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
