@@ -179,7 +179,7 @@ private fun computeAsymmetricArchCircle(
     val w = widthPx.coerceAtLeast(1f)
     val cx = w * centerXFraction
     val dxRight = (w - cx).coerceAtLeast(1f)
-    val sRight = rightRisePx.coerceIn(16f, bottomVertexYPx * 0.55f)
+    val sRight = rightRisePx.coerceAtLeast(16f)
 
     // Circle passing through lowest vertex (cx, bottomVertexYPx) and right edge (w, bottomVertexYPx - sRight)
     val radius = (sRight / 2f) + ((dxRight * dxRight) / (2f * sRight))
@@ -812,7 +812,9 @@ private fun CurvedArcSeekBar(
     val touchBandTopDp = (artHeightDp - rightRiseDp - 28.dp).coerceAtLeast(0.dp)
     val touchBandHeightDp = rightRiseDp + 56.dp
     val rightRisePx = with(density) { rightRiseDp.toPx() }
-    val bottomVertexOffsetPx = with(density) { (artHeightDp - touchBandTopDp).toPx() }
+    val artHeightPx = with(density) { artHeightDp.toPx() }
+    val touchBandTopPx = with(density) { touchBandTopDp.toPx() }
+    val bottomVertexOffsetPx = artHeightPx - touchBandTopPx
     val edgeInsetPx = with(density) { 18.dp.toPx() }
     val hitTolerancePx = with(density) { 38.dp.toPx() }
 
