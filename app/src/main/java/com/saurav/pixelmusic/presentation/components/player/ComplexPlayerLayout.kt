@@ -366,36 +366,9 @@ fun ComplexPlayerLayout(
             ?: song.albumArtUriString.orEmpty()
     }
 
-    // Material You dominant color extraction from cover art
-    val fallbackBg = baseTheme.surface
-    var extractedColor by remember { mutableStateOf(fallbackBg) }
-    LaunchedEffect(optimizedAlbumArtUri, isDarkTheme) {
-        extractedColor = extractDominantColor(context, optimizedAlbumArtUri, fallbackBg, isDarkTheme)
-    }
-
-    val targetWash = if (isBwTheme) {
-        fallbackBg
-    } else {
-        lerp(
-            baseTheme.primaryContainer,
-            extractedColor,
-            if (isDarkTheme) 0.62f else 0.48f
-        )
-    }
-    val washColor by animateColorAsState(
-        targetValue = targetWash,
-        animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing),
-        label = "complexWashColor"
-    )
-    val deepWashColor = remember(washColor, isDarkTheme) {
-        if (isDarkTheme) {
-            lerp(washColor, Color(0xFF0A0A0E), 0.48f)
-        } else {
-            lerp(washColor, Color.White, 0.28f)
-        }
-    }
-
-    val contentColor = if (isDarkTheme) Color.White else baseTheme.onPrimaryContainer
+    // Solid background matching the mini player main color (primaryContainer)
+    val solidBackgroundColor = baseTheme.primaryContainer
+    val contentColor = baseTheme.onPrimaryContainer
     val accentColor = baseTheme.primary
     val statusBarTopPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -417,7 +390,10 @@ fun ComplexPlayerLayout(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(deepWashColor)
+            .background(solidBackgroundColor)
+            .onGloballyPositioned { coords ->
+                rootPosInWindow = coords.positionInRoot()
+            }
     ) {
         val screenWidthDp = maxWidth
         val screenHeightDp = maxHeight
@@ -449,62 +425,8 @@ fun ComplexPlayerLayout(
         }
 
         // =====================================================================
-        // LAYER 1: Heavy Frosted-Glass / Blurred Cover Wash in Lower Half
-        // =====================================================================
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .onGloballyPositioned { coords ->
-                    rootPosInWindow = coords.positionInRoot()
-                }
-                .graphicsLayer {
-                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
-                }
-        ) {
-            SmartImage(
-                model = optimizedAlbumArtUri,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                targetSize = coil.size.Size.ORIGINAL,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = 1.28f
-                        scaleY = 1.28f
-                        alpha = if (isDarkTheme) 0.62f else 0.48f
-                    }
-                    .blur(radius = 64.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-            )
-
-            // Translucent frosted-glass gradient wash over the blurred background
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to washColor.copy(alpha = 0.25f),
-                                0.44f to washColor.copy(alpha = if (isDarkTheme) 0.58f else 0.64f),
-                                0.72f to deepWashColor.copy(alpha = if (isDarkTheme) 0.80f else 0.84f),
-                                1.0f to deepWashColor.copy(alpha = 0.92f)
-                            )
-                        )
-                    )
-            )
-
-            // Subtle frosted glass sheen overlay in the bottom half
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (isDarkTheme) Color.White.copy(alpha = 0.04f)
-                        else Color.White.copy(alpha = 0.16f)
-                    )
-            )
-        }
-
-        // =====================================================================
-        // LAYER 2: Morphing Edge-to-Edge Top Artwork (MiniPlayer 44.dp Circle <-> Left-Shifted Arch)
+        // LAYER 2: Morphing Edge-to-Edge Top Artwork Arch & Tied Progress Bar
+        // (MiniPlayer 44.dp Circle <-> Left-Shifted Arch, sharing the exact same transition)
         // =====================================================================
         val shouldApplyPausedScale = !isPlayingProvider()
         val artScale by animateFloatAsState(
@@ -531,96 +453,94 @@ fun ComplexPlayerLayout(
                         placeable.place(placeX, placeY)
                     }
                 }
-                .clip(scoopedShape)
-                .combinedClickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                    onLongClick = { if (aodScreenEnabled) onEnterAodScreen() }
-                )
-                .pointerInput(song.id) {
-                    var horizontalDrag = 0f
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        horizontalDrag = 0f
-                        drag(down.id) { change ->
-                            val dx = change.positionChange().x
-                            val dy = change.positionChange().y
-                            if (abs(dx) > abs(dy) * 1.3f) {
-                                horizontalDrag += dx
-                            }
-                        }
-                        if (horizontalDrag > 72.dp.toPx()) {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onPrevious()
-                        } else if (horizontalDrag < -72.dp.toPx()) {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onNext()
-                        }
-                    }
-                }
         ) {
-            SmartImage(
-                model = optimizedAlbumArtUri,
-                contentDescription = resolvedTitle,
-                contentScale = ContentScale.Crop,
-                targetSize = coil.size.Size.ORIGINAL,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = artScale
-                        scaleY = artScale
-                    }
-            )
-
-            // Top scrim for status bar and drag handle legibility
+            // Morphing Edge-to-Edge Artwork clipped to scoopedShape
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(104.dp)
-                    .align(Alignment.TopCenter)
-                    .graphicsLayer {
-                        alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    .fillMaxSize()
+                    .clip(scoopedShape)
+                    .combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                        onLongClick = { if (aodScreenEnabled) onEnterAodScreen() }
+                    )
+                    .pointerInput(song.id) {
+                        var horizontalDrag = 0f
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            horizontalDrag = 0f
+                            drag(down.id) { change ->
+                                val dx = change.positionChange().x
+                                val dy = change.positionChange().y
+                                if (abs(dx) > abs(dy) * 1.3f) {
+                                    horizontalDrag += dx
+                                }
+                            }
+                            if (horizontalDrag > 72.dp.toPx()) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onPrevious()
+                            } else if (horizontalDrag < -72.dp.toPx()) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onNext()
+                            }
+                        }
                     }
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.38f),
-                                Color.Black.copy(alpha = 0.10f),
-                                Color.Transparent
+            ) {
+                SmartImage(
+                    model = optimizedAlbumArtUri,
+                    contentDescription = resolvedTitle,
+                    contentScale = ContentScale.Crop,
+                    targetSize = coil.size.Size.ORIGINAL,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = artScale
+                            scaleY = artScale
+                        }
+                )
+
+                // Top scrim for status bar and drag handle legibility
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(104.dp)
+                        .align(Alignment.TopCenter)
+                        .graphicsLayer {
+                            alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                        }
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.38f),
+                                    Color.Black.copy(alpha = 0.10f),
+                                    Color.Transparent
+                                )
                             )
                         )
-                    )
+                )
+            }
+
+            // Bold Material You Expressive Curved Progress Bar on the Arch
+            // Tied directly to the album art arch, sharing its exact position, bounds, and curve morphing
+            CurvedArcSeekBar(
+                songId = song.id,
+                rightRiseDp = rightRiseDp,
+                morphTracker = morphTracker,
+                currentPositionProvider = currentPositionProvider,
+                totalDurationValue = totalDurationValue,
+                songDurationHintMs = song.duration,
+                isPlayingProvider = isPlayingProvider,
+                expansionFractionProvider = expansionFractionProvider,
+                currentSheetState = currentSheetState,
+                allowRealtimeUpdates = allowRealtimeUpdates,
+                activeTrackColor = baseTheme.primary,
+                inactiveTrackColor = baseTheme.secondaryContainer,
+                thumbColor = baseTheme.primary,
+                onSeek = onSeek,
+                modifier = Modifier.fillMaxSize()
             )
         }
-
-        // =====================================================================
-        // LAYER 3: Bold Material You Expressive Curved Progress Bar on the Arch
-        // =====================================================================
-        CurvedArcSeekBar(
-            songId = song.id,
-            artHeightDp = artHeightDp,
-            rightRiseDp = rightRiseDp,
-            currentPositionProvider = currentPositionProvider,
-            totalDurationValue = totalDurationValue,
-            songDurationHintMs = song.duration,
-            isPlayingProvider = isPlayingProvider,
-            expansionFractionProvider = expansionFractionProvider,
-            currentSheetState = currentSheetState,
-            allowRealtimeUpdates = allowRealtimeUpdates,
-            activeTrackColor = baseTheme.primary,
-            inactiveTrackColor = baseTheme.secondaryContainer,
-            thumbColor = baseTheme.primary,
-            onSeek = onSeek,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .graphicsLayer {
-                    val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
-                    alpha = a
-                    translationY = (1f - a) * slideOffsetPx
-                }
-        )
 
         // =====================================================================
         // LAYER 4: Lower Half Content
@@ -769,12 +689,12 @@ fun ComplexPlayerLayout(
                     onNext = onNext,
                     playPauseContainerColor = baseTheme.primary,
                     onPlayPauseContainerColor = baseTheme.onPrimary,
-                    skipContainerColor = baseTheme.secondaryContainer,
-                    onSkipContainerColor = baseTheme.onSecondaryContainer,
+                    skipContainerColor = baseTheme.onPrimary,
+                    onSkipContainerColor = baseTheme.primary,
                     likedContainerColor = baseTheme.tertiary,
                     onLikedContainerColor = baseTheme.onTertiary,
-                    neutralContainerColor = baseTheme.surfaceContainerHighest,
-                    onNeutralContainerColor = baseTheme.onSurfaceVariant,
+                    neutralContainerColor = baseTheme.onPrimary,
+                    onNeutralContainerColor = baseTheme.primary,
                     modifier = Modifier
                         .width(68.dp)
                         .height(332.dp)
@@ -872,8 +792,8 @@ fun ComplexPlayerLayout(
 @Composable
 private fun CurvedArcSeekBar(
     songId: String,
-    artHeightDp: Dp,
     rightRiseDp: Dp,
+    morphTracker: ArtworkMorphTracker,
     currentPositionProvider: () -> Long,
     totalDurationValue: Long,
     songDurationHintMs: Long,
@@ -960,12 +880,7 @@ private fun CurvedArcSeekBar(
         label = "expressiveThumbScale"
     )
 
-    val touchBandTopDp = (artHeightDp - rightRiseDp - 28.dp).coerceAtLeast(0.dp)
-    val touchBandHeightDp = rightRiseDp + 56.dp
     val rightRisePx = with(density) { rightRiseDp.toPx() }
-    val artHeightPx = with(density) { artHeightDp.toPx() }
-    val touchBandTopPx = with(density) { touchBandTopDp.toPx() }
-    val bottomVertexOffsetPx = artHeightPx - touchBandTopPx
     val edgeInsetPx = with(density) { 18.dp.toPx() }
     val hitTolerancePx = with(density) { 38.dp.toPx() }
 
@@ -974,18 +889,22 @@ private fun CurvedArcSeekBar(
 
     Box(
         modifier = modifier
-            .padding(top = touchBandTopDp)
-            .height(touchBandHeightDp)
-            .pointerInput(songId, rightRisePx, bottomVertexOffsetPx) {
+            .graphicsLayer {
+                val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                alpha = a
+            }
+            .pointerInput(songId, rightRisePx, isExpanded) {
+                if (!isExpanded) return@pointerInput
                 var lastQuantizedStep = -1
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val w = size.width.toFloat()
-                    if (w <= 0f) return@awaitEachGesture
+                    val h = size.height.toFloat()
+                    if (w <= 0f || h <= 0f) return@awaitEachGesture
 
                     val circle = computeAsymmetricArchCircle(
                         widthPx = w,
-                        bottomVertexYPx = bottomVertexOffsetPx,
+                        bottomVertexYPx = h,
                         rightRisePx = rightRisePx,
                         centerXFraction = ARCH_CENTER_X_FRACTION
                     )
@@ -1025,17 +944,25 @@ private fun CurvedArcSeekBar(
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
-            if (w <= 0f) return@Canvas
+            val h = size.height
+            if (w <= 0f || h <= 0f) return@Canvas
+
+            val sample = morphTracker.evaluate(expansionFractionProvider())
+            val t = sample.sizeT
+            val currentCenterXFraction = androidx.compose.ui.util.lerp(0.5f, ARCH_CENTER_X_FRACTION, t)
+            val currentRightRisePx = androidx.compose.ui.util.lerp(h * 0.5f, rightRisePx, t)
+                .coerceIn(2f, (h - 1f).coerceAtLeast(2f))
 
             val circle = computeAsymmetricArchCircle(
                 widthPx = w,
-                bottomVertexYPx = bottomVertexOffsetPx,
-                rightRisePx = rightRisePx,
-                centerXFraction = ARCH_CENTER_X_FRACTION
+                bottomVertexYPx = h,
+                rightRisePx = currentRightRisePx,
+                centerXFraction = currentCenterXFraction
             )
 
-            val leftChord = (circle.cx - edgeInsetPx).coerceAtLeast(0f)
-            val rightChord = ((w - edgeInsetPx) - circle.cx).coerceAtLeast(0f)
+            val effectiveEdgeInsetPx = edgeInsetPx * t
+            val leftChord = (circle.cx - effectiveEdgeInsetPx).coerceAtLeast(0f)
+            val rightChord = ((w - effectiveEdgeInsetPx) - circle.cx).coerceAtLeast(0f)
 
             val alphaStartDeg = Math.toDegrees(asin((leftChord / circle.radius).coerceIn(-1f, 1f).toDouble())).toFloat()
             val alphaEndDeg = Math.toDegrees(asin((rightChord / circle.radius).coerceIn(-1f, 1f).toDouble())).toFloat()
@@ -1045,9 +972,10 @@ private fun CurvedArcSeekBar(
             val totalSweepDeg = -(alphaStartDeg + alphaEndDeg)
             val thumbAngleDeg = startAngleDeg + (totalSweepDeg * currentProgress)
 
-            val trackStrokePx = 10.dp.toPx()
+            val scaleFactor = androidx.compose.ui.util.lerp(0.6f, 1.0f, t)
+            val trackStrokePx = 10.dp.toPx() * scaleFactor
             // Angular gap around the expressive pill thumb (Material 3 Expressive split track)
-            val gapArcLengthPx = 13.dp.toPx()
+            val gapArcLengthPx = 13.dp.toPx() * scaleFactor
             val gapDeg = Math.toDegrees((gapArcLengthPx / circle.radius).toDouble()).toFloat()
 
             val arcRectTopLeft = Offset(circle.cx - circle.radius, circle.cy - circle.radius)
@@ -1087,7 +1015,7 @@ private fun CurvedArcSeekBar(
             val thumbAngleRad = Math.toRadians(thumbAngleDeg.toDouble())
             val cosA = cos(thumbAngleRad).toFloat()
             val sinA = sin(thumbAngleRad).toFloat()
-            val halfThumbLenPx = 12.dp.toPx() * thumbLengthScale
+            val halfThumbLenPx = 12.dp.toPx() * thumbLengthScale * scaleFactor
             val innerR = circle.radius - halfThumbLenPx
             val outerR = circle.radius + halfThumbLenPx
 
@@ -1095,7 +1023,7 @@ private fun CurvedArcSeekBar(
                 color = thumbColor,
                 start = Offset(circle.cx + innerR * cosA, circle.cy + innerR * sinA),
                 end = Offset(circle.cx + outerR * cosA, circle.cy + outerR * sinA),
-                strokeWidth = 7.dp.toPx(),
+                strokeWidth = 7.dp.toPx() * scaleFactor,
                 cap = StrokeCap.Round
             )
         }
