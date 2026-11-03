@@ -296,7 +296,7 @@ fun AnimatedPlaybackControls(
                 animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
                 label = "playCorner"
             )
-            val miniPlayCornerDp = 18.dp
+            val miniPlayCornerDp = if (playPauseVisualState) 11.dp else 18.dp
             val playShape = remember(morphTracker, expansionFractionProvider, miniBtnSizePx, miniPlayCornerDp) {
                 MorphingTransportButtonShape(
                     miniCornerDp = miniPlayCornerDp,
