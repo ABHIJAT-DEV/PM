@@ -1,7 +1,6 @@
 package com.saurav.pixelmusic.presentation.components.scoped
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -44,11 +43,6 @@ internal fun rememberSheetInteractionState(
     playerContentActualBottomRadiusProvider: () -> Dp,
     useSmoothCorners: Boolean,
     isDragging: Boolean,
-    onAnimateSheet: suspend (
-        targetExpanded: Boolean,
-        animationSpec: AnimationSpec<Float>?,
-        initialVelocity: Float
-    ) -> Unit,
     onExpandSheetState: () -> Unit,
     onCollapseSheetState: () -> Unit,
     onDraggingChange: (Boolean) -> Unit,
@@ -77,7 +71,6 @@ internal fun rememberSheetInteractionState(
     val miniHeightState = rememberUpdatedState(miniPlayerContentHeightPx)
     val densityState = rememberUpdatedState(LocalDensity.current)
     val currentSheetState = rememberUpdatedState(currentSheetContentState)
-    val onAnimateSheetState = rememberUpdatedState(onAnimateSheet)
     val onExpandSheetStateState = rememberUpdatedState(onExpandSheetState)
     val onCollapseSheetStateState = rememberUpdatedState(onCollapseSheetState)
     val onDraggingChangeState = rememberUpdatedState(onDraggingChange)
@@ -103,9 +96,6 @@ internal fun rememberSheetInteractionState(
             currentSheetStateProvider = { currentSheetState.value },
             onDraggingChange = { onDraggingChangeState.value(it) },
             onDraggingPlayerAreaChange = { onDraggingPlayerAreaChangeState.value(it) },
-            onAnimateSheet = { targetExpanded, animationSpec, initialVelocity ->
-                onAnimateSheetState.value(targetExpanded, animationSpec, initialVelocity)
-            },
             onExpandSheetState = { onExpandSheetStateState.value() },
             onCollapseSheetState = { onCollapseSheetStateState.value() }
         )
