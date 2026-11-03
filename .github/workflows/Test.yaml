@@ -110,7 +110,9 @@ jobs:
           name: Test Build ${{ env.NEXT_NUM }}
           make_latest: true
           body_path: release_notes.txt
-          files: app/build/outputs/apk/release/*arm64-v8a*.apk
+          files: |
+            app/build/outputs/apk/release/*arm64-v8a*.apk
+            app/build/outputs/mapping/release/mapping.txt
 
       - name: 🧹 Clean Up Older Releases (Keep Last 3)
         env:
