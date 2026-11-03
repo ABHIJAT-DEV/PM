@@ -234,22 +234,20 @@ internal class ArtworkMorphTracker {
         } else {
             val delta = f - lastFraction
             if (abs(delta) > 0.0004f) {
-                directionBlend = (directionBlend + delta * 5.2f).coerceIn(0f, 1f)
+                directionBlend = (directionBlend + delta * 3.5f).coerceIn(0f, 1f)
                 lastFraction = f
             }
         }
 
-        val expandSizeT = 1f - (1f - f).pow(1.85f)
-        val collapseSizeT = f.pow(1.75f)
-        val sizeT = androidx.compose.ui.util.lerp(collapseSizeT, expandSizeT, directionBlend).coerceIn(0f, 1f)
-
-        val expandPosT = 1f - (1f - f).pow(1.65f)
-        val collapsePosT = f.pow(1.55f)
-        val posT = androidx.compose.ui.util.lerp(collapsePosT, expandPosT, directionBlend).coerceIn(0f, 1f)
+        // Smooth ease-out curve that stays near 1.0 at the top of the sheet (so a small downward
+        // drag doesn't shrink the art prematurely) while matching the brisk upward expansion timing.
+        val easedOutF = 1f - (1f - f).pow(1.65f)
+        val sizeT = androidx.compose.ui.util.lerp(f, easedOutF, 0.65f).coerceIn(0f, 1f)
+        val posT = androidx.compose.ui.util.lerp(f, 1f - (1f - f).pow(1.45f), 0.55f).coerceIn(0f, 1f)
 
         val overshootScale = if (f in 0.02f..0.995f) {
             val bell = sin(f * Math.PI.toFloat()).coerceAtLeast(0f)
-            1f + (0.055f * bell * directionBlend)
+            1f + (0.045f * bell * directionBlend)
         } else {
             1f
         }
