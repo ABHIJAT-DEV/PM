@@ -3,8 +3,6 @@ package com.saurav.pixelmusic.presentation.components.scoped
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -33,7 +31,6 @@ internal class SheetVerticalDragGestureHandler(
     private val collapsedYProvider: () -> Float,
     private val miniHeightPxProvider: () -> Float,
     private val currentSheetStateProvider: () -> PlayerSheetState,
-    private val visualOvershootScaleY: Animatable<Float, AnimationVector1D>,
     private val onDraggingChange: (Boolean) -> Unit,
     private val onDraggingPlayerAreaChange: (Boolean) -> Unit,
     private val onAnimateSheet: suspend (

@@ -261,7 +261,6 @@ fun UnifiedPlayerSheetV2(
     }
 
     val playerContentExpansionFraction = playerViewModel.playerContentExpansionFraction
-    val visualOvershootScaleY = remember { Animatable(1f) }
     val initialFullPlayerOffsetY = remember(density) { with(density) { 24.dp.toPx() } }
     val sheetAnimationSpec = remember {
         tween<Float>(durationMillis = ANIMATION_DURATION_MS, easing = FastOutSlowInEasing)
@@ -343,7 +342,6 @@ fun UnifiedPlayerSheetV2(
 
     LaunchedEffect(showPlayerContentArea, currentSheetContentState) {
         val targetExpanded = showPlayerContentArea && currentSheetContentState == PlayerSheetState.EXPANDED
-        scope.launch { visualOvershootScaleY.snapTo(1f) }
         animatePlayerSheet(targetExpanded = targetExpanded)
     }
 
@@ -534,7 +532,6 @@ fun UnifiedPlayerSheetV2(
         sheetMotionController = sheetMotionController,
         playerContentExpansionFraction = playerContentExpansionFraction,
         currentSheetTranslationY = currentSheetTranslationY,
-        visualOvershootScaleY = visualOvershootScaleY,
         sheetCollapsedTargetY = sheetCollapsedTargetY,
         sheetExpandedTargetY = sheetExpandedTargetY,
         miniPlayerContentHeightPx = miniPlayerContentHeightPx,
@@ -657,7 +654,7 @@ fun UnifiedPlayerSheetV2(
                                 val dismissStretchY = if (isLiquidGlass && backdrop != null) 1f - (dismissProgress * 0.03f) else 1f
                                 translationX = offsetAnimatable.value
                                 scaleX = miniAppearScale * dismissStretchX
-                                scaleY = visualOvershootScaleY.value * miniAppearScale * dismissStretchY
+                                scaleY = miniAppearScale * dismissStretchY
                                 alpha = miniReadyAlpha
                                 transformOrigin = TransformOrigin(0.5f, 1f)
                             }

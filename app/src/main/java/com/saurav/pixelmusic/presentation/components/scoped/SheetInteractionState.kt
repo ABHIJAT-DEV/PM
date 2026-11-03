@@ -35,7 +35,6 @@ internal fun rememberSheetInteractionState(
     sheetMotionController: SheetMotionController,
     playerContentExpansionFraction: Animatable<Float, AnimationVector1D>,
     currentSheetTranslationY: Animatable<Float, AnimationVector1D>,
-    visualOvershootScaleY: Animatable<Float, AnimationVector1D>,
     sheetCollapsedTargetY: Float,
     sheetExpandedTargetY: Float,
     miniPlayerContentHeightPx: Float,
@@ -89,8 +88,7 @@ internal fun rememberSheetInteractionState(
         velocityTracker,
         sheetMotionController,
         playerContentExpansionFraction,
-        currentSheetTranslationY,
-        visualOvershootScaleY
+        currentSheetTranslationY
     ) {
         SheetVerticalDragGestureHandler(
             scope = scope,
@@ -103,7 +101,6 @@ internal fun rememberSheetInteractionState(
             collapsedYProvider = { collapsedYState.value },
             miniHeightPxProvider = { miniHeightState.value },
             currentSheetStateProvider = { currentSheetState.value },
-            visualOvershootScaleY = visualOvershootScaleY,
             onDraggingChange = { onDraggingChangeState.value(it) },
             onDraggingPlayerAreaChange = { onDraggingPlayerAreaChangeState.value(it) },
             onAnimateSheet = { targetExpanded, animationSpec, initialVelocity ->
