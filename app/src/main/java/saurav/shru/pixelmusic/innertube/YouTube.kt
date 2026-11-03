@@ -384,14 +384,20 @@ object YouTube {
     }
 
     suspend fun album(browseId: String, withSongs: Boolean = true): Result<AlbumPage> = runCatching {
-        val response = innerTube.browse(WEB_REMIX, browseId).body<BrowseResponse>()
+        val normalizedBrowseId = if (browseId.startsWith("OLAK5uy_")) "VL$browseId" else browseId
+        val response = innerTube.browse(WEB_REMIX, normalizedBrowseId).body<BrowseResponse>()
         val playlistId = AlbumPage.getPlaylistId(response)
-            ?: throw IllegalStateException("Missing album playlist id for $browseId")
+            ?: browseId.removePrefix("VL").removePrefix("MPREb_").let {
+                if (it.startsWith("OLAK5uy_")) it else "OLAK5uy_$it"
+            }
         val albumTitle = AlbumPage.getTitle(response)
             ?: throw IllegalStateException("Missing album title for $browseId")
         val albumArtists = AlbumPage.getArtists(response).takeIf { it.isNotEmpty() }
         val albumYear = AlbumPage.getYear(response)
         val albumThumbnail = AlbumPage.getThumbnail(response)
+            ?: AlbumPage.getSongRenderers(response).firstNotNullOfOrNull {
+                it.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
+            }
             ?: throw IllegalStateException("Missing album thumbnail url for $browseId")
         val albumItem = AlbumItem(
             browseId = browseId,
@@ -403,21 +409,26 @@ object YouTube {
             explicit = false, // TODO: Extract explicit badge for albums from YouTube response
         )
         val inlineSongs = if (withSongs) AlbumPage.getSongs(response, albumItem) else emptyList()
+        val hasInlineContinuation = AlbumPage.getSongContinuation(response) != null
         val songs = if (withSongs) {
-            val fetchedSongs = runCatching {
-                albumSongs(playlistId, albumItem).getOrThrow()
-            }.getOrElse { error ->
-                if (inlineSongs.isNotEmpty()) {
-                    inlineSongs
-                } else {
-                    throw error
-                }
-            }
-
-            if (fetchedSongs.isEmpty() && inlineSongs.isNotEmpty()) {
+            if (inlineSongs.isNotEmpty() && !hasInlineContinuation) {
                 inlineSongs
             } else {
-                fetchedSongs
+                val fetchedSongs = runCatching {
+                    albumSongs(playlistId.removePrefix("VL"), albumItem).getOrThrow()
+                }.getOrElse { error ->
+                    if (inlineSongs.isNotEmpty()) {
+                        inlineSongs
+                    } else {
+                        throw error
+                    }
+                }
+
+                if (fetchedSongs.isEmpty() && inlineSongs.isNotEmpty()) {
+                    inlineSongs
+                } else {
+                    fetchedSongs
+                }
             }
         } else {
             emptyList()
@@ -543,6 +554,21 @@ suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
         sections = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents
             ?.mapNotNull(ArtistPage::fromSectionListRendererContent)
+            ?.map { section ->
+                if (resolvedTitle.isBlank()) {
+                    section
+                } else {
+                    section.copy(
+                        items = section.items.map { item ->
+                            if (item is SongItem && item.artists.isEmpty()) {
+                                item.copy(artists = listOf(Artist(name = resolvedTitle, id = browseId)))
+                            } else {
+                                item
+                            }
+                        }
+                    )
+                }
+            }
             .orEmpty(),
         description = immersiveHeader?.description?.runs?.firstOrNull()?.text
     )

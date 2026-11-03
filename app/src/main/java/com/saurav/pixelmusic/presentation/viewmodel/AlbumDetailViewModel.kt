@@ -9,6 +9,7 @@ import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.repository.MusicRepository // Importar MusicRepository
 import com.saurav.pixelmusic.data.remote.youtube.toNativeSong
 import saurav.shru.pixelmusic.innertube.YouTube as InnerTubeYouTube
+import saurav.shru.pixelmusic.innertube.models.AlbumItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.saurav.pixelmusic.R
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -61,6 +63,46 @@ class AlbumDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
+                val localAlbum = musicRepository.getAlbumById(id).first()
+                val localSongs = musicRepository.getSongsForAlbum(id).first()
+
+                // Check if any song in this album already carries a YouTube album browseId
+                val songBrowseId = localSongs.firstNotNullOfOrNull { it.albumBrowseId?.takeIf { b -> b.isNotBlank() } }
+                    ?: SearchStateHolder.albumIdMap[id]
+                if (songBrowseId != null && (id < 0 || localSongs.all { it.contentUriString.startsWith("youtube://") })) {
+                    SearchStateHolder.albumIdMap[id] = songBrowseId
+                    loadOnlineAlbumData(songBrowseId, fallbackAlbum = localAlbum, fallbackSongs = localSongs)
+                    return@launch
+                }
+
+                // For online/skeleton albums (id < 0) or missing local albums, try resolving on YouTube Music
+                val isOnlineSkeletonAlbum = id < 0 || localSongs.isEmpty() || localSongs.all { it.contentUriString.startsWith("youtube://") }
+                if (isOnlineSkeletonAlbum) {
+                    val nameAndArtist = localAlbum?.let { it.title to it.artist } ?: SearchStateHolder.albumNameMap[id]
+                    val albumTitle = nameAndArtist?.first?.trim()
+                    val artistName = nameAndArtist?.second?.trim().orEmpty()
+                    if (!albumTitle.isNullOrBlank() && !albumTitle.equals("YouTube Music", ignoreCase = true)) {
+                        val query = if (artistName.isNotBlank() && !artistName.equals("Unknown Artist", ignoreCase = true)) {
+                            "$albumTitle $artistName"
+                        } else {
+                            albumTitle
+                        }
+                        val searchResult = withContext(Dispatchers.IO) {
+                            InnerTubeYouTube.search(query, InnerTubeYouTube.SearchFilter.FILTER_ALBUM).getOrNull()
+                        }
+                        val matchedAlbum = searchResult?.items?.filterIsInstance<AlbumItem>()?.let { candidates ->
+                            candidates.firstOrNull { it.title.equals(albumTitle, ignoreCase = true) }
+                                ?: candidates.firstOrNull { it.title.contains(albumTitle, ignoreCase = true) || albumTitle.contains(it.title, ignoreCase = true) }
+                                ?: candidates.firstOrNull()
+                        }
+                        if (matchedAlbum != null) {
+                            SearchStateHolder.albumIdMap[id] = matchedAlbum.browseId
+                            loadOnlineAlbumData(matchedAlbum.browseId, fallbackAlbum = localAlbum, fallbackSongs = localSongs)
+                            return@launch
+                        }
+                    }
+                }
+
                 val albumDetailsFlow = musicRepository.getAlbumById(id)
                 val albumSongsFlow = musicRepository.getSongsForAlbum(id)
 
@@ -114,7 +156,11 @@ class AlbumDetailViewModel @Inject constructor(
         }
     }
 
-    private fun loadOnlineAlbumData(browseId: String) {
+    private fun loadOnlineAlbumData(
+        browseId: String,
+        fallbackAlbum: Album? = null,
+        fallbackSongs: List<Song> = emptyList()
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -123,32 +169,61 @@ class AlbumDetailViewModel @Inject constructor(
                 }
                 result.onSuccess { albumPage ->
                     val albumItem = albumPage.album
+                    val artistText = albumItem.artists?.joinToString { it.name }
+                        ?.takeIf { it.isNotBlank() }
+                        ?: fallbackAlbum?.artist
+                        ?: ""
                     val albumModel = Album(
                         id = albumItem.browseId.hashCode().toLong(),
                         title = albumItem.title,
-                        artist = albumItem.artists?.joinToString { it.name } ?: "",
-                        year = albumItem.year ?: 0,
+                        artist = artistText,
+                        year = albumItem.year ?: fallbackAlbum?.year ?: 0,
                         dateAdded = System.currentTimeMillis(),
                         albumArtUriString = albumItem.thumbnail,
                         songCount = albumPage.songs.size,
-                        albumArtist = albumItem.artists?.joinToString { it.name }
+                        albumArtist = artistText
                     )
-                    val songsModels = albumPage.songs.map { it.toNativeSong() }
-                    
-                    // Cache the online songs in local DB
-                    musicRepository.insertYoutubeSongs(songsModels)
+                    val songsModels = albumPage.songs.mapIndexed { index, songItem ->
+                        songItem.toNativeSong().copy(
+                            trackNumber = index + 1,
+                            year = albumItem.year ?: 0
+                        )
+                    }
+                    val effectiveSongs = songsModels.ifEmpty { fallbackSongs }
+
+                    if (songsModels.isNotEmpty()) {
+                        musicRepository.insertYoutubeSongs(songsModels)
+                    }
 
                     _uiState.value = AlbumDetailUiState(
                         album = albumModel,
-                        songs = songsModels,
+                        songs = effectiveSongs,
                         isLoading = false,
                         error = null
                     )
                 }.onFailure { e ->
-                    _uiState.update { it.copy(error = e.localizedMessage ?: "Failed to load online album", isLoading = false) }
+                    if (fallbackAlbum != null && fallbackSongs.isNotEmpty()) {
+                        _uiState.value = AlbumDetailUiState(
+                            album = fallbackAlbum,
+                            songs = fallbackSongs,
+                            isLoading = false,
+                            error = null
+                        )
+                    } else {
+                        _uiState.update { it.copy(error = e.localizedMessage ?: "Failed to load online album", isLoading = false) }
+                    }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.localizedMessage, isLoading = false) }
+                if (fallbackAlbum != null && fallbackSongs.isNotEmpty()) {
+                    _uiState.value = AlbumDetailUiState(
+                        album = fallbackAlbum,
+                        songs = fallbackSongs,
+                        isLoading = false,
+                        error = null
+                    )
+                } else {
+                    _uiState.update { it.copy(error = e.localizedMessage, isLoading = false) }
+                }
             }
         }
     }

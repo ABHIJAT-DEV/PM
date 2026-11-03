@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -172,10 +172,10 @@ fun ArtistAlbumsAllScreen(
                                 modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
                             )
                         }
-                        items(
+                        itemsIndexed(
                             items = sections,
-                            key = { it.albumId }
-                        ) { section ->
+                            key = { idx, item -> "${item.albumId}_$idx" }
+                        ) { _, section ->
                             AlbumGridCard(
                                 section = section,
                                 onClick = {

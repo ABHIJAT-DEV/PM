@@ -781,7 +781,7 @@ fun HomeScreen(
                                     playerViewModel.showAndPlaySong(nativeSong)
                                 },
                                 onAlbumClick = { albumItem ->
-                                    navController.navigateSafely(Screen.AlbumDetail.createRoute(albumItem.playlistId))
+                                    navController.navigateSafely(Screen.AlbumDetail.createRoute(albumItem.browseId))
                                 }
                             )
                         }

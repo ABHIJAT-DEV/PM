@@ -40,9 +40,11 @@ enum class AlbumReleaseType {
 
     companion object {
         fun fromLabel(label: String?): AlbumReleaseType {
-            return when (label?.trim()?.lowercase(Locale.ROOT)) {
-                "single", "singles" -> SINGLE
-                "ep", "eps" -> EP
+            val normalized = label?.trim()?.lowercase(Locale.ROOT) ?: return ALBUM
+            return when {
+                normalized in setOf("single", "singles", "सिंगल", "sencillo", "sencillos", "シングル", "싱글", "单曲", "сингл", "синглы") ||
+                    normalized.contains("single") || normalized.contains("सिंगल") -> SINGLE
+                normalized in setOf("ep", "eps", "ईपी") || normalized.contains("ईपी") -> EP
                 else -> ALBUM
             }
         }

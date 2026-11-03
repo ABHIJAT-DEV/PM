@@ -51,6 +51,9 @@ class SearchStateHolder @Inject constructor(
         const val SEARCH_DEBOUNCE_MS = 240L
         const val SEARCH_CACHE_SIZE = 120
         val albumIdMap = java.util.concurrent.ConcurrentHashMap<Long, String>()
+        val albumNameMap = java.util.concurrent.ConcurrentHashMap<Long, Pair<String, String>>()
+        val artistIdMap = java.util.concurrent.ConcurrentHashMap<Long, String>()
+        val artistNameMap = java.util.concurrent.ConcurrentHashMap<Long, String>()
     }
 
     private val searchResultCache = LruCache<String, ImmutableList<SearchResultItem>>(SEARCH_CACHE_SIZE)
@@ -238,15 +241,22 @@ class SearchStateHolder @Inject constructor(
                                     newItems.add(SearchResultItem.SongItem(item.toNativeSong()))
                                 }
                             }
-                            is ArtistItem -> newItems.add(SearchResultItem.ArtistItem(
-                                Artist(id = ytArtistId(item.title), name = item.title, songCount = 0, imageUrl = item.thumbnail, channelId = item.id)
-                            ))
+                            is ArtistItem -> {
+                                val aId = ytArtistId(item.title)
+                                artistIdMap[aId] = item.id
+                                artistNameMap[aId] = item.title
+                                newItems.add(SearchResultItem.ArtistItem(
+                                    Artist(id = aId, name = item.title, songCount = 0, imageUrl = item.thumbnail, channelId = item.id)
+                                ))
+                            }
                             is AlbumItem -> {
                                 val longId = ytAlbumId(item.title)
+                                val artistStr = item.artists?.joinToString { it.name }.orEmpty()
                                 albumIdMap[longId] = item.browseId
+                                albumNameMap[longId] = item.title to artistStr
                                 newItems.add(SearchResultItem.AlbumItem(
                                     Album(id = longId, title = item.title,
-                                        artist = item.artists?.joinToString { it.name }.orEmpty(),
+                                        artist = artistStr,
                                         year = item.year ?: 0, dateAdded = System.currentTimeMillis(),
                                         albumArtUriString = item.thumbnail, songCount = 0)
                                 ))
@@ -301,13 +311,18 @@ class SearchStateHolder @Inject constructor(
 
                     songsList.distinctBy { it.id }.forEach { items.add(SearchResultItem.SongItem(it.toNativeSong())) }
                     artistsList.distinctBy { it.id }.forEach { a ->
-                        items.add(SearchResultItem.ArtistItem(Artist(id = ytArtistId(a.title), name = a.title, songCount = 0, imageUrl = a.thumbnail, channelId = a.id)))
+                        val aId = ytArtistId(a.title)
+                        artistIdMap[aId] = a.id
+                        artistNameMap[aId] = a.title
+                        items.add(SearchResultItem.ArtistItem(Artist(id = aId, name = a.title, songCount = 0, imageUrl = a.thumbnail, channelId = a.id)))
                     }
                     albumsList.distinctBy { it.id }.forEach { a ->
                         val longId = ytAlbumId(a.title)
+                        val artistStr = a.artists?.joinToString { it.name }.orEmpty()
                         albumIdMap[longId] = a.browseId
+                        albumNameMap[longId] = a.title to artistStr
                         items.add(SearchResultItem.AlbumItem(Album(id = longId, title = a.title,
-                            artist = a.artists?.joinToString { it.name }.orEmpty(), year = a.year ?: 0,
+                            artist = artistStr, year = a.year ?: 0,
                             dateAdded = System.currentTimeMillis(), albumArtUriString = a.thumbnail, songCount = 0)))
                     }
                     playlistsList.distinctBy { it.id }.forEach { p ->
@@ -335,13 +350,18 @@ class SearchStateHolder @Inject constructor(
 
                         songsList.forEach { items.add(SearchResultItem.SongItem(it.toNativeSong())) }
                         artistsList.forEach { a ->
-                            items.add(SearchResultItem.ArtistItem(Artist(id = ytArtistId(a.title), name = a.title, songCount = 0, imageUrl = a.thumbnail, channelId = a.id)))
+                            val aId = ytArtistId(a.title)
+                            artistIdMap[aId] = a.id
+                            artistNameMap[aId] = a.title
+                            items.add(SearchResultItem.ArtistItem(Artist(id = aId, name = a.title, songCount = 0, imageUrl = a.thumbnail, channelId = a.id)))
                         }
                         albumsList.forEach { a ->
                             val longId = ytAlbumId(a.title)
+                            val artistStr = a.artists?.joinToString { it.name }.orEmpty()
                             albumIdMap[longId] = a.browseId
+                            albumNameMap[longId] = a.title to artistStr
                             items.add(SearchResultItem.AlbumItem(Album(id = longId, title = a.title,
-                                artist = a.artists?.joinToString { it.name }.orEmpty(), year = a.year ?: 0,
+                                artist = artistStr, year = a.year ?: 0,
                                 dateAdded = System.currentTimeMillis(), albumArtUriString = a.thumbnail, songCount = 0)))
                         }
                     }
@@ -384,7 +404,10 @@ class SearchStateHolder @Inject constructor(
                     artists = summaryResult?.summaries?.flatMap { it.items }?.filterIsInstance<ArtistItem>().orEmpty()
                 }
                 artists.forEach { a ->
-                    items.add(SearchResultItem.ArtistItem(Artist(id = ytArtistId(a.title), name = a.title, songCount = 0, imageUrl = a.thumbnail, channelId = a.id)))
+                    val aId = ytArtistId(a.title)
+                    artistIdMap[aId] = a.id
+                    artistNameMap[aId] = a.title
+                    items.add(SearchResultItem.ArtistItem(Artist(id = aId, name = a.title, songCount = 0, imageUrl = a.thumbnail, channelId = a.id)))
                 }
             }
             SearchFilterType.ALBUMS -> {
@@ -397,9 +420,11 @@ class SearchStateHolder @Inject constructor(
                 }
                 albums.forEach { a ->
                     val longId = ytAlbumId(a.title)
+                    val artistStr = a.artists?.joinToString { it.name }.orEmpty()
                     albumIdMap[longId] = a.browseId
+                    albumNameMap[longId] = a.title to artistStr
                     items.add(SearchResultItem.AlbumItem(Album(id = longId, title = a.title,
-                        artist = a.artists?.joinToString { it.name }.orEmpty(), year = a.year ?: 0,
+                        artist = artistStr, year = a.year ?: 0,
                         dateAdded = System.currentTimeMillis(), albumArtUriString = a.thumbnail, songCount = 0)))
                 }
             }

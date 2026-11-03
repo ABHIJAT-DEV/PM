@@ -465,6 +465,8 @@ class ExploreViewModel @Inject constructor(
                                     it.title.contains("fans", ignoreCase = true) ||
                                             it.title.contains("similar", ignoreCase = true) ||
                                             it.title.contains("like", ignoreCase = true)
+                                } ?: artistPage.sections.firstOrNull { section ->
+                                    section.items.isNotEmpty() && section.items.all { it is ArtistItem }
                                 }
                                 if (rawSimilarSection != null && rawSimilarSection.items.isNotEmpty()) {
                                     similarSection = HomePage.Section(
@@ -486,6 +488,8 @@ class ExploreViewModel @Inject constructor(
                                         it.title.contains("fans", ignoreCase = true) ||
                                                 it.title.contains("similar", ignoreCase = true) ||
                                                 it.title.contains("like", ignoreCase = true)
+                                    } ?: artistPage.sections.firstOrNull { section ->
+                                        section.items.isNotEmpty() && section.items.all { it is ArtistItem }
                                     }
                                     if (rawSimilarSection != null && rawSimilarSection.items.isNotEmpty()) {
                                         similarSection = HomePage.Section(

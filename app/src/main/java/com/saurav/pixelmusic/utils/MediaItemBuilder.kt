@@ -99,6 +99,9 @@ object MediaItemBuilder {
     const val EXTERNAL_EXTRA_SAMPLE_RATE = EXTERNAL_EXTRA_PREFIX + "SAMPLE_RATE"
     const val EXTERNAL_EXTRA_FILE_PATH = EXTERNAL_EXTRA_PREFIX + "FILE_PATH"
     const val EXTERNAL_EXTRA_YOUTUBE_ID = EXTERNAL_EXTRA_PREFIX + "YOUTUBE_ID"
+    const val EXTERNAL_EXTRA_ALBUM_ID = EXTERNAL_EXTRA_PREFIX + "ALBUM_ID"
+    const val EXTERNAL_EXTRA_ARTIST_ID = EXTERNAL_EXTRA_PREFIX + "ARTIST_ID"
+    const val EXTERNAL_EXTRA_ALBUM_BROWSE_ID = EXTERNAL_EXTRA_PREFIX + "ALBUM_BROWSE_ID"
 
     fun build(song: Song): MediaItem {
         val yId = song.youtubeId?.takeIf { it.isNotBlank() }
@@ -320,6 +323,9 @@ object MediaItemBuilder {
             putInt(EXTERNAL_EXTRA_SAMPLE_RATE, song.sampleRate ?: 0)
             putString(EXTERNAL_EXTRA_FILE_PATH, song.path)
             song.youtubeId?.takeIf { it.isNotBlank() }?.let { putString(EXTERNAL_EXTRA_YOUTUBE_ID, it) }
+            putLong(EXTERNAL_EXTRA_ALBUM_ID, song.albumId)
+            putLong(EXTERNAL_EXTRA_ARTIST_ID, song.artistId)
+            song.albumBrowseId?.takeIf { it.isNotBlank() }?.let { putString(EXTERNAL_EXTRA_ALBUM_BROWSE_ID, it) }
         }
 
         metadataBuilder.setExtras(extras)

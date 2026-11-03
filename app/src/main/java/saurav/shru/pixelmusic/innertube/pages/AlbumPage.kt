@@ -44,11 +44,23 @@ data class AlbumPage(
                     ?.anyWatchEndpoint
                     ?.playlistId
                     ?.let { return it }
+                button.menuRenderer?.items?.forEach { item ->
+                    item.menuNavigationItemRenderer?.navigationEndpoint?.anyWatchEndpoint?.playlistId?.let { return it }
+                }
             }
 
             response.header?.musicDetailHeaderRenderer?.menu?.menuRenderer?.topLevelButtons?.forEach { button ->
                 button.buttonRenderer?.navigationEndpoint?.anyWatchEndpoint?.playlistId?.let { return it }
             }
+            response.header?.musicDetailHeaderRenderer?.menu?.menuRenderer?.items?.forEach { item ->
+                item.menuNavigationItemRenderer?.navigationEndpoint?.anyWatchEndpoint?.playlistId?.let { return it }
+            }
+
+            getSongRenderers(response).firstNotNullOfOrNull { renderer ->
+                renderer.overlay?.musicItemThumbnailOverlayRenderer?.content
+                    ?.musicPlayButtonRenderer?.playNavigationEndpoint?.anyWatchEndpoint?.playlistId
+                    ?: renderer.navigationEndpoint?.anyWatchEndpoint?.playlistId
+            }?.let { return it }
 
             return null
         }
@@ -64,7 +76,7 @@ data class AlbumPage(
             val subtitle = getHeader(response)?.subtitle
                 ?: response.header?.musicDetailHeaderRenderer?.subtitle
                 ?: response.header?.musicHeaderRenderer?.subtitle
-            return subtitle?.runs?.lastOrNull()?.text?.toIntOrNull()
+            return subtitle?.runs?.asReversed()?.firstNotNullOfOrNull { it.text.trim().toIntOrNull() }
         }
 
         fun getThumbnail(response: BrowseResponse): String? {
@@ -193,8 +205,11 @@ data class AlbumPage(
 
             val duration = findDuration(renderer)
             val videoId = renderer.playlistItemData?.videoId
-                ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId
-                ?: renderer.navigationEndpoint?.watchEndpoint?.videoId
+                ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.anyWatchEndpoint?.videoId
+                ?: renderer.navigationEndpoint?.anyWatchEndpoint?.videoId
+                ?: renderer.flexColumns.asSequence()
+                    .flatMap { it.musicResponsiveListItemFlexColumnRenderer.text?.runs.orEmpty().asSequence() }
+                    .firstNotNullOfOrNull { it.navigationEndpoint?.anyWatchEndpoint?.videoId }
                 ?: return null
             val thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
                 ?: renderer.thumbnail?.musicAnimatedThumbnailRenderer?.backupRenderer?.getThumbnailUrl()

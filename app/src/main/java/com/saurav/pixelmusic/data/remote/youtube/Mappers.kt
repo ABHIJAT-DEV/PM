@@ -17,12 +17,18 @@ fun SongItem.toNativeSong(): Song {
     val artistNames = com.saurav.pixelmusic.data.stream.CloudMusicUtils.parseArtistNames(rawArtistName)
     val artistRefs = artistNames.mapIndexed { index, name ->
         val originalArtist = artists.find { it.name.equals(name, ignoreCase = true) }
+            ?: if (artistNames.size == 1) artists.firstOrNull() else null
         val artistId = -(17_000_000_000_000L + kotlin.math.abs(name.lowercase().hashCode().toLong()))
+        val channelId = originalArtist?.id?.takeIf { it.isNotBlank() }
+        com.saurav.pixelmusic.presentation.viewmodel.SearchStateHolder.artistNameMap[artistId] = name
+        if (channelId != null) {
+            com.saurav.pixelmusic.presentation.viewmodel.SearchStateHolder.artistIdMap[artistId] = channelId
+        }
         ArtistRef(
             id = artistId,
             name = name,
             isPrimary = index == 0,
-            channelId = originalArtist?.id
+            channelId = channelId
         )
     }
     val artistName = artistNames.joinToString(", ")
@@ -30,6 +36,14 @@ fun SongItem.toNativeSong(): Song {
     val songId = "youtube_$id"
     val albumName = album?.name ?: "YouTube Music"
     val albumId = -(16_000_000_000_000L + kotlin.math.abs(albumName.lowercase().hashCode().toLong()))
+    val resolvedAlbumBrowseId = album?.id?.takeIf { it.isNotBlank() }
+    if (resolvedAlbumBrowseId != null) {
+        com.saurav.pixelmusic.presentation.viewmodel.SearchStateHolder.albumIdMap[albumId] = resolvedAlbumBrowseId
+        com.saurav.pixelmusic.presentation.viewmodel.SearchStateHolder.albumIdMap[resolvedAlbumBrowseId.hashCode().toLong()] = resolvedAlbumBrowseId
+    }
+    if (!albumName.equals("YouTube Music", ignoreCase = true)) {
+        com.saurav.pixelmusic.presentation.viewmodel.SearchStateHolder.albumNameMap[albumId] = albumName to artistName
+    }
     
     return Song(
         id = songId,

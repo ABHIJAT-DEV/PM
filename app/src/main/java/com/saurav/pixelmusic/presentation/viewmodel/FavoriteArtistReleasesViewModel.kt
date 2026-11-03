@@ -85,7 +85,8 @@ class FavoriteArtistReleasesViewModel @Inject constructor(
                                 if (section.title.contains("Albums", ignoreCase = true) ||
                                     section.title.contains("Singles", ignoreCase = true) ||
                                     section.title.contains("Latest release", ignoreCase = true) ||
-                                    section.title.contains("Releases", ignoreCase = true)) {
+                                    section.title.contains("Releases", ignoreCase = true) ||
+                                    section.items.any { it is saurav.shru.pixelmusic.innertube.models.AlbumItem }) {
                                     allReleases.addAll(section.items)
                                 }
                             }

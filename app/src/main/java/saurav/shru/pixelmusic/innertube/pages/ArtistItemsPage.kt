@@ -13,6 +13,7 @@ package saurav.shru.pixelmusic.innertube.pages
 
 import saurav.shru.pixelmusic.innertube.models.Album
 import saurav.shru.pixelmusic.innertube.models.AlbumItem
+import saurav.shru.pixelmusic.innertube.models.AlbumReleaseType
 import saurav.shru.pixelmusic.innertube.models.Artist
 import saurav.shru.pixelmusic.innertube.models.MusicResponsiveListItemRenderer
 import saurav.shru.pixelmusic.innertube.models.MusicTwoRowItemRenderer
@@ -30,18 +31,35 @@ data class ArtistItemsPage(
 ) {
     companion object {
         fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): SongItem? {
+            val videoId = renderer.playlistItemData?.videoId
+                ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.anyWatchEndpoint?.videoId
+                ?: renderer.navigationEndpoint?.anyWatchEndpoint?.videoId
+                ?: return null
+            val extractedArtists = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_PAGE_TYPE_ARTIST")
+            val artistRuns = if (extractedArtists.isNotEmpty()) {
+                extractedArtists
+            } else {
+                renderer.flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.oddElements().orEmpty()
+            }
+            val albumRuns = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_PAGE_TYPE_ALBUM")
+                .ifEmpty { PageHelper.extractRuns(renderer.flexColumns, "ALBUM") }
+                .ifEmpty {
+                    renderer.flexColumns.getOrNull(3)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
+                        ?: renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
+                        ?: emptyList()
+                }
             return SongItem(
-                id = renderer.playlistItemData?.videoId ?: return null,
+                id = videoId,
                 title = renderer.flexColumns.firstOrNull()
                     ?.musicResponsiveListItemFlexColumnRenderer?.text
                     ?.runs?.firstOrNull()?.text ?: return null,
-                artists = renderer.flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.oddElements()?.map {
+                artists = artistRuns.map {
                     Artist(
                         name = it.text,
                         id = it.navigationEndpoint?.browseEndpoint?.browseId
                     )
-                } ?: return null,
-                album = renderer.flexColumns.getOrNull(3)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let { run ->
+                },
+                album = albumRuns.firstOrNull()?.let { run ->
                     run.navigationEndpoint?.browseEndpoint?.browseId?.let { id ->
                         Album(
                             name = run.text,
@@ -57,7 +75,8 @@ data class ArtistItemsPage(
                 explicit = renderer.badges?.find {
                     it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                 } != null,
-                endpoint = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint
+                endpoint = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.anyWatchEndpoint
+                    ?: renderer.navigationEndpoint?.anyWatchEndpoint
             )
         }
 
@@ -65,20 +84,25 @@ data class ArtistItemsPage(
             return when {
                 renderer.isAlbum -> {
                     val browseId = renderer.navigationEndpoint.browseEndpoint?.browseId ?: return null
+                    val subtitleRuns = renderer.subtitle?.runs.orEmpty()
+                    val parsedYear = subtitleRuns.asReversed().firstNotNullOfOrNull { it.text.trim().toIntOrNull() }
+                    val typeLabel = subtitleRuns.firstOrNull { it.text.trim().toIntOrNull() == null && it.text.trim() != "•" }?.text
                     AlbumItem(
                         browseId = browseId,
                         playlistId = renderer.thumbnailOverlay?.musicItemThumbnailOverlayRenderer
                             ?.content?.musicPlayButtonRenderer?.playNavigationEndpoint
                             ?.anyWatchEndpoint?.playlistId
                             ?: browseId.removePrefix("MPREb_").let { "OLAK5uy_$it" },
-                    title = renderer.title.runs?.firstOrNull()?.text ?: return null,
-                    artists = null,
-                    year = renderer.subtitle?.runs?.lastOrNull()?.text?.toIntOrNull(),
-                    thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
-                    explicit = renderer.subtitleBadges?.find {
-                        it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-                    } != null
-                )}
+                        title = renderer.title.runs?.firstOrNull()?.text ?: return null,
+                        artists = null,
+                        year = parsedYear,
+                        thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+                        explicit = renderer.subtitleBadges?.find {
+                            it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                        } != null,
+                        releaseType = AlbumReleaseType.fromLabel(typeLabel)
+                    )
+                }
                 // Video
                 renderer.isSong -> SongItem(
                     id = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null,

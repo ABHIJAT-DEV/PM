@@ -397,7 +397,7 @@ fun ArtistDetailScreen(
                                 ArtistSectionHeaderWithSeeAll(
                                     title = "Albums",
                                     icon = Icons.Rounded.Album,
-                                    showSeeAll = albumSections.size > 5,
+                                    showSeeAll = albumSections.size > 5 || uiState.albumsMoreEndpoint != null,
                                     onSeeAllClick = {
                                         navController.navigateSafely(
                                             Screen.ArtistAlbumsAll.createRoute(artistId, "albums")
@@ -441,7 +441,7 @@ fun ArtistDetailScreen(
                                 ArtistSectionHeaderWithSeeAll(
                                     title = "Singles & EPs",
                                     icon = Icons.Rounded.Album,
-                                    showSeeAll = singlesAndEPs.size > 5,
+                                    showSeeAll = singlesAndEPs.size > 5 || uiState.singlesMoreEndpoint != null,
                                     onSeeAllClick = {
                                         navController.navigateSafely(
                                             Screen.ArtistAlbumsAll.createRoute(artistId, "singles")

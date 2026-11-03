@@ -962,7 +962,11 @@ class MusicRepositoryImpl @Inject constructor(
         thumbnailUrl: String?,
         duration: Long,
         genre: String?,
-        album: String? = null
+        album: String? = null,
+        albumBrowseId: String? = null,
+        artistRefs: List<ArtistRef> = emptyList(),
+        trackNumber: Int = 0,
+        year: Int = 0
     ) {
         val songId = toUnifiedYoutubeSongId(youtubeId)
         val artistNames = parseYoutubeArtistNames(artist)
@@ -970,11 +974,13 @@ class MusicRepositoryImpl @Inject constructor(
         val primaryArtistId = toUnifiedYoutubeArtistId(primaryArtistName)
 
         val artistsToInsert = artistNames.map { name ->
+            val matchedChannelId = artistRefs.find { it.name.equals(name, ignoreCase = true) }?.channelId
             ArtistEntity(
                 id = toUnifiedYoutubeArtistId(name),
                 name = name,
                 trackCount = 0,
-                imageUrl = null
+                imageUrl = null,
+                channelId = matchedChannelId
             )
         }
 
@@ -996,16 +1002,18 @@ class MusicRepositoryImpl @Inject constructor(
             artistId = primaryArtistId,
             songCount = 0,
             dateAdded = System.currentTimeMillis(),
-            year = 0,
+            year = year,
             albumArtUriString = thumbnailUrl
         )
 
         // Build artists JSON
         val youtubeArtistRefs = artistNames.mapIndexed { idx, name ->
+            val matchedChannelId = artistRefs.find { it.name.equals(name, ignoreCase = true) }?.channelId
             ArtistRef(
                 id = toUnifiedYoutubeArtistId(name),
                 name = name,
-                isPrimary = idx == 0
+                isPrimary = idx == 0,
+                channelId = matchedChannelId
             )
         }
         val artistsJson = try {
@@ -1015,6 +1023,9 @@ class MusicRepositoryImpl @Inject constructor(
                 obj.put("id", ref.id)
                 obj.put("name", ref.name)
                 obj.put("primary", ref.isPrimary)
+                if (!ref.channelId.isNullOrBlank()) {
+                    obj.put("channelId", ref.channelId)
+                }
                 arr.put(obj)
             }
             arr.toString()
@@ -1038,8 +1049,8 @@ class MusicRepositoryImpl @Inject constructor(
             parentDirectoryPath = "youtube://",
             isFavorite = false,
             lyrics = null,
-            trackNumber = 0,
-            year = 0,
+            trackNumber = trackNumber,
+            year = year,
             dateAdded = System.currentTimeMillis(),
             mimeType = "audio/opus",
             bitrate = null,
@@ -1047,7 +1058,8 @@ class MusicRepositoryImpl @Inject constructor(
             telegramChatId = null,
             telegramFileId = null,
             artistsJson = artistsJson,
-            sourceType = SourceType.YOUTUBE
+            sourceType = SourceType.YOUTUBE,
+            albumBrowseId = albumBrowseId
         )
 
         musicDao.incrementalSyncMusicData(
@@ -1164,7 +1176,11 @@ class MusicRepositoryImpl @Inject constructor(
                         thumbnailUrl = song.albumArtUriString,
                         duration = song.duration,
                         genre = song.genre ?: "YouTube Music",
-                        album = song.album
+                        album = song.album,
+                        albumBrowseId = song.albumBrowseId,
+                        artistRefs = song.artists,
+                        trackNumber = song.trackNumber,
+                        year = song.year
                     )
                 }
             }
@@ -1461,7 +1477,11 @@ class MusicRepositoryImpl @Inject constructor(
                     thumbnailUrl = song.albumArtUriString,
                     duration = song.duration,
                     genre = song.genre ?: "YouTube Music",
-                    album = song.album
+                    album = song.album,
+                    albumBrowseId = song.albumBrowseId,
+                    artistRefs = song.artists,
+                    trackNumber = song.trackNumber,
+                    year = song.year
                 )
                 ytSongs.add(
                     com.saurav.pixelmusic.data.model.youtube.Song(

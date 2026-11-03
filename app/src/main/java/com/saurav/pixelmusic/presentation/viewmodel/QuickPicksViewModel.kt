@@ -439,8 +439,11 @@ class QuickPicksViewModel @Inject constructor(
                         YouTube.next(radioEndpoint).getOrNull()?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
                     } else {
                         val songsSection = artistPage?.sections?.find {
+                            it.isSongsSection ||
                             it.title.contains("songs", ignoreCase = true) ||
                             it.title.contains("popular", ignoreCase = true)
+                        } ?: artistPage?.sections?.firstOrNull { section ->
+                            section.items.any { it is SongItem }
                         }
                         val firstSong = songsSection?.items?.filterIsInstance<SongItem>()?.firstOrNull()
                         if (firstSong != null) {
@@ -470,8 +473,11 @@ class QuickPicksViewModel @Inject constructor(
                                 YouTube.next(radioEndpoint).getOrNull()?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
                             } else {
                                 val songsSection = artistPage?.sections?.find {
+                                    it.isSongsSection ||
                                     it.title.contains("songs", ignoreCase = true) ||
                                     it.title.contains("popular", ignoreCase = true)
+                                } ?: artistPage?.sections?.firstOrNull { section ->
+                                    section.items.any { it is SongItem }
                                 }
                                 val firstSong = songsSection?.items?.filterIsInstance<SongItem>()?.firstOrNull()
                                 if (firstSong != null) {

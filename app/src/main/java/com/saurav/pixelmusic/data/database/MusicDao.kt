@@ -150,7 +150,28 @@ interface MusicDao {
             if (rowId == -1L) songsToUpdate.add(songs[index])
         }
         if (songsToUpdate.isNotEmpty()) {
-            updateSongs(songsToUpdate)
+            val existingById = songsToUpdate.map { it.id }
+                .chunked(500)
+                .flatMap { getSongsByIdsListSimple(it) }
+                .associateBy { it.id }
+            val mergedSongs = songsToUpdate.map { incoming ->
+                val existing = existingById[incoming.id]
+                if (existing == null || incoming.sourceType != SourceType.YOUTUBE) {
+                    incoming
+                } else {
+                    val keepExistingAlbum = existing.albumName.isNotBlank() &&
+                        existing.albumName != "YouTube Music" &&
+                        (incoming.albumName.isBlank() || incoming.albumName == "YouTube Music")
+                    incoming.copy(
+                        albumName = if (keepExistingAlbum) existing.albumName else incoming.albumName,
+                        albumId = if (keepExistingAlbum) existing.albumId else incoming.albumId,
+                        albumBrowseId = incoming.albumBrowseId ?: existing.albumBrowseId,
+                        trackNumber = if (incoming.trackNumber > 0) incoming.trackNumber else existing.trackNumber,
+                        year = if (incoming.year > 0) incoming.year else existing.year
+                    )
+                }
+            }
+            updateSongs(mergedSongs)
         }
     }
 
@@ -187,7 +208,8 @@ interface MusicDao {
                 } else {
                     incoming.copy(
                         imageUrl = incoming.imageUrl ?: existing.imageUrl,
-                        customImageUri = incoming.customImageUri ?: existing.customImageUri
+                        customImageUri = incoming.customImageUri ?: existing.customImageUri,
+                        channelId = incoming.channelId ?: existing.channelId
                     )
                 }
             }
@@ -2342,7 +2364,7 @@ interface MusicDao {
     @Query("""
         SELECT COUNT(DISTINCT song_id) FROM song_artist_cross_ref
         INNER JOIN artists ON artists.id = song_artist_cross_ref.artist_id
-        WHERE artists.name = :artistName
+        WHERE artists.name = :artistName COLLATE NOCASE
     """)
     suspend fun getLocalSongCountByArtistName(artistName: String): Int
 
