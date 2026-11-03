@@ -1521,9 +1521,315 @@ private fun ComplexKaraokeLyricsStage(
 
 /**
  * Solid-filled Material 3 Expressive vertical control stack on the right:
- * 3-Dot Menu -> Like -> Previous -> Play/Pause -> Next
+ * 3-Dot Menu -> Like -> Previous -> Play/Pause -> Next.
+ * The bottom 3 buttons (Previous, Play/Pause, Next) morph in-place via GPU graphicsLayer
+ * from their 36.dp horizontal MiniPlayer positions at the top-right of the sheet.
  */
+@Composable
+private fun VerticalExpressiveControlStack(
+    containerWidthPx: Float,
+    morphTracker: ArtworkMorphTracker,
+    isPlayingProvider: () -> Boolean,
+    isFavoriteProvider: () -> Boolean,
+    expansionFractionProvider: () -> Float,
+    rootPosInWindowProvider: () -> Offset,
+    onMoreOptionsClick: () -> Unit,
+    onFavoriteToggle: () -> Unit,
+    onPrevious: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    playPauseContainerColor: Color,
+    onPlayPauseContainerColor: Color,
+    skipContainerColor: Color,
+    onSkipContainerColor: Color,
+    likedContainerColor: Color,
+    onLikedContainerColor: Color,
+    neutralContainerColor: Color,
+    onNeutralContainerColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val isPlaying = isPlayingProvider()
+    val isFavorite = isFavoriteProvider()
+    val haptics = LocalHapticFeedback.current
 
+    val miniBtnSizePx = remember(density) { with(density) { 36.dp.toPx() } }
+    val miniBtnTopPx = remember(density) { with(density) { 14.dp.toPx() } }
+    val miniEndPadPx = remember(density) { with(density) { 12.dp.toPx() } }
+    val miniGapPx = remember(density) { with(density) { 8.dp.toPx() } }
+
+    val miniNextLeftPx = (containerWidthPx - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
+    val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+    val miniPrevLeftPx = (miniPlayLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+
+    var prevDestOffset by remember { mutableStateOf<Offset?>(null) }
+    var playDestOffset by remember { mutableStateOf<Offset?>(null) }
+    var nextDestOffset by remember { mutableStateOf<Offset?>(null) }
+
+    var activeButton by remember { mutableStateOf<VerticalControlButton?>(null) }
+    var playPauseVisualState by remember { mutableStateOf(isPlaying) }
+    val latestIsPlayingProvider by rememberUpdatedState(isPlayingProvider)
+
+    LaunchedEffect(activeButton) {
+        if (activeButton != null) {
+            delay(230L)
+            activeButton = null
+        }
+    }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            playPauseVisualState = true
+        } else {
+            if (activeButton == VerticalControlButton.NEXT || activeButton == VerticalControlButton.PREVIOUS) {
+                delay(220L)
+            }
+            if (!latestIsPlayingProvider()) {
+                playPauseVisualState = false
+            }
+        }
+    }
+
+    fun weightFor(button: VerticalControlButton, baseWeight: Float): Float {
+        return when (activeButton) {
+            button -> baseWeight * 1.22f
+            null -> baseWeight
+            else -> baseWeight * 0.88f
+        }
+    }
+
+    val weightSpec = spring<Float>(
+        dampingRatio = 0.62f,
+        stiffness = Spring.StiffnessMediumLow
+    )
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // 1. 3-DOT MORE OPTIONS BUTTON (Over the Like button)
+        val moreWeight by animateFloatAsState(
+            targetValue = weightFor(VerticalControlButton.MORE, 0.74f),
+            animationSpec = weightSpec,
+            label = "moreVerticalWeight"
+        )
+        ExpressiveMorphingStackButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(moreWeight)
+                .graphicsLayer {
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                },
+            defaultCornerDp = 34.dp,
+            pressedCornerDp = 14.dp,
+            isActive = activeButton == VerticalControlButton.MORE,
+            containerColor = neutralContainerColor,
+            onClick = {
+                activeButton = VerticalControlButton.MORE
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onMoreOptionsClick()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.MoreHoriz,
+                contentDescription = stringResource(R.string.cd_player_more_options),
+                tint = onNeutralContainerColor,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+
+        // 2. LIKE BUTTON
+        val likeWeight by animateFloatAsState(
+            targetValue = weightFor(VerticalControlButton.LIKE, 0.88f),
+            animationSpec = weightSpec,
+            label = "likeVerticalWeight"
+        )
+        val likeContainerColor by animateColorAsState(
+            targetValue = if (isFavorite) likedContainerColor else neutralContainerColor,
+            animationSpec = tween(220),
+            label = "likeContainerColor"
+        )
+        val likeIconColor by animateColorAsState(
+            targetValue = if (isFavorite) onLikedContainerColor else onNeutralContainerColor,
+            animationSpec = tween(220),
+            label = "likeIconColor"
+        )
+
+        ExpressiveMorphingStackButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(likeWeight)
+                .graphicsLayer {
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                },
+            defaultCornerDp = if (isFavorite) 20.dp else 34.dp,
+            pressedCornerDp = 14.dp,
+            isActive = activeButton == VerticalControlButton.LIKE,
+            containerColor = likeContainerColor,
+            onClick = {
+                activeButton = VerticalControlButton.LIKE
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onFavoriteToggle()
+            }
+        ) {
+            val heartScale by animateFloatAsState(
+                targetValue = if (isFavorite) 1.14f else 1.0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                ),
+                label = "heartPopScale"
+            )
+            Icon(
+                painter = painterResource(R.drawable.round_favorite_24),
+                contentDescription = "Favorite",
+                tint = likeIconColor,
+                modifier = Modifier
+                    .size(26.dp)
+                    .graphicsLayer {
+                        scaleX = heartScale
+                        scaleY = heartScale
+                    }
+            )
+        }
+
+        // 3. PREVIOUS BUTTON (Morphs in-place from MiniPlayer Previous button)
+        val prevWeight by animateFloatAsState(
+            targetValue = weightFor(VerticalControlButton.PREVIOUS, 0.96f),
+            animationSpec = weightSpec,
+            label = "prevVerticalWeight"
+        )
+        ExpressiveMorphingStackButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(prevWeight)
+                .onGloballyPositioned { coords ->
+                    prevDestOffset = coords.positionInRoot() - rootPosInWindowProvider()
+                }
+                .graphicsLayer {
+                    val s = morphTracker.evaluate(expansionFractionProvider())
+                    val destX = prevDestOffset?.x ?: 0f
+                    val destY = prevDestOffset?.y ?: 0f
+                    val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                    val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = if (size.width > 0f) curW / size.width else 1f
+                    scaleY = if (size.height > 0f) curH / size.height else 1f
+                    translationX = (miniPrevLeftPx - destX) * (1f - s.posT)
+                    translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                },
+            defaultCornerDp = 34.dp,
+            pressedCornerDp = 16.dp,
+            isActive = activeButton == VerticalControlButton.PREVIOUS,
+            containerColor = skipContainerColor,
+            onClick = {
+                activeButton = VerticalControlButton.PREVIOUS
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onPrevious()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.SkipPrevious,
+                contentDescription = "Previous",
+                tint = onSkipContainerColor,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+
+        // 4. PLAY / PAUSE BUTTON (Morphs in-place from MiniPlayer Play/Pause button)
+        val playWeight by animateFloatAsState(
+            targetValue = weightFor(VerticalControlButton.PLAY_PAUSE, 1.32f),
+            animationSpec = weightSpec,
+            label = "playVerticalWeight"
+        )
+        ExpressiveMorphingStackButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(playWeight)
+                .onGloballyPositioned { coords ->
+                    playDestOffset = coords.positionInRoot() - rootPosInWindowProvider()
+                }
+                .graphicsLayer {
+                    val s = morphTracker.evaluate(expansionFractionProvider())
+                    val destX = playDestOffset?.x ?: 0f
+                    val destY = playDestOffset?.y ?: 0f
+                    val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                    val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = if (size.width > 0f) curW / size.width else 1f
+                    scaleY = if (size.height > 0f) curH / size.height else 1f
+                    translationX = (miniPlayLeftPx - destX) * (1f - s.posT)
+                    translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                },
+            defaultCornerDp = if (playPauseVisualState) 20.dp else 34.dp,
+            pressedCornerDp = 14.dp,
+            isActive = activeButton == VerticalControlButton.PLAY_PAUSE,
+            containerColor = playPauseContainerColor,
+            onClick = {
+                activeButton = VerticalControlButton.PLAY_PAUSE
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onPlayPause()
+            }
+        ) {
+            Crossfade(
+                targetState = playPauseVisualState,
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                label = "complexPlayPauseIcon"
+            ) { playing ->
+                Icon(
+                    imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    contentDescription = if (playing) "Pause" else "Play",
+                    tint = onPlayPauseContainerColor,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        }
+
+        // 5. NEXT BUTTON (Morphs in-place from MiniPlayer Next button)
+        val nextWeight by animateFloatAsState(
+            targetValue = weightFor(VerticalControlButton.NEXT, 0.96f),
+            animationSpec = weightSpec,
+            label = "nextVerticalWeight"
+        )
+        ExpressiveMorphingStackButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(nextWeight)
+                .onGloballyPositioned { coords ->
+                    nextDestOffset = coords.positionInRoot() - rootPosInWindowProvider()
+                }
+                .graphicsLayer {
+                    val s = morphTracker.evaluate(expansionFractionProvider())
+                    val destX = nextDestOffset?.x ?: 0f
+                    val destY = nextDestOffset?.y ?: 0f
+                    val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                    val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = if (size.width > 0f) curW / size.width else 1f
+                    scaleY = if (size.height > 0f) curH / size.height else 1f
+                    translationX = (miniNextLeftPx - destX) * (1f - s.posT)
+                    translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                },
+            defaultCornerDp = 34.dp,
+            pressedCornerDp = 16.dp,
+            isActive = activeButton == VerticalControlButton.NEXT,
+            containerColor = skipContainerColor,
+            onClick = {
+                activeButton = VerticalControlButton.NEXT
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onNext()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.SkipNext,
+                contentDescription = "Next",
+                tint = onSkipContainerColor,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+    }
+}
 
 /**
  * Bold Material You Expressive Audio Visualizer shown in the Complex lyrics stage when no lyrics are available.
