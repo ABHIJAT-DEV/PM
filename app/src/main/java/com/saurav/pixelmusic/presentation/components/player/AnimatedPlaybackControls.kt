@@ -90,7 +90,7 @@ fun AnimatedPlaybackControls(
     compressionWeight: Float = 0.65f,
     pressAnimationSpec: AnimationSpec<Float>,
     releaseDelay: Long = 220L,
-    playPauseCornerPlaying: Dp = 60.dp,
+    playPauseCornerPlaying: Dp = 26.dp,
     playPauseCornerPaused: Dp = 26.dp,
     colorOtherButtons: Color = LocalMaterialTheme.current.onPrimary,
     colorPlayPause: Color = LocalMaterialTheme.current.primary,
@@ -296,7 +296,7 @@ fun AnimatedPlaybackControls(
                 animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
                 label = "playCorner"
             )
-            val miniPlayCornerDp = if (playPauseVisualState) 11.dp else 18.dp
+            val miniPlayCornerDp = 18.dp
             val playShape = remember(morphTracker, expansionFractionProvider, miniBtnSizePx, miniPlayCornerDp) {
                 MorphingTransportButtonShape(
                     miniCornerDp = miniPlayCornerDp,
