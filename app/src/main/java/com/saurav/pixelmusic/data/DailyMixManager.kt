@@ -287,7 +287,18 @@ class DailyMixManager @Inject constructor(
         if (allSongs.isEmpty()) return emptyList()
 
         val engagements = readEngagements()
-        val songById = allSongs.associateBy { it.id }
+        val songById = mutableMapOf<String, Song>()
+        allSongs.forEach { song ->
+            songById[song.id] = song
+            val ytId = song.youtubeId ?: if (song.contentUriString.startsWith("youtube://")) {
+                song.contentUriString.removePrefix("youtube://")
+            } else null
+            if (!ytId.isNullOrBlank()) {
+                songById[ytId] = song
+                songById["youtube_$ytId"] = song
+                songById["youtube://$ytId"] = song
+            }
+        }
         val now = System.currentTimeMillis()
 
         val artistAffinity = mutableMapOf<Long, Double>()
@@ -314,7 +325,13 @@ class DailyMixManager @Inject constructor(
         val maxFavoriteArtist = favoriteArtistWeights.values.maxOrNull()?.takeIf { it > 0 } ?: 1
 
         return allSongs.map { song ->
+            val ytId = song.youtubeId ?: if (song.contentUriString.startsWith("youtube://")) {
+                song.contentUriString.removePrefix("youtube://")
+            } else null
             val stats = engagements[song.id]
+                ?: (if (!ytId.isNullOrBlank()) engagements["youtube_$ytId"] ?: engagements[ytId] else null)
+            val isFav = favoriteSongIds.contains(song.id) ||
+                (!ytId.isNullOrBlank() && (favoriteSongIds.contains("youtube_$ytId") || favoriteSongIds.contains(ytId)))
             val playCountScore = (stats?.playCount?.toDouble() ?: 0.0) / maxPlayCount
             val durationScore = (stats?.totalPlayDurationMs?.toDouble() ?: 0.0) / maxDuration
             val affinityScore = (playCountScore * 0.7 + durationScore * 0.3).coerceIn(0.0, 1.0)
@@ -327,21 +344,22 @@ class DailyMixManager @Inject constructor(
 
             val recencyScore = computeRecencyScore(stats?.lastPlayedTimestamp, now)
             val noveltyScore = computeNoveltyScore(song.dateAdded, now)
-            val favoriteScore = if (favoriteSongIds.contains(song.id)) 1.0 else 0.0
-            val baselineScore = if (stats == null) 0.1 else 0.0
-            val noise = random.nextDouble() * 0.005 // Significantly reduced noise
+            val favoriteScore = if (isFav) 1.0 else 0.0
+            val baselineScore = if (stats == null) 0.18 else 0.0
+            val noise = random.nextDouble() * 0.22
 
-            val finalScore = (preferenceScore * 0.45) +
-                (affinityScore * 0.25) +
+            val finalScore = (preferenceScore * 0.40) +
+                (affinityScore * 0.20) +
                 (recencyScore * 0.15) +
-                (favoriteScore * 0.1) +
-                (noveltyScore * 0.05) +
+                (favoriteScore * 0.10) +
+                (noveltyScore * 0.15) +
                 baselineScore +
                 noise
 
-            val discoveryScore = ((1.0 - affinityScore).coerceIn(0.0, 1.0) * 0.6) +
+            val discoveryScore = ((1.0 - affinityScore).coerceIn(0.0, 1.0) * 0.55) +
                 (noveltyScore * 0.25) +
-                (preferenceScore * 0.15)
+                (preferenceScore * 0.20) +
+                (random.nextDouble() * 0.22)
 
             RankedSong(
                 song = song,
@@ -359,82 +377,112 @@ class DailyMixManager @Inject constructor(
     suspend fun generateDailyMix(
         allSongs: List<Song>,
         favoriteSongIds: Set<String> = emptySet(),
-        limit: Int = 30
+        limit: Int = 30,
+        forceRefresh: Boolean = false
     ): List<Song> {
         if (allSongs.isEmpty()) {
             return emptyList()
         }
 
         val calendar = Calendar.getInstance()
-        val seed = calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR)
-        val random = java.util.Random(seed.toLong())
+        val seed = if (forceRefresh) {
+            System.nanoTime()
+        } else {
+            (calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR)).toLong()
+        }
+        val random = java.util.Random(seed)
 
         val rankedSongs = computeRankedSongs(allSongs, favoriteSongIds, random)
         if (rankedSongs.isEmpty()) {
             return allSongs.shuffled(random).take(limit.coerceAtMost(allSongs.size))
         }
 
-        val selected = pickWithDiversity(rankedSongs, favoriteSongIds, limit)
-        if (selected.size >= limit || selected.size == rankedSongs.size) {
-            return selected
+        val discoveryCount = (limit * 0.55).toInt().coerceAtLeast(1)
+        val coreCount = (limit - discoveryCount).coerceAtLeast(0)
+
+        val discoveryPool = rankedSongs
+            .sortedWith(compareByDescending<RankedSong> { it.discoveryScore }.thenBy { it.song.id })
+        val discoverySelected = pickWithDiversity(discoveryPool, favoriteSongIds, discoveryCount)
+        val selectedIds = discoverySelected.map { it.id }.toMutableSet()
+
+        val coreSelected = pickWithDiversity(
+            rankedSongs.filterNot { selectedIds.contains(it.song.id) },
+            favoriteSongIds,
+            coreCount
+        )
+
+        val interleaved = mutableListOf<Song>()
+        val maxLen = maxOf(discoverySelected.size, coreSelected.size)
+        for (i in 0 until maxLen) {
+            discoverySelected.getOrNull(i)?.let { interleaved.add(it) }
+            coreSelected.getOrNull(i)?.let { interleaved.add(it) }
+        }
+
+        if (interleaved.size >= limit || interleaved.size == rankedSongs.size) {
+            return interleaved.take(limit)
         }
 
         val remaining = allSongs
-            .filterNot { song -> selected.any { it.id == song.id } }
+            .filterNot { song -> interleaved.any { it.id == song.id } }
             .shuffled(random)
 
-        val combined = (selected + remaining).distinctBy { it.id }
+        val combined = (interleaved + remaining).distinctBy { it.id }
         return combined.take(limit.coerceAtMost(combined.size))
     }
 
     suspend fun generateYourMix(
         allSongs: List<Song>,
         favoriteSongIds: Set<String> = emptySet(),
-        limit: Int = 60
+        limit: Int = 60,
+        forceRefresh: Boolean = false
     ): List<Song> {
         if (allSongs.isEmpty()) {
             return emptyList()
         }
 
         val calendar = Calendar.getInstance()
-        val seed = calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR) + 17
-        val random = java.util.Random(seed.toLong())
+        val seed = if (forceRefresh) {
+            System.nanoTime() xor 0x5DEECE66DL
+        } else {
+            (calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR) + 17).toLong()
+        }
+        val random = java.util.Random(seed)
         val rankedSongs = computeRankedSongs(allSongs, favoriteSongIds, random)
 
         if (rankedSongs.isEmpty()) {
             return allSongs.shuffled(random).take(limit.coerceAtMost(allSongs.size))
         }
 
-        val favoriteSectionSize = (limit * 0.3).toInt().coerceAtLeast(5).coerceAtMost(limit)
-        val coreSectionSize = (limit * 0.45).toInt().coerceAtLeast(10).coerceAtMost(limit)
-        val discoverySectionSize = (limit - favoriteSectionSize - coreSectionSize).coerceAtLeast(0)
+        val discoverySectionSize = (limit * 0.55).toInt().coerceAtLeast(10).coerceAtMost(limit)
+        val coreSectionSize = (limit * 0.30).toInt().coerceAtLeast(6).coerceAtMost(limit - discoverySectionSize)
+        val favoriteSectionSize = (limit - discoverySectionSize - coreSectionSize).coerceAtLeast(0)
 
-        val favoriteSection = pickWithDiversity(
-            rankedSongs.filter { favoriteSongIds.contains(it.song.id) },
-            favoriteSongIds,
-            favoriteSectionSize
-        )
-
-        val alreadySelectedIds = favoriteSection.map { it.id }.toMutableSet()
+        val discoveryCandidates = rankedSongs
+            .sortedWith(compareByDescending<RankedSong> { it.discoveryScore }.thenBy { it.song.id })
+        val discoverySection = pickWithDiversity(discoveryCandidates, favoriteSongIds, discoverySectionSize)
+        val alreadySelectedIds = discoverySection.map { it.id }.toMutableSet()
 
         val coreSection = pickWithDiversity(
             rankedSongs.filterNot { alreadySelectedIds.contains(it.song.id) },
             favoriteSongIds,
             coreSectionSize
         )
-
         alreadySelectedIds.addAll(coreSection.map { it.id })
 
-        val discoveryCandidates = rankedSongs
-            .filterNot { alreadySelectedIds.contains(it.song.id) }
-            .sortedWith(compareByDescending<RankedSong> { it.discoveryScore }.thenBy { it.song.id })
+        val favoriteSection = pickWithDiversity(
+            rankedSongs.filter { !alreadySelectedIds.contains(it.song.id) && it.favoriteScore > 0.0 },
+            favoriteSongIds,
+            favoriteSectionSize
+        )
 
-        val discoverySection = pickWithDiversity(discoveryCandidates, favoriteSongIds, discoverySectionSize)
-
+        // Interleave discovery, core, and favorites so the top 6 collage items are fresh & varied
         val orderedResult = LinkedHashSet<Song>()
-        orderedResult.addAll(favoriteSection)
-        orderedResult.addAll(coreSection)
-        orderedResult.addAll(discoverySection)
+        val maxBucket = maxOf(discoverySection.size, coreSection.size, favoriteSection.size)
+        for (i in 0 until maxBucket) {
+            discoverySection.getOrNull(i)?.let { orderedResult.add(it) }
+            coreSection.getOrNull(i)?.let { orderedResult.add(it) }
+            favoriteSection.getOrNull(i)?.let { orderedResult.add(it) }
+        }
 
         if (orderedResult.size < limit) {
             val filler = allSongs

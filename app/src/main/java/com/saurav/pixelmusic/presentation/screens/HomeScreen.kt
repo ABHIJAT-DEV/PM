@@ -255,8 +255,8 @@ fun HomeScreen(
     }
     val yourMixSongs = remember(curatedYourMixSongs, dailyMixSongs, homeMixPreviewSongs) {
         when {
-            dailyMixSongs.isNotEmpty() -> dailyMixSongs
             curatedYourMixSongs.isNotEmpty() -> curatedYourMixSongs
+            dailyMixSongs.isNotEmpty() -> dailyMixSongs
             else -> homeMixPreviewSongs
         }
     }

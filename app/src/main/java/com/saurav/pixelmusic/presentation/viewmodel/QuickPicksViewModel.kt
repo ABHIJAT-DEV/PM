@@ -199,26 +199,10 @@ class QuickPicksViewModel @Inject constructor(
                             }
                         }
                         QuickPicks.LAST_LISTEN -> {
-                            val lastPlayed = withContext(Dispatchers.IO) {
-                                musicRepository.getLastPlayedSong()
-                            }
-                            val related = if (lastPlayed != null) {
-                                withContext(Dispatchers.IO) {
-                                    val id = lastPlayed.id.toLongOrNull()
-                                    if (id != null) musicRepository.getRelatedSongs(id, 50) else emptyList()
-                                }
-                            } else emptyList()
-
-                            if (related.isNotEmpty()) {
-                                val songs = related.shuffled().take(20)
+                            val songs = loadEnhancedQuickPicks(isManualRefresh = forceRefresh)
+                            if (songs.isNotEmpty()) {
                                 _quickPicks.value = songs
                                 saveToCache(songs, _categories.value)
-                            } else {
-                                val songs = loadEnhancedQuickPicks(isManualRefresh = forceRefresh)
-                                if (songs.isNotEmpty()) {
-                                    _quickPicks.value = songs
-                                    saveToCache(songs, _categories.value)
-                                }
                             }
                         }
                     }
@@ -288,50 +272,63 @@ class QuickPicksViewModel @Inject constructor(
 
         val subscribedIds = userPreferencesRepository.subscribedArtistIdsFlow.first().toList()
 
-        // 2. Resolve actual Song objects for user's most listened tracks
-        val localTopSongIds = topEngagements.map { it.songId }
+        // 2. Resolve actual Song objects for user's most listened tracks (indexing by both Room ID and YouTube ID)
+        val allLookupIds = (
+            topEngagements.map { it.songId } +
+            mostPlayedHistory.map { it.songId } +
+            localHistoryList.map { it.songId }
+        ).distinct()
         val localTopSongs = try {
-            if (localTopSongIds.isNotEmpty()) musicRepository.getSongsByIdsOnce(localTopSongIds) else emptyList()
+            if (allLookupIds.isNotEmpty()) musicRepository.getSongsByIdsOnce(allLookupIds) else emptyList()
         } catch (e: Exception) {
             emptyList()
         }
-        val localTopSongsById = localTopSongs.associateBy { it.id }
+        val localTopSongsById = mutableMapOf<String, Song>()
+        localTopSongs.forEach { song ->
+            localTopSongsById[song.id] = song
+            val yId = song.youtubeId ?: extractCleanYoutubeId(song.contentUriString)
+            if (!yId.isNullOrBlank()) {
+                localTopSongsById[yId] = song
+                localTopSongsById["youtube_$yId"] = song
+                localTopSongsById["youtube://$yId"] = song
+            }
+        }
 
         val userTopPlayedSongs = mutableListOf<Song>()
         // First add from mostPlayedHistory (covers both local and streamed YouTube songs with rich metadata)
         mostPlayedHistory.forEach { entry ->
+            val cleanEntryId = extractCleanYoutubeId(entry.songId)
             val local = localTopSongsById[entry.songId]
+                ?: (if (cleanEntryId != null) localTopSongsById[cleanEntryId] ?: localTopSongsById["youtube_$cleanEntryId"] else null)
             if (local != null) {
                 userTopPlayedSongs.add(local)
-            } else {
-                val cleanId = extractCleanYoutubeId(entry.songId)
-                if (cleanId != null && !entry.title.isNullOrBlank()) {
-                    userTopPlayedSongs.add(
-                        Song(
-                            id = "youtube_$cleanId",
-                            title = entry.title,
-                            artist = entry.artist.orEmpty(),
-                            artistId = -(17_000_000_000_000L + kotlin.math.abs((entry.artist ?: "").lowercase().hashCode().toLong())),
-                            album = "YouTube Music",
-                            albumId = -(16_000_000_000_000L + kotlin.math.abs("YouTube Music".hashCode().toLong())),
-                            albumArtist = entry.artist,
-                            path = "",
-                            contentUriString = "youtube://$cleanId",
-                            albumArtUriString = entry.thumbnail,
-                            duration = 0L,
-                            genre = "YouTube",
-                            mimeType = "audio/opus",
-                            bitrate = 128000,
-                            sampleRate = 44100,
-                            youtubeId = cleanId
-                        )
+            } else if (cleanEntryId != null && !entry.title.isNullOrBlank()) {
+                userTopPlayedSongs.add(
+                    Song(
+                        id = "youtube_$cleanEntryId",
+                        title = entry.title,
+                        artist = entry.artist.orEmpty(),
+                        artistId = -(17_000_000_000_000L + kotlin.math.abs((entry.artist ?: "").lowercase().hashCode().toLong())),
+                        album = "YouTube Music",
+                        albumId = -(16_000_000_000_000L + kotlin.math.abs("YouTube Music".hashCode().toLong())),
+                        albumArtist = entry.artist,
+                        path = "",
+                        contentUriString = "youtube://$cleanEntryId",
+                        albumArtUriString = entry.thumbnail,
+                        duration = 0L,
+                        genre = "YouTube",
+                        mimeType = "audio/opus",
+                        bitrate = 128000,
+                        sampleRate = 44100,
+                        youtubeId = cleanEntryId
                     )
-                }
+                )
             }
         }
         // Then add any remaining local top engagements
-        localTopSongs.forEach { local ->
-            if (userTopPlayedSongs.none { it.id == local.id }) {
+        topEngagements.forEach { engagement ->
+            val local = localTopSongsById[engagement.songId]
+            if (local != null && userTopPlayedSongs.none { it.id == local.id }) {
                 userTopPlayedSongs.add(local)
             }
         }
@@ -341,47 +338,73 @@ class QuickPicksViewModel @Inject constructor(
 
         // Priority 1: User's most listened songs
         userTopPlayedSongs.forEach { song ->
-            val yId = song.youtubeId ?: extractCleanYoutubeId(song.id)
+            val yId = song.youtubeId ?: extractCleanYoutubeId(song.id) ?: extractCleanYoutubeId(song.contentUriString)
             if (!yId.isNullOrBlank()) {
                 seedSongs.add(yId to song.artist)
             }
         }
 
-        // Priority 2: Online YT Music history
+        // Priority 2: Local playback history (resolving both direct YouTube IDs and Room-mapped songs)
+        localHistoryList.forEach { historyEntry ->
+            val cleanId = extractCleanYoutubeId(historyEntry.songId)
+                ?: localTopSongsById[historyEntry.songId]?.let { it.youtubeId ?: extractCleanYoutubeId(it.contentUriString) }
+            if (!cleanId.isNullOrBlank()) {
+                seedSongs.add(cleanId to (historyEntry.artist ?: ""))
+            }
+        }
+
+        // Priority 3: Online YT Music history
         ytHistoryList.forEach { songItem ->
             if (!songItem.id.isNullOrBlank()) {
                 seedSongs.add(songItem.id to (songItem.artists.firstOrNull()?.name ?: ""))
             }
         }
 
-        // Priority 3: Local playback history
-        localHistoryList.forEach { historyEntry ->
-            val cleanId = extractCleanYoutubeId(historyEntry.songId)
-            if (cleanId != null) {
-                seedSongs.add(cleanId to (historyEntry.artist ?: ""))
-            }
-        }
-
         // Priority 4: Favorites
         localFavoritesList.forEach { favoriteSong ->
-            val yId = favoriteSong.youtubeId ?: extractCleanYoutubeId(favoriteSong.id)
+            val yId = favoriteSong.youtubeId ?: extractCleanYoutubeId(favoriteSong.id) ?: extractCleanYoutubeId(favoriteSong.contentUriString)
             if (!yId.isNullOrBlank()) {
                 seedSongs.add(yId to favoriteSong.artist)
             }
         }
 
+        // Fallback seed resolution for local-only tracks without YouTube IDs
+        if (seedSongs.distinctBy { it.first }.size < 4) {
+            val localSeedCandidates = (userTopPlayedSongs + localFavoritesList)
+                .filter { it.title.isNotBlank() && it.artist.isNotBlank() && !it.artist.equals("<unknown>", ignoreCase = true) }
+                .distinctBy { "${it.title.lowercase()}|${it.artist.lowercase()}" }
+                .let { if (isManualRefresh) it.take(8).shuffled().take(3) else it.take(3) }
+
+            val resolvedLocalSeeds = localSeedCandidates.map { song ->
+                async(Dispatchers.IO) {
+                    try {
+                        val query = "${song.title} ${song.artist}".trim()
+                        val searchRes = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                        val matchedSong = searchRes?.items?.filterIsInstance<SongItem>()?.firstOrNull()
+                        if (matchedSong != null && matchedSong.id.isNotBlank()) {
+                            matchedSong.id to song.artist
+                        } else null
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+            }.mapNotNull { it.await() }
+            seedSongs.addAll(resolvedLocalSeeds)
+        }
+
         // Deduplicate seeds while preserving priority order (top listened tracks first)
         val prioritizedSeedSongs = seedSongs.distinctBy { it.first }
+        val seedVideoIdSet = prioritizedSeedSongs.map { it.first }.toSet()
 
         // Extract seed artists prioritized by listening frequency
         val seedArtistNames = mutableListOf<String>()
         val seedArtistIds = mutableListOf<String>()
 
         subscribedIds.forEach { seedArtistIds.add(it) }
-        userTopPlayedSongs.map { it.artist }.filter { it.isNotBlank() }.forEach { seedArtistNames.add(it) }
-        mostPlayedHistory.mapNotNull { it.artist }.filter { it.isNotBlank() }.forEach { seedArtistNames.add(it) }
-        localHistoryList.mapNotNull { it.artist }.filter { it.isNotBlank() }.forEach { seedArtistNames.add(it) }
-        localFavoritesList.map { it.artist }.filter { it.isNotBlank() }.forEach { seedArtistNames.add(it) }
+        userTopPlayedSongs.map { it.artist }.filter { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }.forEach { seedArtistNames.add(it) }
+        mostPlayedHistory.mapNotNull { it.artist }.filter { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }.forEach { seedArtistNames.add(it) }
+        localHistoryList.mapNotNull { it.artist }.filter { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }.forEach { seedArtistNames.add(it) }
+        localFavoritesList.map { it.artist }.filter { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }.forEach { seedArtistNames.add(it) }
         ytHistoryList.flatMap { it.artists }.forEach {
             if (!it.id.isNullOrBlank()) seedArtistIds.add(it.id)
             if (it.name.isNotBlank()) seedArtistNames.add(it.name)
@@ -391,19 +414,28 @@ class QuickPicksViewModel @Inject constructor(
         val prioritizedSeedArtistIds = seedArtistIds.distinct()
 
         // 4. Query recommendation endpoints concurrently using prioritized seeds
-        // Bucket A: Song Mix Radios (fetch tailored radio mixes using clean videoId and playlistId = RDAMVM$videoId)
-        val seedPool = if (isManualRefresh && prioritizedSeedSongs.size > 3) {
-            prioritizedSeedSongs.take(8).shuffled()
+        // On manual refresh, rotate through a broader pool of seeds so each refresh fetches fresh related mixes
+        val seedPool = if (isManualRefresh && prioritizedSeedSongs.size > 1) {
+            prioritizedSeedSongs.take(12).shuffled()
         } else {
             prioritizedSeedSongs
         }
-        val songMixesDeferred = seedPool.take(3).map { (videoId, _) ->
+
+        // Bucket A: Song Mix Radios (fetch tailored radio mixes using clean videoId and playlistId = RDAMVM$videoId)
+        val songMixesDeferred = seedPool.take(4).map { (videoId, _) ->
             async(Dispatchers.IO) {
                 try {
                     val radioResult = YouTube.next(
                         WatchEndpoint(videoId = videoId, playlistId = "RDAMVM$videoId")
                     ).getOrNull()
-                    radioResult?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
+                    radioResult?.items
+                        ?.filterIsInstance<SongItem>()
+                        ?.filter { it.id != videoId }
+                        ?.filterExplicit(hideExplicit)
+                        ?.filterVideo(shouldFilterVideos)
+                        ?.filterDuration(minDurationSec)
+                        ?.let { if (isManualRefresh) it.shuffled() else it }
+                        ?: emptyList()
                 } catch (e: Exception) {
                     Timber.tag("QuickPicks").w(e, "Song mix radio fetch failed for videoId: $videoId")
                     emptyList()
@@ -411,26 +443,35 @@ class QuickPicksViewModel @Inject constructor(
             }
         }
 
-        // Bucket A.2: Related Endpoint Recommendations (seed from top listened song)
-        val relatedEndpointDeferred = async(Dispatchers.IO) {
-            try {
-                val primarySeedVideoId = prioritizedSeedSongs.firstOrNull()?.first
-                if (!primarySeedVideoId.isNullOrBlank()) {
-                    val nextResult = YouTube.next(WatchEndpoint(videoId = primarySeedVideoId, playlistId = "RDAMVM$primarySeedVideoId")).getOrNull()
+        // Bucket A.2: Related Endpoint Recommendations (seeded from active seedPool so manual refresh rotates related pages)
+        val relatedEndpointsDeferred = seedPool.take(2).map { (seedVideoId, _) ->
+            async(Dispatchers.IO) {
+                try {
+                    val nextResult = YouTube.next(WatchEndpoint(videoId = seedVideoId, playlistId = "RDAMVM$seedVideoId")).getOrNull()
                     val relatedEndpoint = nextResult?.relatedEndpoint
                     if (relatedEndpoint != null) {
                         val relatedPage = YouTube.related(relatedEndpoint).getOrNull()
-                        relatedPage?.songs?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
+                        relatedPage?.songs
+                            ?.filterExplicit(hideExplicit)
+                            ?.filterVideo(shouldFilterVideos)
+                            ?.filterDuration(minDurationSec)
+                            ?.let { if (isManualRefresh) it.shuffled() else it }
+                            ?: emptyList()
                     } else emptyList()
-                } else emptyList()
-            } catch (e: Exception) {
-                Timber.tag("QuickPicks").w(e, "Related endpoint fetch failed")
-                emptyList()
+                } catch (e: Exception) {
+                    Timber.tag("QuickPicks").w(e, "Related endpoint fetch failed for $seedVideoId")
+                    emptyList()
+                }
             }
         }
 
         // Bucket B: Similar Artist Radios (fetch similar artist radio for top artists)
-        val artistRadiosDeferred = prioritizedSeedArtistIds.take(2).map { artistId ->
+        val artistIdPool = if (isManualRefresh && prioritizedSeedArtistIds.size > 2) {
+            prioritizedSeedArtistIds.take(6).shuffled()
+        } else {
+            prioritizedSeedArtistIds
+        }
+        val artistRadiosDeferred = artistIdPool.take(2).map { artistId ->
             async(Dispatchers.IO) {
                 try {
                     val artistPage = YouTube.artist(artistId).getOrNull()
@@ -459,41 +500,45 @@ class QuickPicksViewModel @Inject constructor(
             }
         }
 
-        val artistNameRadiosDeferred = if (prioritizedSeedArtistIds.isEmpty() && prioritizedSeedArtistNames.isNotEmpty()) {
-            prioritizedSeedArtistNames.take(2).map { artistName ->
-                async(Dispatchers.IO) {
-                    try {
-                        val searchResult = YouTube.search(artistName, YouTube.SearchFilter.FILTER_ARTIST).getOrNull()
-                        val artistItem = searchResult?.items?.find { it is ArtistItem } as? ArtistItem
-                        val artistId = artistItem?.id
-                        if (artistId != null) {
-                            val artistPage = YouTube.artist(artistId).getOrNull()
-                            val radioEndpoint = artistPage?.artist?.radioEndpoint
-                            if (radioEndpoint != null) {
-                                YouTube.next(radioEndpoint).getOrNull()?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
-                            } else {
-                                val songsSection = artistPage?.sections?.find {
-                                    it.isSongsSection ||
-                                    it.title.contains("songs", ignoreCase = true) ||
-                                    it.title.contains("popular", ignoreCase = true)
-                                } ?: artistPage?.sections?.firstOrNull { section ->
-                                    section.items.any { it is SongItem }
-                                }
-                                val firstSong = songsSection?.items?.filterIsInstance<SongItem>()?.firstOrNull()
-                                if (firstSong != null) {
-                                    YouTube.next(
-                                        WatchEndpoint(playlistId = "RDAMVM${firstSong.id}", videoId = firstSong.id)
-                                    ).getOrNull()?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
-                                } else emptyList()
+        val artistNamePool = if (isManualRefresh && prioritizedSeedArtistNames.size > 2) {
+            prioritizedSeedArtistNames.take(8).shuffled()
+        } else {
+            prioritizedSeedArtistNames
+        }
+        val artistNameRadiosDeferred = artistNamePool.take(2).map { artistName ->
+            async(Dispatchers.IO) {
+                try {
+                    val searchResult = YouTube.search(artistName, YouTube.SearchFilter.FILTER_ARTIST).getOrNull()
+                    val artistItem = searchResult?.items?.find { it is ArtistItem } as? ArtistItem
+                    val artistId = artistItem?.id
+                    if (artistId != null) {
+                        val artistPage = YouTube.artist(artistId).getOrNull()
+                        val radioEndpoint = artistPage?.artist?.radioEndpoint
+                        val songs = if (radioEndpoint != null) {
+                            YouTube.next(radioEndpoint).getOrNull()?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
+                        } else {
+                            val songsSection = artistPage?.sections?.find {
+                                it.isSongsSection ||
+                                it.title.contains("songs", ignoreCase = true) ||
+                                it.title.contains("popular", ignoreCase = true)
+                            } ?: artistPage?.sections?.firstOrNull { section ->
+                                section.items.any { it is SongItem }
                             }
-                        } else emptyList()
-                    } catch (e: Exception) {
-                        Timber.tag("QuickPicks").w(e, "Artist name search/radio failed for: $artistName")
-                        emptyList()
-                    }
+                            val firstSong = songsSection?.items?.filterIsInstance<SongItem>()?.firstOrNull()
+                            if (firstSong != null) {
+                                YouTube.next(
+                                    WatchEndpoint(playlistId = "RDAMVM${firstSong.id}", videoId = firstSong.id)
+                                ).getOrNull()?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
+                            } else emptyList()
+                        }
+                        if (isManualRefresh) songs.shuffled() else songs
+                    } else emptyList()
+                } catch (e: Exception) {
+                    Timber.tag("QuickPicks").w(e, "Artist name search/radio failed for: $artistName")
+                    emptyList()
                 }
             }
-        } else emptyList()
+        }
 
         // Bucket C: YouTube Music personalized Home page sections
         val ytHomeRecommendationsDeferred = async(Dispatchers.IO) {
@@ -514,25 +559,32 @@ class QuickPicksViewModel @Inject constructor(
             }
         }
 
-        // Bucket D: User's online YT Music History
-        val ytHistoryDeferred = async(Dispatchers.IO) {
-            try {
-                YouTube.musicHistory().getOrNull()?.sections?.flatMap { it.songs }?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
-            } catch (e: Exception) {
-                emptyList()
+        // Await all async requests and interleave buckets so one radio doesn't monopolize the top slots
+        val songMixLists = songMixesDeferred.map { it.await() }
+        val relatedLists = relatedEndpointsDeferred.map { it.await() }
+        val artistRadioLists = artistRadiosDeferred.map { it.await() }
+        val artistNameRadioLists = artistNameRadiosDeferred.map { it.await() }
+        val homeRecSongs = ytHomeRecommendationsDeferred.await().let { if (isManualRefresh) it.shuffled() else it }
+
+        val interleavedDiscoveryItems = mutableListOf<SongItem>()
+        val allDiscoveryBuckets: List<List<SongItem>> =
+            songMixLists + relatedLists + artistRadioLists + artistNameRadioLists + listOf(homeRecSongs)
+        val maxBucketLen = allDiscoveryBuckets.maxOfOrNull { it.size } ?: 0
+        for (idx in 0 until maxBucketLen) {
+            for (bucket in allDiscoveryBuckets) {
+                bucket.getOrNull(idx)?.let { interleavedDiscoveryItems.add(it) }
             }
         }
 
-        // Await all async requests
-        val songMixSongs = songMixesDeferred.flatMap { it.await() }
-        val relatedSongs = relatedEndpointDeferred.await()
-        val artistRadioSongs = artistRadiosDeferred.flatMap { it.await() }
-        val artistNameRadioSongs = artistNameRadiosDeferred.flatMap { it.await() }
-        val homeRecSongs = ytHomeRecommendationsDeferred.await()
-        val onlineHistorySongs = ytHistoryDeferred.await()
+        // 5. Structure and Blend Results:
+        // Lead with related/discovery tracks seeded from the user's listening history,
+        // lightly weaving in a few familiar favorites, and rotate out previously shown tracks on manual refresh.
+        val previousSongKeys = if (isManualRefresh) {
+            _quickPicks.value.map { song ->
+                song.youtubeId?.takeIf { it.isNotBlank() } ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
+            }.toSet()
+        } else emptySet()
 
-        // 5. Structure and Prioritize Results:
-        // Prioritize tracks the user listens to the most at the top, followed by tailored recommendations
         val filteredTopPlayed = userTopPlayedSongs
             .filter { song ->
                 if (hideExplicit && song.title.contains("explicit", ignoreCase = true)) false
@@ -543,30 +595,58 @@ class QuickPicksViewModel @Inject constructor(
                 song.youtubeId?.takeIf { it.isNotBlank() } ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
             }
 
-        val discoverySongs = (songMixSongs + relatedSongs + artistRadioSongs + artistNameRadioSongs + homeRecSongs + onlineHistorySongs)
+        val discoverySongs = interleavedDiscoveryItems
             .map { it.toNativeSong() }
             .distinctBy { song ->
                 song.youtubeId?.takeIf { it.isNotBlank() } ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
             }
             .filterNot { rec ->
+                val recYtId = rec.youtubeId
+                (recYtId != null && recYtId in seedVideoIdSet && filteredTopPlayed.any { it.youtubeId == recYtId }) ||
                 filteredTopPlayed.any { top ->
-                    (top.youtubeId != null && top.youtubeId == rec.youtubeId) ||
+                    (top.youtubeId != null && top.youtubeId == recYtId) ||
                     (top.title.equals(rec.title, ignoreCase = true) && top.artist.equals(rec.artist, ignoreCase = true))
                 }
             }
 
-        val blendedDiscovery = if (isManualRefresh) discoverySongs.shuffled() else discoverySongs
-
-        // Blend: Keep most listened tracks prioritized at the beginning (up to 15 tracks),
-        // followed by discovery tracks seeded directly by those preferences, up to 48 tracks.
-        val prioritizedList = mutableListOf<Song>()
-        val topPlayedToTake = if (isManualRefresh && filteredTopPlayed.size > 15) {
-            filteredTopPlayed.take(25).shuffled().take(15)
+        val orderedDiscovery = if (isManualRefresh) {
+            val (previouslyShown, freshDiscovery) = discoverySongs.partition { song ->
+                val key = song.youtubeId?.takeIf { it.isNotBlank() } ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
+                key in previousSongKeys
+            }
+            freshDiscovery.shuffled() + previouslyShown.shuffled()
         } else {
-            filteredTopPlayed.take(15)
+            discoverySongs
         }
-        prioritizedList.addAll(topPlayedToTake)
-        prioritizedList.addAll(blendedDiscovery.take(48 - prioritizedList.size))
+
+        val familiarPool = if (isManualRefresh) {
+            val (prevTop, freshTop) = filteredTopPlayed.partition { song ->
+                val key = song.youtubeId?.takeIf { it.isNotBlank() } ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
+                key in previousSongKeys
+            }
+            (freshTop.shuffled() + prevTop.shuffled()).take(4)
+        } else {
+            filteredTopPlayed.shuffled().take(4)
+        }
+
+        val prioritizedList = mutableListOf<Song>()
+        if (orderedDiscovery.isNotEmpty()) {
+            var famIdx = 0
+            orderedDiscovery.forEachIndexed { index, discSong ->
+                if (prioritizedList.size < 48) {
+                    prioritizedList.add(discSong)
+                }
+                // Sprinkle at most 1 familiar track every 4 discovery tracks
+                if ((index + 1) % 4 == 0 && famIdx < familiarPool.size && prioritizedList.size < 48) {
+                    prioritizedList.add(familiarPool[famIdx++])
+                }
+            }
+            while (famIdx < familiarPool.size && prioritizedList.size < 48) {
+                prioritizedList.add(familiarPool[famIdx++])
+            }
+        } else {
+            prioritizedList.addAll(if (isManualRefresh) filteredTopPlayed.shuffled().take(15) else filteredTopPlayed.take(15))
+        }
 
         // 6. Fallback if still under 20 tracks (e.g. brand new install with no history)
         if (prioritizedList.size < 20) {
