@@ -211,7 +211,7 @@ private fun computeAsymmetricArchCircle(
     )
 }
 
-internal data class ArtworkMorphSample(
+data class ArtworkMorphSample(
     val rawFraction: Float,
     val sizeT: Float,
     val posT: Float,
@@ -225,7 +225,7 @@ internal data class ArtworkMorphSample(
  * 2. When closing (dragging down): smooth deceleration curve ("getting slower and going to sit in the mini player").
  * Blended continuously by travel delta so reversing direction mid-gesture never jumps.
  */
-internal class ArtworkMorphTracker {
+class ArtworkMorphTracker {
     fun evaluate(rawFraction: Float): ArtworkMorphSample {
         val f = rawFraction.coerceIn(0f, 1f)
         // Pure, stateless, monotonic smooth curve with zero bounce and zero directional hitch
@@ -536,7 +536,7 @@ fun ComplexPlayerLayout(
                 currentSheetState = currentSheetState,
                 allowRealtimeUpdates = allowRealtimeUpdates,
                 activeTrackColor = baseTheme.primary,
-                inactiveTrackColor = baseTheme.secondaryContainer,
+                inactiveTrackColor = baseTheme.onPrimary,
                 thumbColor = baseTheme.primary,
                 onSeek = onSeek,
                 modifier = Modifier.fillMaxSize()
@@ -740,7 +740,7 @@ fun ComplexPlayerLayout(
                     .align(Alignment.CenterEnd)
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(baseTheme.secondaryContainer, CircleShape)
+                    .background(baseTheme.onPrimary, CircleShape)
                     .clickable {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         coroutineScope.launch {
@@ -772,7 +772,7 @@ fun ComplexPlayerLayout(
                 Icon(
                     painter = painterResource(R.drawable.rounded_keyboard_arrow_down_24),
                     contentDescription = stringResource(R.string.presentation_batch_g_player_cd_collapse),
-                    tint = baseTheme.onSecondaryContainer,
+                    tint = baseTheme.primary,
                     modifier = Modifier
                         .size(26.dp)
                         .graphicsLayer {

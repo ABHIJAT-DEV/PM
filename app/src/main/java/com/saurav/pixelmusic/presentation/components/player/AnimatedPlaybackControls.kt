@@ -40,13 +40,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
@@ -77,10 +92,10 @@ fun AnimatedPlaybackControls(
     releaseDelay: Long = 220L,
     playPauseCornerPlaying: Dp = 60.dp,
     playPauseCornerPaused: Dp = 26.dp,
-    colorOtherButtons: Color = LocalMaterialTheme.current.secondaryContainer,
+    colorOtherButtons: Color = LocalMaterialTheme.current.onPrimary,
     colorPlayPause: Color = LocalMaterialTheme.current.primary,
     tintPlayPauseIcon: Color = LocalMaterialTheme.current.onPrimary,
-    tintOtherIcons: Color = LocalMaterialTheme.current.onSecondaryContainer,
+    tintOtherIcons: Color = LocalMaterialTheme.current.primary,
     colorPreviousButton: Color = colorOtherButtons,
     colorNextButton: Color = colorOtherButtons,
     tintPreviousIcon: Color = tintOtherIcons,
@@ -89,7 +104,24 @@ fun AnimatedPlaybackControls(
     iconSize: Dp = 32.dp,
     isLiquidGlass: Boolean = false,
     backdrop: Backdrop? = null,
+    morphTracker: ArtworkMorphTracker? = null,
+    expansionFractionProvider: (() -> Float)? = null,
+    rootPositionInWindowProvider: () -> Offset = { Offset.Zero },
+    containerWidthPxProvider: () -> Float = { 0f },
 ) {
+    val density = LocalDensity.current
+    val miniBtnSizePx = remember(density) { with(density) { 36.dp.toPx() } }
+    val miniBtnTopPx = remember(density) { with(density) { 14.dp.toPx() } }
+    val miniEndPadPx = remember(density) { with(density) { 12.dp.toPx() } }
+    val miniGapPx = remember(density) { with(density) { 8.dp.toPx() } }
+    val miniIconSizePx = remember(density) { with(density) { 22.dp.toPx() } }
+
+    var prevDestOffset by remember { mutableStateOf<Offset?>(null) }
+    var playDestOffset by remember { mutableStateOf<Offset?>(null) }
+    var nextDestOffset by remember { mutableStateOf<Offset?>(null) }
+    var prevBoxSize by remember { mutableStateOf(IntSize.Zero) }
+    var playBoxSize by remember { mutableStateOf(IntSize.Zero) }
+    var nextBoxSize by remember { mutableStateOf(IntSize.Zero) }
     val isPlaying = isPlayingProvider()
     var lastClicked by remember { mutableStateOf<PlaybackButtonType?>(null) }
     val latestIsPlayingProvider by rememberUpdatedState(newValue = isPlayingProvider)
@@ -164,7 +196,15 @@ fun AnimatedPlaybackControls(
                 else -> compressionWeight
             }
 
-            val prevShape = CircleShape
+            val prevShape = remember(morphTracker, expansionFractionProvider, miniBtnSizePx) {
+                MorphingTransportButtonShape(
+                    miniCornerDp = 18.dp,
+                    fullCornerDpProvider = { 40.dp },
+                    miniBtnSizePx = miniBtnSizePx,
+                    morphTracker = morphTracker,
+                    expansionFractionProvider = expansionFractionProvider
+                )
+            }
             val prevWeight by animateFloatAsState(
                 targetValue = weightFor(PlaybackButtonType.PREVIOUS),
                 animationSpec = pressAnimationSpec,
@@ -174,6 +214,28 @@ fun AnimatedPlaybackControls(
                 modifier = Modifier
                     .weight(prevWeight)
                     .fillMaxHeight()
+                    .onGloballyPositioned { coords ->
+                        prevDestOffset = coords.positionInRoot() - rootPositionInWindowProvider()
+                        prevBoxSize = coords.size
+                    }
+                    .graphicsLayer {
+                        if (morphTracker != null && expansionFractionProvider != null) {
+                            val s = morphTracker.evaluate(expansionFractionProvider())
+                            val cw = containerWidthPxProvider().takeIf { it > 0f } ?: (size.width * 3f)
+                            val miniNextLeftPx = (cw - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
+                            val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+                            val miniPrevLeftPx = (miniPlayLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+                            val destX = prevDestOffset?.x ?: 0f
+                            val destY = prevDestOffset?.y ?: 0f
+                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                            val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
+                            transformOrigin = TransformOrigin(0f, 0f)
+                            scaleX = if (size.width > 0f) curW / size.width else 1f
+                            scaleY = if (size.height > 0f) curH / size.height else 1f
+                            translationX = (miniPrevLeftPx - destX) * (1f - s.posT)
+                            translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                        }
+                    }
                     .then(
                         if (isGlassActive) {
                             Modifier
@@ -210,7 +272,21 @@ fun AnimatedPlaybackControls(
                     imageVector = Icons.Rounded.SkipPrevious,
                     contentDescription = "Anterior",
                     tint = tintPreviousIcon,
-                    modifier = Modifier.size(iconSize)
+                    modifier = Modifier
+                        .size(iconSize)
+                        .graphicsLayer {
+                            if (morphTracker != null && expansionFractionProvider != null && prevBoxSize.width > 0 && prevBoxSize.height > 0) {
+                                val s = morphTracker.evaluate(expansionFractionProvider())
+                                val bw = prevBoxSize.width.toFloat()
+                                val bh = prevBoxSize.height.toFloat()
+                                val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                                val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
+                                val fullIconPx = iconSize.toPx().coerceAtLeast(1f)
+                                val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
+                                scaleX = if (parentScaleX > 0.001f) desiredScale / parentScaleX else 1f
+                                scaleY = if (parentScaleY > 0.001f) desiredScale / parentScaleY else 1f
+                            }
+                        }
                 )
             }
 
@@ -224,12 +300,42 @@ fun AnimatedPlaybackControls(
                 animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
                 label = "playCorner"
             )
-            val playShape = RoundedCornerShape(playCorner)
-            val playGlassCornerShape = RoundedCornerShape(playCorner)
+            val miniPlayCornerDp = if (playPauseVisualState) 11.dp else 18.dp
+            val playShape = remember(morphTracker, expansionFractionProvider, miniBtnSizePx, miniPlayCornerDp) {
+                MorphingTransportButtonShape(
+                    miniCornerDp = miniPlayCornerDp,
+                    fullCornerDpProvider = { playCorner },
+                    miniBtnSizePx = miniBtnSizePx,
+                    morphTracker = morphTracker,
+                    expansionFractionProvider = expansionFractionProvider
+                )
+            }
+            val playGlassCornerShape = playShape
             Box(
                 modifier = Modifier
                     .weight(playWeight)
                     .fillMaxHeight()
+                    .onGloballyPositioned { coords ->
+                        playDestOffset = coords.positionInRoot() - rootPositionInWindowProvider()
+                        playBoxSize = coords.size
+                    }
+                    .graphicsLayer {
+                        if (morphTracker != null && expansionFractionProvider != null) {
+                            val s = morphTracker.evaluate(expansionFractionProvider())
+                            val cw = containerWidthPxProvider().takeIf { it > 0f } ?: (size.width * 3f)
+                            val miniNextLeftPx = (cw - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
+                            val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+                            val destX = playDestOffset?.x ?: 0f
+                            val destY = playDestOffset?.y ?: 0f
+                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                            val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
+                            transformOrigin = TransformOrigin(0f, 0f)
+                            scaleX = if (size.width > 0f) curW / size.width else 1f
+                            scaleY = if (size.height > 0f) curH / size.height else 1f
+                            translationX = (miniPlayLeftPx - destX) * (1f - s.posT)
+                            translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                        }
+                    }
                     .then(
                         if (isGlassActive) {
                             Modifier
@@ -262,14 +368,38 @@ fun AnimatedPlaybackControls(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                MorphingPlayPauseIcon(
-                    isPlaying = playPauseVisualState,
-                    tint = tintPlayPauseIcon,
-                    size = playPauseIconSize
-                )
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        if (morphTracker != null && expansionFractionProvider != null && playBoxSize.width > 0 && playBoxSize.height > 0) {
+                            val s = morphTracker.evaluate(expansionFractionProvider())
+                            val bw = playBoxSize.width.toFloat()
+                            val bh = playBoxSize.height.toFloat()
+                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                            val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
+                            val fullIconPx = playPauseIconSize.toPx().coerceAtLeast(1f)
+                            val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
+                            scaleX = if (parentScaleX > 0.001f) desiredScale / parentScaleX else 1f
+                            scaleY = if (parentScaleY > 0.001f) desiredScale / parentScaleY else 1f
+                        }
+                    }
+                ) {
+                    MorphingPlayPauseIcon(
+                        isPlaying = playPauseVisualState,
+                        tint = tintPlayPauseIcon,
+                        size = playPauseIconSize
+                    )
+                }
             }
 
-            val nextShape = CircleShape
+            val nextShape = remember(morphTracker, expansionFractionProvider, miniBtnSizePx) {
+                MorphingTransportButtonShape(
+                    miniCornerDp = 18.dp,
+                    fullCornerDpProvider = { 40.dp },
+                    miniBtnSizePx = miniBtnSizePx,
+                    morphTracker = morphTracker,
+                    expansionFractionProvider = expansionFractionProvider
+                )
+            }
             val nextWeight by animateFloatAsState(
                 targetValue = weightFor(PlaybackButtonType.NEXT),
                 animationSpec = pressAnimationSpec,
@@ -279,6 +409,26 @@ fun AnimatedPlaybackControls(
                 modifier = Modifier
                     .weight(nextWeight)
                     .fillMaxHeight()
+                    .onGloballyPositioned { coords ->
+                        nextDestOffset = coords.positionInRoot() - rootPositionInWindowProvider()
+                        nextBoxSize = coords.size
+                    }
+                    .graphicsLayer {
+                        if (morphTracker != null && expansionFractionProvider != null) {
+                            val s = morphTracker.evaluate(expansionFractionProvider())
+                            val cw = containerWidthPxProvider().takeIf { it > 0f } ?: (size.width * 3f)
+                            val miniNextLeftPx = (cw - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
+                            val destX = nextDestOffset?.x ?: 0f
+                            val destY = nextDestOffset?.y ?: 0f
+                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                            val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
+                            transformOrigin = TransformOrigin(0f, 0f)
+                            scaleX = if (size.width > 0f) curW / size.width else 1f
+                            scaleY = if (size.height > 0f) curH / size.height else 1f
+                            translationX = (miniNextLeftPx - destX) * (1f - s.posT)
+                            translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                        }
+                    }
                     .then(
                         if (isGlassActive) {
                             Modifier
@@ -315,10 +465,54 @@ fun AnimatedPlaybackControls(
                     imageVector = Icons.Rounded.SkipNext,
                     contentDescription = "Siguiente",
                     tint = tintNextIcon,
-                    modifier = Modifier.size(iconSize)
+                    modifier = Modifier
+                        .size(iconSize)
+                        .graphicsLayer {
+                            if (morphTracker != null && expansionFractionProvider != null && nextBoxSize.width > 0 && nextBoxSize.height > 0) {
+                                val s = morphTracker.evaluate(expansionFractionProvider())
+                                val bw = nextBoxSize.width.toFloat()
+                                val bh = nextBoxSize.height.toFloat()
+                                val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                                val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
+                                val fullIconPx = iconSize.toPx().coerceAtLeast(1f)
+                                val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
+                                scaleX = if (parentScaleX > 0.001f) desiredScale / parentScaleX else 1f
+                                scaleY = if (parentScaleY > 0.001f) desiredScale / parentScaleY else 1f
+                            }
+                        }
                 )
             }
         }
+    }
+}
+
+private class MorphingTransportButtonShape(
+    private val miniCornerDp: Dp,
+    private val fullCornerDpProvider: () -> Dp,
+    private val miniBtnSizePx: Float,
+    private val morphTracker: ArtworkMorphTracker?,
+    private val expansionFractionProvider: (() -> Float)?
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val w = size.width.coerceAtLeast(1f)
+        val h = size.height.coerceAtLeast(1f)
+        val fullCornerPx = with(density) { fullCornerDpProvider().toPx() }
+        if (morphTracker == null || expansionFractionProvider == null) {
+            val r = fullCornerPx.coerceAtMost(minOf(w, h) * 0.5f)
+            return Outline.Rounded(RoundRect(Rect(0f, 0f, w, h), CornerRadius(r, r)))
+        }
+        val t = morphTracker.evaluate(expansionFractionProvider()).sizeT
+        val miniCornerPx = with(density) { miniCornerDp.toPx() }
+        val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, t)
+        val scaleX = (androidx.compose.ui.util.lerp(miniBtnSizePx, w, t) / w).coerceAtLeast(0.01f)
+        val scaleY = (androidx.compose.ui.util.lerp(miniBtnSizePx, h, t) / h).coerceAtLeast(0.01f)
+        val rx = (targetVisualR / scaleX).coerceIn(0f, w * 0.5f)
+        val ry = (targetVisualR / scaleY).coerceIn(0f, h * 0.5f)
+        return Outline.Rounded(RoundRect(Rect(0f, 0f, w, h), CornerRadius(rx, ry)))
     }
 }
 

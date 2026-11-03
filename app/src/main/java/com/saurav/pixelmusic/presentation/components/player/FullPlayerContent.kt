@@ -416,8 +416,8 @@ fun FullPlayerContent(
     val playerAccentColor = baseTheme.primary
     val playerOnAccentColor = baseTheme.onPrimary
 
-    val transportPlayPauseColors = expressivePlayPauseButtonColors(baseTheme)
-    val transportSkipButtonColors = TransportButtonColors(container = playerAccentColor, content = playerOnAccentColor)
+    val transportPlayPauseColors = TransportButtonColors(container = playerAccentColor, content = playerOnAccentColor)
+    val transportSkipButtonColors = TransportButtonColors(container = playerOnAccentColor, content = playerAccentColor)
 
     val topBarButtonBg = playerOnAccentColor.copy(alpha = 0.78f)
     val topBarIconColor = playerAccentColor
@@ -628,6 +628,7 @@ fun FullPlayerContent(
     }
 
     var rootPositionInWindow by remember { mutableStateOf(Offset.Zero) }
+    var rootWidthPx by remember { mutableFloatStateOf(0f) }
     var defaultArtDestOffset by remember { mutableStateOf<Offset?>(null) }
     val artworkMorphTracker = remember { ArtworkMorphTracker() }
     val density = LocalDensity.current
@@ -726,7 +727,8 @@ fun FullPlayerContent(
             onFavoriteToggle = onFavoriteToggle,
             isFullScreenArt = isImmersive,
             morphTracker = artworkMorphTracker,
-            rootPositionInWindowProvider = { rootPositionInWindow }
+            rootPositionInWindowProvider = { rootPositionInWindow },
+            containerWidthPxProvider = { rootWidthPx }
         )
     }
 
@@ -1560,11 +1562,13 @@ fun FullPlayerContent(
                 .fillMaxSize()
                 .onGloballyPositioned { coords ->
                     rootPositionInWindow = coords.positionInRoot()
+                    rootWidthPx = coords.size.width.toFloat()
                 }
                 .graphicsLayer { alpha = contentAlpha }
         ) {
             val fullWidthPx = with(density) { maxWidth.toPx() }
             val fullHeightPx = with(density) { maxHeight.toPx() }
+            rootWidthPx = fullWidthPx
 
             if (isImmersive && !isImmersiveExtended) {
                 // ==========================================
@@ -2561,15 +2565,9 @@ private fun FullPlayerControlsSection(
     onFavoriteToggle: () -> Unit,
     isFullScreenArt: Boolean,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
-    rootPositionInWindowProvider: () -> Offset = { Offset.Zero }
+    rootPositionInWindowProvider: () -> Offset = { Offset.Zero },
+    containerWidthPxProvider: () -> Float = { 0f }
 ) {
-    val density = LocalDensity.current
-    val miniRowWidthPx = remember(density) { with(density) { 124.dp.toPx() } }
-    val miniRowHeightPx = remember(density) { with(density) { 36.dp.toPx() } }
-    val miniRowTopPx = remember(density) { with(density) { 14.dp.toPx() } }
-    val miniRowRightMarginPx = remember(density) { with(density) { 136.dp.toPx() } }
-    var controlsDestOffset by remember { mutableStateOf<Offset?>(null) }
-
     val stableControlAnimationSpec = remember {
         tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
     }
@@ -2599,24 +2597,7 @@ private fun FullPlayerControlsSection(
         ) {
             AnimatedPlaybackControls(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .onGloballyPositioned { coords ->
-                        controlsDestOffset = coords.positionInRoot() - rootPositionInWindowProvider()
-                    }
-                    .graphicsLayer {
-                        val s = morphTracker.evaluate(expansionFractionProvider())
-                        val destX = controlsDestOffset?.x ?: 0f
-                        val destY = controlsDestOffset?.y ?: 0f
-                        val estContainerW = size.width + destX * 2f
-                        val startX = (estContainerW - miniRowRightMarginPx).coerceAtLeast(0f)
-                        val curW = androidx.compose.ui.util.lerp(miniRowWidthPx, size.width, s.sizeT)
-                        val curH = androidx.compose.ui.util.lerp(miniRowHeightPx, size.height, s.sizeT)
-                        transformOrigin = TransformOrigin(0f, 0f)
-                        scaleX = if (size.width > 0f) curW / size.width else 1f
-                        scaleY = if (size.height > 0f) curH / size.height else 1f
-                        translationX = (startX - destX) * (1f - s.posT)
-                        translationY = (miniRowTopPx - destY) * (1f - s.posT)
-                    },
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 isPlayingProvider = isPlayingProvider,
                 onPrevious = onPrevious,
                 onPlayPause = onPlayPause,
@@ -2633,7 +2614,11 @@ private fun FullPlayerControlsSection(
                 tintPreviousIcon = transportSkipColors.content,
                 tintNextIcon = transportSkipColors.content,
                 isLiquidGlass = isLiquidGlass,
-                backdrop = backdrop
+                backdrop = backdrop,
+                morphTracker = morphTracker,
+                expansionFractionProvider = expansionFractionProvider,
+                rootPositionInWindowProvider = rootPositionInWindowProvider,
+                containerWidthPxProvider = containerWidthPxProvider
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -3914,7 +3899,11 @@ private fun DelayedContent(
         }
     } else {
         Box(
-            modifier = sharedBoundsModifier.graphicsLayer { alpha = baseAlphaProvider() }
+            modifier = if (normalStartThreshold > 0f) {
+                sharedBoundsModifier.graphicsLayer { alpha = baseAlphaProvider() }
+            } else {
+                sharedBoundsModifier
+            }
         ) {
             content()
         }
