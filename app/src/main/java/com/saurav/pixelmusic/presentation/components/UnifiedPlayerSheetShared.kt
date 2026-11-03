@@ -89,6 +89,7 @@ internal fun MiniPlayerContentInternal(
     cornerRadiusAlb: Dp,
     onNext: () -> Unit,
     isLiquidGlass: Boolean = false,
+    albumArtAlphaProvider: () -> Float = { 1f },
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -114,7 +115,11 @@ internal fun MiniPlayerContentInternal(
                     contentDescription = "Carátula de ${song.title}",
                     shape = CircleShape,
                     targetSize = Size(150, 150),
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier
+                        .size(44.dp)
+                        .graphicsLayer {
+                            alpha = albumArtAlphaProvider()
+                        },
                     placeholderModel = if (albumArtModel?.startsWith("telegram_art") == true) {
                         "$albumArtModel?quality=thumb"
                     } else null

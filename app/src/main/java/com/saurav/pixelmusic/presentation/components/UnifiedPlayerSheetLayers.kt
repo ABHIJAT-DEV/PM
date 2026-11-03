@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -180,6 +181,9 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                             onPrevious = { playerViewModel.previousSong() },
                             onNext = { playerViewModel.nextSong() },
                             isLiquidGlass = isLiquidGlassActive,
+                            albumArtAlphaProvider = {
+                                if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -198,7 +202,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                 }
                 val fullPlayerOffset by remember {
                     derivedStateOf {
-                        if (playerContentExpansionFraction.value <= 0.01f) IntOffset(0, 10000)
+                        if (playerContentExpansionFraction.value <= 0.004f) IntOffset(0, 10000)
                         else IntOffset.Zero
                     }
                 }
@@ -217,13 +221,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .requiredHeight(containerHeight)
-                        .graphicsLayer {
-                            // Read from FullPlayerVisualState lazy getters in the draw phase;
-                            // these read Animatable.value internally → re-draw only, no recomposition.
-                            alpha = fullPlayerVisualState.contentAlpha
-                            translationY = fullPlayerVisualState.translationY
-                        }
+                        .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                        .height(containerHeight)
                         .zIndex(fullPlayerZIndex)
                         .offset { fullPlayerOffset }
                 ) {

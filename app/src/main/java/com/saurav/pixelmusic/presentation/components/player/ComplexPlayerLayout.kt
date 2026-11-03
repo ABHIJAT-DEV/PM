@@ -99,6 +99,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -106,6 +107,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -137,6 +139,8 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -204,29 +208,118 @@ private fun computeAsymmetricArchCircle(
     )
 }
 
+internal data class ArtworkMorphSample(
+    val rawFraction: Float,
+    val sizeT: Float,
+    val posT: Float,
+    val overshootScale: Float,
+    val nonArtAlpha: Float
+)
+
 /**
- * Custom shape that clips the bottom of the top-half artwork in a left-shifted circular arch (C--M--------C).
+ * Tracks drag direction to provide:
+ * 1. When opening (dragging up): brisk expansion with a subtle overshoot scale ("getting bigger then sitting in place").
+ * 2. When closing (dragging down): smooth deceleration curve ("getting slower and going to sit in the mini player").
+ * Blended continuously by travel delta so reversing direction mid-gesture never jumps.
  */
-private class ScoopedArcBottomShape(
+internal class ArtworkMorphTracker {
+    private var lastFraction: Float = -1f
+    private var directionBlend: Float = 1f
+
+    fun evaluate(rawFraction: Float): ArtworkMorphSample {
+        val f = rawFraction.coerceIn(0f, 1f)
+        if (lastFraction < 0f) {
+            lastFraction = f
+            directionBlend = if (f < 0.5f) 1f else 0f
+        } else {
+            val delta = f - lastFraction
+            if (abs(delta) > 0.0004f) {
+                directionBlend = (directionBlend + delta * 5.2f).coerceIn(0f, 1f)
+                lastFraction = f
+            }
+        }
+
+        val expandSizeT = 1f - (1f - f).pow(1.85f)
+        val collapseSizeT = f.pow(1.75f)
+        val sizeT = androidx.compose.ui.util.lerp(collapseSizeT, expandSizeT, directionBlend).coerceIn(0f, 1f)
+
+        val expandPosT = 1f - (1f - f).pow(1.65f)
+        val collapsePosT = f.pow(1.55f)
+        val posT = androidx.compose.ui.util.lerp(collapsePosT, expandPosT, directionBlend).coerceIn(0f, 1f)
+
+        val overshootScale = if (f in 0.02f..0.995f) {
+            val bell = sin(f * Math.PI.toFloat()).coerceAtLeast(0f)
+            1f + (0.055f * bell * directionBlend)
+        } else {
+            1f
+        }
+
+        val nonArtAlpha = ((f - 0.20f) / 0.80f).coerceIn(0f, 1f)
+
+        return ArtworkMorphSample(
+            rawFraction = f,
+            sizeT = sizeT,
+            posT = posT,
+            overshootScale = overshootScale,
+            nonArtAlpha = nonArtAlpha
+        )
+    }
+}
+
+/**
+ * Custom shape that smoothly morphs from the 44.dp MiniPlayer Circle (at morphProgress = 0f)
+ * into the left-shifted circular arch (C--M--------C) at morphProgress = 1f.
+ */
+private class MorphingScoopedArcBottomShape(
     private val rightRisePx: Float,
-    private val centerXFraction: Float = ARCH_CENTER_X_FRACTION
+    private val morphProgressProvider: () -> Float,
+    private val targetCenterXFraction: Float = ARCH_CENTER_X_FRACTION
 ) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
+        val w = size.width.coerceAtLeast(1f)
+        val h = size.height.coerceAtLeast(1f)
+        val t = morphProgressProvider().coerceIn(0f, 1f)
+
+        val currentCenterXFraction = androidx.compose.ui.util.lerp(0.5f, targetCenterXFraction, t)
+        val currentRightRisePx = androidx.compose.ui.util.lerp(h * 0.5f, rightRisePx, t)
+            .coerceIn(2f, (h - 1f).coerceAtLeast(2f))
+
         val circle = computeAsymmetricArchCircle(
-            widthPx = size.width,
-            bottomVertexYPx = size.height,
-            rightRisePx = rightRisePx,
-            centerXFraction = centerXFraction
+            widthPx = w,
+            bottomVertexYPx = h,
+            rightRisePx = currentRightRisePx,
+            centerXFraction = currentCenterXFraction
         )
 
+        val maxTopR = minOf(w * 0.5f, circle.leftEdgeY, circle.rightEdgeY).coerceAtLeast(0f)
+        val topCornerR = (maxTopR * (1f - t).pow(1.15f)).coerceIn(0f, maxTopR)
+
         val path = Path().apply {
-            moveTo(0f, 0f)
-            lineTo(size.width, 0f)
-            lineTo(size.width, circle.rightEdgeY)
+            if (topCornerR > 0.5f) {
+                moveTo(0f, topCornerR)
+                arcTo(
+                    rect = Rect(0f, 0f, topCornerR * 2f, topCornerR * 2f),
+                    startAngleDegrees = 180f,
+                    sweepAngleDegrees = 90f,
+                    forceMoveTo = false
+                )
+                lineTo(w - topCornerR, 0f)
+                arcTo(
+                    rect = Rect(w - topCornerR * 2f, 0f, w, topCornerR * 2f),
+                    startAngleDegrees = 270f,
+                    sweepAngleDegrees = 90f,
+                    forceMoveTo = false
+                )
+            } else {
+                moveTo(0f, 0f)
+                lineTo(w, 0f)
+            }
+
+            lineTo(w, circle.rightEdgeY)
             arcTo(
                 rect = Rect(
                     left = circle.cx - circle.radius,
@@ -238,7 +331,11 @@ private class ScoopedArcBottomShape(
                 sweepAngleDegrees = circle.alphaRightDeg + circle.alphaLeftDeg,
                 forceMoveTo = false
             )
-            lineTo(0f, 0f)
+            if (topCornerR > 0.5f) {
+                lineTo(0f, topCornerR)
+            } else {
+                lineTo(0f, 0f)
+            }
             close()
         }
         return Outline.Generic(path)
@@ -350,59 +447,77 @@ fun ComplexPlayerLayout(
         val artHeightDp = screenHeightDp * 0.52f
         val rightRiseDp = (screenWidthDp * 0.23f).coerceIn(74.dp, 108.dp)
         val rightRisePx = with(density) { rightRiseDp.toPx() }
-        val scoopedShape = remember(rightRisePx) {
-            ScoopedArcBottomShape(
+        val screenWidthPx = with(density) { screenWidthDp.toPx() }
+        val artHeightPx = with(density) { artHeightDp.toPx() }
+        val miniArtSizePx = with(density) { 44.dp.toPx() }
+        val miniArtOffsetPx = with(density) { 10.dp.toPx() }
+        val slideOffsetPx = with(density) { 24.dp.toPx() }
+
+        val morphTracker = remember { ArtworkMorphTracker() }
+        val scoopedShape = remember(rightRisePx, morphTracker, expansionFractionProvider) {
+            MorphingScoopedArcBottomShape(
                 rightRisePx = rightRisePx,
-                centerXFraction = ARCH_CENTER_X_FRACTION
+                morphProgressProvider = {
+                    morphTracker.evaluate(expansionFractionProvider()).sizeT
+                },
+                targetCenterXFraction = ARCH_CENTER_X_FRACTION
             )
         }
 
         // =====================================================================
         // LAYER 1: Heavy Frosted-Glass / Blurred Cover Wash in Lower Half
         // =====================================================================
-        SmartImage(
-            model = optimizedAlbumArtUri,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            targetSize = coil.size.Size.ORIGINAL,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    scaleX = 1.28f
-                    scaleY = 1.28f
-                    alpha = if (isDarkTheme) 0.62f else 0.48f
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
                 }
-                .blur(radius = 64.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-        )
+        ) {
+            SmartImage(
+                model = optimizedAlbumArtUri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                targetSize = coil.size.Size.ORIGINAL,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.28f
+                        scaleY = 1.28f
+                        alpha = if (isDarkTheme) 0.62f else 0.48f
+                    }
+                    .blur(radius = 64.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+            )
 
-        // Translucent frosted-glass gradient wash over the blurred background
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to washColor.copy(alpha = 0.25f),
-                            0.44f to washColor.copy(alpha = if (isDarkTheme) 0.58f else 0.64f),
-                            0.72f to deepWashColor.copy(alpha = if (isDarkTheme) 0.80f else 0.84f),
-                            1.0f to deepWashColor.copy(alpha = 0.92f)
+            // Translucent frosted-glass gradient wash over the blurred background
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to washColor.copy(alpha = 0.25f),
+                                0.44f to washColor.copy(alpha = if (isDarkTheme) 0.58f else 0.64f),
+                                0.72f to deepWashColor.copy(alpha = if (isDarkTheme) 0.80f else 0.84f),
+                                1.0f to deepWashColor.copy(alpha = 0.92f)
+                            )
                         )
                     )
-                )
-        )
+            )
 
-        // Subtle frosted glass sheen overlay in the bottom half
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    if (isDarkTheme) Color.White.copy(alpha = 0.04f)
-                    else Color.White.copy(alpha = 0.16f)
-                )
-        )
+            // Subtle frosted glass sheen overlay in the bottom half
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (isDarkTheme) Color.White.copy(alpha = 0.04f)
+                        else Color.White.copy(alpha = 0.16f)
+                    )
+            )
+        }
 
         // =====================================================================
-        // LAYER 2: Edge-to-Edge Top Artwork with Left-Shifted Arch (C--M--------C)
+        // LAYER 2: Morphing Edge-to-Edge Top Artwork (MiniPlayer 44.dp Circle <-> Left-Shifted Arch)
         // =====================================================================
         val shouldApplyPausedScale = !isPlayingProvider()
         val artScale by animateFloatAsState(
@@ -413,9 +528,22 @@ fun ComplexPlayerLayout(
 
         Box(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .height(artHeightDp)
+                .layout { measurable, _ ->
+                    val sample = morphTracker.evaluate(expansionFractionProvider())
+                    val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, screenWidthPx, sample.sizeT)
+                    val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, artHeightPx, sample.sizeT)
+                    val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
+                    val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
+                    val baseX = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
+                    val baseY = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
+                    val placeX = (baseX - (targetW - baseW) * 0.5f).roundToInt()
+                    val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
+
+                    val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
+                    layout(targetW, targetH) {
+                        placeable.place(placeX, placeY)
+                    }
+                }
                 .clip(scoopedShape)
                 .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -464,6 +592,9 @@ fun ComplexPlayerLayout(
                     .fillMaxWidth()
                     .height(104.dp)
                     .align(Alignment.TopCenter)
+                    .graphicsLayer {
+                        alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    }
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
@@ -497,6 +628,11 @@ fun ComplexPlayerLayout(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
+                .graphicsLayer {
+                    val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    alpha = a
+                    translationY = (1f - a) * slideOffsetPx
+                }
         )
 
         // =====================================================================
@@ -512,6 +648,11 @@ fun ComplexPlayerLayout(
         Row(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    alpha = a
+                    translationY = (1f - a) * slideOffsetPx
+                }
                 .padding(
                     bottom = (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp),
                     start = 22.dp,
@@ -640,6 +781,9 @@ fun ComplexPlayerLayout(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .graphicsLayer {
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                }
                 .padding(
                     top = (statusBarTopPadding + 10.dp).coerceAtLeast(0.dp),
                     start = 20.dp,

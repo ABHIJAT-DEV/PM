@@ -161,7 +161,13 @@ import androidx.compose.material3.ModalBottomSheet
 import android.widget.Toast
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.Constraints
+import kotlin.math.roundToInt
 import com.saurav.pixelmusic.presentation.components.SmartImage
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -620,6 +626,10 @@ fun FullPlayerContent(
         Unit
     }
 
+    var rootPositionInWindow by remember { mutableStateOf(Offset.Zero) }
+    var measuredDefaultArtRect by remember { mutableStateOf<Rect?>(null) }
+    val artworkMorphTracker = remember { ArtworkMorphTracker() }
+
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
         FullPlayerAlbumCoverSection(
             song = song,
@@ -627,7 +637,7 @@ fun FullPlayerContent(
             currentMediaItemIndex = currentQueueIndex ?: currentMediaItemIndex,
             carouselStyle = carouselStyle,
             loadingTweaks = loadingTweaks,
-            aodScreenEnabled = aodScreenEnabled,           // ADD THIS
+            aodScreenEnabled = aodScreenEnabled,
             onEnterAodScreen = { showAodScreen = true },
             isSheetDragGestureActive = isSheetDragGestureActive,
             expansionFractionProvider = expansionFractionProvider,
@@ -644,6 +654,27 @@ fun FullPlayerContent(
                 playerViewModel.triggerAlbumNavigationFromPlayer(resolvedAlbumIdStr)
             },
             modifier = modifier
+                .onGloballyPositioned { coords ->
+                    val pos = coords.positionInRoot() - rootPositionInWindow
+                    val size = coords.size
+                    if (size.width > 0 && size.height > 0) {
+                        val side = size.height.toFloat()
+                        val centeredX = if (carouselStyle == CarouselStyle.NO_PEEK) {
+                            pos.x + (size.width - side) * 0.5f
+                        } else {
+                            pos.x
+                        }
+                        measuredDefaultArtRect = Rect(
+                            left = centeredX,
+                            top = pos.y,
+                            right = centeredX + side,
+                            bottom = pos.y + side
+                        )
+                    }
+                }
+                .graphicsLayer {
+                    alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
+                }
         )
     }
 
@@ -839,11 +870,7 @@ fun FullPlayerContent(
             ) {
                 TopAppBar(
                     modifier = Modifier.graphicsLayer {
-                        val fraction = expansionFractionProvider()
-                        // TopBar should always fade in smoothly, ignoring delayAll to avoid empty UI
-                        val startThreshold = 0f
-                        val endThreshold = 1f
-                        alpha = ((fraction - startThreshold) / (endThreshold - startThreshold)).coerceIn(0f, 1f)
+                        alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
@@ -1519,156 +1546,255 @@ fun FullPlayerContent(
             animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
             label = "orientationAlpha"
         )
-        Box(
+        val density = LocalDensity.current
+        val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
+        val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
+        val slideOffsetPx = remember(density) { with(density) { 24.dp.toPx() } }
+
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
+                .onGloballyPositioned { coords ->
+                    rootPositionInWindow = coords.positionInRoot()
+                }
                 .graphicsLayer { alpha = contentAlpha }
         ) {
+            val fullWidthPx = with(density) { maxWidth.toPx() }
+            val fullHeightPx = with(density) { maxHeight.toPx() }
+
             if (isImmersive && !isImmersiveExtended) {
-    // ==========================================
-    // 1. STANDARD IMMERSIVE MODE
-    // ==========================================
-    val bgColor = LocalMaterialTheme.current.surface
-    val isDarkTheme = LocalPixelMusicDarkTheme.current
-    val context = LocalContext.current
-    val effectiveQuality = albumArtQuality
-    val optimizedAlbumArtUri = remember(song.id, effectiveQuality) {
-        com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(song.albumArtUriString, effectiveQuality) ?: song.albumArtUriString.orEmpty()
-    }
-
-    // Material-You style wash extracted from the cover art. Falls back to
-    // the normal surface color while loading or if extraction fails.
-    var extractedColor by remember { mutableStateOf(bgColor) }
-    LaunchedEffect(optimizedAlbumArtUri, isDarkTheme) {
-        extractedColor = extractDominantColor(context, optimizedAlbumArtUri, bgColor, isDarkTheme)
-    }
-    val isBwTheme = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
-    val targetWash = if (isBwTheme) bgColor else androidx.compose.ui.graphics.lerp(bgColor, extractedColor, 0.5f)
-    val washColor by animateColorAsState(
-        targetValue = targetWash,
-        animationSpec = tween(500),
-        label = "immersiveWashColor"
-    )
-
-                Box(modifier = Modifier.fillMaxSize().background(washColor)) {   // ADD THIS
-                    Column(modifier = Modifier.fillMaxSize()) {                  // ADD THIS
-                        BoxWithConstraints {
-                            val maxImageHeight = maxHeight * 0.42f
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = maxImageHeight)
-                                    .combinedClickable(              // ADD THIS
-                                        onClick = {},
-                                        onLongClick = { if (aodScreenEnabled) showAodScreen = true }
-                                     )
-                            ) {
-                                SmartImage(
-                                    model = optimizedAlbumArtUri,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    targetSize = coil.size.Size.ORIGINAL,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                colorStops = arrayOf(
-                                                    0.0f to Color.Transparent,
-                                                    0.55f to Color.Transparent,
-                                                    0.80f to washColor.copy(alpha = 0.85f),
-                                                    1.0f to washColor
-                                                )
-                                            )
-                                        )
-                                )
-                            }
-                        }
-
-                        // LAYER 3: Everything below the image is solid wash color
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .background(washColor)
-                        )
-                    }   // ADD THIS — closes Column
-
-                    // LAYER 4: Subtle top shadow for status bar readability
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
-                        .height(130.dp)
-                        .align(Alignment.TopCenter)
-                        .background(Brush.verticalGradient(
-                            colors = listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent)
-                        ))
-                    )
-                }   // ADD THIS — closes outer Box
-            } else if (isImmersiveExtended) {
                 // ==========================================
-                // 2. IMMERSIVE EXTENDED MODE (TOP HALF ONLY)
+                // 1. STANDARD IMMERSIVE MODE (WITH MORPHING ARTWORK)
                 // ==========================================
-                val bgColor = LocalMaterialTheme.current.surface 
+                val bgColor = LocalMaterialTheme.current.surface
                 val isDarkTheme = LocalPixelMusicDarkTheme.current
-                
-                // 1. Resolve canonical artwork URI matching user preference for sharp display and shared cache
+                val context = LocalContext.current
                 val effectiveQuality = albumArtQuality
                 val optimizedAlbumArtUri = remember(song.id, effectiveQuality) {
                     com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(song.albumArtUriString, effectiveQuality) ?: song.albumArtUriString.orEmpty()
                 }
-                
-                Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
-                    // LAYER 1: Image restricted to the top half
-                    SmartImage(
-                        model = optimizedAlbumArtUri,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop, 
-                        targetSize = coil.size.Size.ORIGINAL,
+
+                var extractedColor by remember { mutableStateOf(bgColor) }
+                LaunchedEffect(optimizedAlbumArtUri, isDarkTheme) {
+                    extractedColor = extractDominantColor(context, optimizedAlbumArtUri, bgColor, isDarkTheme)
+                }
+                val isBwTheme = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
+                val targetWash = if (isBwTheme) bgColor else androidx.compose.ui.graphics.lerp(bgColor, extractedColor, 0.5f)
+                val washColor by animateColorAsState(
+                    targetValue = targetWash,
+                    animationSpec = tween(500),
+                    label = "immersiveWashColor"
+                )
+                val targetArtHeightPx = fullHeightPx * 0.42f
+                val morphShape = remember(artworkMorphTracker, expansionFractionProvider, density) {
+                    object : androidx.compose.ui.graphics.Shape {
+                        override fun createOutline(
+                            size: androidx.compose.ui.geometry.Size,
+                            layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+                            density: androidx.compose.ui.unit.Density
+                        ): androidx.compose.ui.graphics.Outline {
+                            val t = artworkMorphTracker.evaluate(expansionFractionProvider()).sizeT
+                            val maxR = minOf(size.width, size.height) * 0.5f
+                            val r = (maxR * (1f - t)).coerceIn(0f, maxR)
+                            return androidx.compose.ui.graphics.Outline.Rounded(
+                                androidx.compose.ui.geometry.RoundRect(
+                                    rect = Rect(0f, 0f, size.width, size.height),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
+                                )
+                            )
+                        }
+                    }
+                }
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Wash background fades in with nonArtAlpha
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.55f) // Restricts the image to slightly over 50% of the screen height
-                            .combinedClickable(              // ADD THIS
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                            }
+                            .background(washColor)
+                    )
+
+                    // Morphing top 42% artwork
+                    Box(
+                        modifier = Modifier
+                            .layout { measurable, _ ->
+                                val sample = artworkMorphTracker.evaluate(expansionFractionProvider())
+                                val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, fullWidthPx, sample.sizeT)
+                                val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, targetArtHeightPx, sample.sizeT)
+                                val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
+                                val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
+                                val baseX = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
+                                val baseY = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
+                                val placeX = (baseX - (targetW - baseW) * 0.5f).roundToInt()
+                                val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
+                                val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
+                                layout(targetW, targetH) {
+                                    placeable.place(placeX, placeY)
+                                }
+                            }
+                            .clip(morphShape)
+                            .combinedClickable(
                                 onClick = {},
                                 onLongClick = { if (aodScreenEnabled) showAodScreen = true }
                             )
-                    )
-                    
-                    // LAYER 2: Gradient Mask to blend the bottom edge of the image smoothly into the background color
+                    ) {
+                        SmartImage(
+                            model = optimizedAlbumArtUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            targetSize = coil.size.Size.ORIGINAL,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .graphicsLayer {
+                                    alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                                }
+                                .background(
+                                    Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0.0f to Color.Transparent,
+                                            0.55f to Color.Transparent,
+                                            0.80f to washColor.copy(alpha = 0.85f),
+                                            1.0f to washColor
+                                        )
+                                    )
+                                )
+                        )
+                    }
+
+                    // Subtle top shadow for status bar readability
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopCenter)
                             .fillMaxWidth()
-                            .fillMaxHeight(0.55f) // Matches the image bounds exactly
+                            .height(130.dp)
+                            .align(Alignment.TopCenter)
+                            .graphicsLayer {
+                                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                            }
                             .background(
                                 Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0.0f to if (isDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.Transparent,
-                                        0.50f to Color.Transparent, 
-                                        0.85f to bgColor.copy(alpha = 0.9f), 
-                                        1.0f to bgColor // Solid background color right at the cut-off point
+                                    colors = listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent)
+                                )
+                            )
+                    )
+                }
+            } else if (isImmersiveExtended) {
+                // ==========================================
+                // 2. IMMERSIVE EXTENDED MODE (WITH MORPHING ARTWORK)
+                // ==========================================
+                val bgColor = LocalMaterialTheme.current.surface
+                val isDarkTheme = LocalPixelMusicDarkTheme.current
+                val effectiveQuality = albumArtQuality
+                val optimizedAlbumArtUri = remember(song.id, effectiveQuality) {
+                    com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(song.albumArtUriString, effectiveQuality) ?: song.albumArtUriString.orEmpty()
+                }
+                val targetArtHeightPx = fullHeightPx * 0.55f
+                val morphShape = remember(artworkMorphTracker, expansionFractionProvider, density) {
+                    object : androidx.compose.ui.graphics.Shape {
+                        override fun createOutline(
+                            size: androidx.compose.ui.geometry.Size,
+                            layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+                            density: androidx.compose.ui.unit.Density
+                        ): androidx.compose.ui.graphics.Outline {
+                            val t = artworkMorphTracker.evaluate(expansionFractionProvider()).sizeT
+                            val maxR = minOf(size.width, size.height) * 0.5f
+                            val r = (maxR * (1f - t)).coerceIn(0f, maxR)
+                            return androidx.compose.ui.graphics.Outline.Rounded(
+                                androidx.compose.ui.geometry.RoundRect(
+                                    rect = Rect(0f, 0f, size.width, size.height),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
+                                )
+                            )
+                        }
+                    }
+                }
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                            }
+                            .background(bgColor)
+                    )
+
+                    // LAYER 1 & 2: Morphing top 55% image + bottom gradient mask
+                    Box(
+                        modifier = Modifier
+                            .layout { measurable, _ ->
+                                val sample = artworkMorphTracker.evaluate(expansionFractionProvider())
+                                val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, fullWidthPx, sample.sizeT)
+                                val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, targetArtHeightPx, sample.sizeT)
+                                val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
+                                val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
+                                val baseX = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
+                                val baseY = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
+                                val placeX = (baseX - (targetW - baseW) * 0.5f).roundToInt()
+                                val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
+                                val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
+                                layout(targetW, targetH) {
+                                    placeable.place(placeX, placeY)
+                                }
+                            }
+                            .clip(morphShape)
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = { if (aodScreenEnabled) showAodScreen = true }
+                            )
+                    ) {
+                        SmartImage(
+                            model = optimizedAlbumArtUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            targetSize = coil.size.Size.ORIGINAL,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .graphicsLayer {
+                                    alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                                }
+                                .background(
+                                    Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0.0f to if (isDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.Transparent,
+                                            0.50f to Color.Transparent,
+                                            0.85f to bgColor.copy(alpha = 0.9f),
+                                            1.0f to bgColor
+                                        )
+                                    )
+                                )
+                        )
+                    }
+
+                    // LAYER 3: Subtle top shadow for status bar and top buttons readability
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                            .align(Alignment.TopCenter)
+                            .graphicsLayer {
+                                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                            }
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.45f),
+                                        Color.Transparent
                                     )
                                 )
                             )
                     )
-
-                    // LAYER 3: Subtle top shadow for status bar and top buttons readability
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
-                        .height(130.dp)
-                        .align(Alignment.TopCenter)
-                        .background(Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.45f), 
-                                Color.Transparent
-                            )
-                        ))
-                    )
                 }
             }
+
             if (isComplex) {
                 ComplexPlayerLayout(
                     song = song,
@@ -1696,26 +1822,116 @@ fun FullPlayerContent(
                     onArtistClick = onSongMetadataArtistClick,
                     onMoreOptionsClick = { showSongInfoBottomSheet = true }
                 )
-            } else if (isLandscape) {
-                FullPlayerLandscapeContent(
-                    paddingValues = paddingValues,
-                    albumCoverSection = albumCoverSection,
-                    songMetadataSection = landscapeSongMetadataSection,
-                    playerProgressSection = playerProgressSection,
-                    controlsSection = controlsSection,
-                    singleLineLyricsSection = singleLineLyricsSection,
-                    isFullScreenArt = isImmersive
-                )
             } else {
-                FullPlayerPortraitContent(
-                    paddingValues = paddingValues,
-                    albumCoverSection = albumCoverSection,
-                    songMetadataSection = portraitSongMetadataSection,
-                    playerProgressSection = playerProgressSection,
-                    controlsSection = controlsSection,
-                    singleLineLyricsSection = singleLineLyricsSection,
-                    isFullScreenArt = isImmersive
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            val a = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                            alpha = a
+                            translationY = (1f - a) * slideOffsetPx
+                        }
+                ) {
+                    if (isLandscape) {
+                        FullPlayerLandscapeContent(
+                            paddingValues = paddingValues,
+                            albumCoverSection = albumCoverSection,
+                            songMetadataSection = landscapeSongMetadataSection,
+                            playerProgressSection = playerProgressSection,
+                            controlsSection = controlsSection,
+                            singleLineLyricsSection = singleLineLyricsSection,
+                            isFullScreenArt = isImmersive
+                        )
+                    } else {
+                        FullPlayerPortraitContent(
+                            paddingValues = paddingValues,
+                            albumCoverSection = albumCoverSection,
+                            songMetadataSection = portraitSongMetadataSection,
+                            playerProgressSection = playerProgressSection,
+                            controlsSection = controlsSection,
+                            singleLineLyricsSection = singleLineLyricsSection,
+                            isFullScreenArt = isImmersive
+                        )
+                    }
+                }
+
+                // 3. DEFAULT MODE MORPHING ARTWORK OVERLAY (MiniPlayer 44.dp Circle <-> Default Album Cover Card)
+                if (!isImmersive) {
+                    val optimizedDefaultArtUri = remember(song.id, albumArtQuality) {
+                        com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(song.albumArtUriString, albumArtQuality) ?: song.albumArtUriString.orEmpty()
+                    }
+                    val shouldApplyPausedScale = !isPlayingProvider() && !playWhenReadyProvider()
+                    val defaultPauseScale by animateFloatAsState(
+                        targetValue = if (shouldApplyPausedScale) 0.95f else 1f,
+                        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                        label = "DefaultMorphPauseScale"
+                    )
+                    val defaultCornerPx = with(density) { 18.dp.toPx() }
+                    val fallbackPaddingPx = with(density) { 24.dp.toPx() }
+                    val fallbackTopPx = with(density) { 112.dp.toPx() }
+                    val fallbackSidePx = (fullWidthPx - fallbackPaddingPx * 2f).coerceAtLeast(miniArtSizePx)
+
+                    val defaultMorphShape = remember(artworkMorphTracker, expansionFractionProvider, defaultCornerPx) {
+                        object : androidx.compose.ui.graphics.Shape {
+                            override fun createOutline(
+                                size: androidx.compose.ui.geometry.Size,
+                                layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+                                density: androidx.compose.ui.unit.Density
+                            ): androidx.compose.ui.graphics.Outline {
+                                val t = artworkMorphTracker.evaluate(expansionFractionProvider()).sizeT
+                                val startR = minOf(size.width, size.height) * 0.5f
+                                val r = androidx.compose.ui.util.lerp(startR, defaultCornerPx, t)
+                                    .coerceIn(0f, startR)
+                                return androidx.compose.ui.graphics.Outline.Rounded(
+                                    androidx.compose.ui.geometry.RoundRect(
+                                        rect = Rect(0f, 0f, size.width, size.height),
+                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .layout { measurable, _ ->
+                                val rawF = expansionFractionProvider()
+                                if (rawF >= 0.985f) {
+                                    val p = measurable.measure(Constraints.fixed(0, 0))
+                                    return@layout layout(0, 0) { p.place(0, 0) }
+                                }
+                                val sample = artworkMorphTracker.evaluate(rawF)
+                                val targetRect = measuredDefaultArtRect
+                                val destW = (targetRect?.width ?: fallbackSidePx) * defaultPauseScale
+                                val destH = (targetRect?.height ?: fallbackSidePx) * defaultPauseScale
+                                val destX = (targetRect?.left ?: fallbackPaddingPx) + ((targetRect?.width ?: fallbackSidePx) - destW) * 0.5f
+                                val destY = (targetRect?.top ?: fallbackTopPx) + ((targetRect?.height ?: fallbackSidePx) - destH) * 0.5f
+
+                                val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, destW, sample.sizeT)
+                                val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, destH, sample.sizeT)
+                                val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
+                                val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
+                                val baseX = androidx.compose.ui.util.lerp(miniArtOffsetPx, destX, sample.posT)
+                                val baseY = androidx.compose.ui.util.lerp(miniArtOffsetPx, destY, sample.posT)
+                                val placeX = (baseX - (targetW - baseW) * 0.5f).roundToInt()
+                                val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
+
+                                val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
+                                layout(targetW, targetH) {
+                                    placeable.place(placeX, placeY)
+                                }
+                            }
+                            .clip(defaultMorphShape)
+                    ) {
+                        SmartImage(
+                            model = optimizedDefaultArtUri,
+                            contentDescription = song.title,
+                            contentScale = ContentScale.Crop,
+                            targetSize = coil.size.Size.ORIGINAL,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
             }
         }
     }
