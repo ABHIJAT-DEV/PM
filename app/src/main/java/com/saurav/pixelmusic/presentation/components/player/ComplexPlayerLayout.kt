@@ -387,6 +387,8 @@ fun ComplexPlayerLayout(
             ?: "Unknown Artist"
     }
 
+    var rootPosInWindow by remember { mutableStateOf(Offset.Zero) }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -408,7 +410,6 @@ fun ComplexPlayerLayout(
         val miniArtOffsetPx = with(density) { 10.dp.toPx() }
         val slideOffsetPx = with(density) { 24.dp.toPx() }
 
-        var rootPosInWindow by remember { mutableStateOf(Offset.Zero) }
         var songInfoDestOffset by remember { mutableStateOf<Offset?>(null) }
         val miniSongInfoLeftPx = with(density) { 66.dp.toPx() }
         val miniSongInfoTopPx = with(density) { 12.dp.toPx() }
