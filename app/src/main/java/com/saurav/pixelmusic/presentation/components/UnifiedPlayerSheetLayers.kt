@@ -108,11 +108,6 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         if (playerContentExpansionFraction.value < 0.5f) 1f else 0f
                     }
                 }
-                val isMiniPlayerVisible by remember {
-                    derivedStateOf {
-                        playerContentExpansionFraction.value < 0.42f
-                    }
-                }
                 val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 val miniShape = remember { RoundedCornerShape(32.dp) }
                 val miniBorderBrush = remember(isDark) {
@@ -127,18 +122,23 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                     )
                 }
 
-                if (isMiniPlayerVisible) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .fillMaxWidth()
-                            .height(MiniPlayerHeight)
-                            .graphicsLayer {
-                                // Compute miniAlpha in the draw phase from the Animatable,
-                                // avoiding per-frame recomposition during gestures.
-                                alpha = (1f - playerContentExpansionFraction.value * 2.5f)
-                                    .coerceIn(0f, 1f)
-                            }
+                // Keep MiniPlayer composed at all times and move it off-screen when expanded
+                // so crossing 0.42f during a downward drag never triggers a mid-drag composition hitch.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(MiniPlayerHeight)
+                        .offset {
+                            if (playerContentExpansionFraction.value >= 0.45f) IntOffset(0, 10000)
+                            else IntOffset.Zero
+                        }
+                        .graphicsLayer {
+                            // Compute miniAlpha in the draw phase from the Animatable,
+                            // avoiding per-frame recomposition during gestures.
+                            alpha = (1f - playerContentExpansionFraction.value * 2.5f)
+                                .coerceIn(0f, 1f)
+                        }
                             .then(
                                 if (isLiquidGlassActive) {
                                     Modifier
@@ -187,7 +187,6 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                }
             }
         }
 

@@ -97,15 +97,20 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -210,6 +215,53 @@ private fun computeAsymmetricArchCircle(
         alphaLeftDeg = alphaLeftDeg
     )
 }
+
+/**
+ * Non-state holder for the FullPlayer root LayoutCoordinates and dimensions.
+ * Storing coordinates in plain fields instead of MutableState avoids Snapshot writes during layout,
+ * and reading them via a dedicated outer .layout modifier (outside .graphicsLayer) ensures captured
+ * destination coordinates are 100% untransformed (never polluted by graphicsLayer translation/scale).
+ */
+class LayoutCoordsHolder {
+    var coords: LayoutCoordinates? = null
+    var widthPx: Float = 0f
+    var heightPx: Float = 0f
+}
+
+class MorphElementBounds(
+    var offset: Offset = Offset.Zero,
+    var size: IntSize = IntSize.Zero,
+    var hasBounds: Boolean = false
+)
+
+internal fun Modifier.captureRootCoords(holder: LayoutCoordsHolder): Modifier =
+    this.layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, placeable.height) {
+            holder.coords = coordinates
+            holder.widthPx = placeable.width.toFloat()
+            holder.heightPx = placeable.height.toFloat()
+            placeable.place(0, 0)
+        }
+    }
+
+internal fun Modifier.captureUntransformedBounds(
+    rootHolder: LayoutCoordsHolder?,
+    bounds: MorphElementBounds
+): Modifier =
+    this.layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, placeable.height) {
+            val childCoords = coordinates
+            val rootCoords = rootHolder?.coords
+            if (childCoords != null && rootCoords != null && childCoords.isAttached && rootCoords.isAttached) {
+                bounds.offset = rootCoords.localPositionOf(childCoords, Offset.Zero)
+                bounds.size = IntSize(placeable.width, placeable.height)
+                bounds.hasBounds = true
+            }
+            placeable.place(0, 0)
+        }
+    }
 
 data class ArtworkMorphSample(
     val rawFraction: Float,
@@ -387,32 +439,30 @@ fun ComplexPlayerLayout(
             ?: "Unknown Artist"
     }
 
-    var rootPosInWindow by remember { mutableStateOf(Offset.Zero) }
+    val configuration = LocalConfiguration.current
+    val rootCoordsHolder = remember { LayoutCoordsHolder() }
+    val songInfoBounds = remember { MorphElementBounds() }
 
-    BoxWithConstraints(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(solidBackgroundColor)
-            .onGloballyPositioned { coords ->
-                rootPosInWindow = coords.positionInRoot()
-            }
+            .captureRootCoords(rootCoordsHolder)
     ) {
-        val screenWidthDp = maxWidth
-        val screenHeightDp = maxHeight
+        val screenWidthDp = configuration.screenWidthDp.dp
+        val screenHeightDp = configuration.screenHeightDp.dp
         // Lowest point M of the arch sits at ~52% height and 25% from the left (C--M--------C)
         val artHeightDp = screenHeightDp * 0.52f
         val rightRiseDp = (screenWidthDp * 0.23f).coerceIn(74.dp, 108.dp)
         val rightRisePx = with(density) { rightRiseDp.toPx() }
         val screenWidthPx = with(density) { screenWidthDp.toPx() }
-        val screenHeightPx = with(density) { screenHeightDp.toPx() }
         val artHeightPx = with(density) { artHeightDp.toPx() }
         val miniArtSizePx = with(density) { 44.dp.toPx() }
         val miniArtOffsetPx = with(density) { 10.dp.toPx() }
         val slideOffsetPx = with(density) { 24.dp.toPx() }
 
-        var songInfoDestOffset by remember { mutableStateOf<Offset?>(null) }
         val miniSongInfoLeftPx = with(density) { 66.dp.toPx() }
-        val miniSongInfoTopPx = with(density) { 12.dp.toPx() }
+        val miniSongInfoTopPx = with(density) { 13.dp.toPx() }
 
         val morphTracker = remember { ArtworkMorphTracker() }
         val scoopedShape = remember(rightRisePx, morphTracker, expansionFractionProvider) {
@@ -438,10 +488,12 @@ fun ComplexPlayerLayout(
 
         Box(
             modifier = Modifier
-                .layout { measurable, _ ->
+                .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(expansionFractionProvider())
-                    val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, screenWidthPx, sample.sizeT)
-                    val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, artHeightPx, sample.sizeT)
+                    val fullW = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
+                    val fullH = (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
+                    val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, fullW, sample.sizeT)
+                    val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, fullH, sample.sizeT)
                     val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
                     val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
                     val baseX = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
@@ -572,21 +624,19 @@ fun ComplexPlayerLayout(
                     .padding(top = leftColumnTopDp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Song Title & Artist — morphs in-place via GPU graphicsLayer from MiniPlayer slot (66.dp, 12.dp)
+                // Song Title & Artist — morphs in-place via GPU graphicsLayer from MiniPlayer slot (66.dp, 13.dp)
                 val fallbackSongInfoLeftPx = with(density) { 26.dp.toPx() }
                 val fallbackSongInfoTopPx = with(density) { (leftColumnTopDp).toPx() }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
-                        .onGloballyPositioned { coords ->
-                            songInfoDestOffset = coords.positionInRoot() - rootPosInWindow
-                        }
+                        .captureUntransformedBounds(rootCoordsHolder, songInfoBounds)
                         .graphicsLayer {
                             val s = morphTracker.evaluate(expansionFractionProvider())
-                            val destX = songInfoDestOffset?.x ?: fallbackSongInfoLeftPx
-                            val destY = songInfoDestOffset?.y ?: fallbackSongInfoTopPx
-                            val scale = androidx.compose.ui.util.lerp(0.64f, 1f, s.sizeT)
+                            val destX = if (songInfoBounds.hasBounds) songInfoBounds.offset.x else fallbackSongInfoLeftPx
+                            val destY = if (songInfoBounds.hasBounds) songInfoBounds.offset.y else fallbackSongInfoTopPx
+                            val scale = androidx.compose.ui.util.lerp(0.625f, 1f, s.sizeT)
                             transformOrigin = TransformOrigin(0f, 0f)
                             scaleX = scale
                             scaleY = scale
@@ -634,6 +684,14 @@ fun ComplexPlayerLayout(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .graphicsLayer {
+                                    // Counter-scale artist text so at t=0 (parent scale 0.625) it renders at ~13.sp matching MiniPlayer
+                                    val s = morphTracker.evaluate(expansionFractionProvider())
+                                    val artistScale = androidx.compose.ui.util.lerp(1.38f, 1f, s.sizeT)
+                                    transformOrigin = TransformOrigin(0f, 0f)
+                                    scaleX = artistScale
+                                    scaleY = artistScale
+                                }
                                 .basicMarquee(
                                     iterations = Int.MAX_VALUE,
                                     initialDelayMillis = 2000,
@@ -682,7 +740,7 @@ fun ComplexPlayerLayout(
                     isPlayingProvider = isPlayingProvider,
                     isFavoriteProvider = isFavoriteProvider,
                     expansionFractionProvider = expansionFractionProvider,
-                    rootPosInWindowProvider = { rootPosInWindow },
+                    rootCoordsHolder = rootCoordsHolder,
                     onMoreOptionsClick = onMoreOptionsClick,
                     onFavoriteToggle = onFavoriteToggle,
                     onPrevious = onPrevious,
@@ -1461,7 +1519,7 @@ private fun VerticalExpressiveControlStack(
     isPlayingProvider: () -> Boolean,
     isFavoriteProvider: () -> Boolean,
     expansionFractionProvider: () -> Float,
-    rootPosInWindowProvider: () -> Offset,
+    rootCoordsHolder: LayoutCoordsHolder,
     onMoreOptionsClick: () -> Unit,
     onFavoriteToggle: () -> Unit,
     onPrevious: () -> Unit,
@@ -1486,14 +1544,11 @@ private fun VerticalExpressiveControlStack(
     val miniBtnTopPx = remember(density) { with(density) { 14.dp.toPx() } }
     val miniEndPadPx = remember(density) { with(density) { 12.dp.toPx() } }
     val miniGapPx = remember(density) { with(density) { 8.dp.toPx() } }
+    val miniIconSizePx = remember(density) { with(density) { 22.dp.toPx() } }
 
-    val miniNextLeftPx = (containerWidthPx - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
-    val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
-    val miniPrevLeftPx = (miniPlayLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
-
-    var prevDestOffset by remember { mutableStateOf<Offset?>(null) }
-    var playDestOffset by remember { mutableStateOf<Offset?>(null) }
-    var nextDestOffset by remember { mutableStateOf<Offset?>(null) }
+    val prevBounds = remember { MorphElementBounds() }
+    val playBounds = remember { MorphElementBounds() }
+    val nextBounds = remember { MorphElementBounds() }
 
     var activeButton by remember { mutableStateOf<VerticalControlButton?>(null) }
     var playPauseVisualState by remember { mutableStateOf(isPlaying) }
@@ -1633,13 +1688,15 @@ private fun VerticalExpressiveControlStack(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(prevWeight)
-                .onGloballyPositioned { coords ->
-                    prevDestOffset = coords.positionInRoot() - rootPosInWindowProvider()
-                }
+                .captureUntransformedBounds(rootCoordsHolder, prevBounds)
                 .graphicsLayer {
                     val s = morphTracker.evaluate(expansionFractionProvider())
-                    val destX = prevDestOffset?.x ?: 0f
-                    val destY = prevDestOffset?.y ?: 0f
+                    val cw = rootCoordsHolder.widthPx.takeIf { it > 0f } ?: containerWidthPx
+                    val miniNextLeftPx = (cw - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
+                    val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+                    val miniPrevLeftPx = (miniPlayLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+                    val destX = prevBounds.offset.x
+                    val destY = prevBounds.offset.y
                     val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
                     val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
                     transformOrigin = TransformOrigin(0f, 0f)
@@ -1650,6 +1707,10 @@ private fun VerticalExpressiveControlStack(
                 },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
+            miniCornerDp = 18.dp,
+            miniBtnSizePx = miniBtnSizePx,
+            morphTracker = morphTracker,
+            expansionFractionProvider = expansionFractionProvider,
             isActive = activeButton == VerticalControlButton.PREVIOUS,
             containerColor = skipContainerColor,
             onClick = {
@@ -1662,7 +1723,21 @@ private fun VerticalExpressiveControlStack(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = "Previous",
                 tint = onSkipContainerColor,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier
+                    .size(32.dp)
+                    .graphicsLayer {
+                        val bw = prevBounds.size.width.toFloat()
+                        val bh = prevBounds.size.height.toFloat()
+                        if (bw > 0f && bh > 0f) {
+                            val s = morphTracker.evaluate(expansionFractionProvider())
+                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                            val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
+                            val fullIconPx = 32.dp.toPx().coerceAtLeast(1f)
+                            val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
+                            scaleX = if (parentScaleX > 0.001f) desiredScale / parentScaleX else 1f
+                            scaleY = if (parentScaleY > 0.001f) desiredScale / parentScaleY else 1f
+                        }
+                    }
             )
         }
 
@@ -1676,13 +1751,14 @@ private fun VerticalExpressiveControlStack(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(playWeight)
-                .onGloballyPositioned { coords ->
-                    playDestOffset = coords.positionInRoot() - rootPosInWindowProvider()
-                }
+                .captureUntransformedBounds(rootCoordsHolder, playBounds)
                 .graphicsLayer {
                     val s = morphTracker.evaluate(expansionFractionProvider())
-                    val destX = playDestOffset?.x ?: 0f
-                    val destY = playDestOffset?.y ?: 0f
+                    val cw = rootCoordsHolder.widthPx.takeIf { it > 0f } ?: containerWidthPx
+                    val miniNextLeftPx = (cw - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
+                    val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+                    val destX = playBounds.offset.x
+                    val destY = playBounds.offset.y
                     val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
                     val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
                     transformOrigin = TransformOrigin(0f, 0f)
@@ -1693,6 +1769,10 @@ private fun VerticalExpressiveControlStack(
                 },
             defaultCornerDp = if (playPauseVisualState) 20.dp else 34.dp,
             pressedCornerDp = 14.dp,
+            miniCornerDp = if (playPauseVisualState) 11.dp else 18.dp,
+            miniBtnSizePx = miniBtnSizePx,
+            morphTracker = morphTracker,
+            expansionFractionProvider = expansionFractionProvider,
             isActive = activeButton == VerticalControlButton.PLAY_PAUSE,
             containerColor = playPauseContainerColor,
             onClick = {
@@ -1701,17 +1781,33 @@ private fun VerticalExpressiveControlStack(
                 onPlayPause()
             }
         ) {
-            Crossfade(
-                targetState = playPauseVisualState,
-                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                label = "complexPlayPauseIcon"
-            ) { playing ->
-                Icon(
-                    imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (playing) "Pause" else "Play",
-                    tint = onPlayPauseContainerColor,
-                    modifier = Modifier.size(36.dp)
-                )
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    val bw = playBounds.size.width.toFloat()
+                    val bh = playBounds.size.height.toFloat()
+                    if (bw > 0f && bh > 0f) {
+                        val s = morphTracker.evaluate(expansionFractionProvider())
+                        val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                        val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
+                        val fullIconPx = 36.dp.toPx().coerceAtLeast(1f)
+                        val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
+                        scaleX = if (parentScaleX > 0.001f) desiredScale / parentScaleX else 1f
+                        scaleY = if (parentScaleY > 0.001f) desiredScale / parentScaleY else 1f
+                    }
+                }
+            ) {
+                Crossfade(
+                    targetState = playPauseVisualState,
+                    animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                    label = "complexPlayPauseIcon"
+                ) { playing ->
+                    Icon(
+                        imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (playing) "Pause" else "Play",
+                        tint = onPlayPauseContainerColor,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
         }
 
@@ -1725,13 +1821,13 @@ private fun VerticalExpressiveControlStack(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(nextWeight)
-                .onGloballyPositioned { coords ->
-                    nextDestOffset = coords.positionInRoot() - rootPosInWindowProvider()
-                }
+                .captureUntransformedBounds(rootCoordsHolder, nextBounds)
                 .graphicsLayer {
                     val s = morphTracker.evaluate(expansionFractionProvider())
-                    val destX = nextDestOffset?.x ?: 0f
-                    val destY = nextDestOffset?.y ?: 0f
+                    val cw = rootCoordsHolder.widthPx.takeIf { it > 0f } ?: containerWidthPx
+                    val miniNextLeftPx = (cw - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
+                    val destX = nextBounds.offset.x
+                    val destY = nextBounds.offset.y
                     val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
                     val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
                     transformOrigin = TransformOrigin(0f, 0f)
@@ -1742,6 +1838,10 @@ private fun VerticalExpressiveControlStack(
                 },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
+            miniCornerDp = 18.dp,
+            miniBtnSizePx = miniBtnSizePx,
+            morphTracker = morphTracker,
+            expansionFractionProvider = expansionFractionProvider,
             isActive = activeButton == VerticalControlButton.NEXT,
             containerColor = skipContainerColor,
             onClick = {
@@ -1754,7 +1854,21 @@ private fun VerticalExpressiveControlStack(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = "Next",
                 tint = onSkipContainerColor,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier
+                    .size(32.dp)
+                    .graphicsLayer {
+                        val bw = nextBounds.size.width.toFloat()
+                        val bh = nextBounds.size.height.toFloat()
+                        if (bw > 0f && bh > 0f) {
+                            val s = morphTracker.evaluate(expansionFractionProvider())
+                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                            val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
+                            val fullIconPx = 32.dp.toPx().coerceAtLeast(1f)
+                            val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
+                            scaleX = if (parentScaleX > 0.001f) desiredScale / parentScaleX else 1f
+                            scaleY = if (parentScaleY > 0.001f) desiredScale / parentScaleY else 1f
+                        }
+                    }
             )
         }
     }
@@ -2099,6 +2213,10 @@ private fun ExpressiveMorphingStackButton(
     containerColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    miniCornerDp: Dp? = null,
+    miniBtnSizePx: Float = 0f,
+    morphTracker: ArtworkMorphTracker? = null,
+    expansionFractionProvider: (() -> Float)? = null,
     content: @Composable () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -2121,16 +2239,40 @@ private fun ExpressiveMorphingStackButton(
         label = "stackButtonScale"
     )
 
-    val shape = AbsoluteSmoothCornerShape(
-        cornerRadiusTL = cornerRadius,
-        smoothnessAsPercentTL = 60,
-        cornerRadiusTR = cornerRadius,
-        smoothnessAsPercentTR = 60,
-        cornerRadiusBL = cornerRadius,
-        smoothnessAsPercentBL = 60,
-        cornerRadiusBR = cornerRadius,
-        smoothnessAsPercentBR = 60
-    )
+    val shape: Shape = if (miniCornerDp != null && morphTracker != null && expansionFractionProvider != null && miniBtnSizePx > 0f) {
+        remember(miniCornerDp, miniBtnSizePx, morphTracker, expansionFractionProvider) {
+            object : Shape {
+                override fun createOutline(
+                    size: Size,
+                    layoutDirection: LayoutDirection,
+                    density: Density
+                ): Outline {
+                    val w = size.width.coerceAtLeast(1f)
+                    val h = size.height.coerceAtLeast(1f)
+                    val t = morphTracker.evaluate(expansionFractionProvider()).sizeT
+                    val fullCornerPx = with(density) { cornerRadius.toPx() }
+                    val miniCornerPx = with(density) { miniCornerDp.toPx() }
+                    val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, t)
+                    val sx = (androidx.compose.ui.util.lerp(miniBtnSizePx, w, t) / w).coerceAtLeast(0.01f)
+                    val sy = (androidx.compose.ui.util.lerp(miniBtnSizePx, h, t) / h).coerceAtLeast(0.01f)
+                    val rx = (targetVisualR / sx).coerceIn(0f, w * 0.5f)
+                    val ry = (targetVisualR / sy).coerceIn(0f, h * 0.5f)
+                    return Outline.Rounded(RoundRect(Rect(0f, 0f, w, h), CornerRadius(rx, ry)))
+                }
+            }
+        }
+    } else {
+        AbsoluteSmoothCornerShape(
+            cornerRadiusTL = cornerRadius,
+            smoothnessAsPercentTL = 60,
+            cornerRadiusTR = cornerRadius,
+            smoothnessAsPercentTR = 60,
+            cornerRadiusBL = cornerRadius,
+            smoothnessAsPercentBL = 60,
+            cornerRadiusBR = cornerRadius,
+            smoothnessAsPercentBR = 60
+        )
+    }
 
     Box(
         modifier = modifier

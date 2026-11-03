@@ -627,9 +627,8 @@ fun FullPlayerContent(
         Unit
     }
 
-    var rootPositionInWindow by remember { mutableStateOf(Offset.Zero) }
-    var rootWidthPx by remember { mutableFloatStateOf(0f) }
-    var defaultArtDestOffset by remember { mutableStateOf<Offset?>(null) }
+    val rootCoordsHolder = remember { LayoutCoordsHolder() }
+    val defaultArtBounds = remember { MorphElementBounds() }
     val artworkMorphTracker = remember { ArtworkMorphTracker() }
     val density = LocalDensity.current
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
@@ -659,13 +658,11 @@ fun FullPlayerContent(
                 playerViewModel.triggerAlbumNavigationFromPlayer(resolvedAlbumIdStr)
             },
             modifier = modifier
-                .onGloballyPositioned { coords ->
-                    defaultArtDestOffset = coords.positionInRoot() - rootPositionInWindow
-                }
+                .captureUntransformedBounds(rootCoordsHolder, defaultArtBounds)
                 .graphicsLayer {
                     val s = artworkMorphTracker.evaluate(expansionFractionProvider())
-                    val destX = defaultArtDestOffset?.x ?: 0f
-                    val destY = defaultArtDestOffset?.y ?: 0f
+                    val destX = defaultArtBounds.offset.x
+                    val destY = defaultArtBounds.offset.y
                     val curW = androidx.compose.ui.util.lerp(miniArtSizePx, size.width, s.sizeT)
                     val curH = androidx.compose.ui.util.lerp(miniArtSizePx, size.height, s.sizeT)
                     transformOrigin = TransformOrigin(0f, 0f)
@@ -727,8 +724,8 @@ fun FullPlayerContent(
             onFavoriteToggle = onFavoriteToggle,
             isFullScreenArt = isImmersive,
             morphTracker = artworkMorphTracker,
-            rootPositionInWindowProvider = { rootPositionInWindow },
-            containerWidthPxProvider = { rootWidthPx }
+            rootCoordsHolder = rootCoordsHolder,
+            containerWidthPxProvider = { rootCoordsHolder.widthPx }
         )
     }
 
@@ -774,7 +771,7 @@ fun FullPlayerContent(
             isLiquidGlass = isLiquidGlassActive,
             backdrop = activeBackdrop,
             morphTracker = artworkMorphTracker,
-            rootPositionInWindowProvider = { rootPositionInWindow }
+            rootCoordsHolder = rootCoordsHolder
         )
     }
 
@@ -801,7 +798,7 @@ fun FullPlayerContent(
             isLiquidGlass = isLiquidGlassActive,
             backdrop = activeBackdrop,
             morphTracker = artworkMorphTracker,
-            rootPositionInWindowProvider = { rootPositionInWindow }
+            rootCoordsHolder = rootCoordsHolder
         )
     }
 
@@ -1557,18 +1554,18 @@ fun FullPlayerContent(
         )
         val slideOffsetPx = remember(density) { with(density) { 24.dp.toPx() } }
 
-        BoxWithConstraints(
+        val configuration = LocalConfiguration.current
+        val fallbackFullWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+        val fallbackFullHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .onGloballyPositioned { coords ->
-                    rootPositionInWindow = coords.positionInRoot()
-                    rootWidthPx = coords.size.width.toFloat()
-                }
+                .captureRootCoords(rootCoordsHolder)
                 .graphicsLayer { alpha = contentAlpha }
         ) {
-            val fullWidthPx = with(density) { maxWidth.toPx() }
-            val fullHeightPx = with(density) { maxHeight.toPx() }
-            rootWidthPx = fullWidthPx
+            val fullWidthPx = fallbackFullWidthPx
+            val fullHeightPx = fallbackFullHeightPx
 
             if (isImmersive && !isImmersiveExtended) {
                 // ==========================================
@@ -1628,10 +1625,12 @@ fun FullPlayerContent(
                     // Morphing top 42% artwork
                     Box(
                         modifier = Modifier
-                            .layout { measurable, _ ->
+                            .layout { measurable, constraints ->
                                 val sample = artworkMorphTracker.evaluate(expansionFractionProvider())
-                                val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, fullWidthPx, sample.sizeT)
-                                val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, targetArtHeightPx, sample.sizeT)
+                                val wPx = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: fullWidthPx
+                                val hPx = (constraints.maxHeight.toFloat() * 0.42f).takeIf { it > 0f } ?: targetArtHeightPx
+                                val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, wPx, sample.sizeT)
+                                val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, hPx, sample.sizeT)
                                 val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
                                 val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
                                 val baseX = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
@@ -1735,10 +1734,12 @@ fun FullPlayerContent(
                     // LAYER 1 & 2: Morphing top 55% image + bottom gradient mask
                     Box(
                         modifier = Modifier
-                            .layout { measurable, _ ->
+                            .layout { measurable, constraints ->
                                 val sample = artworkMorphTracker.evaluate(expansionFractionProvider())
-                                val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, fullWidthPx, sample.sizeT)
-                                val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, targetArtHeightPx, sample.sizeT)
+                                val wPx = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: fullWidthPx
+                                val hPx = (constraints.maxHeight.toFloat() * 0.55f).takeIf { it > 0f } ?: targetArtHeightPx
+                                val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, wPx, sample.sizeT)
+                                val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, hPx, sample.sizeT)
                                 val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
                                 val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
                                 val baseX = androidx.compose.ui.util.lerp(miniArtOffsetPx, 0f, sample.posT)
@@ -2565,7 +2566,7 @@ private fun FullPlayerControlsSection(
     onFavoriteToggle: () -> Unit,
     isFullScreenArt: Boolean,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
-    rootPositionInWindowProvider: () -> Offset = { Offset.Zero },
+    rootCoordsHolder: LayoutCoordsHolder? = null,
     containerWidthPxProvider: () -> Float = { 0f }
 ) {
     val stableControlAnimationSpec = remember {
@@ -2617,7 +2618,7 @@ private fun FullPlayerControlsSection(
                 backdrop = backdrop,
                 morphTracker = morphTracker,
                 expansionFractionProvider = expansionFractionProvider,
-                rootPositionInWindowProvider = rootPositionInWindowProvider,
+                rootCoordsHolder = rootCoordsHolder,
                 containerWidthPxProvider = containerWidthPxProvider
             )
 
@@ -2829,7 +2830,7 @@ private fun FullPlayerSongMetadataSection(
     isLiquidGlass: Boolean = false,
     backdrop: com.kyant.backdrop.Backdrop? = null,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
-    rootPositionInWindowProvider: () -> Offset = { Offset.Zero }
+    rootCoordsHolder: LayoutCoordsHolder? = null
 ) {
     DelayedContent(
         shouldDelay = false,
@@ -2876,7 +2877,7 @@ private fun FullPlayerSongMetadataSection(
             isLiquidGlass = isLiquidGlass,
             backdrop = backdrop,
             morphTracker = morphTracker,
-            rootPositionInWindowProvider = rootPositionInWindowProvider
+            rootCoordsHolder = rootCoordsHolder
         )
     }
 }
@@ -2989,12 +2990,12 @@ private fun SongMetadataDisplaySection(
     isLiquidGlass: Boolean = false,
     backdrop: com.kyant.backdrop.Backdrop? = null,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
-    rootPositionInWindowProvider: () -> Offset = { Offset.Zero }
+    rootCoordsHolder: LayoutCoordsHolder? = null
 ) {
     val density = LocalDensity.current
     val miniSongInfoLeftPx = remember(density) { with(density) { 66.dp.toPx() } }
-    val miniSongInfoTopPx = remember(density) { with(density) { 12.dp.toPx() } }
-    var songInfoDestOffset by remember { mutableStateOf<Offset?>(null) }
+    val miniSongInfoTopPx = remember(density) { with(density) { 10.dp.toPx() } }
+    val songInfoBounds = remember { MorphElementBounds() }
     val isDark = LocalPixelMusicDarkTheme.current
     val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
     val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
@@ -3022,13 +3023,11 @@ private fun SongMetadataDisplaySection(
                 modifier = Modifier
                     .weight(1f)
                     .align(Alignment.CenterVertically)
-                    .onGloballyPositioned { coords ->
-                        songInfoDestOffset = coords.positionInRoot() - rootPositionInWindowProvider()
-                    }
+                    .captureUntransformedBounds(rootCoordsHolder, songInfoBounds)
                     .graphicsLayer {
                         val s = morphTracker.evaluate(expansionFractionProvider())
-                        val destX = songInfoDestOffset?.x ?: 0f
-                        val destY = songInfoDestOffset?.y ?: 0f
+                        val destX = songInfoBounds.offset.x
+                        val destY = songInfoBounds.offset.y
                         val scale = androidx.compose.ui.util.lerp(0.64f, 1f, s.sizeT)
                         transformOrigin = TransformOrigin(0f, 0f)
                         scaleX = scale

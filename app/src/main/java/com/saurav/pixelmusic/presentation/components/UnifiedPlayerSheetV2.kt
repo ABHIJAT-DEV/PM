@@ -341,46 +341,10 @@ fun UnifiedPlayerSheetV2(
         sheetMotionController.syncToExpansion(sheetCollapsedTargetY)
     }
 
-    var previousSheetState by remember { mutableStateOf(currentSheetContentState) }
     LaunchedEffect(showPlayerContentArea, currentSheetContentState) {
         val targetExpanded = showPlayerContentArea && currentSheetContentState == PlayerSheetState.EXPANDED
-        val shouldBounceCollapse =
-            showPlayerContentArea &&
-                previousSheetState == PlayerSheetState.EXPANDED &&
-                currentSheetContentState == PlayerSheetState.COLLAPSED
-
-        previousSheetState = currentSheetContentState
+        scope.launch { visualOvershootScaleY.snapTo(1f) }
         animatePlayerSheet(targetExpanded = targetExpanded)
-
-        if (showPlayerContentArea) {
-            scope.launch {
-                visualOvershootScaleY.snapTo(1f)
-                if (targetExpanded) {
-                    visualOvershootScaleY.animateTo(
-                        targetValue = 1f,
-                        animationSpec = keyframes {
-                            durationMillis = 50
-                            1.0f at 0
-                            1.05f at 125
-                            1.0f at 250
-                        }
-                    )
-                } else if (shouldBounceCollapse) {
-                    visualOvershootScaleY.snapTo(0.96f)
-                    visualOvershootScaleY.animateTo(
-                        targetValue = 1f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    )
-                } else {
-                    visualOvershootScaleY.snapTo(1f)
-                }
-            }
-        } else {
-            scope.launch { visualOvershootScaleY.snapTo(1f) }
-        }
     }
 
     val sheetVisualState = rememberSheetVisualState(

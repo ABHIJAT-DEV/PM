@@ -18,6 +18,9 @@ internal class SheetMotionController(
     private val defaultAnimationSpec: AnimationSpec<Float>,
     private val expandedY: Float = 0f
 ) {
+    @Volatile
+    private var activeTargetExpanded: Boolean? = null
+
     suspend fun animateTo(
         targetExpanded: Boolean,
         canExpand: Boolean,
@@ -38,33 +41,52 @@ internal class SheetMotionController(
             return
         }
 
+        // Do not let a secondary state-change LaunchedEffect (initialVelocity == 0f)
+        // cancel and restart an in-flight gesture release animation targeting the same state.
+        if (
+            initialVelocity == 0f &&
+            activeTargetExpanded == targetExpanded &&
+            (translationY.isRunning || expansionFraction.isRunning)
+        ) {
+            return
+        }
+
         mutex.mutate {
-            coroutineScope {
-                launch {
-                    translationY.animateTo(
-                        targetValue = targetY,
-                        initialVelocity = initialVelocity,
-                        animationSpec = animationSpec
-                    )
+            activeTargetExpanded = targetExpanded
+            try {
+                coroutineScope {
+                    launch {
+                        translationY.animateTo(
+                            targetValue = targetY,
+                            initialVelocity = initialVelocity,
+                            animationSpec = animationSpec
+                        )
+                    }
+                    launch {
+                        expansionFraction.animateTo(
+                            targetValue = targetFraction,
+                            initialVelocity = initialVelocity / velocityScale,
+                            animationSpec = animationSpec
+                        )
+                    }
                 }
-                launch {
-                    expansionFraction.animateTo(
-                        targetValue = targetFraction,
-                        initialVelocity = initialVelocity / velocityScale,
-                        animationSpec = animationSpec
-                    )
+            } finally {
+                if (activeTargetExpanded == targetExpanded) {
+                    activeTargetExpanded = null
                 }
             }
         }
     }
 
     suspend fun stop() {
+        activeTargetExpanded = null
         translationY.stop()
         expansionFraction.stop()
     }
 
     suspend fun snapTo(translationYValue: Float, expansionFractionValue: Float) {
         mutex.mutate {
+            activeTargetExpanded = null
             translationY.snapTo(translationYValue)
             expansionFraction.snapTo(expansionFractionValue)
         }
