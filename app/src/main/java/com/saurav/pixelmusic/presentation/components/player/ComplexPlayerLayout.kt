@@ -226,42 +226,19 @@ internal data class ArtworkMorphSample(
  * Blended continuously by travel delta so reversing direction mid-gesture never jumps.
  */
 internal class ArtworkMorphTracker {
-    private var lastFraction: Float = -1f
-    private var directionBlend: Float = 1f
-
     fun evaluate(rawFraction: Float): ArtworkMorphSample {
         val f = rawFraction.coerceIn(0f, 1f)
-        if (lastFraction < 0f) {
-            lastFraction = f
-            directionBlend = if (f < 0.5f) 1f else 0f
-        } else {
-            val delta = f - lastFraction
-            if (abs(delta) > 0.0004f) {
-                directionBlend = (directionBlend + delta * 3.5f).coerceIn(0f, 1f)
-                lastFraction = f
-            }
-        }
-
-        // Smooth ease-out curve that stays near 1.0 at the top of the sheet (so a small downward
-        // drag doesn't shrink the art prematurely) while matching the brisk upward expansion timing.
-        val easedOutF = 1f - (1f - f).pow(1.65f)
-        val sizeT = androidx.compose.ui.util.lerp(f, easedOutF, 0.65f).coerceIn(0f, 1f)
-        val posT = androidx.compose.ui.util.lerp(f, 1f - (1f - f).pow(1.45f), 0.55f).coerceIn(0f, 1f)
-
-        val overshootScale = if (f in 0.02f..0.995f) {
-            val bell = sin(f * Math.PI.toFloat()).coerceAtLeast(0f)
-            1f + (0.045f * bell * directionBlend)
-        } else {
-            1f
-        }
-
-        val nonArtAlpha = ((f - 0.20f) / 0.80f).coerceIn(0f, 1f)
+        // Pure, stateless, monotonic smooth curve with zero bounce and zero directional hitch
+        val smooth = f * f * (3f - 2f * f)
+        val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.30f).coerceIn(0f, 1f)
+        val posT = androidx.compose.ui.util.lerp(f, smooth, 0.25f).coerceIn(0f, 1f)
+        val nonArtAlpha = ((f - 0.22f) / 0.78f).coerceIn(0f, 1f)
 
         return ArtworkMorphSample(
             rawFraction = f,
             sizeT = sizeT,
             posT = posT,
-            overshootScale = overshootScale,
+            overshootScale = 1f,
             nonArtAlpha = nonArtAlpha
         )
     }
@@ -456,9 +433,9 @@ fun ComplexPlayerLayout(
         val slideOffsetPx = with(density) { 24.dp.toPx() }
 
         var rootPosInWindow by remember { mutableStateOf(Offset.Zero) }
-        var measuredPrevRect by remember { mutableStateOf<Rect?>(null) }
-        var measuredPlayRect by remember { mutableStateOf<Rect?>(null) }
-        var measuredNextRect by remember { mutableStateOf<Rect?>(null) }
+        var songInfoDestOffset by remember { mutableStateOf<Offset?>(null) }
+        val miniSongInfoLeftPx = with(density) { 66.dp.toPx() }
+        val miniSongInfoTopPx = with(density) { 12.dp.toPx() }
 
         val morphTracker = remember { ArtworkMorphTracker() }
         val scoopedShape = remember(rightRisePx, morphTracker, expansionFractionProvider) {
@@ -658,11 +635,6 @@ fun ComplexPlayerLayout(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
-                    alpha = a
-                    translationY = (1f - a) * slideOffsetPx
-                }
                 .padding(
                     bottom = (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp),
                     start = 22.dp,
@@ -679,11 +651,27 @@ fun ComplexPlayerLayout(
                     .padding(top = leftColumnTopDp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Song Title & Artist — direct marquee Text so it never blanks out or flickers
+                // Song Title & Artist — morphs in-place via GPU graphicsLayer from MiniPlayer slot (66.dp, 12.dp)
+                val fallbackSongInfoLeftPx = with(density) { 26.dp.toPx() }
+                val fallbackSongInfoTopPx = with(density) { (leftColumnTopDp).toPx() }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
+                        .onGloballyPositioned { coords ->
+                            songInfoDestOffset = coords.positionInRoot() - rootPosInWindow
+                        }
+                        .graphicsLayer {
+                            val s = morphTracker.evaluate(expansionFractionProvider())
+                            val destX = songInfoDestOffset?.x ?: fallbackSongInfoLeftPx
+                            val destY = songInfoDestOffset?.y ?: fallbackSongInfoTopPx
+                            val scale = androidx.compose.ui.util.lerp(0.64f, 1f, s.sizeT)
+                            transformOrigin = TransformOrigin(0f, 0f)
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = (miniSongInfoLeftPx - destX) * (1f - s.posT)
+                            translationY = (miniSongInfoTopPx - destY) * (1f - s.posT)
+                        }
                 ) {
                     key(song.id, resolvedTitle) {
                         Text(
@@ -751,6 +739,11 @@ fun ComplexPlayerLayout(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .graphicsLayer {
+                            val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                            alpha = a
+                            translationY = (1f - a) * slideOffsetPx
+                        }
                 )
             }
 
@@ -763,13 +756,12 @@ fun ComplexPlayerLayout(
                 contentAlignment = Alignment.BottomCenter
             ) {
                 VerticalExpressiveControlStack(
+                    containerWidthPx = screenWidthPx,
+                    morphTracker = morphTracker,
                     isPlayingProvider = isPlayingProvider,
                     isFavoriteProvider = isFavoriteProvider,
                     expansionFractionProvider = expansionFractionProvider,
                     rootPosInWindowProvider = { rootPosInWindow },
-                    onPrevBoundsMeasured = { measuredPrevRect = it },
-                    onPlayBoundsMeasured = { measuredPlayRect = it },
-                    onNextBoundsMeasured = { measuredNextRect = it },
                     onMoreOptionsClick = onMoreOptionsClick,
                     onFavoriteToggle = onFavoriteToggle,
                     onPrevious = onPrevious,
@@ -789,54 +781,6 @@ fun ComplexPlayerLayout(
                 )
             }
         }
-
-        // =====================================================================
-        // LAYER 4.5: Morphing Playback Controls (MiniPlayer Horizontal -> Complex Vertical Stack)
-        // =====================================================================
-        val stackWidthPx = with(density) { 68.dp.toPx() }
-        val stackHeightPx = with(density) { 332.dp.toPx() }
-        val stackRightPadPx = with(density) { 20.dp.toPx() }
-        val stackBottomPadPx = with(density) { (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp).toPx() }
-        val stackGapPx = with(density) { 8.dp.toPx() }
-        val fallbackStackLeft = screenWidthPx - stackRightPadPx - stackWidthPx
-        val fallbackStackTop = screenHeightPx - stackBottomPadPx - stackHeightPx
-        val totalWeight = 0.74f + 0.88f + 0.96f + 1.32f + 0.96f
-        val netButtonsHeight = (stackHeightPx - 4f * stackGapPx).coerceAtLeast(100f)
-        val hMore = netButtonsHeight * (0.74f / totalWeight)
-        val hLike = netButtonsHeight * (0.88f / totalWeight)
-        val hPrev = netButtonsHeight * (0.96f / totalWeight)
-        val hPlay = netButtonsHeight * (1.32f / totalWeight)
-        val hNext = netButtonsHeight * (0.96f / totalWeight)
-        val yPrevFallback = fallbackStackTop + hMore + stackGapPx + hLike + stackGapPx
-        val yPlayFallback = yPrevFallback + hPrev + stackGapPx
-        val yNextFallback = yPlayFallback + hPlay + stackGapPx
-
-        val effectivePrevRect = measuredPrevRect ?: Rect(fallbackStackLeft, yPrevFallback, fallbackStackLeft + stackWidthPx, yPrevFallback + hPrev)
-        val effectivePlayRect = measuredPlayRect ?: Rect(fallbackStackLeft, yPlayFallback, fallbackStackLeft + stackWidthPx, yPlayFallback + hPlay)
-        val effectiveNextRect = measuredNextRect ?: Rect(fallbackStackLeft, yNextFallback, fallbackStackLeft + stackWidthPx, yNextFallback + hNext)
-
-        MorphingTransportButtonsOverlay(
-            containerWidthPx = screenWidthPx,
-            expansionFractionProvider = expansionFractionProvider,
-            morphTracker = morphTracker,
-            isPlayingProvider = isPlayingProvider,
-            prevTargetRect = effectivePrevRect,
-            playTargetRect = effectivePlayRect,
-            nextTargetRect = effectiveNextRect,
-            prevTargetCornerDp = 34.dp,
-            playTargetCornerDp = if (isPlayingProvider()) 20.dp else 34.dp,
-            nextTargetCornerDp = 34.dp,
-            miniSkipContainerColor = baseTheme.onPrimary,
-            miniSkipIconColor = baseTheme.primary,
-            miniPlayContainerColor = baseTheme.primary,
-            miniPlayIconColor = baseTheme.onPrimary,
-            targetSkipContainerColor = baseTheme.secondaryContainer,
-            targetSkipIconColor = baseTheme.onSecondaryContainer,
-            targetPlayContainerColor = baseTheme.primary,
-            targetPlayIconColor = baseTheme.onPrimary,
-            targetSkipIconSize = 32.dp,
-            targetPlayIconSize = 36.dp
-        )
 
         // =====================================================================
         // LAYER 5: Minimal Chrome (Small Top Drag Handle + Solid Filled Top-Right Collapse Button)
@@ -1579,277 +1523,7 @@ private fun ComplexKaraokeLyricsStage(
  * Solid-filled Material 3 Expressive vertical control stack on the right:
  * 3-Dot Menu -> Like -> Previous -> Play/Pause -> Next
  */
-@Composable
-private fun VerticalExpressiveControlStack(
-    isPlayingProvider: () -> Boolean,
-    isFavoriteProvider: () -> Boolean,
-    expansionFractionProvider: () -> Float,
-    rootPosInWindowProvider: () -> Offset,
-    onPrevBoundsMeasured: (Rect) -> Unit,
-    onPlayBoundsMeasured: (Rect) -> Unit,
-    onNextBoundsMeasured: (Rect) -> Unit,
-    onMoreOptionsClick: () -> Unit,
-    onFavoriteToggle: () -> Unit,
-    onPrevious: () -> Unit,
-    onPlayPause: () -> Unit,
-    onNext: () -> Unit,
-    playPauseContainerColor: Color,
-    onPlayPauseContainerColor: Color,
-    skipContainerColor: Color,
-    onSkipContainerColor: Color,
-    likedContainerColor: Color,
-    onLikedContainerColor: Color,
-    neutralContainerColor: Color,
-    onNeutralContainerColor: Color,
-    modifier: Modifier = Modifier
-) {
-    val isPlaying = isPlayingProvider()
-    val isFavorite = isFavoriteProvider()
-    val haptics = LocalHapticFeedback.current
 
-    var activeButton by remember { mutableStateOf<VerticalControlButton?>(null) }
-    var playPauseVisualState by remember { mutableStateOf(isPlaying) }
-    val latestIsPlayingProvider by rememberUpdatedState(isPlayingProvider)
-
-    LaunchedEffect(activeButton) {
-        if (activeButton != null) {
-            delay(230L)
-            activeButton = null
-        }
-    }
-
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            playPauseVisualState = true
-        } else {
-            if (activeButton == VerticalControlButton.NEXT || activeButton == VerticalControlButton.PREVIOUS) {
-                delay(220L)
-            }
-            if (!latestIsPlayingProvider()) {
-                playPauseVisualState = false
-            }
-        }
-    }
-
-    fun weightFor(button: VerticalControlButton, baseWeight: Float): Float {
-        return when (activeButton) {
-            button -> baseWeight * 1.22f
-            null -> baseWeight
-            else -> baseWeight * 0.88f
-        }
-    }
-
-    val weightSpec = spring<Float>(
-        dampingRatio = 0.62f,
-        stiffness = Spring.StiffnessMediumLow
-    )
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // 1. 3-DOT MORE OPTIONS BUTTON (Over the Like button)
-        val moreWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.MORE, 0.74f),
-            animationSpec = weightSpec,
-            label = "moreVerticalWeight"
-        )
-        ExpressiveMorphingStackButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(moreWeight),
-            defaultCornerDp = 34.dp,
-            pressedCornerDp = 14.dp,
-            isActive = activeButton == VerticalControlButton.MORE,
-            containerColor = neutralContainerColor,
-            onClick = {
-                activeButton = VerticalControlButton.MORE
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onMoreOptionsClick()
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.MoreHoriz,
-                contentDescription = stringResource(R.string.cd_player_more_options),
-                tint = onNeutralContainerColor,
-                modifier = Modifier.size(26.dp)
-            )
-        }
-
-        // 2. LIKE BUTTON
-        val likeWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.LIKE, 0.88f),
-            animationSpec = weightSpec,
-            label = "likeVerticalWeight"
-        )
-        val likeContainerColor by animateColorAsState(
-            targetValue = if (isFavorite) likedContainerColor else neutralContainerColor,
-            animationSpec = tween(220),
-            label = "likeContainerColor"
-        )
-        val likeIconColor by animateColorAsState(
-            targetValue = if (isFavorite) onLikedContainerColor else onNeutralContainerColor,
-            animationSpec = tween(220),
-            label = "likeIconColor"
-        )
-
-        ExpressiveMorphingStackButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(likeWeight),
-            defaultCornerDp = if (isFavorite) 20.dp else 34.dp,
-            pressedCornerDp = 14.dp,
-            isActive = activeButton == VerticalControlButton.LIKE,
-            containerColor = likeContainerColor,
-            onClick = {
-                activeButton = VerticalControlButton.LIKE
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onFavoriteToggle()
-            }
-        ) {
-            val heartScale by animateFloatAsState(
-                targetValue = if (isFavorite) 1.14f else 1.0f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                ),
-                label = "heartPopScale"
-            )
-            Icon(
-                painter = painterResource(R.drawable.round_favorite_24),
-                contentDescription = "Favorite",
-                tint = likeIconColor,
-                modifier = Modifier
-                    .size(26.dp)
-                    .graphicsLayer {
-                        scaleX = heartScale
-                        scaleY = heartScale
-                    }
-            )
-        }
-
-        // 3. PREVIOUS BUTTON
-        val prevWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.PREVIOUS, 0.96f),
-            animationSpec = weightSpec,
-            label = "prevVerticalWeight"
-        )
-        ExpressiveMorphingStackButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(prevWeight)
-                .onGloballyPositioned { coords ->
-                    val p = coords.positionInRoot() - rootPosInWindowProvider()
-                    val s = coords.size
-                    if (s.width > 0 && s.height > 0) {
-                        onPrevBoundsMeasured(Rect(p.x, p.y, p.x + s.width, p.y + s.height))
-                    }
-                }
-                .graphicsLayer {
-                    alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
-                },
-            defaultCornerDp = 34.dp,
-            pressedCornerDp = 16.dp,
-            isActive = activeButton == VerticalControlButton.PREVIOUS,
-            containerColor = skipContainerColor,
-            onClick = {
-                activeButton = VerticalControlButton.PREVIOUS
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onPrevious()
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.SkipPrevious,
-                contentDescription = "Previous",
-                tint = onSkipContainerColor,
-                modifier = Modifier.size(32.dp)
-            )
-        }
-
-        // 4. PLAY / PAUSE BUTTON (Hero Expressive Morphing Button)
-        val playWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.PLAY_PAUSE, 1.32f),
-            animationSpec = weightSpec,
-            label = "playVerticalWeight"
-        )
-        ExpressiveMorphingStackButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(playWeight)
-                .onGloballyPositioned { coords ->
-                    val p = coords.positionInRoot() - rootPosInWindowProvider()
-                    val s = coords.size
-                    if (s.width > 0 && s.height > 0) {
-                        onPlayBoundsMeasured(Rect(p.x, p.y, p.x + s.width, p.y + s.height))
-                    }
-                }
-                .graphicsLayer {
-                    alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
-                },
-            defaultCornerDp = if (playPauseVisualState) 20.dp else 34.dp,
-            pressedCornerDp = 14.dp,
-            isActive = activeButton == VerticalControlButton.PLAY_PAUSE,
-            containerColor = playPauseContainerColor,
-            onClick = {
-                activeButton = VerticalControlButton.PLAY_PAUSE
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onPlayPause()
-            }
-        ) {
-            Crossfade(
-                targetState = playPauseVisualState,
-                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                label = "complexPlayPauseIcon"
-            ) { playing ->
-                Icon(
-                    imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (playing) "Pause" else "Play",
-                    tint = onPlayPauseContainerColor,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-        }
-
-        // 5. NEXT BUTTON
-        val nextWeight by animateFloatAsState(
-            targetValue = weightFor(VerticalControlButton.NEXT, 0.96f),
-            animationSpec = weightSpec,
-            label = "nextVerticalWeight"
-        )
-        ExpressiveMorphingStackButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(nextWeight)
-                .onGloballyPositioned { coords ->
-                    val p = coords.positionInRoot() - rootPosInWindowProvider()
-                    val s = coords.size
-                    if (s.width > 0 && s.height > 0) {
-                        onNextBoundsMeasured(Rect(p.x, p.y, p.x + s.width, p.y + s.height))
-                    }
-                }
-                .graphicsLayer {
-                    alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
-                },
-            defaultCornerDp = 34.dp,
-            pressedCornerDp = 16.dp,
-            isActive = activeButton == VerticalControlButton.NEXT,
-            containerColor = skipContainerColor,
-            onClick = {
-                activeButton = VerticalControlButton.NEXT
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onNext()
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.SkipNext,
-                contentDescription = "Next",
-                tint = onSkipContainerColor,
-                modifier = Modifier.size(32.dp)
-            )
-        }
-    }
-}
 
 /**
  * Bold Material You Expressive Audio Visualizer shown in the Complex lyrics stage when no lyrics are available.

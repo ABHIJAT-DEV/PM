@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TransformOrigin
 import com.saurav.pixelmusic.data.model.Lyrics
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -627,9 +628,11 @@ fun FullPlayerContent(
     }
 
     var rootPositionInWindow by remember { mutableStateOf(Offset.Zero) }
-    var measuredDefaultArtRect by remember { mutableStateOf<Rect?>(null) }
-    var measuredControlsRowRect by remember { mutableStateOf<Rect?>(null) }
+    var defaultArtDestOffset by remember { mutableStateOf<Offset?>(null) }
     val artworkMorphTracker = remember { ArtworkMorphTracker() }
+    val density = LocalDensity.current
+    val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
+    val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
 
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
         FullPlayerAlbumCoverSection(
@@ -656,25 +659,19 @@ fun FullPlayerContent(
             },
             modifier = modifier
                 .onGloballyPositioned { coords ->
-                    val pos = coords.positionInRoot() - rootPositionInWindow
-                    val size = coords.size
-                    if (size.width > 0 && size.height > 0) {
-                        val side = size.height.toFloat()
-                        val centeredX = if (carouselStyle == CarouselStyle.NO_PEEK) {
-                            pos.x + (size.width - side) * 0.5f
-                        } else {
-                            pos.x
-                        }
-                        measuredDefaultArtRect = Rect(
-                            left = centeredX,
-                            top = pos.y,
-                            right = centeredX + side,
-                            bottom = pos.y + side
-                        )
-                    }
+                    defaultArtDestOffset = coords.positionInRoot() - rootPositionInWindow
                 }
                 .graphicsLayer {
-                    alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
+                    val s = artworkMorphTracker.evaluate(expansionFractionProvider())
+                    val destX = defaultArtDestOffset?.x ?: 0f
+                    val destY = defaultArtDestOffset?.y ?: 0f
+                    val curW = androidx.compose.ui.util.lerp(miniArtSizePx, size.width, s.sizeT)
+                    val curH = androidx.compose.ui.util.lerp(miniArtSizePx, size.height, s.sizeT)
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = if (size.width > 0f) curW / size.width else 1f
+                    scaleY = if (size.height > 0f) curH / size.height else 1f
+                    translationX = (miniArtOffsetPx - destX) * (1f - s.posT)
+                    translationY = (miniArtOffsetPx - destY) * (1f - s.posT)
                 }
         )
     }
@@ -728,8 +725,8 @@ fun FullPlayerContent(
             onRepeatToggle = onRepeatToggle,
             onFavoriteToggle = onFavoriteToggle,
             isFullScreenArt = isImmersive,
-            rootPositionInWindowProvider = { rootPositionInWindow },
-            onControlsRowMeasured = { measuredControlsRowRect = it }
+            morphTracker = artworkMorphTracker,
+            rootPositionInWindowProvider = { rootPositionInWindow }
         )
     }
 
@@ -744,7 +741,10 @@ fun FullPlayerContent(
                 textColor = playerOnBaseColor,
                 accentColor = playerAccentColor,
                 lyricsStyle = nowPlayingLyricsStyle,
-                onClick = onLyricsClick
+                onClick = onLyricsClick,
+                modifier = Modifier.graphicsLayer {
+                    alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                }
             )
         }
     }
@@ -770,7 +770,9 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isLiquidGlass = isLiquidGlassActive,
-            backdrop = activeBackdrop
+            backdrop = activeBackdrop,
+            morphTracker = artworkMorphTracker,
+            rootPositionInWindowProvider = { rootPositionInWindow }
         )
     }
 
@@ -795,7 +797,9 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isLiquidGlass = isLiquidGlassActive,
-            backdrop = activeBackdrop
+            backdrop = activeBackdrop,
+            morphTracker = artworkMorphTracker,
+            rootPositionInWindowProvider = { rootPositionInWindow }
         )
     }
 
@@ -1549,9 +1553,6 @@ fun FullPlayerContent(
             animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
             label = "orientationAlpha"
         )
-        val density = LocalDensity.current
-        val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
-        val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
         val slideOffsetPx = remember(density) { with(density) { 24.dp.toPx() } }
 
         BoxWithConstraints(
@@ -1826,170 +1827,27 @@ fun FullPlayerContent(
                     onMoreOptionsClick = { showSongInfoBottomSheet = true }
                 )
             } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            val a = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
-                            alpha = a
-                            translationY = (1f - a) * slideOffsetPx
-                        }
-                ) {
-                    if (isLandscape) {
-                        FullPlayerLandscapeContent(
-                            paddingValues = paddingValues,
-                            albumCoverSection = albumCoverSection,
-                            songMetadataSection = landscapeSongMetadataSection,
-                            playerProgressSection = playerProgressSection,
-                            controlsSection = controlsSection,
-                            singleLineLyricsSection = singleLineLyricsSection,
-                            isFullScreenArt = isImmersive
-                        )
-                    } else {
-                        FullPlayerPortraitContent(
-                            paddingValues = paddingValues,
-                            albumCoverSection = albumCoverSection,
-                            songMetadataSection = portraitSongMetadataSection,
-                            playerProgressSection = playerProgressSection,
-                            controlsSection = controlsSection,
-                            singleLineLyricsSection = singleLineLyricsSection,
-                            isFullScreenArt = isImmersive
-                        )
-                    }
-                }
-
-                // 3. DEFAULT MODE MORPHING ARTWORK OVERLAY (MiniPlayer 44.dp Circle <-> Default Album Cover Card)
-                if (!isImmersive) {
-                    val optimizedDefaultArtUri = remember(song.id, albumArtQuality) {
-                        com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(song.albumArtUriString, albumArtQuality) ?: song.albumArtUriString.orEmpty()
-                    }
-                    val shouldApplyPausedScale = !isPlayingProvider() && !playWhenReadyProvider()
-                    val defaultPauseScale by animateFloatAsState(
-                        targetValue = if (shouldApplyPausedScale) 0.95f else 1f,
-                        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
-                        label = "DefaultMorphPauseScale"
+                if (isLandscape) {
+                    FullPlayerLandscapeContent(
+                        paddingValues = paddingValues,
+                        albumCoverSection = albumCoverSection,
+                        songMetadataSection = landscapeSongMetadataSection,
+                        playerProgressSection = playerProgressSection,
+                        controlsSection = controlsSection,
+                        singleLineLyricsSection = singleLineLyricsSection,
+                        isFullScreenArt = isImmersive
                     )
-                    val defaultCornerPx = with(density) { 18.dp.toPx() }
-                    val fallbackPaddingPx = with(density) { 24.dp.toPx() }
-                    val fallbackTopPx = with(density) { 112.dp.toPx() }
-                    val fallbackSidePx = (fullWidthPx - fallbackPaddingPx * 2f).coerceAtLeast(miniArtSizePx)
-
-                    val defaultMorphShape = remember(artworkMorphTracker, expansionFractionProvider, defaultCornerPx) {
-                        object : androidx.compose.ui.graphics.Shape {
-                            override fun createOutline(
-                                size: androidx.compose.ui.geometry.Size,
-                                layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-                                density: androidx.compose.ui.unit.Density
-                            ): androidx.compose.ui.graphics.Outline {
-                                val t = artworkMorphTracker.evaluate(expansionFractionProvider()).sizeT
-                                val startR = minOf(size.width, size.height) * 0.5f
-                                val r = androidx.compose.ui.util.lerp(startR, defaultCornerPx, t)
-                                    .coerceIn(0f, startR)
-                                return androidx.compose.ui.graphics.Outline.Rounded(
-                                    androidx.compose.ui.geometry.RoundRect(
-                                        rect = Rect(0f, 0f, size.width, size.height),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .layout { measurable, _ ->
-                                val rawF = expansionFractionProvider()
-                                if (rawF >= 0.985f) {
-                                    val p = measurable.measure(Constraints.fixed(0, 0))
-                                    return@layout layout(0, 0) { p.place(0, 0) }
-                                }
-                                val sample = artworkMorphTracker.evaluate(rawF)
-                                val targetRect = measuredDefaultArtRect
-                                val destW = (targetRect?.width ?: fallbackSidePx) * defaultPauseScale
-                                val destH = (targetRect?.height ?: fallbackSidePx) * defaultPauseScale
-                                val destX = (targetRect?.left ?: fallbackPaddingPx) + ((targetRect?.width ?: fallbackSidePx) - destW) * 0.5f
-                                val destY = (targetRect?.top ?: fallbackTopPx) + ((targetRect?.height ?: fallbackSidePx) - destH) * 0.5f
-
-                                val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, destW, sample.sizeT)
-                                val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, destH, sample.sizeT)
-                                val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
-                                val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
-                                val baseX = androidx.compose.ui.util.lerp(miniArtOffsetPx, destX, sample.posT)
-                                val baseY = androidx.compose.ui.util.lerp(miniArtOffsetPx, destY, sample.posT)
-                                val placeX = (baseX - (targetW - baseW) * 0.5f).roundToInt()
-                                val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
-
-                                val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
-                                layout(targetW, targetH) {
-                                    placeable.place(placeX, placeY)
-                                }
-                            }
-                            .clip(defaultMorphShape)
-                    ) {
-                        SmartImage(
-                            model = optimizedDefaultArtUri,
-                            contentDescription = song.title,
-                            contentScale = ContentScale.Crop,
-                            targetSize = coil.size.Size.ORIGINAL,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                } else {
+                    FullPlayerPortraitContent(
+                        paddingValues = paddingValues,
+                        albumCoverSection = albumCoverSection,
+                        songMetadataSection = portraitSongMetadataSection,
+                        playerProgressSection = playerProgressSection,
+                        controlsSection = controlsSection,
+                        singleLineLyricsSection = singleLineLyricsSection,
+                        isFullScreenArt = isImmersive
+                    )
                 }
-
-                // 4. MORPHING PLAYBACK TRANSPORT BUTTONS (MiniPlayer <-> Default / Immersive / Immersive Extended)
-                val controlsGapPx = with(density) { 6.dp.toPx() }
-                val fallbackRowSidePadPx = with(density) { 36.dp.toPx() }
-                val fallbackRowHeightPx = with(density) { 80.dp.toPx() }
-                val fallbackRowTopPx = (fullHeightPx - with(density) { 210.dp.toPx() }).coerceAtLeast(0f)
-                val effectiveRowRect = measuredControlsRowRect ?: Rect(
-                    left = fallbackRowSidePadPx,
-                    top = fallbackRowTopPx,
-                    right = (fullWidthPx - fallbackRowSidePadPx).coerceAtLeast(fallbackRowSidePadPx + 30f),
-                    bottom = fallbackRowTopPx + fallbackRowHeightPx
-                )
-                val btnW = ((effectiveRowRect.width - 2f * controlsGapPx) / 3f).coerceAtLeast(24f)
-                val btnH = effectiveRowRect.height.coerceAtLeast(24f)
-                val prevRect = Rect(
-                    left = effectiveRowRect.left,
-                    top = effectiveRowRect.top,
-                    right = effectiveRowRect.left + btnW,
-                    bottom = effectiveRowRect.top + btnH
-                )
-                val playRect = Rect(
-                    left = prevRect.right + controlsGapPx,
-                    top = effectiveRowRect.top,
-                    right = prevRect.right + controlsGapPx + btnW,
-                    bottom = effectiveRowRect.top + btnH
-                )
-                val nextRect = Rect(
-                    left = playRect.right + controlsGapPx,
-                    top = effectiveRowRect.top,
-                    right = playRect.right + controlsGapPx + btnW,
-                    bottom = effectiveRowRect.top + btnH
-                )
-
-                MorphingTransportButtonsOverlay(
-                    containerWidthPx = fullWidthPx,
-                    expansionFractionProvider = expansionFractionProvider,
-                    morphTracker = artworkMorphTracker,
-                    isPlayingProvider = isPlayingProvider,
-                    prevTargetRect = prevRect,
-                    playTargetRect = playRect,
-                    nextTargetRect = nextRect,
-                    prevTargetCornerDp = 40.dp,
-                    playTargetCornerDp = if (isPlayingProvider()) 26.dp else 60.dp,
-                    nextTargetCornerDp = 40.dp,
-                    miniSkipContainerColor = baseTheme.onPrimary,
-                    miniSkipIconColor = baseTheme.primary,
-                    miniPlayContainerColor = baseTheme.primary,
-                    miniPlayIconColor = baseTheme.onPrimary,
-                    targetSkipContainerColor = transportSkipButtonColors.container,
-                    targetSkipIconColor = transportSkipButtonColors.content,
-                    targetPlayContainerColor = transportPlayPauseColors.container,
-                    targetPlayIconColor = transportPlayPauseColors.content,
-                    targetSkipIconSize = 32.dp,
-                    targetPlayIconSize = 36.dp
-                )
             }
         }
     }
@@ -2617,7 +2475,7 @@ private fun FullPlayerAlbumCoverSection(
         }
 
         DelayedContent(
-            shouldDelay = shouldDelay,
+            shouldDelay = false,
             showPlaceholders = loadingTweaks.showPlaceholders,
             applyPlaceholderDelayOnClose = loadingTweaks.applyPlaceholdersOnClose,
             switchOnDragRelease = loadingTweaks.switchOnDragRelease,
@@ -2625,7 +2483,7 @@ private fun FullPlayerAlbumCoverSection(
             sharedBoundsModifier = Modifier.fillMaxWidth().height(carouselHeight),
             expansionFractionProvider = expansionFractionProvider,
             isExpandedOverride = currentSheetState == PlayerSheetState.EXPANDED,
-            normalStartThreshold = 0.08f,
+            normalStartThreshold = 0f,
             delayAppearThreshold = loadingTweaks.contentAppearThresholdPercent / 100f,
             delayCloseThreshold = 1f - (loadingTweaks.contentCloseThresholdPercent / 100f),
             placeholder = {
@@ -2702,16 +2560,22 @@ private fun FullPlayerControlsSection(
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
     isFullScreenArt: Boolean,
-    rootPositionInWindowProvider: () -> Offset = { Offset.Zero },
-    onControlsRowMeasured: (Rect) -> Unit = {}
+    morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
+    rootPositionInWindowProvider: () -> Offset = { Offset.Zero }
 ) {
+    val density = LocalDensity.current
+    val miniRowWidthPx = remember(density) { with(density) { 124.dp.toPx() } }
+    val miniRowHeightPx = remember(density) { with(density) { 36.dp.toPx() } }
+    val miniRowTopPx = remember(density) { with(density) { 14.dp.toPx() } }
+    val miniRowRightMarginPx = remember(density) { with(density) { 136.dp.toPx() } }
+    var controlsDestOffset by remember { mutableStateOf<Offset?>(null) }
+
     val stableControlAnimationSpec = remember {
         tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
     }
-    val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delayControls
 
     DelayedContent(
-        shouldDelay = shouldDelay,
+        shouldDelay = false,
         showPlaceholders = loadingTweaks.showPlaceholders,
         applyPlaceholderDelayOnClose = loadingTweaks.applyPlaceholdersOnClose,
         switchOnDragRelease = loadingTweaks.switchOnDragRelease,
@@ -2719,7 +2583,7 @@ private fun FullPlayerControlsSection(
         sharedBoundsModifier = Modifier.fillMaxWidth().height(182.dp),
         expansionFractionProvider = expansionFractionProvider,
         isExpandedOverride = currentSheetState == PlayerSheetState.EXPANDED,
-        normalStartThreshold = 0.42f,
+        normalStartThreshold = 0f,
         delayAppearThreshold = loadingTweaks.contentAppearThresholdPercent / 100f,
         delayCloseThreshold = 1f - (loadingTweaks.contentCloseThresholdPercent / 100f),
         placeholder = {
@@ -2737,14 +2601,21 @@ private fun FullPlayerControlsSection(
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .onGloballyPositioned { coords ->
-                        val p = coords.positionInRoot() - rootPositionInWindowProvider()
-                        val s = coords.size
-                        if (s.width > 0 && s.height > 0) {
-                            onControlsRowMeasured(Rect(p.x, p.y, p.x + s.width, p.y + s.height))
-                        }
+                        controlsDestOffset = coords.positionInRoot() - rootPositionInWindowProvider()
                     }
                     .graphicsLayer {
-                        alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
+                        val s = morphTracker.evaluate(expansionFractionProvider())
+                        val destX = controlsDestOffset?.x ?: 0f
+                        val destY = controlsDestOffset?.y ?: 0f
+                        val estContainerW = size.width + destX * 2f
+                        val startX = (estContainerW - miniRowRightMarginPx).coerceAtLeast(0f)
+                        val curW = androidx.compose.ui.util.lerp(miniRowWidthPx, size.width, s.sizeT)
+                        val curH = androidx.compose.ui.util.lerp(miniRowHeightPx, size.height, s.sizeT)
+                        transformOrigin = TransformOrigin(0f, 0f)
+                        scaleX = if (size.width > 0f) curW / size.width else 1f
+                        scaleY = if (size.height > 0f) curH / size.height else 1f
+                        translationX = (startX - destX) * (1f - s.posT)
+                        translationY = (miniRowTopPx - destY) * (1f - s.posT)
                     },
                 isPlayingProvider = isPlayingProvider,
                 onPrevious = onPrevious,
@@ -2772,7 +2643,10 @@ private fun FullPlayerControlsSection(
                     .fillMaxWidth()
                     .heightIn(min = 66.dp, max = 86.dp)
                     .padding(horizontal = 26.dp, vertical = 0.dp)
-                    .padding(bottom = 6.dp),
+                    .padding(bottom = 6.dp)
+                    .graphicsLayer {
+                        alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    },
                 isShuffleEnabled = isShuffleEnabledProvider(),
                 isShuffleTransitionInProgress = shuffleTransitionInProgress,
                 repeatMode = repeatModeProvider(),
@@ -2952,12 +2826,12 @@ private fun FullPlayerSongMetadataSection(
     onQueueClick: () -> Unit,
     onArtistClick: () -> Unit,
     isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null
+    backdrop: com.kyant.backdrop.Backdrop? = null,
+    morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
+    rootPositionInWindowProvider: () -> Offset = { Offset.Zero }
 ) {
-    val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delaySongMetadata
-
     DelayedContent(
-        shouldDelay = shouldDelay,
+        shouldDelay = false,
         showPlaceholders = loadingTweaks.showPlaceholders,
         applyPlaceholderDelayOnClose = loadingTweaks.applyPlaceholdersOnClose,
         switchOnDragRelease = loadingTweaks.switchOnDragRelease,
@@ -2965,7 +2839,7 @@ private fun FullPlayerSongMetadataSection(
         sharedBoundsModifier = Modifier.fillMaxWidth().heightIn(min = 70.dp),
         expansionFractionProvider = expansionFractionProvider,
         isExpandedOverride = currentSheetState == PlayerSheetState.EXPANDED,
-        normalStartThreshold = 0.20f,
+        normalStartThreshold = 0f,
         delayAppearThreshold = loadingTweaks.contentAppearThresholdPercent / 100f,
         delayCloseThreshold = 1f - (loadingTweaks.contentCloseThresholdPercent / 100f),
         placeholder = {
@@ -2999,7 +2873,9 @@ private fun FullPlayerSongMetadataSection(
             onClickQueue = onQueueClick,
             onClickArtist = onArtistClick,
             isLiquidGlass = isLiquidGlass,
-            backdrop = backdrop
+            backdrop = backdrop,
+            morphTracker = morphTracker,
+            rootPositionInWindowProvider = rootPositionInWindowProvider
         )
     }
 }
@@ -3110,8 +2986,14 @@ private fun SongMetadataDisplaySection(
     onClickArtist: () -> Unit,
     modifier: Modifier = Modifier,
     isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null
+    backdrop: com.kyant.backdrop.Backdrop? = null,
+    morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
+    rootPositionInWindowProvider: () -> Offset = { Offset.Zero }
 ) {
+    val density = LocalDensity.current
+    val miniSongInfoLeftPx = remember(density) { with(density) { 66.dp.toPx() } }
+    val miniSongInfoTopPx = remember(density) { with(density) { 12.dp.toPx() } }
+    var songInfoDestOffset by remember { mutableStateOf<Offset?>(null) }
     val isDark = LocalPixelMusicDarkTheme.current
     val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
     val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
@@ -3139,6 +3021,20 @@ private fun SongMetadataDisplaySection(
                 modifier = Modifier
                     .weight(1f)
                     .align(Alignment.CenterVertically)
+                    .onGloballyPositioned { coords ->
+                        songInfoDestOffset = coords.positionInRoot() - rootPositionInWindowProvider()
+                    }
+                    .graphicsLayer {
+                        val s = morphTracker.evaluate(expansionFractionProvider())
+                        val destX = songInfoDestOffset?.x ?: 0f
+                        val destY = songInfoDestOffset?.y ?: 0f
+                        val scale = androidx.compose.ui.util.lerp(0.64f, 1f, s.sizeT)
+                        transformOrigin = TransformOrigin(0f, 0f)
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = (miniSongInfoLeftPx - destX) * (1f - s.posT)
+                        translationY = (miniSongInfoTopPx - destY) * (1f - s.posT)
+                    }
             )
         }
         
@@ -3193,6 +3089,9 @@ private fun SongMetadataDisplaySection(
         if (showQueueButton) {
             // Landscape mode: [Lyrics] [Theme] [⋮] [Queue]
             Row(
+                modifier = Modifier.graphicsLayer {
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                },
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -3269,6 +3168,9 @@ private fun SongMetadataDisplaySection(
             )
 
             Row(
+                modifier = Modifier.graphicsLayer {
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                },
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4042,14 +3944,9 @@ private fun PlayerSongInfo(
 
     Column(
         horizontalAlignment = Alignment.Start,
-            modifier = modifier
-                .padding(vertical = 4.dp)
-                .fillMaxWidth()
-            .graphicsLayer {
-                val fraction = expansionFractionProvider()
-                alpha = fraction // Or apply specific fade logic if desired
-                translationY = (1f - fraction) * 24f
-            }
+        modifier = modifier
+            .padding(vertical = 4.dp)
+            .fillMaxWidth()
     ) {
         AutoScrollingTextOnDemand(
             title,

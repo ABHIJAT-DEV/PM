@@ -145,7 +145,11 @@ internal fun MiniPlayerContentInternal(
         val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .graphicsLayer {
+                    alpha = albumArtAlphaProvider()
+                },
             verticalArrangement = Arrangement.Center
         ) {
             val titleColor = if (isLiquidGlass) (if (isDark) Color.White else Color(0xFF1C1C1E)) else LocalMaterialTheme.current.onPrimaryContainer
