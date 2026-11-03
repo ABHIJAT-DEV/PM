@@ -1,7 +1,6 @@
 package com.saurav.pixelmusic.presentation.components.scoped
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.Modifier
@@ -33,11 +32,6 @@ internal class SheetVerticalDragGestureHandler(
     private val currentSheetStateProvider: () -> PlayerSheetState,
     private val onDraggingChange: (Boolean) -> Unit,
     private val onDraggingPlayerAreaChange: (Boolean) -> Unit,
-    private val onAnimateSheet: suspend (
-        targetExpanded: Boolean,
-        animationSpec: AnimationSpec<Float>?,
-        initialVelocity: Float
-    ) -> Unit,
     private val onExpandSheetState: () -> Unit,
     private val onCollapseSheetState: () -> Unit
 ) {
@@ -104,18 +98,13 @@ internal class SheetVerticalDragGestureHandler(
             currentFraction = currentFraction
         )
 
-        scope.launch {
-            if (targetState == PlayerSheetState.EXPANDED) {
-                launch {
-                    onAnimateSheet(true, null, 0f)
-                }
-                onExpandSheetState()
-            } else {
-                launch {
-                    onAnimateSheet(false, null, 0f)
-                }
-                onCollapseSheetState()
-            }
+        // The state observer in UnifiedPlayerSheetV2 is the single owner of
+        // settled sheet animations. Do not also animate here: that races the
+        // state-triggered animation and can produce a second settle/bounce.
+        if (targetState == PlayerSheetState.EXPANDED) {
+            onExpandSheetState()
+        } else {
+            onCollapseSheetState()
         }
 
         accumulatedDragYSinceStart = 0f
