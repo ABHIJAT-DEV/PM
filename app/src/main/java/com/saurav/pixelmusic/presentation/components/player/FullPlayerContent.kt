@@ -628,6 +628,7 @@ fun FullPlayerContent(
 
     var rootPositionInWindow by remember { mutableStateOf(Offset.Zero) }
     var measuredDefaultArtRect by remember { mutableStateOf<Rect?>(null) }
+    var measuredControlsRowRect by remember { mutableStateOf<Rect?>(null) }
     val artworkMorphTracker = remember { ArtworkMorphTracker() }
 
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
@@ -724,9 +725,11 @@ fun FullPlayerContent(
             repeatModeProvider = repeatModeProvider,
             isFavoriteProvider = isFavoriteProvider,
             onShuffleToggle = onShuffleToggle,
-            onRepeatToggle = onRepeatToggle,           
+            onRepeatToggle = onRepeatToggle,
             onFavoriteToggle = onFavoriteToggle,
-            isFullScreenArt = isImmersive
+            isFullScreenArt = isImmersive,
+            rootPositionInWindowProvider = { rootPositionInWindow },
+            onControlsRowMeasured = { measuredControlsRowRect = it }
         )
     }
 
@@ -1932,6 +1935,61 @@ fun FullPlayerContent(
                         )
                     }
                 }
+
+                // 4. MORPHING PLAYBACK TRANSPORT BUTTONS (MiniPlayer <-> Default / Immersive / Immersive Extended)
+                val controlsGapPx = with(density) { 6.dp.toPx() }
+                val fallbackRowSidePadPx = with(density) { 36.dp.toPx() }
+                val fallbackRowHeightPx = with(density) { 80.dp.toPx() }
+                val fallbackRowTopPx = (fullHeightPx - with(density) { 210.dp.toPx() }).coerceAtLeast(0f)
+                val effectiveRowRect = measuredControlsRowRect ?: Rect(
+                    left = fallbackRowSidePadPx,
+                    top = fallbackRowTopPx,
+                    right = (fullWidthPx - fallbackRowSidePadPx).coerceAtLeast(fallbackRowSidePadPx + 30f),
+                    bottom = fallbackRowTopPx + fallbackRowHeightPx
+                )
+                val btnW = ((effectiveRowRect.width - 2f * controlsGapPx) / 3f).coerceAtLeast(24f)
+                val btnH = effectiveRowRect.height.coerceAtLeast(24f)
+                val prevRect = Rect(
+                    left = effectiveRowRect.left,
+                    top = effectiveRowRect.top,
+                    right = effectiveRowRect.left + btnW,
+                    bottom = effectiveRowRect.top + btnH
+                )
+                val playRect = Rect(
+                    left = prevRect.right + controlsGapPx,
+                    top = effectiveRowRect.top,
+                    right = prevRect.right + controlsGapPx + btnW,
+                    bottom = effectiveRowRect.top + btnH
+                )
+                val nextRect = Rect(
+                    left = playRect.right + controlsGapPx,
+                    top = effectiveRowRect.top,
+                    right = playRect.right + controlsGapPx + btnW,
+                    bottom = effectiveRowRect.top + btnH
+                )
+
+                MorphingTransportButtonsOverlay(
+                    containerWidthPx = fullWidthPx,
+                    expansionFractionProvider = expansionFractionProvider,
+                    morphTracker = artworkMorphTracker,
+                    isPlayingProvider = isPlayingProvider,
+                    prevTargetRect = prevRect,
+                    playTargetRect = playRect,
+                    nextTargetRect = nextRect,
+                    prevTargetCornerDp = 40.dp,
+                    playTargetCornerDp = if (isPlayingProvider()) 26.dp else 60.dp,
+                    nextTargetCornerDp = 40.dp,
+                    miniSkipContainerColor = baseTheme.onPrimary,
+                    miniSkipIconColor = baseTheme.primary,
+                    miniPlayContainerColor = baseTheme.primary,
+                    miniPlayIconColor = baseTheme.onPrimary,
+                    targetSkipContainerColor = transportSkipButtonColors.container,
+                    targetSkipIconColor = transportSkipButtonColors.content,
+                    targetPlayContainerColor = transportPlayPauseColors.container,
+                    targetPlayIconColor = transportPlayPauseColors.content,
+                    targetSkipIconSize = 32.dp,
+                    targetPlayIconSize = 36.dp
+                )
             }
         }
     }
@@ -2643,7 +2701,9 @@ private fun FullPlayerControlsSection(
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
-    isFullScreenArt: Boolean
+    isFullScreenArt: Boolean,
+    rootPositionInWindowProvider: () -> Offset = { Offset.Zero },
+    onControlsRowMeasured: (Rect) -> Unit = {}
 ) {
     val stableControlAnimationSpec = remember {
         tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
@@ -2675,7 +2735,17 @@ private fun FullPlayerControlsSection(
         ) {
             AnimatedPlaybackControls(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .onGloballyPositioned { coords ->
+                        val p = coords.positionInRoot() - rootPositionInWindowProvider()
+                        val s = coords.size
+                        if (s.width > 0 && s.height > 0) {
+                            onControlsRowMeasured(Rect(p.x, p.y, p.x + s.width, p.y + s.height))
+                        }
+                    }
+                    .graphicsLayer {
+                        alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
+                    },
                 isPlayingProvider = isPlayingProvider,
                 onPrevious = onPrevious,
                 onPlayPause = onPlayPause,

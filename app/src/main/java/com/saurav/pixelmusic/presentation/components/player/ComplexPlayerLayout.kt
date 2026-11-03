@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -100,6 +101,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -446,10 +449,16 @@ fun ComplexPlayerLayout(
         val rightRiseDp = (screenWidthDp * 0.23f).coerceIn(74.dp, 108.dp)
         val rightRisePx = with(density) { rightRiseDp.toPx() }
         val screenWidthPx = with(density) { screenWidthDp.toPx() }
+        val screenHeightPx = with(density) { screenHeightDp.toPx() }
         val artHeightPx = with(density) { artHeightDp.toPx() }
         val miniArtSizePx = with(density) { 44.dp.toPx() }
         val miniArtOffsetPx = with(density) { 10.dp.toPx() }
         val slideOffsetPx = with(density) { 24.dp.toPx() }
+
+        var rootPosInWindow by remember { mutableStateOf(Offset.Zero) }
+        var measuredPrevRect by remember { mutableStateOf<Rect?>(null) }
+        var measuredPlayRect by remember { mutableStateOf<Rect?>(null) }
+        var measuredNextRect by remember { mutableStateOf<Rect?>(null) }
 
         val morphTracker = remember { ArtworkMorphTracker() }
         val scoopedShape = remember(rightRisePx, morphTracker, expansionFractionProvider) {
@@ -468,6 +477,9 @@ fun ComplexPlayerLayout(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .onGloballyPositioned { coords ->
+                    rootPosInWindow = coords.positionInRoot()
+                }
                 .graphicsLayer {
                     alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
                 }
@@ -753,6 +765,11 @@ fun ComplexPlayerLayout(
                 VerticalExpressiveControlStack(
                     isPlayingProvider = isPlayingProvider,
                     isFavoriteProvider = isFavoriteProvider,
+                    expansionFractionProvider = expansionFractionProvider,
+                    rootPosInWindowProvider = { rootPosInWindow },
+                    onPrevBoundsMeasured = { measuredPrevRect = it },
+                    onPlayBoundsMeasured = { measuredPlayRect = it },
+                    onNextBoundsMeasured = { measuredNextRect = it },
                     onMoreOptionsClick = onMoreOptionsClick,
                     onFavoriteToggle = onFavoriteToggle,
                     onPrevious = onPrevious,
@@ -772,6 +789,54 @@ fun ComplexPlayerLayout(
                 )
             }
         }
+
+        // =====================================================================
+        // LAYER 4.5: Morphing Playback Controls (MiniPlayer Horizontal -> Complex Vertical Stack)
+        // =====================================================================
+        val stackWidthPx = with(density) { 68.dp.toPx() }
+        val stackHeightPx = with(density) { 332.dp.toPx() }
+        val stackRightPadPx = with(density) { 20.dp.toPx() }
+        val stackBottomPadPx = with(density) { (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp).toPx() }
+        val stackGapPx = with(density) { 8.dp.toPx() }
+        val fallbackStackLeft = screenWidthPx - stackRightPadPx - stackWidthPx
+        val fallbackStackTop = screenHeightPx - stackBottomPadPx - stackHeightPx
+        val totalWeight = 0.74f + 0.88f + 0.96f + 1.32f + 0.96f
+        val netButtonsHeight = (stackHeightPx - 4f * stackGapPx).coerceAtLeast(100f)
+        val hMore = netButtonsHeight * (0.74f / totalWeight)
+        val hLike = netButtonsHeight * (0.88f / totalWeight)
+        val hPrev = netButtonsHeight * (0.96f / totalWeight)
+        val hPlay = netButtonsHeight * (1.32f / totalWeight)
+        val hNext = netButtonsHeight * (0.96f / totalWeight)
+        val yPrevFallback = fallbackStackTop + hMore + stackGapPx + hLike + stackGapPx
+        val yPlayFallback = yPrevFallback + hPrev + stackGapPx
+        val yNextFallback = yPlayFallback + hPlay + stackGapPx
+
+        val effectivePrevRect = measuredPrevRect ?: Rect(fallbackStackLeft, yPrevFallback, fallbackStackLeft + stackWidthPx, yPrevFallback + hPrev)
+        val effectivePlayRect = measuredPlayRect ?: Rect(fallbackStackLeft, yPlayFallback, fallbackStackLeft + stackWidthPx, yPlayFallback + hPlay)
+        val effectiveNextRect = measuredNextRect ?: Rect(fallbackStackLeft, yNextFallback, fallbackStackLeft + stackWidthPx, yNextFallback + hNext)
+
+        MorphingTransportButtonsOverlay(
+            containerWidthPx = screenWidthPx,
+            expansionFractionProvider = expansionFractionProvider,
+            morphTracker = morphTracker,
+            isPlayingProvider = isPlayingProvider,
+            prevTargetRect = effectivePrevRect,
+            playTargetRect = effectivePlayRect,
+            nextTargetRect = effectiveNextRect,
+            prevTargetCornerDp = 34.dp,
+            playTargetCornerDp = if (isPlayingProvider()) 20.dp else 34.dp,
+            nextTargetCornerDp = 34.dp,
+            miniSkipContainerColor = baseTheme.onPrimary,
+            miniSkipIconColor = baseTheme.primary,
+            miniPlayContainerColor = baseTheme.primary,
+            miniPlayIconColor = baseTheme.onPrimary,
+            targetSkipContainerColor = baseTheme.secondaryContainer,
+            targetSkipIconColor = baseTheme.onSecondaryContainer,
+            targetPlayContainerColor = baseTheme.primary,
+            targetPlayIconColor = baseTheme.onPrimary,
+            targetSkipIconSize = 32.dp,
+            targetPlayIconSize = 36.dp
+        )
 
         // =====================================================================
         // LAYER 5: Minimal Chrome (Small Top Drag Handle + Solid Filled Top-Right Collapse Button)
@@ -1497,31 +1562,14 @@ private fun ComplexKaraokeLyricsStage(
             }
 
             else -> {
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = LocalMaterialTheme.current.secondaryContainer
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_lyrics_24),
-                            contentDescription = null,
-                            tint = LocalMaterialTheme.current.onSecondaryContainer,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "Tap for karaoke lyrics",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontFamily = GoogleSansRounded,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = LocalMaterialTheme.current.onSecondaryContainer
-                        )
-                    }
-                }
+                ComplexExpressiveVisualizer(
+                    isPlayingProvider = isPlayingProvider,
+                    primaryColor = accentColor,
+                    secondaryColor = LocalMaterialTheme.current.secondaryContainer,
+                    tertiaryColor = LocalMaterialTheme.current.tertiary,
+                    onTertiaryColor = LocalMaterialTheme.current.onTertiary,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
     }
@@ -1535,6 +1583,11 @@ private fun ComplexKaraokeLyricsStage(
 private fun VerticalExpressiveControlStack(
     isPlayingProvider: () -> Boolean,
     isFavoriteProvider: () -> Boolean,
+    expansionFractionProvider: () -> Float,
+    rootPosInWindowProvider: () -> Offset,
+    onPrevBoundsMeasured: (Rect) -> Unit,
+    onPlayBoundsMeasured: (Rect) -> Unit,
+    onNextBoundsMeasured: (Rect) -> Unit,
     onMoreOptionsClick: () -> Unit,
     onFavoriteToggle: () -> Unit,
     onPrevious: () -> Unit,
@@ -1685,7 +1738,17 @@ private fun VerticalExpressiveControlStack(
         ExpressiveMorphingStackButton(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(prevWeight),
+                .weight(prevWeight)
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot() - rootPosInWindowProvider()
+                    val s = coords.size
+                    if (s.width > 0 && s.height > 0) {
+                        onPrevBoundsMeasured(Rect(p.x, p.y, p.x + s.width, p.y + s.height))
+                    }
+                }
+                .graphicsLayer {
+                    alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
+                },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
             isActive = activeButton == VerticalControlButton.PREVIOUS,
@@ -1713,7 +1776,17 @@ private fun VerticalExpressiveControlStack(
         ExpressiveMorphingStackButton(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(playWeight),
+                .weight(playWeight)
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot() - rootPosInWindowProvider()
+                    val s = coords.size
+                    if (s.width > 0 && s.height > 0) {
+                        onPlayBoundsMeasured(Rect(p.x, p.y, p.x + s.width, p.y + s.height))
+                    }
+                }
+                .graphicsLayer {
+                    alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
+                },
             defaultCornerDp = if (playPauseVisualState) 20.dp else 34.dp,
             pressedCornerDp = 14.dp,
             isActive = activeButton == VerticalControlButton.PLAY_PAUSE,
@@ -1747,7 +1820,17 @@ private fun VerticalExpressiveControlStack(
         ExpressiveMorphingStackButton(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(nextWeight),
+                .weight(nextWeight)
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot() - rootPosInWindowProvider()
+                    val s = coords.size
+                    if (s.width > 0 && s.height > 0) {
+                        onNextBoundsMeasured(Rect(p.x, p.y, p.x + s.width, p.y + s.height))
+                    }
+                }
+                .graphicsLayer {
+                    alpha = if (expansionFractionProvider() >= 0.985f) 1f else 0f
+                },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
             isActive = activeButton == VerticalControlButton.NEXT,
@@ -1765,6 +1848,334 @@ private fun VerticalExpressiveControlStack(
                 modifier = Modifier.size(32.dp)
             )
         }
+    }
+}
+
+/**
+ * Bold Material You Expressive Audio Visualizer shown in the Complex lyrics stage when no lyrics are available.
+ * Combines 7 chunky rounded capsule equalizer bars with a rotating Material 3 Expressive scalloped badge.
+ */
+@Composable
+private fun ComplexExpressiveVisualizer(
+    isPlayingProvider: () -> Boolean,
+    primaryColor: Color,
+    secondaryColor: Color,
+    tertiaryColor: Color,
+    onTertiaryColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val isPlaying = isPlayingProvider()
+    var phaseRad by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(isPlaying) {
+        var lastNanos = 0L
+        while (isActive) {
+            withFrameNanos { nanos ->
+                if (lastNanos != 0L) {
+                    val dtSec = ((nanos - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.1f)
+                    val speed = if (isPlaying) 5.4f else 1.15f
+                    phaseRad = (phaseRad + dtSec * speed) % (Math.PI.toFloat() * 40f)
+                }
+                lastNanos = nanos
+            }
+        }
+    }
+
+    val activeEnergy by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0.24f,
+        animationSpec = spring(
+            dampingRatio = 0.72f,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "visualizerEnergy"
+    )
+
+    val barPalette = remember(primaryColor, secondaryColor, tertiaryColor) {
+        listOf(
+            secondaryColor,
+            tertiaryColor,
+            primaryColor,
+            tertiaryColor,
+            primaryColor,
+            tertiaryColor,
+            secondaryColor
+        )
+    }
+
+    Column(
+        modifier = modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.Start
+    ) {
+        // Rotating Material 3 Expressive 12-lobed Scalloped Badge + Label
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(bottom = 18.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(44.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            rotationZ = phaseRad * 14f
+                        }
+                ) {
+                    val cx = size.width * 0.5f
+                    val cy = size.height * 0.5f
+                    val baseR = size.minDimension * 0.41f
+                    val lobeDepth = size.minDimension * 0.08f
+                    val path = Path()
+                    val steps = 96
+                    for (i in 0..steps) {
+                        val theta = (i.toFloat() / steps) * (Math.PI.toFloat() * 2f)
+                        val r = baseR + lobeDepth * cos(theta * 10f)
+                        val x = cx + r * cos(theta)
+                        val y = cy + r * sin(theta)
+                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    path.close()
+                    drawPath(path = path, color = tertiaryColor)
+                }
+                Icon(
+                    imageVector = Icons.Rounded.GraphicEq,
+                    contentDescription = null,
+                    tint = onTertiaryColor,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Column {
+                Text(
+                    text = if (isPlaying) "Now Vibing" else "Paused",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp
+                    ),
+                    color = primaryColor
+                )
+                Text(
+                    text = "Tap to search lyrics",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp
+                    ),
+                    color = primaryColor.copy(alpha = 0.68f)
+                )
+            }
+        }
+
+        // 7-Bar Bold Material You Expressive Pill Equalizer
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(108.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.Start),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val freqMultipliers = remember { floatArrayOf(1.1f, 1.55f, 1.95f, 1.35f, 2.15f, 1.65f, 1.25f) }
+            val phaseOffsets = remember { floatArrayOf(0.0f, 0.9f, 1.8f, 2.7f, 3.5f, 4.4f, 5.2f) }
+            val maxWeights = remember { floatArrayOf(0.62f, 0.85f, 1.0f, 0.78f, 0.96f, 0.80f, 0.58f) }
+
+            for (i in 0 until 7) {
+                val w1 = sin(phaseRad * freqMultipliers[i] + phaseOffsets[i])
+                val w2 = cos(phaseRad * (freqMultipliers[i] * 0.67f) - phaseOffsets[i] * 1.3f)
+                val normalizedWave = ((w1 * 0.62f + w2 * 0.38f) * 0.5f + 0.5f).coerceIn(0f, 1f)
+                val heightFraction = (0.20f + 0.80f * normalizedWave * maxWeights[i] * activeEnergy)
+                    .coerceIn(0.20f, 1f)
+                val barHeightDp = (104f * heightFraction).dp
+                val barCornerDp = if (heightFraction > 0.72f) 7.dp else 12.dp
+                val barShape = AbsoluteSmoothCornerShape(barCornerDp, 60)
+
+                Box(
+                    modifier = Modifier
+                        .width(18.dp)
+                        .height(barHeightDp)
+                        .clip(barShape)
+                        .background(barPalette[i], barShape)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Shared overlay that morphs the 3 playback transport buttons (Previous, Play/Pause, Next)
+ * continuously between their 36.dp horizontal MiniPlayer positions at the top-right of the sheet
+ * and their full Now Playing screen target bounds across all 4 design styles.
+ */
+@Composable
+internal fun MorphingTransportButtonsOverlay(
+    containerWidthPx: Float,
+    expansionFractionProvider: () -> Float,
+    morphTracker: ArtworkMorphTracker,
+    isPlayingProvider: () -> Boolean,
+    prevTargetRect: Rect,
+    playTargetRect: Rect,
+    nextTargetRect: Rect,
+    prevTargetCornerDp: Dp,
+    playTargetCornerDp: Dp,
+    nextTargetCornerDp: Dp,
+    miniSkipContainerColor: Color,
+    miniSkipIconColor: Color,
+    miniPlayContainerColor: Color,
+    miniPlayIconColor: Color,
+    targetSkipContainerColor: Color,
+    targetSkipIconColor: Color,
+    targetPlayContainerColor: Color,
+    targetPlayIconColor: Color,
+    targetSkipIconSize: Dp = 32.dp,
+    targetPlayIconSize: Dp = 36.dp
+) {
+    val density = LocalDensity.current
+    val isPlaying = isPlayingProvider()
+
+    val miniBtnSizePx = with(density) { 36.dp.toPx() }
+    val miniBtnTopPx = with(density) { 14.dp.toPx() }
+    val miniEndPadPx = with(density) { 12.dp.toPx() }
+    val miniGapPx = with(density) { 8.dp.toPx() }
+
+    val miniNextLeftPx = (containerWidthPx - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
+    val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+    val miniPrevLeftPx = (miniPlayLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
+
+    val miniPrevRect = Rect(miniPrevLeftPx, miniBtnTopPx, miniPrevLeftPx + miniBtnSizePx, miniBtnTopPx + miniBtnSizePx)
+    val miniPlayRect = Rect(miniPlayLeftPx, miniBtnTopPx, miniPlayLeftPx + miniBtnSizePx, miniBtnTopPx + miniBtnSizePx)
+    val miniNextRect = Rect(miniNextLeftPx, miniBtnTopPx, miniNextLeftPx + miniBtnSizePx, miniBtnTopPx + miniBtnSizePx)
+
+    MorphingSingleTransportButton(
+        expansionFractionProvider = expansionFractionProvider,
+        morphTracker = morphTracker,
+        startRect = miniPrevRect,
+        endRect = prevTargetRect,
+        startCornerDp = 18.dp,
+        endCornerDp = prevTargetCornerDp,
+        startContainerColor = miniSkipContainerColor,
+        endContainerColor = targetSkipContainerColor,
+        startIconColor = miniSkipIconColor,
+        endIconColor = targetSkipIconColor,
+        startIconSize = 22.dp,
+        endIconSize = targetSkipIconSize,
+        icon = Icons.Rounded.SkipPrevious
+    )
+
+    MorphingSingleTransportButton(
+        expansionFractionProvider = expansionFractionProvider,
+        morphTracker = morphTracker,
+        startRect = miniPlayRect,
+        endRect = playTargetRect,
+        startCornerDp = if (isPlaying) 11.dp else 18.dp,
+        endCornerDp = playTargetCornerDp,
+        startContainerColor = miniPlayContainerColor,
+        endContainerColor = targetPlayContainerColor,
+        startIconColor = miniPlayIconColor,
+        endIconColor = targetPlayIconColor,
+        startIconSize = 22.dp,
+        endIconSize = targetPlayIconSize,
+        icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow
+    )
+
+    MorphingSingleTransportButton(
+        expansionFractionProvider = expansionFractionProvider,
+        morphTracker = morphTracker,
+        startRect = miniNextRect,
+        endRect = nextTargetRect,
+        startCornerDp = 18.dp,
+        endCornerDp = nextTargetCornerDp,
+        startContainerColor = miniSkipContainerColor,
+        endContainerColor = targetSkipContainerColor,
+        startIconColor = miniSkipIconColor,
+        endIconColor = targetSkipIconColor,
+        startIconSize = 22.dp,
+        endIconSize = targetSkipIconSize,
+        icon = Icons.Rounded.SkipNext
+    )
+}
+
+@Composable
+private fun MorphingSingleTransportButton(
+    expansionFractionProvider: () -> Float,
+    morphTracker: ArtworkMorphTracker,
+    startRect: Rect,
+    endRect: Rect,
+    startCornerDp: Dp,
+    endCornerDp: Dp,
+    startContainerColor: Color,
+    endContainerColor: Color,
+    startIconColor: Color,
+    endIconColor: Color,
+    startIconSize: Dp,
+    endIconSize: Dp,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    val density = LocalDensity.current
+    val startCornerPx = with(density) { startCornerDp.toPx() }
+    val endCornerPx = with(density) { endCornerDp.toPx() }
+
+    val dynamicShape = remember(morphTracker, expansionFractionProvider, startCornerPx, endCornerPx) {
+        object : Shape {
+            override fun createOutline(
+                size: Size,
+                layoutDirection: LayoutDirection,
+                density: Density
+            ): Outline {
+                val t = morphTracker.evaluate(expansionFractionProvider()).sizeT
+                val maxR = minOf(size.width, size.height) * 0.5f
+                val r = androidx.compose.ui.util.lerp(startCornerPx, endCornerPx, t).coerceIn(0f, maxR)
+                return Outline.Rounded(
+                    androidx.compose.ui.geometry.RoundRect(
+                        rect = Rect(0f, 0f, size.width, size.height),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
+                    )
+                )
+            }
+        }
+    }
+
+    val rawF = expansionFractionProvider().coerceIn(0f, 1f)
+    val sample = morphTracker.evaluate(rawF)
+    val containerColor = lerp(startContainerColor, endContainerColor, sample.sizeT)
+    val iconColor = lerp(startIconColor, endIconColor, sample.sizeT)
+    val iconSizeDp = androidx.compose.ui.unit.lerp(startIconSize, endIconSize, sample.sizeT)
+
+    Box(
+        modifier = Modifier
+            .layout { measurable, _ ->
+                val f = expansionFractionProvider()
+                if (f <= 0.004f || f >= 0.985f) {
+                    val p = measurable.measure(Constraints.fixed(0, 0))
+                    return@layout layout(0, 0) { p.place(0, 0) }
+                }
+                val s = morphTracker.evaluate(f)
+                val baseW = androidx.compose.ui.util.lerp(startRect.width, endRect.width, s.sizeT)
+                val baseH = androidx.compose.ui.util.lerp(startRect.height, endRect.height, s.sizeT)
+                val targetW = (baseW * s.overshootScale).roundToInt().coerceAtLeast(1)
+                val targetH = (baseH * s.overshootScale).roundToInt().coerceAtLeast(1)
+                val baseX = androidx.compose.ui.util.lerp(startRect.left, endRect.left, s.posT)
+                val baseY = androidx.compose.ui.util.lerp(startRect.top, endRect.top, s.posT)
+                val placeX = (baseX - (targetW - baseW) * 0.5f).roundToInt()
+                val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
+
+                val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
+                layout(targetW, targetH) {
+                    placeable.place(placeX, placeY)
+                }
+            }
+            .clip(dynamicShape)
+            .background(containerColor, dynamicShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconColor,
+            modifier = Modifier.size(iconSizeDp)
+        )
     }
 }
 

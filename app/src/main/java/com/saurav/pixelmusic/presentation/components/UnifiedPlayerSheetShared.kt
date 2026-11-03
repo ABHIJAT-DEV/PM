@@ -32,8 +32,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -187,15 +192,18 @@ internal fun MiniPlayerContentInternal(
 
         val prevPress = remember { Animatable(0f) }
         val prevJiggle = remember { Animatable(0f) }
+        val prevCornerDp = (18f - prevPress.value * 7f).dp
+        val prevShape = AbsoluteSmoothCornerShape(prevCornerDp, 60)
 
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .graphicsLayer {
+                    alpha = albumArtAlphaProvider()
                     scaleX = 1f + (prevPress.value * 0.10f) + (prevJiggle.value * 0.16f)
                     scaleY = 1f - (prevPress.value * 0.08f) - (prevJiggle.value * 0.14f)
                 }
-                .clip(CircleShape)
+                .clip(prevShape)
                 .background(
                     if (isLiquidGlass) {
                         (if (isDark) Color.White else Color.Black).copy(alpha = 0.10f)
@@ -208,7 +216,7 @@ internal fun MiniPlayerContentInternal(
                         Modifier.border(
                             0.75.dp,
                             Color.White.copy(alpha = if (isDark) 0.06f else 0.12f),
-                            CircleShape
+                            prevShape
                         )
                     } else Modifier
                 )
@@ -249,15 +257,23 @@ internal fun MiniPlayerContentInternal(
 
         val playPausePress = remember { Animatable(0f) }
         val playPauseJiggle = remember { Animatable(0f) }
+        val playPauseBaseCorner by animateDpAsState(
+            targetValue = if (isPlaying) 11.dp else 18.dp,
+            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+            label = "miniPlayPauseCorner"
+        )
+        val playPauseEffectiveCorner = (playPauseBaseCorner.value - playPausePress.value * 3f).coerceAtLeast(8f).dp
+        val playPauseShape = AbsoluteSmoothCornerShape(playPauseEffectiveCorner, 60)
 
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .graphicsLayer {
+                    alpha = albumArtAlphaProvider()
                     scaleX = 1f + (playPausePress.value * 0.10f) + (playPauseJiggle.value * 0.16f)
                     scaleY = 1f - (playPausePress.value * 0.08f) - (playPauseJiggle.value * 0.14f)
                 }
-                .clip(CircleShape)
+                .clip(playPauseShape)
                 .background(
                     if (isLiquidGlass) {
                         LocalMaterialTheme.current.primary.copy(alpha = 0.88f)
@@ -275,7 +291,7 @@ internal fun MiniPlayerContentInternal(
                                     Color.White.copy(alpha = 0.04f)
                                 )
                             ),
-                            CircleShape
+                            playPauseShape
                         )
                     } else Modifier
                 )
@@ -323,15 +339,18 @@ internal fun MiniPlayerContentInternal(
 
         val nextPress = remember { Animatable(0f) }
         val nextJiggle = remember { Animatable(0f) }
+        val nextCornerDp = (18f - nextPress.value * 7f).dp
+        val nextShape = AbsoluteSmoothCornerShape(nextCornerDp, 60)
 
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .graphicsLayer {
+                    alpha = albumArtAlphaProvider()
                     scaleX = 1f + (nextPress.value * 0.10f) + (nextJiggle.value * 0.16f)
                     scaleY = 1f - (nextPress.value * 0.08f) - (nextJiggle.value * 0.14f)
                 }
-                .clip(CircleShape)
+                .clip(nextShape)
                 .background(
                     if (isLiquidGlass) {
                         (if (isDark) Color.White else Color.Black).copy(alpha = 0.10f)
@@ -344,7 +363,7 @@ internal fun MiniPlayerContentInternal(
                         Modifier.border(
                             0.75.dp,
                             Color.White.copy(alpha = if (isDark) 0.06f else 0.12f),
-                            CircleShape
+                            nextShape
                         )
                     } else Modifier
                 )
