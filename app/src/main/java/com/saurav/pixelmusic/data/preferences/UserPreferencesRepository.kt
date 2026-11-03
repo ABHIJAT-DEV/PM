@@ -1267,15 +1267,15 @@ constructor(
         }
     }
 
-    /** Album art quality on mobile data. Default: LOW (360p). */
+    /** Album art quality on mobile data. Follows ALBUM_ART_QUALITY unless explicitly overridden. */
     val albumArtQualityMobileFlow: Flow<AlbumArtQuality> =
         dataStore.data.map { preferences ->
             try {
-                AlbumArtQuality.fromString(
-                    preferences[PreferencesKeys.ALBUM_ART_QUALITY_MOBILE] ?: "LOW"
-                )
+                val mobileValue = preferences[PreferencesKeys.ALBUM_ART_QUALITY_MOBILE]
+                val wifiValue = preferences[PreferencesKeys.ALBUM_ART_QUALITY]
+                AlbumArtQuality.fromString(mobileValue ?: wifiValue ?: "HIGH")
             } catch (e: Exception) {
-                AlbumArtQuality.LOW
+                AlbumArtQuality.HIGH
             }
         }
 

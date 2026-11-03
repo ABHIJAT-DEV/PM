@@ -85,29 +85,41 @@ class CoilBitmapLoader(private val context: Context, private val scope: Coroutin
                 }
 
                 val finalDataStr = finalData.toString()
-                val canonicalDiskKey = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(finalDataStr) ?: finalDataStr
-                val fallbackArtworkUrl = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getFallbackArtworkUrl(finalDataStr)
-                val fallbackDiskKey = fallbackArtworkUrl?.let { com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(it) ?: it }
+                val canonicalDiskKey = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(
+                    finalDataStr,
+                    effectiveQuality
+                ) ?: finalDataStr
+
+                val cachedMemBitmap = context.imageLoader.memoryCache
+                    ?.get(coil.memory.MemoryCache.Key(canonicalDiskKey))
+                    ?.bitmap
+                if (cachedMemBitmap != null && !cachedMemBitmap.isRecycled) {
+                    val softwareBitmap = if (
+                        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                        cachedMemBitmap.config == Bitmap.Config.HARDWARE
+                    ) {
+                        cachedMemBitmap.copy(Bitmap.Config.ARGB_8888, false) ?: cachedMemBitmap
+                    } else {
+                        cachedMemBitmap
+                    }
+                    future.set(softwareBitmap)
+                    return@launch
+                }
+
                 val request = ImageRequest.Builder(context)
                     .data(finalData)
                     .diskCacheKey(canonicalDiskKey)
+                    .memoryCacheKey(canonicalDiskKey)
                     .size(requestedSizePx, requestedSizePx)
                     .precision(Precision.INEXACT)
                     .allowHardware(false)
                     .memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .build()
-                
-                var result = context.imageLoader.execute(request)
-                if (result.drawable == null && fallbackArtworkUrl != null) {
-                    val fallbackRequest = request.newBuilder()
-                        .data(fallbackArtworkUrl)
-                        .diskCacheKey(fallbackDiskKey ?: fallbackArtworkUrl)
-                        .build()
-                    result = context.imageLoader.execute(fallbackRequest)
-                }
+
+                val result = context.imageLoader.execute(request)
                 val drawable = result.drawable
-                
+
                 if (drawable != null) {
                     val bitmap = drawable.toBitmap()
                     future.set(bitmap)

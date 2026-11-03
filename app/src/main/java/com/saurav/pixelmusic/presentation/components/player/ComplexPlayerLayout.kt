@@ -1853,8 +1853,8 @@ private fun ComplexExpressiveVisualizer(
             withFrameNanos { nanos ->
                 if (lastNanos != 0L) {
                     val dtSec = ((nanos - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.1f)
-                    val speed = if (isPlaying) 5.4f else 1.15f
-                    phaseRad = (phaseRad + dtSec * speed) % (Math.PI.toFloat() * 40f)
+                    val speed = if (isPlaying) 1.35f else 0.22f
+                    phaseRad = (phaseRad + dtSec * speed) % (Math.PI.toFloat() * 80f)
                 }
                 lastNanos = nanos
             }
@@ -1901,18 +1901,18 @@ private fun ComplexExpressiveVisualizer(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            rotationZ = phaseRad * 14f
+                            rotationZ = phaseRad * 6.5f
                         }
                 ) {
                     val cx = size.width * 0.5f
                     val cy = size.height * 0.5f
-                    val baseR = size.minDimension * 0.41f
-                    val lobeDepth = size.minDimension * 0.08f
+                    val baseR = size.minDimension * 0.455f
+                    val lobeDepth = size.minDimension * 0.028f
                     val path = Path()
                     val steps = 96
                     for (i in 0..steps) {
                         val theta = (i.toFloat() / steps) * (Math.PI.toFloat() * 2f)
-                        val r = baseR + lobeDepth * cos(theta * 10f)
+                        val r = baseR + lobeDepth * cos(theta * 8f)
                         val x = cx + r * cos(theta)
                         val y = cy + r * sin(theta)
                         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
@@ -1958,19 +1958,18 @@ private fun ComplexExpressiveVisualizer(
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.Start),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val freqMultipliers = remember { floatArrayOf(1.1f, 1.55f, 1.95f, 1.35f, 2.15f, 1.65f, 1.25f) }
+            val freqMultipliers = remember { floatArrayOf(0.72f, 0.94f, 1.15f, 1.0f, 1.22f, 1.02f, 0.78f) }
             val phaseOffsets = remember { floatArrayOf(0.0f, 0.9f, 1.8f, 2.7f, 3.5f, 4.4f, 5.2f) }
             val maxWeights = remember { floatArrayOf(0.62f, 0.85f, 1.0f, 0.78f, 0.96f, 0.80f, 0.58f) }
+            val barShape = remember { AbsoluteSmoothCornerShape(10.dp, 60) }
 
             for (i in 0 until 7) {
                 val w1 = sin(phaseRad * freqMultipliers[i] + phaseOffsets[i])
-                val w2 = cos(phaseRad * (freqMultipliers[i] * 0.67f) - phaseOffsets[i] * 1.3f)
-                val normalizedWave = ((w1 * 0.62f + w2 * 0.38f) * 0.5f + 0.5f).coerceIn(0f, 1f)
-                val heightFraction = (0.20f + 0.80f * normalizedWave * maxWeights[i] * activeEnergy)
-                    .coerceIn(0.20f, 1f)
-                val barHeightDp = (104f * heightFraction).dp
-                val barCornerDp = if (heightFraction > 0.72f) 7.dp else 12.dp
-                val barShape = AbsoluteSmoothCornerShape(barCornerDp, 60)
+                val w2 = cos(phaseRad * (freqMultipliers[i] * 0.65f) - phaseOffsets[i] * 1.15f)
+                val normalizedWave = ((w1 * 0.65f + w2 * 0.35f) * 0.5f + 0.5f).coerceIn(0f, 1f)
+                val heightFraction = (0.22f + 0.78f * normalizedWave * maxWeights[i] * activeEnergy)
+                    .coerceIn(0.22f, 1f)
+                val barHeightDp = (102f * heightFraction).dp
 
                 Box(
                     modifier = Modifier

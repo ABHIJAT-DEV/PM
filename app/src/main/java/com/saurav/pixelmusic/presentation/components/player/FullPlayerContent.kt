@@ -2782,16 +2782,32 @@ suspend fun extractDominantColor(
     try {
         val effectiveQuality = com.saurav.pixelmusic.presentation.components.SmartImageCache.getEffectiveQuality()
         val optimizedUri = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(uriString, effectiveQuality) ?: uriString
-        val canonicalDiskKey = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedUri) ?: optimizedUri
-        val request = coil.request.ImageRequest.Builder(context)
-            .data(optimizedUri)
-            .diskCacheKey(canonicalDiskKey)
-            .allowHardware(false) // Palette needs a software bitmap
-            .size(160, 160)       // small = fast, plenty for color extraction
-            .build()
-        val result = context.imageLoader.execute(request)
-        val bitmap = (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-            ?: return@withContext fallback
+        val canonicalDiskKey = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedUri, effectiveQuality) ?: optimizedUri
+
+        val cachedMemBitmap = context.imageLoader.memoryCache
+            ?.get(coil.memory.MemoryCache.Key(canonicalDiskKey))
+            ?.bitmap
+            ?.takeIf { !it.isRecycled }
+            ?.let { bmp ->
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                    bmp.config == android.graphics.Bitmap.Config.HARDWARE
+                ) {
+                    bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                } else {
+                    bmp
+                }
+            }
+
+        val bitmap = cachedMemBitmap ?: run {
+            val request = coil.request.ImageRequest.Builder(context)
+                .data(optimizedUri)
+                .diskCacheKey(canonicalDiskKey)
+                .allowHardware(false) // Palette needs a software bitmap
+                .size(160, 160)       // small = fast, plenty for color extraction
+                .build()
+            val result = context.imageLoader.execute(request)
+            (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+        } ?: return@withContext fallback
         val palette = androidx.palette.graphics.Palette.from(bitmap).generate()
         val swatch = if (isDarkTheme) {
             palette.darkMutedSwatch ?: palette.dominantSwatch ?: palette.mutedSwatch

@@ -97,24 +97,28 @@ fun OptimizedAlbumArt(
         }
     }
 
-    val canonicalDiskKey = remember(optimizedUri) {
+    val canonicalDiskKey = remember(optimizedUri, effectiveQuality) {
         if (optimizedUri is String) {
-            com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedUri) ?: optimizedUri
+            com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedUri, effectiveQuality) ?: optimizedUri
         } else {
             optimizedUri.toString()
         }
     }
 
-    val memoryCacheKey = remember(canonicalDiskKey, requestTargetSize) {
-        albumArtMemoryCacheKey(canonicalDiskKey, requestTargetSize)
+    val memoryCacheKey = remember(canonicalDiskKey, requestTargetSize, effectiveQuality) {
+        com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalMemoryCacheKey(
+            canonicalDiskKey = canonicalDiskKey,
+            targetSize = requestTargetSize,
+            quality = effectiveQuality
+        )
     }
-    
-    val placeholderMemoryCacheKey = remember(memoryCacheKey, optimizedUri) {
+
+    val placeholderMemoryCacheKey = remember(canonicalDiskKey, memoryCacheKey, optimizedUri) {
         when (optimizedUri) {
             is ImageRequest -> optimizedUri.placeholderMemoryCacheKey
                 ?: optimizedUri.memoryCacheKey
-                ?: memoryCacheKey?.let { MemoryCache.Key(it) }
-            else -> memoryCacheKey?.let { MemoryCache.Key(it) }
+                ?: MemoryCache.Key(canonicalDiskKey)
+            else -> MemoryCache.Key(canonicalDiskKey)
         }
     }
     

@@ -244,12 +244,15 @@ object AppModule {
     @Provides
     @Singleton
     fun provideImageLoader(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        localArtworkCoilFetcherFactory: com.saurav.pixelmusic.data.image.LocalArtworkCoilFetcher.Factory
     ): ImageLoader {
         return ImageLoader.Builder(context)
             .dispatcher(Dispatchers.Default) // Use CPU-bound dispatcher for decoding
             .allowHardware(true) // Re-enable hardware bitmaps for better performance
             .components {
+                add(com.saurav.pixelmusic.data.image.ArtworkSingleFlightInterceptor())
+                add(localArtworkCoilFetcherFactory)
                 if (android.os.Build.VERSION.SDK_INT >= 28) {
                     add(coil.decode.ImageDecoderDecoder.Factory())
                 } else {
@@ -258,7 +261,7 @@ object AppModule {
             }
             .memoryCache {
                 MemoryCache.Builder(context)
-                    .maxSizePercent(0.12) // Use 12% of app memory for image cache to avoid heap starvation on large libraries
+                    .maxSizePercent(0.15)
                     .build()
             }
             .diskCache {

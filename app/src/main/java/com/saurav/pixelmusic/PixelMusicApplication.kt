@@ -140,6 +140,7 @@ startupScope.launch {
         this,
         com.saurav.pixelmusic.presentation.components.SmartImageEntryPoint::class.java
     )
+    smartImageEntryPoint.connectivityStateHolder().initialize()
     com.saurav.pixelmusic.presentation.components.SmartImageCache.initialize(
         smartImageEntryPoint.connectivityStateHolder(),
         smartImageEntryPoint.userPreferencesRepository()
@@ -272,27 +273,7 @@ NewPipe.init(object : Downloader() {
     }
 
     override fun newImageLoader(): ImageLoader {
-        return imageLoader.get().newBuilder()
-            .memoryCache {
-                coil.memory.MemoryCache.Builder(this)
-                    .maxSizePercent(0.15) 
-                    .build()
-            }
-            .diskCache {
-                coil.disk.DiskCache.Builder()
-                    .directory(cacheDir.resolve("image_cache"))
-                    .maxSizePercent(0.02) 
-                    .build()
-            }
-            .components {
-                add(localArtworkCoilFetcherFactory.get())
-                if (android.os.Build.VERSION.SDK_INT >= 28) {
-                    add(coil.decode.ImageDecoderDecoder.Factory())
-                } else {
-                    add(coil.decode.GifDecoder.Factory())
-                }
-            }
-            .build()
+        return imageLoader.get()
     }
 
     @Suppress("DEPRECATION")

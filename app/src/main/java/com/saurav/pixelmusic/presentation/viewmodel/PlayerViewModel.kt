@@ -4081,11 +4081,20 @@ class PlayerViewModel @Inject constructor(
                     ?.getString(MediaItemBuilder.EXTERNAL_EXTRA_ALBUM_ART)
                     ?.takeIf { it.isNotBlank() }
 
-        return when {
-            metadataArtwork == null && song.albumArtUriString != null -> song.copy(albumArtUriString = null)
-            metadataArtwork != null && song.albumArtUriString != metadataArtwork ->
-                song.copy(albumArtUriString = metadataArtwork)
-            else -> song
+        val rawArtwork = metadataArtwork ?: song.albumArtUriString?.takeIf { it.isNotBlank() } ?: run {
+            val ytId = song.youtubeId?.takeIf { it.isNotBlank() }
+                ?: if (song.contentUriString.startsWith("youtube://")) song.contentUriString.removePrefix("youtube://") else null
+            if (!ytId.isNullOrBlank()) "https://i.ytimg.com/vi/$ytId/maxresdefault.jpg" else null
+        }
+
+        val optimizedArtwork = rawArtwork?.let {
+            com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(it, albumArtQuality.value) ?: it
+        }
+
+        return if (song.albumArtUriString != optimizedArtwork) {
+            song.copy(albumArtUriString = optimizedArtwork)
+        } else {
+            song
         }
     }
 

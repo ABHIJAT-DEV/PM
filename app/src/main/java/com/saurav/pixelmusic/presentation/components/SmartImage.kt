@@ -60,7 +60,7 @@ interface SmartImageEntryPoint {
 
 val SmartImageCompactListTargetSize = Size(96, 96)
 val SmartImageListTargetSize = Size(128, 128)
-private val DefaultSmartImageSize = Size(300, 300)
+private val DefaultSmartImageSize = SafeOriginalAlbumArtSize
 
 @Composable
 fun SmartImage(
@@ -151,7 +151,7 @@ fun SmartImage(
         if (rawModelString != null) {
             val transformed = ThumbnailUrlUtils.optimizeArtworkUrl(rawModelString, effectiveQuality) ?: rawModelString
             if (model is ImageRequest) {
-                val canonicalKey = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(transformed) ?: transformed
+                val canonicalKey = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(transformed, effectiveQuality) ?: transformed
                 model.newBuilder().data(transformed).diskCacheKey(model.diskCacheKey ?: canonicalKey).build()
             } else {
                 transformed
@@ -164,6 +164,7 @@ fun SmartImage(
     val request = remember(
         context,
         optimizedModel,
+        effectiveQuality,
         crossfadeDurationMillis,
         useDiskCache,
         useMemoryCache,
@@ -172,19 +173,24 @@ fun SmartImage(
     ) {
         if (optimizedModel is ImageRequest) {
             val diskKey = optimizedModel.diskCacheKey
-                ?: ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedModel.data.toString())
+                ?: ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedModel.data.toString(), effectiveQuality)
                 ?: optimizedModel.data.toString()
+            val memKey = ThumbnailUrlUtils.getCanonicalMemoryCacheKey(diskKey, requestTargetSize, effectiveQuality)
             optimizedModel.newBuilder(context)
                 .diskCacheKey(diskKey)
+                .memoryCacheKey(memKey)
+                .placeholderMemoryCacheKey(diskKey)
                 .size(requestTargetSize)
                 .build()
         } else {
             val modelStr = optimizedModel.toString()
-            val canonicalDiskKey = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(modelStr) ?: modelStr
+            val canonicalDiskKey = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(modelStr, effectiveQuality) ?: modelStr
+            val canonicalMemKey = ThumbnailUrlUtils.getCanonicalMemoryCacheKey(canonicalDiskKey, requestTargetSize, effectiveQuality)
             ImageRequest.Builder(context)
                 .data(optimizedModel)
                 .diskCacheKey(canonicalDiskKey)
-                .memoryCacheKey("$canonicalDiskKey|$requestTargetSize")
+                .memoryCacheKey(canonicalMemKey)
+                .placeholderMemoryCacheKey(canonicalDiskKey)
                 .crossfade(crossfadeDurationMillis > 0)
                 .diskCachePolicy(if (useDiskCache) CachePolicy.ENABLED else CachePolicy.DISABLED)
                 .memoryCachePolicy(if (useMemoryCache) CachePolicy.ENABLED else CachePolicy.DISABLED)
@@ -343,17 +349,13 @@ private fun Placeholder(
 }
 
 object SmartImageCache {
-    @Volatile
-    var isMeteredNetwork: Boolean = false
+    var isMeteredNetwork: Boolean by androidx.compose.runtime.mutableStateOf(false)
         private set
-    @Volatile
-    var albumArtQualityWifi: AlbumArtQuality = AlbumArtQuality.HIGH
+    var albumArtQualityWifi: AlbumArtQuality by androidx.compose.runtime.mutableStateOf(AlbumArtQuality.HIGH)
         private set
-    @Volatile
-    var albumArtQualityMobile: AlbumArtQuality = AlbumArtQuality.LOW
+    var albumArtQualityMobile: AlbumArtQuality by androidx.compose.runtime.mutableStateOf(AlbumArtQuality.HIGH)
         private set
-    @Volatile
-    var performanceModeEnabled: Boolean = false
+    var performanceModeEnabled: Boolean by androidx.compose.runtime.mutableStateOf(false)
         private set
 
     @Volatile

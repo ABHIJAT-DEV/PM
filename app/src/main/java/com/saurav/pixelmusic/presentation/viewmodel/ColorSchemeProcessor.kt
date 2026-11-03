@@ -191,7 +191,27 @@ class ColorSchemeProcessor @Inject constructor(
             
             val effectiveQuality = com.saurav.pixelmusic.presentation.components.SmartImageCache.getEffectiveQuality()
             val optimizedUri = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(uri, effectiveQuality) ?: uri
-            val canonicalDiskKey = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedUri) ?: optimizedUri
+            val canonicalDiskKey = com.saurav.pixelmusic.utils.ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedUri, effectiveQuality) ?: optimizedUri
+
+            if (!skipCache) {
+                val memBitmap = context.imageLoader.memoryCache
+                    ?.get(coil.memory.MemoryCache.Key(canonicalDiskKey))
+                    ?.bitmap
+                if (memBitmap != null && !memBitmap.isRecycled) {
+                    val soft = if (
+                        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                        memBitmap.config == Bitmap.Config.HARDWARE
+                    ) {
+                        memBitmap.copy(Bitmap.Config.ARGB_8888, false)
+                    } else {
+                        memBitmap
+                    }
+                    if (soft != null) {
+                        return Bitmap.createScaledBitmap(soft, 128, 128, true)
+                    }
+                }
+            }
+
             val request = ImageRequest.Builder(context)
                 .data(optimizedUri)
                 .diskCacheKey(canonicalDiskKey)
