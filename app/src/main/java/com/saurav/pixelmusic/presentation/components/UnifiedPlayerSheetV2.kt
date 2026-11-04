@@ -541,17 +541,6 @@ fun UnifiedPlayerSheetV2(
         playerContentActualBottomRadiusProvider = playerContentActualBottomRadiusProvider,
         useSmoothCorners = useSmoothCorners,
         isDragging = sheetBackAndDragState.isDragging,
-        onAnimateSheet = { targetExpanded, animationSpec, initialVelocity ->
-            if (animationSpec == null) {
-                animatePlayerSheet(targetExpanded = targetExpanded)
-            } else {
-                animatePlayerSheet(
-                    targetExpanded = targetExpanded,
-                    animationSpec = animationSpec,
-                    initialVelocity = initialVelocity
-                )
-            }
-        },
         onExpandSheetState = { playerViewModel.expandPlayerSheet() },
         onCollapseSheetState = { playerViewModel.collapsePlayerSheet() },
         onDraggingChange = sheetBackAndDragState.onDraggingChange,
