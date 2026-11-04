@@ -3,14 +3,21 @@ name: 🧹 Delete Workflow File
 on:
   workflow_dispatch:
 
+permissions: write-all
+
 jobs:
   delete-file:
     runs-on: ubuntu-latest
     steps:
       - name: Try delete via GitHub API
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.TEST_REPO_PAT }}
         run: |
+          TOKEN="${{ secrets.TEST_REPO_PAT }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          export GH_TOKEN="$TOKEN"
           SHA=$(gh api repos/${{ github.repository }}/contents/.github/workflows/clear-cache.yml --jq .sha || true)
           echo "SHA is $SHA"
           if [ -n "$SHA" ]; then
