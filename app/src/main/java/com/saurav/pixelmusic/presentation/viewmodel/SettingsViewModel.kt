@@ -89,7 +89,7 @@ data class SettingsUiState(
     val libraryNavigationMode: String = LibraryNavigationMode.TAB_ROW,
     val launchTab: String = LaunchTab.HOME,
     val keepPlayingInBackground: Boolean = true,
-    val aodScreenEnabled: Boolean = false,
+    val aodScreenEnabled: Boolean = true,
     val disableCastAutoplay: Boolean = false,
     val resumeOnHeadsetReconnect: Boolean = false,
     val showQueueHistory: Boolean = true,

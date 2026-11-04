@@ -1,49 +1,50 @@
 package com.saurav.pixelmusic.presentation.components.player
 
-import androidx.compose.animation.Crossfade
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.os.SystemClock
+import android.view.WindowManager
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,6 +56,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,163 +71,291 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.graphics.ColorUtils
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import android.view.WindowManager
 import androidx.core.view.WindowInsetsControllerCompat
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.SmartImage
-import kotlinx.coroutines.delay
-import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
+import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import kotlin.random.Random
+import kotlin.math.sqrt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-private data class ExpressivePolarShapeSpec(
-    val lobes1: Int,
-    val amp1: Float,
-    val phase1: Float = 0f,
-    val lobes2: Int = 0,
-    val amp2: Float = 0f,
-    val phase2: Float = 0f
-) {
-    fun radiusAt(theta: Double): Float {
-        var r = 1.0
-        if (lobes1 > 0 && amp1 != 0f) {
-            r += amp1 * cos(lobes1 * theta + phase1)
+enum class AodSourceArtStyle {
+    STANDARD_ROUNDED,
+    IMMERSIVE_RECT,
+    COMPLEX_ARCH
+}
+
+class AodSourceBounds {
+    val artBounds = MorphElementBounds()
+    val songInfoBounds = MorphElementBounds()
+    val progressBounds = MorphElementBounds()
+    val prevBounds = MorphElementBounds()
+    val playBounds = MorphElementBounds()
+    val nextBounds = MorphElementBounds()
+    var artStyle: AodSourceArtStyle = AodSourceArtStyle.STANDARD_ROUNDED
+    var complexRightRisePx: Float = 0f
+}
+
+private val SmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
+/**
+ * Curated Material You Expressive shapes:
+ * - Soft cookies with gentle, shallow curves (never deeply pinched or lumpy)
+ * - Clean geometric expressive shapes: Pill, Oval, Rounded Rectangle, Rounded Diamond,
+ *   Rounded Triangle, Squircle, and Soft Pentagon.
+ * Ordered so consecutive taps alternate between cookies and distinct geometric silhouettes.
+ */
+private enum class AodExpressiveShapeKind {
+    // 0: 8-Sided Soft Cookie (subtle 3.6% wave)
+    COOKIE_8 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.036 * cos(8.0 * th)
+    },
+    // 1: Material You Stadium Pill (tilted 28 deg for expressive balance)
+    PILL {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th - (28.0 * PI / 180.0)
+            val c = abs(cos(a)) / 0.78
+            val s = abs(sin(a)) / 1.00
+            return 1.0 / (c.pow(4.6) + s.pow(4.6)).pow(1.0 / 4.6)
         }
-        if (lobes2 > 0 && amp2 != 0f) {
-            r += amp2 * cos(lobes2 * theta + phase2)
+    },
+    // 2: 6-Sided Soft Cookie (gentle 4.2% wave)
+    COOKIE_6 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.042 * cos(6.0 * th)
+    },
+    // 3: Material You Rounded Diamond (45-deg rotated superellipse, convex sides + soft corners)
+    ROUNDED_DIAMOND {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th - PI / 4.0
+            val c = abs(cos(a))
+            val s = abs(sin(a))
+            return 1.0 / (c.pow(3.5) + s.pow(3.5)).pow(1.0 / 3.5)
         }
-        return r.toFloat()
+    },
+    // 4: Material You Smooth Oval (tilted -22 deg)
+    OVAL {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th + (22.0 * PI / 180.0)
+            val c = cos(a) / 0.82
+            val s = sin(a) / 1.00
+            return 1.0 / sqrt(c * c + s * s)
+        }
+    },
+    // 5: 4-Sided Soft Clover Cookie (gentle 4.6% cushion curve)
+    COOKIE_4 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.046 * cos(4.0 * th + PI / 4.0)
+    },
+    // 6: Material You Soft Rounded Triangle (strictly convex with rounded vertices)
+    ROUNDED_TRIANGLE {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th - PI / 2.0
+            return 1.0 + 0.064 * cos(3.0 * a) - 0.011 * cos(6.0 * a)
+        }
+    },
+    // 7: Material You Rounded Rectangle / Soft Squircle
+    ROUNDED_RECTANGLE {
+        override fun rawRadiusAt(th: Double): Double {
+            val c = abs(cos(th)) / 0.88
+            val s = abs(sin(th)) / 1.00
+            return 1.0 / (c.pow(4.2) + s.pow(4.2)).pow(1.0 / 4.2)
+        }
+    },
+    // 8: 12-Sided Sunny Cookie (refined 2.5% scallop)
+    COOKIE_12 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.025 * cos(12.0 * th)
+    },
+    // 9: Material You Soft Pentagon
+    ROUNDED_PENTAGON {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th - PI / 2.0
+            return 1.0 + 0.034 * cos(5.0 * a) - 0.005 * cos(10.0 * a)
+        }
+    },
+    // 10: 7-Sided Soft Cookie (gentle 3.6% wave)
+    COOKIE_7 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.036 * cos(7.0 * th - PI / 2.0)
+    },
+    // 11: Material You 1:1 Squircle Cushion
+    ROUNDED_SQUIRCLE {
+        override fun rawRadiusAt(th: Double): Double {
+            val c = abs(cos(th))
+            val s = abs(sin(th))
+            return 1.0 / (c.pow(4.0) + s.pow(4.0)).pow(0.25)
+        }
+    };
+
+    abstract fun rawRadiusAt(th: Double): Double
+
+    private val normScale: Double by lazy {
+        val samples = 180
+        var maxR = 0.001
+        var sumR = 0.0
+        for (i in 0 until samples) {
+            val r = rawRadiusAt((2.0 * PI * i) / samples)
+            if (r > maxR) maxR = r
+            sumR += r
+        }
+        val meanR = sumR / samples
+        // Blend max and mean so Pill/Oval/Triangle feel visually just as full as Cookies
+        (0.62 * maxR + 0.38 * meanR).coerceAtLeast(maxR * 0.94)
+    }
+
+    fun normalizedRadiusAt(th: Double): Float {
+        return (rawRadiusAt(th) / normScale).toFloat().coerceAtMost(1.04f)
     }
 }
 
-private val AOD_EXPRESSIVE_SHAPES = listOf(
-    // 0: 8-lobe Sunny Scallop Cookie
-    ExpressivePolarShapeSpec(lobes1 = 8, amp1 = 0.076f),
-    // 1: 6-lobe Soft Flower
-    ExpressivePolarShapeSpec(lobes1 = 6, amp1 = 0.096f),
-    // 2: 4-leaf Clover Cookie
-    ExpressivePolarShapeSpec(lobes1 = 4, amp1 = 0.115f, phase1 = (PI / 4.0).toFloat()),
-    // 3: 10-lobe Decagon Badge
-    ExpressivePolarShapeSpec(lobes1 = 10, amp1 = 0.058f),
-    // 4: 5-petal Blossom
-    ExpressivePolarShapeSpec(lobes1 = 5, amp1 = 0.095f, phase1 = (-PI / 2.0).toFloat()),
-    // 5: 7-lobe Heptagon Wave
-    ExpressivePolarShapeSpec(lobes1 = 7, amp1 = 0.082f),
-    // 6: 12-lobe Sunburst Seal
-    ExpressivePolarShapeSpec(lobes1 = 12, amp1 = 0.046f),
-    // 7: Soft Squircle Cushion
-    ExpressivePolarShapeSpec(
-        lobes1 = 4,
-        amp1 = 0.072f,
-        phase1 = (PI / 4.0).toFloat(),
-        lobes2 = 8,
-        amp2 = -0.016f
-    ),
-    // 8: 9-lobe Nonagon Rosette
-    ExpressivePolarShapeSpec(lobes1 = 9, amp1 = 0.066f),
-    // 9: 3-lobe Rounded Trefoil Pebble
-    ExpressivePolarShapeSpec(
-        lobes1 = 3,
-        amp1 = 0.098f,
-        phase1 = (PI / 6.0).toFloat(),
-        lobes2 = 6,
-        amp2 = 0.024f
-    ),
-    // 10: Harmonic 6-Star Cookie
-    ExpressivePolarShapeSpec(lobes1 = 6, amp1 = 0.078f, lobes2 = 12, amp2 = 0.025f),
-    // 11: Harmonic 8-Petal Lotus
-    ExpressivePolarShapeSpec(
-        lobes1 = 8,
-        amp1 = 0.062f,
-        lobes2 = 4,
-        amp2 = 0.048f,
-        phase2 = (PI / 4.0).toFloat()
-    )
-)
+private val AOD_EXPRESSIVE_SHAPES = AodExpressiveShapeKind.entries
 
-private class MorphingExpressivePolarShape(
-    private val fromSpec: ExpressivePolarShapeSpec,
-    private val toSpec: ExpressivePolarShapeSpec,
-    private val morphProgress: Float,
-    private val steps: Int = 120
+private fun pickNextExpressiveShapeIndex(currentIndex: Int): Int {
+    if (AOD_EXPRESSIVE_SHAPES.size <= 1) return 0
+    return (currentIndex + 1) % AOD_EXPRESSIVE_SHAPES.size
+}
+
+/**
+ * Unified shape that:
+ * 1. Morphs between the Now Playing source artwork outline (Complex asymmetric arch,
+ *    Standard 18.dp rounded square, or Immersive rectangle) at `enterMorphT = 0f`
+ *    and the AOD Material You Expressive shape at `enterMorphT = 1f`.
+ * 2. Smoothly morphs and slowly rotates between `fromShape` and `toShape` when the user
+ *    taps the album art on the AOD screen.
+ */
+private class AodMorphingAlbumShape(
+    private val fromShape: AodExpressiveShapeKind,
+    private val toShape: AodExpressiveShapeKind,
+    private val shapeMorphProgress: Float,
+    private val shapeRotationRad: Double,
+    private val enterMorphT: Float,
+    private val sourceArtStyle: AodSourceArtStyle,
+    private val complexRightRisePx: Float,
+    private val standardCornerPx: Float,
+    private val steps: Int = 160
 ) : Shape {
-    private var cachedWidth = -1f
-    private var cachedHeight = -1f
-    private var cachedOutline: Outline? = null
-
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
-        val existing = cachedOutline
-        if (existing != null && size.width == cachedWidth && size.height == cachedHeight) {
-            return existing
-        }
-
-        val count = steps.coerceAtLeast(60)
-        val radii = FloatArray(count)
-        var maxRadius = 0.001f
+        val w = size.width.coerceAtLeast(1f)
+        val h = size.height.coerceAtLeast(1f)
+        val cx = w * 0.5f
+        val cy = h * 0.5f
+        val baseRadius = min(w, h) * 0.476f
+        val clampedShapeMorph = shapeMorphProgress.coerceIn(0f, 1f)
+        val clampedEnter = enterMorphT.coerceIn(0f, 1f)
+        val count = steps.coerceAtLeast(96)
         val twoPi = 2.0 * PI
-        val clampedMorph = morphProgress.coerceIn(0f, 1f)
 
-        for (i in 0 until count) {
-            val theta = (twoPi * i) / count
-            val rFrom = fromSpec.radiusAt(theta)
-            val rTo = toSpec.radiusAt(theta)
-            val r = lerp(rFrom, rTo, clampedMorph)
-            radii[i] = r
-            if (r > maxRadius) maxRadius = r
+        // Precompute Complex asymmetric arch circle parameters when needed
+        val useComplexArch = sourceArtStyle == AodSourceArtStyle.COMPLEX_ARCH && clampedEnter < 0.999f
+        var archCx = 0f
+        var archCy = 0f
+        var archRadius = 1f
+        if (useComplexArch) {
+            val archCenterXFraction = 0.25f
+            archCx = w * archCenterXFraction
+            val dxRight = (w - archCx).coerceAtLeast(1f)
+            val sRight = complexRightRisePx.coerceIn(16f, (h - 4f).coerceAtLeast(16f))
+            archRadius = (sRight / 2f) + ((dxRight * dxRight) / (2f * sRight))
+            archCy = h - archRadius
         }
 
-        val baseRadius = min(size.width, size.height) * 0.485f
-        val centerX = size.width * 0.5f
-        val centerY = size.height * 0.5f
+        val srcCornerR = when (sourceArtStyle) {
+            AodSourceArtStyle.STANDARD_ROUNDED -> standardCornerPx.coerceIn(0f, min(w, h) * 0.5f)
+            AodSourceArtStyle.IMMERSIVE_RECT, AodSourceArtStyle.COMPLEX_ARCH -> 0f
+        }
+        val halfW = w * 0.5f
+        val halfH = h * 0.5f
+        val innerCornerX = (halfW - srcCornerR).coerceAtLeast(0f)
+        val innerCornerY = (halfH - srcCornerR).coerceAtLeast(0f)
 
         val path = Path().apply {
             for (i in 0 until count) {
                 val theta = (twoPi * i) / count
-                val normalizedR = baseRadius * (radii[i] / maxRadius)
-                val x = centerX + (normalizedR * cos(theta)).toFloat()
-                val y = centerY + (normalizedR * sin(theta)).toFloat()
+                val cosT = cos(theta).toFloat()
+                val sinT = sin(theta).toFloat()
+
+                // 1. Target AOD Expressive Shape radius at rotated angle
+                val rotatedTheta = theta - shapeRotationRad
+                val rFrom = fromShape.normalizedRadiusAt(rotatedTheta)
+                val rTo = toShape.normalizedRadiusAt(rotatedTheta)
+                val rAod = baseRadius * lerp(rFrom, rTo, clampedShapeMorph)
+
+                // 2. Source Now Playing shape radius along ray (cosT, sinT) from (cx, cy)
+                val finalR = if (clampedEnter >= 0.999f) {
+                    rAod
+                } else {
+                    val absCos = abs(cosT).coerceAtLeast(1e-5f)
+                    val absSin = abs(sinT).coerceAtLeast(1e-5f)
+                    var rSrc = min(halfW / absCos, halfH / absSin)
+
+                    if (srcCornerR > 0.5f) {
+                        val px = rSrc * absCos
+                        val py = rSrc * absSin
+                        if (px > innerCornerX && py > innerCornerY) {
+                            val dot = innerCornerX * absCos + innerCornerY * absSin
+                            val cVal = innerCornerX * innerCornerX + innerCornerY * innerCornerY - srcCornerR * srcCornerR
+                            val disc = (dot * dot - cVal).coerceAtLeast(0f)
+                            rSrc = min(rSrc, dot + sqrt(disc))
+                        }
+                    }
+
+                    if (useComplexArch) {
+                        val ox = cx - archCx
+                        val oy = cy - archCy
+                        val bQuad = ox * cosT + oy * sinT
+                        val cQuad = ox * ox + oy * oy - archRadius * archRadius
+                        val disc = (bQuad * bQuad - cQuad).coerceAtLeast(0f)
+                        val tArch = -bQuad + sqrt(disc)
+                        if (tArch > 0f) {
+                            rSrc = min(rSrc, tArch)
+                        }
+                    }
+
+                    lerp(rSrc, rAod, clampedEnter)
+                }
+
+                val x = cx + finalR * cosT
+                val y = cy + finalR * sinT
                 if (i == 0) moveTo(x, y) else lineTo(x, y)
             }
             close()
         }
 
-        val outline = Outline.Generic(path)
-        cachedWidth = size.width
-        cachedHeight = size.height
-        cachedOutline = outline
-        return outline
+        return Outline.Generic(path)
     }
 }
 
@@ -234,41 +364,84 @@ private data class AodPaletteColors(
     val onAccent: Color,
     val secondaryContainer: Color,
     val onSecondaryContainer: Color,
-    val glow: Color
+    val titleColor: Color,
+    val subtitleColor: Color,
+    val glow: Color,
+    val haloColor: Color,
+    val canvasColor: Color,
+    val sourceBgColor: Color
 )
 
-private fun deriveAodPaletteColors(seedColor: Color, fallbackPrimary: Color): AodPaletteColors {
-    val hsl = FloatArray(3)
-    ColorUtils.colorToHSL(seedColor.toArgb(), hsl)
-    val fallbackHsl = FloatArray(3)
-    ColorUtils.colorToHSL(fallbackPrimary.toArgb(), fallbackHsl)
+/**
+ * Derives every AOD color directly from the active app colour palette (`LocalMaterialTheme.current`),
+ * ensuring 100% palette harmony in both Light and Dark themes without random HSL overrides or raw white.
+ */
+private fun deriveAodPaletteFromAppTheme(
+    baseTheme: ColorScheme,
+    sourceArtStyle: AodSourceArtStyle
+): AodPaletteColors {
+    val lightPastelTone = if (baseTheme.primaryContainer.luminance() >= baseTheme.onPrimaryContainer.luminance()) {
+        baseTheme.primaryContainer
+    } else {
+        baseTheme.onPrimaryContainer
+    }
+    val deepRichTone = if (baseTheme.primaryContainer.luminance() < baseTheme.onPrimaryContainer.luminance()) {
+        baseTheme.primaryContainer
+    } else {
+        baseTheme.onPrimaryContainer
+    }
 
-    val hasChroma = hsl[1] >= 0.12f
-    val hue = if (hasChroma) hsl[0] else fallbackHsl[0]
-    val baseSat = if (hasChroma) hsl[1].coerceIn(0.45f, 0.78f) else fallbackHsl[1].coerceIn(0.35f, 0.70f)
+    val vibrantPrimary = when {
+        baseTheme.primary.luminance() >= 0.30f -> baseTheme.primary
+        baseTheme.inversePrimary != Color.Unspecified && baseTheme.inversePrimary.luminance() >= 0.30f ->
+            baseTheme.inversePrimary
+        else -> lerp(baseTheme.primary, lightPastelTone, 0.48f)
+    }
 
-    val accent = Color(ColorUtils.HSLToColor(floatArrayOf(hue, baseSat, 0.66f)))
-    val onAccent = Color(ColorUtils.HSLToColor(floatArrayOf(hue, (baseSat * 0.65f).coerceIn(0.20f, 0.55f), 0.10f)))
-    val secondaryContainer = Color(ColorUtils.HSLToColor(floatArrayOf(hue, (baseSat * 0.45f).coerceIn(0.15f, 0.40f), 0.16f)))
-    val onSecondaryContainer = Color(ColorUtils.HSLToColor(floatArrayOf(hue, (baseSat * 0.65f).coerceIn(0.25f, 0.70f), 0.82f)))
-    val glow = Color(ColorUtils.HSLToColor(floatArrayOf(hue, (baseSat * 0.75f).coerceIn(0.35f, 0.75f), 0.42f)))
+    val darkOnAccent = if (vibrantPrimary.luminance() > 0.42f) {
+        lerp(Color.Black, deepRichTone, 0.55f)
+    } else {
+        lightPastelTone
+    }
+
+    val secondaryTonalBase = if (baseTheme.secondaryContainer.luminance() < 0.35f) {
+        baseTheme.secondaryContainer
+    } else {
+        deepRichTone
+    }
+    val secondaryContainer = lerp(Color(0xFF09090B), secondaryTonalBase, 0.42f)
+    val onSecondaryContainer = lerp(lightPastelTone, vibrantPrimary, 0.18f)
+
+    val titleColor = lerp(lightPastelTone, Color.White, 0.18f)
+    val subtitleColor = onSecondaryContainer.copy(alpha = 0.76f)
+    val glowColor = lerp(vibrantPrimary, baseTheme.tertiary, 0.16f)
+    val haloColor = lerp(secondaryContainer, vibrantPrimary, 0.22f)
+    val canvasColor = lerp(Color.Black, deepRichTone, 0.10f)
+
+    val sourceBgColor = when (sourceArtStyle) {
+        AodSourceArtStyle.COMPLEX_ARCH -> baseTheme.primaryContainer
+        AodSourceArtStyle.IMMERSIVE_RECT -> baseTheme.surface
+        AodSourceArtStyle.STANDARD_ROUNDED -> baseTheme.primaryContainer
+    }
 
     return AodPaletteColors(
-        accent = accent,
-        onAccent = onAccent,
+        accent = vibrantPrimary,
+        onAccent = darkOnAccent,
         secondaryContainer = secondaryContainer,
         onSecondaryContainer = onSecondaryContainer,
-        glow = glow
+        titleColor = titleColor,
+        subtitleColor = subtitleColor,
+        glow = glowColor,
+        haloColor = haloColor,
+        canvasColor = canvasColor,
+        sourceBgColor = sourceBgColor
     )
 }
 
-private fun pickNextRandomShapeIndex(currentIndex: Int): Int {
-    if (AOD_EXPRESSIVE_SHAPES.size <= 1) return 0
-    var candidate = Random.nextInt(AOD_EXPRESSIVE_SHAPES.size)
-    if (candidate == currentIndex) {
-        candidate = (currentIndex + Random.nextInt(1, AOD_EXPRESSIVE_SHAPES.size)) % AOD_EXPRESSIVE_SHAPES.size
-    }
-    return candidate
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
@@ -284,270 +457,435 @@ fun AodScreen(
     onSkipNextClick: () -> Unit,
     onSkipPreviousClick: () -> Unit,
     onDismiss: () -> Unit,
-    onSeekTo: (Long) -> Unit = {}
+    onSeekTo: (Long) -> Unit = {},
+    enterProgressProvider: () -> Float = { 1f },
+    sourceBounds: AodSourceBounds? = null,
+    modifier: Modifier = Modifier
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
-    ) {
-        val context = LocalContext.current
-        val view = LocalView.current
-        val hapticFeedback = LocalHapticFeedback.current
-        val baseTheme = LocalMaterialTheme.current
+    val context = LocalContext.current
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val hapticFeedback = LocalHapticFeedback.current
+    val baseTheme = LocalMaterialTheme.current
+    val coroutineScope = rememberCoroutineScope()
 
-        val dialogWindow = (view.parent as? DialogWindowProvider)?.window
+    val enterProgress = enterProgressProvider().coerceIn(0f, 1f)
+    val isSettledInAod = enterProgress > 0.65f
 
-        DisposableEffect(dialogWindow) {
-            view.keepScreenOn = true
-            val originalBrightness = dialogWindow?.attributes?.screenBrightness
-                ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+    BackHandler(enabled = enterProgress > 0.05f) {
+        onDismiss()
+    }
 
-            dialogWindow?.let { window ->
-                WindowCompat.setDecorFitsSystemWindows(window, false)
+    val activityWindow = remember(context) { context.findActivity()?.window }
+
+    DisposableEffect(activityWindow) {
+        view.keepScreenOn = true
+        val originalBrightness = activityWindow?.attributes?.screenBrightness
+            ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+
+        onDispose {
+            view.keepScreenOn = false
+            activityWindow?.let { window ->
                 val insetsController = WindowInsetsControllerCompat(window, view)
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+                val lp = window.attributes
+                lp.screenBrightness = originalBrightness
+                window.attributes = lp
+            }
+        }
+    }
+
+    LaunchedEffect(activityWindow, isSettledInAod) {
+        activityWindow?.let { window ->
+            val insetsController = WindowInsetsControllerCompat(window, view)
+            if (isSettledInAod) {
                 insetsController.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
-
                 val lp = window.attributes
-                lp.screenBrightness = 0.05f
+                lp.screenBrightness = 0.06f
+                window.attributes = lp
+            } else {
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+                val lp = window.attributes
+                lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
                 window.attributes = lp
             }
-
-            onDispose {
-                view.keepScreenOn = false
-                dialogWindow?.let { window ->
-                    val insetsController = WindowInsetsControllerCompat(window, view)
-                    insetsController.show(WindowInsetsCompat.Type.systemBars())
-
-                    val lp = window.attributes
-                    lp.screenBrightness = originalBrightness
-                    window.attributes = lp
-                }
-            }
         }
+    }
 
-        val effectiveQuality = com.saurav.pixelmusic.presentation.components.SmartImageCache.getEffectiveQuality()
-        val optimizedAlbumArtUri = remember(albumArtUriString, effectiveQuality) {
-            com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(albumArtUriString, effectiveQuality)
-                ?: (albumArtUriString ?: "")
-        }
+    val effectiveQuality = com.saurav.pixelmusic.presentation.components.SmartImageCache.getEffectiveQuality()
+    val optimizedAlbumArtUri = remember(albumArtUriString, effectiveQuality) {
+        com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(albumArtUriString, effectiveQuality)
+            ?: (albumArtUriString ?: "")
+    }
 
-        var rawSeedColor by remember { mutableStateOf(baseTheme.primary) }
-        LaunchedEffect(optimizedAlbumArtUri, baseTheme.primary) {
-            rawSeedColor = extractDominantColor(
-                context = context,
-                uriString = optimizedAlbumArtUri,
-                fallback = baseTheme.primary,
-                isDarkTheme = false
-            )
-        }
+    val sourceArtStyle = sourceBounds?.artStyle ?: AodSourceArtStyle.STANDARD_ROUNDED
+    val targetPalette = remember(baseTheme, sourceArtStyle) {
+        deriveAodPaletteFromAppTheme(baseTheme, sourceArtStyle)
+    }
 
-        val targetPalette = remember(rawSeedColor, baseTheme.primary) {
-            deriveAodPaletteColors(rawSeedColor, baseTheme.primary)
-        }
+    val colorAnimSpec = tween<Color>(durationMillis = 520, easing = FastOutSlowInEasing)
+    val accentColor by animateColorAsState(targetPalette.accent, colorAnimSpec, label = "aodAccent")
+    val onAccentColor by animateColorAsState(targetPalette.onAccent, colorAnimSpec, label = "aodOnAccent")
+    val secondaryContainerColor by animateColorAsState(
+        targetPalette.secondaryContainer,
+        colorAnimSpec,
+        label = "aodSecondaryContainer"
+    )
+    val onSecondaryContainerColor by animateColorAsState(
+        targetPalette.onSecondaryContainer,
+        colorAnimSpec,
+        label = "aodOnSecondaryContainer"
+    )
+    val titlePaletteColor by animateColorAsState(targetPalette.titleColor, colorAnimSpec, label = "aodTitleColor")
+    val subtitlePaletteColor by animateColorAsState(targetPalette.subtitleColor, colorAnimSpec, label = "aodSubtitleColor")
+    val glowColor by animateColorAsState(targetPalette.glow, colorAnimSpec, label = "aodGlowColor")
+    val haloColor by animateColorAsState(targetPalette.haloColor, colorAnimSpec, label = "aodHaloColor")
 
-        val colorAnimSpec = tween<Color>(durationMillis = 600, easing = FastOutSlowInEasing)
-        val accentColor by animateColorAsState(targetPalette.accent, colorAnimSpec, label = "aodAccent")
-        val onAccentColor by animateColorAsState(targetPalette.onAccent, colorAnimSpec, label = "aodOnAccent")
-        val secondaryContainerColor by animateColorAsState(
-            targetPalette.secondaryContainer,
-            colorAnimSpec,
-            label = "aodSecondaryContainer"
-        )
-        val onSecondaryContainerColor by animateColorAsState(
-            targetPalette.onSecondaryContainer,
-            colorAnimSpec,
-            label = "aodOnSecondaryContainer"
-        )
-        val glowColor by animateColorAsState(targetPalette.glow, colorAnimSpec, label = "aodGlowColor")
+    // Curated Material You Expressive shapes with smooth slow spin + morph (zero bounce!)
+    var previousShapeIndex by remember { mutableIntStateOf(0) }
+    var targetShapeIndex by remember { mutableIntStateOf(0) }
+    val shapeMorphAnim = remember { Animatable(1f) }
+    val tapSpinRotationDeg = remember { Animatable(0f) }
 
-        // Random shape selection per song and on album art tap, with smooth morphing
-        var previousShapeIndex by remember { mutableIntStateOf(Random.nextInt(AOD_EXPRESSIVE_SHAPES.size)) }
-        var targetShapeIndex by remember { mutableIntStateOf(previousShapeIndex) }
-        val shapeMorphAnim = remember { Animatable(1f) }
-        val artTapPulse = remember { Animatable(1f) }
-
-        LaunchedEffect(songTitle, optimizedAlbumArtUri) {
-            val nextIdx = pickNextRandomShapeIndex(targetShapeIndex)
-            previousShapeIndex = targetShapeIndex
-            targetShapeIndex = nextIdx
-            shapeMorphAnim.snapTo(0f)
+    LaunchedEffect(songTitle, optimizedAlbumArtUri) {
+        val nextIdx = pickNextExpressiveShapeIndex(targetShapeIndex)
+        previousShapeIndex = targetShapeIndex
+        targetShapeIndex = nextIdx
+        shapeMorphAnim.snapTo(0f)
+        launch {
             shapeMorphAnim.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 780, easing = SmoothMorphEasing)
             )
         }
-
-        val quantizedMorph = (shapeMorphAnim.value * 60f).roundToInt() / 60f
-        val albumShape = remember(previousShapeIndex, targetShapeIndex, quantizedMorph) {
-            MorphingExpressivePolarShape(
-                fromSpec = AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
-                toSpec = AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
-                morphProgress = quantizedMorph
+        launch {
+            tapSpinRotationDeg.animateTo(
+                targetValue = tapSpinRotationDeg.value + 95f,
+                animationSpec = tween(durationMillis = 780, easing = SmoothMorphEasing)
             )
         }
+    }
 
-        val isPlaying = isPlayingProvider()
+    val isPlaying = isPlayingProvider()
 
-        var positionMs by remember { mutableLongStateOf(currentPositionProvider()) }
-        LaunchedEffect(Unit) {
-            while (true) {
-                positionMs = currentPositionProvider()
-                delay(100)
-            }
+    var positionMs by remember { mutableLongStateOf(currentPositionProvider()) }
+    var currentClockTime by remember { mutableStateOf("") }
+    var currentClockDate by remember { mutableStateOf("") }
+    val timeFormatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val dateFormatter = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            positionMs = currentPositionProvider()
+            val now = Date()
+            currentClockTime = timeFormatter.format(now)
+            currentClockDate = dateFormatter.format(now)
+            delay(150)
         }
+    }
 
-        val infiniteTransition = rememberInfiniteTransition(label = "aodGlow")
-        val glowScale by infiniteTransition.animateFloat(
-            initialValue = 0.94f,
-            targetValue = 1.12f,
-            animationSpec = infiniteRepeatable(
-                tween(4800, easing = FastOutSlowInEasing),
-                RepeatMode.Reverse
-            ),
-            label = "glowScale"
-        )
-        val glowAlpha by infiniteTransition.animateFloat(
-            initialValue = 0.18f,
-            targetValue = 0.32f,
-            animationSpec = infiniteRepeatable(
-                tween(3600, easing = FastOutSlowInEasing),
-                RepeatMode.Reverse
-            ),
-            label = "glowAlpha"
-        )
+    val infiniteTransition = rememberInfiniteTransition(label = "aodAmbient")
+    val glowScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.10f,
+        animationSpec = infiniteRepeatable(
+            tween(4600, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
+        label = "glowScale"
+    )
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.22f,
+        targetValue = 0.38f,
+        animationSpec = infiniteRepeatable(
+            tween(3400, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
+        label = "glowAlpha"
+    )
+    val continuousRotationDeg by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            tween(36000, easing = LinearEasing),
+            RepeatMode.Restart
+        ),
+        label = "aodSlowSpin"
+    )
 
-        val artScale by animateFloatAsState(
-            targetValue = if (isPlaying) 1f else 0.93f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "artPlayingScale"
-        )
+    // Smooth non-bouncy playing scale
+    val artPlayingScale by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0.95f,
+        animationSpec = tween(durationMillis = 480, easing = SmoothMorphEasing),
+        label = "artPlayingScale"
+    )
 
-        var shapeChangeTrigger by remember { mutableIntStateOf(0) }
-        LaunchedEffect(shapeChangeTrigger) {
-            if (shapeChangeTrigger > 0) {
-                val nextIdx = pickNextRandomShapeIndex(targetShapeIndex)
-                previousShapeIndex = targetShapeIndex
-                targetShapeIndex = nextIdx
-                artTapPulse.snapTo(0.94f)
-                shapeMorphAnim.snapTo(0f)
-                artTapPulse.animateTo(
-                    targetValue = 1f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
+    val triggerShapeMorph: () -> Unit = {
+        val nextIdx = pickNextExpressiveShapeIndex(targetShapeIndex)
+        previousShapeIndex = targetShapeIndex
+        targetShapeIndex = nextIdx
+        coroutineScope.launch {
+            shapeMorphAnim.snapTo(0f)
+            launch {
                 shapeMorphAnim.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing)
+                    animationSpec = tween(durationMillis = 820, easing = SmoothMorphEasing)
+                )
+            }
+            launch {
+                tapSpinRotationDeg.animateTo(
+                    targetValue = tapSpinRotationDeg.value + 115f,
+                    animationSpec = tween(durationMillis = 820, easing = SmoothMorphEasing)
                 )
             }
         }
+    }
 
-        Box(
+    val smoothEnter = enterProgress * enterProgress * (3f - 2f * enterProgress)
+    val sizeT = lerp(enterProgress, smoothEnter, 0.35f).coerceIn(0f, 1f)
+    val posT = lerp(enterProgress, smoothEnter, 0.25f).coerceIn(0f, 1f)
+    val aodChromeAlpha = ((enterProgress - 0.34f) / 0.66f).coerceIn(0f, 1f)
+    val bgFadeAlpha = ((enterProgress - 0.01f) / 0.88f).coerceIn(0f, 1f)
+
+    val effectiveRotationDeg = (tapSpinRotationDeg.value + if (isPlaying) continuousRotationDeg else 0f) * sizeT
+    val quantizedRotationDeg = (effectiveRotationDeg * 4f).roundToInt() / 4f
+    val quantizedMorph = (shapeMorphAnim.value * 90f).roundToInt() / 90f
+    val quantizedEnter = (sizeT * 90f).roundToInt() / 90f
+    val standardCornerPx = with(density) { 18.dp.toPx() }
+    val complexRightRisePx = sourceBounds?.complexRightRisePx?.takeIf { it > 0f }
+        ?: with(density) { (configuration.screenWidthDp.dp * 0.23f).coerceIn(74.dp, 108.dp).toPx() }
+
+    val albumShape = remember(
+        previousShapeIndex,
+        targetShapeIndex,
+        quantizedMorph,
+        quantizedRotationDeg,
+        quantizedEnter,
+        sourceArtStyle,
+        complexRightRisePx,
+        standardCornerPx
+    ) {
+        AodMorphingAlbumShape(
+            fromShape = AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
+            toShape = AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
+            shapeMorphProgress = quantizedMorph,
+            shapeRotationRad = Math.toRadians(quantizedRotationDeg.toDouble()),
+            enterMorphT = quantizedEnter,
+            sourceArtStyle = sourceArtStyle,
+            complexRightRisePx = complexRightRisePx,
+            standardCornerPx = standardCornerPx
+        )
+    }
+
+    val haloShape = remember(
+        previousShapeIndex,
+        targetShapeIndex,
+        quantizedMorph,
+        quantizedRotationDeg
+    ) {
+        AodMorphingAlbumShape(
+            fromShape = AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
+            toShape = AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
+            shapeMorphProgress = quantizedMorph,
+            shapeRotationRad = Math.toRadians((quantizedRotationDeg + 18f).toDouble()),
+            enterMorphT = 1f,
+            sourceArtStyle = AodSourceArtStyle.STANDARD_ROUNDED,
+            complexRightRisePx = complexRightRisePx,
+            standardCornerPx = standardCornerPx
+        )
+    }
+
+    val aodRootCoordsHolder = remember { LayoutCoordsHolder() }
+    val aodArtSlotBounds = remember { MorphElementBounds() }
+    val aodSongInfoDestBounds = remember { MorphElementBounds() }
+    val aodProgressDestBounds = remember { MorphElementBounds() }
+
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val aodArtSizeDp = 240.dp
+    val aodArtSizePx = with(density) { aodArtSizeDp.toPx() }
+    val statusBarTopDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val navBarBottomDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    // Interpolate background & button colors between Now Playing and AOD palette
+    val currentBgColor = lerp(targetPalette.sourceBgColor, targetPalette.canvasColor, smoothEnter)
+    val morphedPlayContainerColor = lerp(baseTheme.primary, accentColor, sizeT)
+    val morphedPlayIconColor = lerp(baseTheme.onPrimary, onAccentColor, sizeT)
+    val morphedOtherContainerColor = lerp(baseTheme.onPrimary, secondaryContainerColor, sizeT)
+    val morphedOtherIconColor = lerp(baseTheme.primary, onSecondaryContainerColor, sizeT)
+    val morphedTitleColor = lerp(baseTheme.onPrimaryContainer, titlePaletteColor, sizeT)
+    val morphedArtistColor = lerp(baseTheme.onPrimaryContainer.copy(alpha = 0.76f), subtitlePaletteColor, sizeT)
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .captureRootCoords(aodRootCoordsHolder)
+            .background(currentBgColor.copy(alpha = bgFadeAlpha))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = { onDismiss() }
+                )
+            }
+    ) {
+        // =====================================================================
+        // LAYER 1: Main Centered AOD Layout (Clock, Album Art Slot, Title, Seekbar, Controls)
+        // =====================================================================
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = { onDismiss() }
-                    )
-                }
+                .padding(
+                    top = (statusBarTopDp + 18.dp).coerceAtLeast(28.dp),
+                    bottom = (navBarBottomDp + 20.dp).coerceAtLeast(24.dp),
+                    start = 24.dp,
+                    end = 24.dp
+                )
         ) {
+            // Top AOD Expressive Clock & Date Pill (follows app palette)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.Center)
-                    .padding(horizontal = 24.dp)
+                modifier = Modifier.graphicsLayer {
+                    alpha = aodChromeAlpha
+                    translationY = (1f - aodChromeAlpha) * (-18.dp.toPx())
+                }
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    // Subtle ambient radial glow
+                Text(
+                    text = currentClockTime,
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 42.sp,
+                    letterSpacing = (-1.0).sp,
+                    color = titlePaletteColor.copy(alpha = 0.92f)
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(secondaryContainerColor.copy(alpha = 0.88f))
+                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .requiredSize(320.dp)
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(accentColor)
+                    )
+                    Text(
+                        text = currentClockDate,
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = onSecondaryContainerColor
+                    )
+                }
+            }
+
+            // Center Stage: Album Art Slot + Metadata + Wavy Progress + Transport Controls
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Album Art destination slot & ambient glow
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(aodArtSizeDp)
+                ) {
+                    // Ambient radial palette glow
+                    Box(
+                        modifier = Modifier
+                            .requiredSize(336.dp)
                             .graphicsLayer {
-                                scaleX = glowScale
-                                scaleY = glowScale
-                                alpha = if (isPlaying) glowAlpha else glowAlpha * 0.6f
+                                val effectiveGlowScale = glowScale * sizeT
+                                scaleX = effectiveGlowScale
+                                scaleY = effectiveGlowScale
+                                alpha = (if (isPlaying) glowAlpha else glowAlpha * 0.6f) * aodChromeAlpha
                             }
                             .background(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
-                                        glowColor.copy(alpha = 0.42f),
-                                        glowColor.copy(alpha = 0.12f),
+                                        glowColor.copy(alpha = 0.44f),
+                                        glowColor.copy(alpha = 0.14f),
                                         Color.Transparent
                                     )
                                 )
                             )
                     )
 
-                    // Expressive shaped album art (upright, tap to morph shape)
+                    // Subtle tonal expressive backing halo (solid fill, no wireframe outline)
                     Box(
                         modifier = Modifier
-                            .size(232.dp)
+                            .requiredSize(256.dp)
                             .graphicsLayer {
-                                val combinedScale = artScale * artTapPulse.value
-                                scaleX = combinedScale
-                                scaleY = combinedScale
+                                val s = artPlayingScale * lerp(0.85f, 1f, aodChromeAlpha)
+                                scaleX = s
+                                scaleY = s
+                                alpha = aodChromeAlpha * 0.42f
                             }
-                            .clip(albumShape)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onTap = {
-                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        shapeChangeTrigger++
-                                    },
-                                    onDoubleTap = { onDismiss() }
-                                )
-                            }
-                    ) {
-                        SmartImage(
-                            model = optimizedAlbumArtUri,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            targetSize = coil.size.Size.ORIGINAL,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                            .clip(haloShape)
+                            .background(haloColor)
+                    )
+
+                    // Invisible slot anchor capturing exact destination coordinates for the morphing Album Art
+                    Box(
+                        modifier = Modifier
+                            .size(aodArtSizeDp)
+                            .captureUntransformedBounds(aodRootCoordsHolder, aodArtSlotBounds)
+                    )
                 }
 
-                Spacer(Modifier.height(38.dp))
+                Spacer(Modifier.height(32.dp))
 
-                Text(
-                    text = songTitle,
-                    color = Color.White.copy(alpha = 0.88f),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 23.sp,
-                    letterSpacing = (-0.3).sp,
-                    maxLines = 1,
-                    textAlign = TextAlign.Center,
+                // Song Title & Artist — morphs in-place from Now Playing songInfoBounds
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .fillMaxWidth(0.88f)
-                        .basicMarquee()
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = artistName,
-                    color = onSecondaryContainerColor.copy(alpha = 0.68f),
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
-                    maxLines = 1,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth(0.82f)
-                        .basicMarquee()
-                )
+                        .fillMaxWidth(0.90f)
+                        .captureUntransformedBounds(aodRootCoordsHolder, aodSongInfoDestBounds)
+                        .graphicsLayer {
+                            val src = sourceBounds?.songInfoBounds
+                            if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
+                                val destX = aodSongInfoDestBounds.offset.x
+                                val destY = aodSongInfoDestBounds.offset.y
+                                translationX = (src.offset.x - destX) * (1f - posT)
+                                translationY = (src.offset.y - destY) * (1f - posT)
+                            }
+                        }
+                ) {
+                    Text(
+                        text = songTitle,
+                        fontFamily = GoogleSansRounded,
+                        color = morphedTitleColor,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 23.sp,
+                        letterSpacing = (-0.3).sp,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .basicMarquee()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = artistName,
+                        fontFamily = GoogleSansRounded,
+                        color = morphedArtistColor,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth(0.86f)
+                            .basicMarquee()
+                    )
+                }
 
-                Spacer(Modifier.height(34.dp))
+                Spacer(Modifier.height(28.dp))
 
                 val totalMs = totalDurationProvider().coerceAtLeast(0L)
                 val liveProgress = if (totalMs > 0L) {
@@ -562,18 +900,33 @@ fun AodScreen(
                     totalMs = totalMs,
                     isPlaying = isPlaying,
                     accentColor = accentColor,
+                    trackContainerColor = secondaryContainerColor,
+                    subtitleColor = subtitlePaletteColor,
                     onSeekTo = onSeekTo,
-                    modifier = Modifier.fillMaxWidth(0.88f)
+                    modifier = Modifier
+                        .fillMaxWidth(0.90f)
+                        .captureUntransformedBounds(aodRootCoordsHolder, aodProgressDestBounds)
+                        .graphicsLayer {
+                            val src = sourceBounds?.progressBounds
+                            if (src != null && src.hasBounds && aodProgressDestBounds.hasBounds) {
+                                val destX = aodProgressDestBounds.offset.x
+                                val destY = aodProgressDestBounds.offset.y
+                                translationX = (src.offset.x - destX) * (1f - posT)
+                                translationY = (src.offset.y - destY) * (1f - posT)
+                            }
+                            alpha = ((enterProgress - 0.12f) / 0.88f).coerceIn(0f, 1f)
+                        }
                 )
 
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(24.dp))
 
                 val controlAnimationSpec = remember {
                     tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
                 }
 
+                // Playback Controls — Previous, Play/Pause, Next morph in-place from Now Playing slots!
                 AnimatedPlaybackControls(
-                    modifier = Modifier.fillMaxWidth(0.88f),
+                    modifier = Modifier.fillMaxWidth(0.90f),
                     isPlayingProvider = isPlayingProvider,
                     onPrevious = onSkipPreviousClick,
                     onPlayPause = onPlayPauseClick,
@@ -581,18 +934,138 @@ fun AodScreen(
                     height = 76.dp,
                     pressAnimationSpec = controlAnimationSpec,
                     releaseDelay = 220L,
-                    colorOtherButtons = secondaryContainerColor,
-                    colorPlayPause = accentColor,
-                    tintPlayPauseIcon = onAccentColor,
-                    tintOtherIcons = onSecondaryContainerColor,
-                    colorPreviousButton = secondaryContainerColor,
-                    colorNextButton = secondaryContainerColor,
-                    tintPreviousIcon = onSecondaryContainerColor,
-                    tintNextIcon = onSecondaryContainerColor,
+                    colorOtherButtons = morphedOtherContainerColor,
+                    colorPlayPause = morphedPlayContainerColor,
+                    tintPlayPauseIcon = morphedPlayIconColor,
+                    tintOtherIcons = morphedOtherIconColor,
+                    colorPreviousButton = morphedOtherContainerColor,
+                    colorNextButton = morphedOtherContainerColor,
+                    tintPreviousIcon = morphedOtherIconColor,
+                    tintNextIcon = morphedOtherIconColor,
                     playPauseCornerPlaying = 38.dp,
-                    playPauseCornerPaused = 24.dp
+                    playPauseCornerPaused = 22.dp,
+                    rootCoordsHolder = aodRootCoordsHolder,
+                    sourcePrevBounds = sourceBounds?.prevBounds,
+                    sourcePlayBounds = sourceBounds?.playBounds,
+                    sourceNextBounds = sourceBounds?.nextBounds,
+                    sourceMorphProgressProvider = enterProgressProvider,
+                    sourceBtnCornerDp = 34.dp,
+                    sourcePlayCornerDp = if (isPlaying) 20.dp else 34.dp
                 )
             }
+
+            // Subtle bottom AOD hint pill following app palette
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .graphicsLayer {
+                        alpha = aodChromeAlpha * 0.72f
+                        translationY = (1f - aodChromeAlpha) * 12.dp.toPx()
+                    }
+                    .clip(RoundedCornerShape(50))
+                    .background(secondaryContainerColor.copy(alpha = 0.65f))
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "Tap art to morph shape  •  Double-tap to exit",
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    color = onSecondaryContainerColor.copy(alpha = 0.82f)
+                )
+            }
+        }
+
+        // =====================================================================
+        // LAYER 2: Morphing Album Art (Morphs from Now Playing bounds & shape -> AOD Expressive Shape)
+        // =====================================================================
+        Box(
+            modifier = Modifier
+                .layout { measurable, _ ->
+                    val srcArt = sourceBounds?.artBounds
+                    val fallbackSrcH = when (sourceArtStyle) {
+                        AodSourceArtStyle.COMPLEX_ARCH -> screenHeightPx * 0.52f
+                        AodSourceArtStyle.IMMERSIVE_RECT -> screenHeightPx * 0.48f
+                        AodSourceArtStyle.STANDARD_ROUNDED -> screenWidthPx - with(density) { 48.dp.toPx() }
+                    }
+                    val fallbackSrcW = when (sourceArtStyle) {
+                        AodSourceArtStyle.STANDARD_ROUNDED -> screenWidthPx - with(density) { 48.dp.toPx() }
+                        else -> screenWidthPx
+                    }
+                    val fallbackSrcX = if (sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED) {
+                        with(density) { 24.dp.toPx() }
+                    } else 0f
+                    val fallbackSrcY = if (sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED) {
+                        with(density) { 96.dp.toPx() }
+                    } else 0f
+
+                    val srcW = if (srcArt != null && srcArt.hasBounds && srcArt.size.width > 0) {
+                        srcArt.size.width.toFloat()
+                    } else fallbackSrcW
+                    val srcH = if (srcArt != null && srcArt.hasBounds && srcArt.size.height > 0) {
+                        srcArt.size.height.toFloat()
+                    } else fallbackSrcH
+                    val srcX = if (srcArt != null && srcArt.hasBounds) srcArt.offset.x else fallbackSrcX
+                    val srcY = if (srcArt != null && srcArt.hasBounds) srcArt.offset.y else fallbackSrcY
+
+                    val destW = if (aodArtSlotBounds.hasBounds && aodArtSlotBounds.size.width > 0) {
+                        aodArtSlotBounds.size.width.toFloat()
+                    } else aodArtSizePx
+                    val destH = if (aodArtSlotBounds.hasBounds && aodArtSlotBounds.size.height > 0) {
+                        aodArtSlotBounds.size.height.toFloat()
+                    } else aodArtSizePx
+                    val destX = if (aodArtSlotBounds.hasBounds) {
+                        aodArtSlotBounds.offset.x
+                    } else (screenWidthPx - destW) * 0.5f
+                    val destY = if (aodArtSlotBounds.hasBounds) {
+                        aodArtSlotBounds.offset.y
+                    } else (screenHeightPx * 0.20f)
+
+                    val curW = lerp(srcW, destW, sizeT).roundToInt().coerceAtLeast(1)
+                    val curH = lerp(srcH, destH, sizeT).roundToInt().coerceAtLeast(1)
+                    val placeX = lerp(srcX, destX, posT).roundToInt()
+                    val placeY = lerp(srcY, destY, posT).roundToInt()
+
+                    val placeable = measurable.measure(Constraints.fixed(curW, curH))
+                    layout(curW, curH) {
+                        placeable.place(placeX, placeY)
+                    }
+                }
+                .graphicsLayer {
+                    val effectiveScale = lerp(1f, artPlayingScale, sizeT)
+                    scaleX = effectiveScale
+                    scaleY = effectiveScale
+                }
+                .clip(albumShape)
+                .pointerInput(Unit) {
+                    var lastTapTimeMs = 0L
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        down.consume()
+                        val up = waitForUpOrCancellation()
+                        if (up != null) {
+                            up.consume()
+                            val now = SystemClock.uptimeMillis()
+                            if (now - lastTapTimeMs < 280L) {
+                                lastTapTimeMs = 0L
+                                onDismiss()
+                            } else {
+                                lastTapTimeMs = now
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                triggerShapeMorph()
+                            }
+                        }
+                    }
+                }
+        ) {
+            SmartImage(
+                model = optimizedAlbumArtUri,
+                contentDescription = songTitle,
+                contentScale = ContentScale.Crop,
+                targetSize = coil.size.Size.ORIGINAL,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }
@@ -605,6 +1078,8 @@ private fun AodExpressiveProgressBar(
     totalMs: Long,
     isPlaying: Boolean,
     accentColor: Color,
+    trackContainerColor: Color,
+    subtitleColor: Color,
     onSeekTo: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -709,7 +1184,7 @@ private fun AodExpressiveProgressBar(
                     .fillMaxWidth()
                     .padding(horizontal = edgeInsetDp),
                 color = accentColor,
-                trackColor = accentColor.copy(alpha = 0.18f),
+                trackColor = lerp(trackContainerColor, accentColor, 0.25f),
                 stroke = trackStroke,
                 trackStroke = trackStroke,
                 gapSize = 11.dp,
@@ -759,21 +1234,21 @@ private fun AodExpressiveProgressBar(
         ) {
             Text(
                 text = formatAodTime(shownPositionMs),
-                color = accentColor.copy(alpha = 0.85f),
-                fontWeight = FontWeight.SemiBold,
+                fontFamily = GoogleSansRounded,
+                color = accentColor.copy(alpha = 0.92f),
+                fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
             )
             Text(
                 text = formatAodTime(totalMs),
-                color = Color.White.copy(alpha = 0.45f),
-                fontWeight = FontWeight.Medium,
+                fontFamily = GoogleSansRounded,
+                color = subtitleColor,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp
             )
         }
     }
 }
-
-
 
 private fun formatAodTime(ms: Long): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)

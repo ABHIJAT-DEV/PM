@@ -108,6 +108,15 @@ fun AnimatedPlaybackControls(
     expansionFractionProvider: (() -> Float)? = null,
     rootCoordsHolder: LayoutCoordsHolder? = null,
     containerWidthPxProvider: () -> Float = { 0f },
+    capturePrevBounds: MorphElementBounds? = null,
+    capturePlayBounds: MorphElementBounds? = null,
+    captureNextBounds: MorphElementBounds? = null,
+    sourcePrevBounds: MorphElementBounds? = null,
+    sourcePlayBounds: MorphElementBounds? = null,
+    sourceNextBounds: MorphElementBounds? = null,
+    sourceMorphProgressProvider: (() -> Float)? = null,
+    sourceBtnCornerDp: Dp = 34.dp,
+    sourcePlayCornerDp: Dp = 26.dp,
 ) {
     val density = LocalDensity.current
     val miniBtnSizePx = remember(density) { with(density) { 36.dp.toPx() } }
@@ -116,9 +125,9 @@ fun AnimatedPlaybackControls(
     val miniGapPx = remember(density) { with(density) { 8.dp.toPx() } }
     val miniIconSizePx = remember(density) { with(density) { 22.dp.toPx() } }
 
-    val prevBounds = remember { MorphElementBounds() }
-    val playBounds = remember { MorphElementBounds() }
-    val nextBounds = remember { MorphElementBounds() }
+    val prevBounds = capturePrevBounds ?: remember { MorphElementBounds() }
+    val playBounds = capturePlayBounds ?: remember { MorphElementBounds() }
+    val nextBounds = captureNextBounds ?: remember { MorphElementBounds() }
     val isPlaying = isPlayingProvider()
     var lastClicked by remember { mutableStateOf<PlaybackButtonType?>(null) }
     val latestIsPlayingProvider by rememberUpdatedState(newValue = isPlayingProvider)
@@ -193,13 +202,22 @@ fun AnimatedPlaybackControls(
                 else -> compressionWeight
             }
 
-            val prevShape = remember(morphTracker, expansionFractionProvider, miniBtnSizePx) {
+            val prevShape = remember(
+                morphTracker,
+                expansionFractionProvider,
+                miniBtnSizePx,
+                sourcePrevBounds,
+                sourceMorphProgressProvider,
+                sourceBtnCornerDp
+            ) {
                 MorphingTransportButtonShape(
-                    miniCornerDp = 18.dp,
+                    miniCornerDp = if (sourceMorphProgressProvider != null) sourceBtnCornerDp else 18.dp,
                     fullCornerDpProvider = { 40.dp },
                     miniBtnSizePx = miniBtnSizePx,
                     morphTracker = morphTracker,
-                    expansionFractionProvider = expansionFractionProvider
+                    expansionFractionProvider = expansionFractionProvider,
+                    sourceBounds = sourcePrevBounds,
+                    sourceMorphProgressProvider = sourceMorphProgressProvider
                 )
             }
             val prevWeight by animateFloatAsState(
@@ -213,7 +231,23 @@ fun AnimatedPlaybackControls(
                     .fillMaxHeight()
                     .captureUntransformedBounds(rootCoordsHolder, prevBounds)
                     .graphicsLayer {
-                        if (morphTracker != null && expansionFractionProvider != null) {
+                        if (sourceMorphProgressProvider != null && sourcePrevBounds != null && sourcePrevBounds.hasBounds) {
+                            val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                            val smooth = f * f * (3f - 2f * f)
+                            val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                            val posT = androidx.compose.ui.util.lerp(f, smooth, 0.25f)
+                            val srcW = sourcePrevBounds.size.width.toFloat().coerceAtLeast(1f)
+                            val srcH = sourcePrevBounds.size.height.toFloat().coerceAtLeast(1f)
+                            val destX = prevBounds.offset.x
+                            val destY = prevBounds.offset.y
+                            val curW = androidx.compose.ui.util.lerp(srcW, size.width, sizeT)
+                            val curH = androidx.compose.ui.util.lerp(srcH, size.height, sizeT)
+                            transformOrigin = TransformOrigin(0f, 0f)
+                            scaleX = if (size.width > 0f) curW / size.width else 1f
+                            scaleY = if (size.height > 0f) curH / size.height else 1f
+                            translationX = (sourcePrevBounds.offset.x - destX) * (1f - posT)
+                            translationY = (sourcePrevBounds.offset.y - destY) * (1f - posT)
+                        } else if (morphTracker != null && expansionFractionProvider != null) {
                             val s = morphTracker.evaluate(expansionFractionProvider())
                             val cw = rootCoordsHolder?.widthPx?.takeIf { it > 0f }
                                 ?: containerWidthPxProvider().takeIf { it > 0f }
@@ -273,7 +307,17 @@ fun AnimatedPlaybackControls(
                         .graphicsLayer {
                             val bw = prevBounds.size.width.toFloat()
                             val bh = prevBounds.size.height.toFloat()
-                            if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
+                            if (sourceMorphProgressProvider != null && sourcePrevBounds != null && sourcePrevBounds.hasBounds && bw > 0f && bh > 0f) {
+                                val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                                val smooth = f * f * (3f - 2f * f)
+                                val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                                val srcW = sourcePrevBounds.size.width.toFloat().coerceAtLeast(1f)
+                                val srcH = sourcePrevBounds.size.height.toFloat().coerceAtLeast(1f)
+                                val parentScaleX = androidx.compose.ui.util.lerp(srcW, bw, sizeT) / bw
+                                val parentScaleY = androidx.compose.ui.util.lerp(srcH, bh, sizeT) / bh
+                                scaleX = if (parentScaleX > 0.001f) 1f / parentScaleX else 1f
+                                scaleY = if (parentScaleY > 0.001f) 1f / parentScaleY else 1f
+                            } else if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
                                 val s = morphTracker.evaluate(expansionFractionProvider())
                                 val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
                                 val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
@@ -297,13 +341,23 @@ fun AnimatedPlaybackControls(
                 label = "playCorner"
             )
             val miniPlayCornerDp = if (playPauseVisualState) 11.dp else 18.dp
-            val playShape = remember(morphTracker, expansionFractionProvider, miniBtnSizePx, miniPlayCornerDp) {
+            val playShape = remember(
+                morphTracker,
+                expansionFractionProvider,
+                miniBtnSizePx,
+                miniPlayCornerDp,
+                sourcePlayBounds,
+                sourceMorphProgressProvider,
+                sourcePlayCornerDp
+            ) {
                 MorphingTransportButtonShape(
-                    miniCornerDp = miniPlayCornerDp,
+                    miniCornerDp = if (sourceMorphProgressProvider != null) sourcePlayCornerDp else miniPlayCornerDp,
                     fullCornerDpProvider = { playCorner },
                     miniBtnSizePx = miniBtnSizePx,
                     morphTracker = morphTracker,
-                    expansionFractionProvider = expansionFractionProvider
+                    expansionFractionProvider = expansionFractionProvider,
+                    sourceBounds = sourcePlayBounds,
+                    sourceMorphProgressProvider = sourceMorphProgressProvider
                 )
             }
             val playGlassCornerShape = playShape
@@ -313,7 +367,23 @@ fun AnimatedPlaybackControls(
                     .fillMaxHeight()
                     .captureUntransformedBounds(rootCoordsHolder, playBounds)
                     .graphicsLayer {
-                        if (morphTracker != null && expansionFractionProvider != null) {
+                        if (sourceMorphProgressProvider != null && sourcePlayBounds != null && sourcePlayBounds.hasBounds) {
+                            val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                            val smooth = f * f * (3f - 2f * f)
+                            val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                            val posT = androidx.compose.ui.util.lerp(f, smooth, 0.25f)
+                            val srcW = sourcePlayBounds.size.width.toFloat().coerceAtLeast(1f)
+                            val srcH = sourcePlayBounds.size.height.toFloat().coerceAtLeast(1f)
+                            val destX = playBounds.offset.x
+                            val destY = playBounds.offset.y
+                            val curW = androidx.compose.ui.util.lerp(srcW, size.width, sizeT)
+                            val curH = androidx.compose.ui.util.lerp(srcH, size.height, sizeT)
+                            transformOrigin = TransformOrigin(0f, 0f)
+                            scaleX = if (size.width > 0f) curW / size.width else 1f
+                            scaleY = if (size.height > 0f) curH / size.height else 1f
+                            translationX = (sourcePlayBounds.offset.x - destX) * (1f - posT)
+                            translationY = (sourcePlayBounds.offset.y - destY) * (1f - posT)
+                        } else if (morphTracker != null && expansionFractionProvider != null) {
                             val s = morphTracker.evaluate(expansionFractionProvider())
                             val cw = rootCoordsHolder?.widthPx?.takeIf { it > 0f }
                                 ?: containerWidthPxProvider().takeIf { it > 0f }
@@ -367,7 +437,17 @@ fun AnimatedPlaybackControls(
                     modifier = Modifier.graphicsLayer {
                         val bw = playBounds.size.width.toFloat()
                         val bh = playBounds.size.height.toFloat()
-                        if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
+                        if (sourceMorphProgressProvider != null && sourcePlayBounds != null && sourcePlayBounds.hasBounds && bw > 0f && bh > 0f) {
+                            val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                            val smooth = f * f * (3f - 2f * f)
+                            val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                            val srcW = sourcePlayBounds.size.width.toFloat().coerceAtLeast(1f)
+                            val srcH = sourcePlayBounds.size.height.toFloat().coerceAtLeast(1f)
+                            val parentScaleX = androidx.compose.ui.util.lerp(srcW, bw, sizeT) / bw
+                            val parentScaleY = androidx.compose.ui.util.lerp(srcH, bh, sizeT) / bh
+                            scaleX = if (parentScaleX > 0.001f) 1f / parentScaleX else 1f
+                            scaleY = if (parentScaleY > 0.001f) 1f / parentScaleY else 1f
+                        } else if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
                             val s = morphTracker.evaluate(expansionFractionProvider())
                             val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
                             val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
@@ -386,13 +466,22 @@ fun AnimatedPlaybackControls(
                 }
             }
 
-            val nextShape = remember(morphTracker, expansionFractionProvider, miniBtnSizePx) {
+            val nextShape = remember(
+                morphTracker,
+                expansionFractionProvider,
+                miniBtnSizePx,
+                sourceNextBounds,
+                sourceMorphProgressProvider,
+                sourceBtnCornerDp
+            ) {
                 MorphingTransportButtonShape(
-                    miniCornerDp = 18.dp,
+                    miniCornerDp = if (sourceMorphProgressProvider != null) sourceBtnCornerDp else 18.dp,
                     fullCornerDpProvider = { 40.dp },
                     miniBtnSizePx = miniBtnSizePx,
                     morphTracker = morphTracker,
-                    expansionFractionProvider = expansionFractionProvider
+                    expansionFractionProvider = expansionFractionProvider,
+                    sourceBounds = sourceNextBounds,
+                    sourceMorphProgressProvider = sourceMorphProgressProvider
                 )
             }
             val nextWeight by animateFloatAsState(
@@ -406,7 +495,23 @@ fun AnimatedPlaybackControls(
                     .fillMaxHeight()
                     .captureUntransformedBounds(rootCoordsHolder, nextBounds)
                     .graphicsLayer {
-                        if (morphTracker != null && expansionFractionProvider != null) {
+                        if (sourceMorphProgressProvider != null && sourceNextBounds != null && sourceNextBounds.hasBounds) {
+                            val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                            val smooth = f * f * (3f - 2f * f)
+                            val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                            val posT = androidx.compose.ui.util.lerp(f, smooth, 0.25f)
+                            val srcW = sourceNextBounds.size.width.toFloat().coerceAtLeast(1f)
+                            val srcH = sourceNextBounds.size.height.toFloat().coerceAtLeast(1f)
+                            val destX = nextBounds.offset.x
+                            val destY = nextBounds.offset.y
+                            val curW = androidx.compose.ui.util.lerp(srcW, size.width, sizeT)
+                            val curH = androidx.compose.ui.util.lerp(srcH, size.height, sizeT)
+                            transformOrigin = TransformOrigin(0f, 0f)
+                            scaleX = if (size.width > 0f) curW / size.width else 1f
+                            scaleY = if (size.height > 0f) curH / size.height else 1f
+                            translationX = (sourceNextBounds.offset.x - destX) * (1f - posT)
+                            translationY = (sourceNextBounds.offset.y - destY) * (1f - posT)
+                        } else if (morphTracker != null && expansionFractionProvider != null) {
                             val s = morphTracker.evaluate(expansionFractionProvider())
                             val cw = rootCoordsHolder?.widthPx?.takeIf { it > 0f }
                                 ?: containerWidthPxProvider().takeIf { it > 0f }
@@ -464,7 +569,17 @@ fun AnimatedPlaybackControls(
                         .graphicsLayer {
                             val bw = nextBounds.size.width.toFloat()
                             val bh = nextBounds.size.height.toFloat()
-                            if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
+                            if (sourceMorphProgressProvider != null && sourceNextBounds != null && sourceNextBounds.hasBounds && bw > 0f && bh > 0f) {
+                                val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                                val smooth = f * f * (3f - 2f * f)
+                                val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                                val srcW = sourceNextBounds.size.width.toFloat().coerceAtLeast(1f)
+                                val srcH = sourceNextBounds.size.height.toFloat().coerceAtLeast(1f)
+                                val parentScaleX = androidx.compose.ui.util.lerp(srcW, bw, sizeT) / bw
+                                val parentScaleY = androidx.compose.ui.util.lerp(srcH, bh, sizeT) / bh
+                                scaleX = if (parentScaleX > 0.001f) 1f / parentScaleX else 1f
+                                scaleY = if (parentScaleY > 0.001f) 1f / parentScaleY else 1f
+                            } else if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
                                 val s = morphTracker.evaluate(expansionFractionProvider())
                                 val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
                                 val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
@@ -485,7 +600,9 @@ private class MorphingTransportButtonShape(
     private val fullCornerDpProvider: () -> Dp,
     private val miniBtnSizePx: Float,
     private val morphTracker: ArtworkMorphTracker?,
-    private val expansionFractionProvider: (() -> Float)?
+    private val expansionFractionProvider: (() -> Float)?,
+    private val sourceBounds: MorphElementBounds? = null,
+    private val sourceMorphProgressProvider: (() -> Float)? = null
 ) : Shape {
     override fun createOutline(
         size: Size,
@@ -495,6 +612,20 @@ private class MorphingTransportButtonShape(
         val w = size.width.coerceAtLeast(1f)
         val h = size.height.coerceAtLeast(1f)
         val fullCornerPx = with(density) { fullCornerDpProvider().toPx() }
+        if (sourceMorphProgressProvider != null && sourceBounds != null && sourceBounds.hasBounds) {
+            val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+            val smooth = f * f * (3f - 2f * f)
+            val t = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+            val srcW = sourceBounds.size.width.toFloat().coerceAtLeast(1f)
+            val srcH = sourceBounds.size.height.toFloat().coerceAtLeast(1f)
+            val srcCornerPx = with(density) { miniCornerDp.toPx() }.coerceAtMost(minOf(srcW, srcH) * 0.5f)
+            val targetVisualR = androidx.compose.ui.util.lerp(srcCornerPx, fullCornerPx, t)
+            val scaleX = (androidx.compose.ui.util.lerp(srcW, w, t) / w).coerceAtLeast(0.01f)
+            val scaleY = (androidx.compose.ui.util.lerp(srcH, h, t) / h).coerceAtLeast(0.01f)
+            val rx = (targetVisualR / scaleX).coerceIn(0f, w * 0.5f)
+            val ry = (targetVisualR / scaleY).coerceIn(0f, h * 0.5f)
+            return Outline.Rounded(RoundRect(Rect(0f, 0f, w, h), CornerRadius(rx, ry)))
+        }
         if (morphTracker == null || expansionFractionProvider == null) {
             val r = fullCornerPx.coerceAtMost(minOf(w, h) * 0.5f)
             return Outline.Rounded(RoundRect(Rect(0f, 0f, w, h), CornerRadius(r, r)))

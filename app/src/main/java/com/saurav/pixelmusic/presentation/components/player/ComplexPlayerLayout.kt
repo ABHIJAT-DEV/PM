@@ -403,6 +403,8 @@ fun ComplexPlayerLayout(
     onLyricsClick: () -> Unit,
     onArtistClick: () -> Unit,
     onMoreOptionsClick: () -> Unit,
+    aodSourceBounds: AodSourceBounds? = null,
+    aodTransitionProgressProvider: () -> Float = { 0f },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -441,7 +443,8 @@ fun ComplexPlayerLayout(
 
     val configuration = LocalConfiguration.current
     val rootCoordsHolder = remember { LayoutCoordsHolder() }
-    val songInfoBounds = remember { MorphElementBounds() }
+    val songInfoBounds = aodSourceBounds?.songInfoBounds ?: remember { MorphElementBounds() }
+    val artBounds = aodSourceBounds?.artBounds ?: remember { MorphElementBounds() }
 
     Box(
         modifier = modifier
@@ -463,6 +466,18 @@ fun ComplexPlayerLayout(
 
         val miniSongInfoLeftPx = with(density) { 66.dp.toPx() }
         val miniSongInfoTopPx = with(density) { 13.dp.toPx() }
+
+        aodSourceBounds?.let { bounds ->
+            bounds.artStyle = AodSourceArtStyle.COMPLEX_ARCH
+            bounds.complexRightRisePx = rightRisePx
+            val edgeInsetPx = with(density) { 18.dp.toPx() }
+            bounds.progressBounds.offset = Offset(edgeInsetPx, artHeightPx - rightRisePx * 0.55f)
+            bounds.progressBounds.size = IntSize(
+                (screenWidthPx - edgeInsetPx * 2f).roundToInt().coerceAtLeast(1),
+                with(density) { 34.dp.toPx() }.roundToInt()
+            )
+            bounds.progressBounds.hasBounds = true
+        }
 
         val morphTracker = remember { ArtworkMorphTracker() }
         val scoopedShape = remember(rightRisePx, morphTracker, expansionFractionProvider) {
@@ -503,6 +518,9 @@ fun ComplexPlayerLayout(
 
                     val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
                     layout(targetW, targetH) {
+                        artBounds.offset = Offset(placeX.toFloat(), placeY.toFloat())
+                        artBounds.size = IntSize(targetW, targetH)
+                        artBounds.hasBounds = true
                         placeable.place(placeX, placeY)
                     }
                 }
@@ -511,34 +529,10 @@ fun ComplexPlayerLayout(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(scoopedShape)
-                    .combinedClickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                        onLongClick = { if (aodScreenEnabled) onEnterAodScreen() }
-                    )
-                    .pointerInput(song.id) {
-                        var horizontalDrag = 0f
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            horizontalDrag = 0f
-                            drag(down.id) { change ->
-                                val dx = change.positionChange().x
-                                val dy = change.positionChange().y
-                                if (abs(dx) > abs(dy) * 1.3f) {
-                                    horizontalDrag += dx
-                                }
-                            }
-                            if (horizontalDrag > 72.dp.toPx()) {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onPrevious()
-                            } else if (horizontalDrag < -72.dp.toPx()) {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onNext()
-                            }
-                        }
+                    .graphicsLayer {
+                        alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
                     }
+                    .clip(scoopedShape)
             ) {
                 SmartImage(
                     model = optimizedAlbumArtUri,
@@ -560,7 +554,8 @@ fun ComplexPlayerLayout(
                         .height(104.dp)
                         .align(Alignment.TopCenter)
                         .graphicsLayer {
-                            alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                            val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                            alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                         }
                         .background(
                             Brush.verticalGradient(
@@ -591,6 +586,11 @@ fun ComplexPlayerLayout(
                 inactiveTrackColor = baseTheme.onPrimary,
                 thumbColor = baseTheme.primary,
                 onSeek = onSeek,
+                aodScreenEnabled = aodScreenEnabled,
+                onEnterAodScreen = onEnterAodScreen,
+                onPrevious = onPrevious,
+                onNext = onNext,
+                aodTransitionProgressProvider = aodTransitionProgressProvider,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -642,6 +642,7 @@ fun ComplexPlayerLayout(
                             scaleY = scale
                             translationX = (miniSongInfoLeftPx - destX) * (1f - s.posT)
                             translationY = (miniSongInfoTopPx - destY) * (1f - s.posT)
+                            alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
                         }
                 ) {
                     key(song.id, resolvedTitle) {
@@ -719,7 +720,8 @@ fun ComplexPlayerLayout(
                         .weight(1f)
                         .fillMaxWidth()
                         .graphicsLayer {
-                            val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                            val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                            val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                             alpha = a
                             translationY = (1f - a) * slideOffsetPx
                         }
@@ -754,6 +756,8 @@ fun ComplexPlayerLayout(
                     onLikedContainerColor = baseTheme.onTertiary,
                     neutralContainerColor = baseTheme.onPrimary,
                     onNeutralContainerColor = baseTheme.primary,
+                    aodSourceBounds = aodSourceBounds,
+                    aodTransitionProgressProvider = aodTransitionProgressProvider,
                     modifier = Modifier
                         .width(68.dp)
                         .height(332.dp)
@@ -768,7 +772,8 @@ fun ComplexPlayerLayout(
             modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer {
-                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                 }
                 .padding(
                     top = (statusBarTopPadding + 10.dp).coerceAtLeast(0.dp),
@@ -864,6 +869,11 @@ private fun CurvedArcSeekBar(
     inactiveTrackColor: Color,
     thumbColor: Color,
     onSeek: (Long) -> Unit,
+    aodScreenEnabled: Boolean = true,
+    onEnterAodScreen: () -> Unit = {},
+    onPrevious: () -> Unit = {},
+    onNext: () -> Unit = {},
+    aodTransitionProgressProvider: () -> Float = { 0f },
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -945,16 +955,23 @@ private fun CurvedArcSeekBar(
 
     val latestOnSeek by rememberUpdatedState(onSeek)
     val latestDurationForCalc by rememberUpdatedState(durationForCalc)
+    val latestAodScreenEnabled by rememberUpdatedState(aodScreenEnabled)
+    val latestOnEnterAodScreen by rememberUpdatedState(onEnterAodScreen)
+    val latestOnPrevious by rememberUpdatedState(onPrevious)
+    val latestOnNext by rememberUpdatedState(onNext)
 
     Box(
         modifier = modifier
             .graphicsLayer {
-                val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                val aodFade = (1f - aodTransitionProgressProvider() * 2.4f).coerceIn(0f, 1f)
+                val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                 alpha = a
             }
             .pointerInput(songId, rightRisePx, isExpanded) {
                 if (!isExpanded) return@pointerInput
                 var lastQuantizedStep = -1
+                val swipeSkipThresholdPx = 72.dp.toPx()
+
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val w = size.width.toFloat()
@@ -968,36 +985,102 @@ private fun CurvedArcSeekBar(
                         centerXFraction = ARCH_CENTER_X_FRACTION
                     )
 
-                    val dx = (down.position.x - circle.cx).coerceIn(-circle.radius * 0.99f, circle.radius * 0.99f)
-                    val curveYAtTouchX = circle.cy + sqrt((circle.radius * circle.radius) - (dx * dx))
+                    val dxCurve = (down.position.x - circle.cx).coerceIn(-circle.radius * 0.99f, circle.radius * 0.99f)
+                    val curveYAtTouchX = circle.cy + sqrt((circle.radius * circle.radius) - (dxCurve * dxCurve))
 
-                    if (abs(down.position.y - curveYAtTouchX) > hitTolerancePx) {
+                    // 1. Touch near the curved arch seekbar -> scrub track
+                    if (abs(down.position.y - curveYAtTouchX) <= hitTolerancePx) {
+                        down.consume()
+                        val usableWidth = (w - 2f * edgeInsetPx).coerceAtLeast(1f)
+                        val initialFraction = ((down.position.x - edgeInsetPx) / usableWidth).coerceIn(0f, 1f)
+                        sliderDragValue = initialFraction
+                        lastQuantizedStep = (initialFraction * 24f).toInt()
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+
+                        drag(down.id) { change ->
+                            change.consume()
+                            val newFraction = ((change.position.x - edgeInsetPx) / usableWidth).coerceIn(0f, 1f)
+                            sliderDragValue = newFraction
+                            val step = (newFraction * 24f).toInt()
+                            if (step != lastQuantizedStep) {
+                                lastQuantizedStep = step
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                        }
+
+                        val committed = sliderDragValue ?: initialFraction
+                        targetSeekFraction = committed
+                        lastSeekFinishedTime = System.currentTimeMillis()
+                        sliderDragValue = null
+                        latestOnSeek((committed * latestDurationForCalc).roundToLong())
                         return@awaitEachGesture
                     }
 
-                    down.consume()
-                    val usableWidth = (w - 2f * edgeInsetPx).coerceAtLeast(1f)
-                    val initialFraction = ((down.position.x - edgeInsetPx) / usableWidth).coerceIn(0f, 1f)
-                    sliderDragValue = initialFraction
-                    lastQuantizedStep = (initialFraction * 24f).toInt()
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    // 2. Touch on the album art above the arch -> long-press for AOD or horizontal swipe for prev/next
+                    if (down.position.y < curveYAtTouchX - hitTolerancePx) {
+                        val touchSlop = viewConfiguration.touchSlop
+                        val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+                        val startPos = down.position
+                        var isHorizontalSwipe = false
+                        var gestureEndedBeforeTimeout = false
+                        var horizontalDrag = 0f
 
-                    drag(down.id) { change ->
-                        change.consume()
-                        val newFraction = ((change.position.x - edgeInsetPx) / usableWidth).coerceIn(0f, 1f)
-                        sliderDragValue = newFraction
-                        val step = (newFraction * 24f).toInt()
-                        if (step != lastQuantizedStep) {
-                            lastQuantizedStep = step
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        val timedOutForLongPress = withTimeoutOrNull(longPressTimeout) {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                    ?: event.changes.firstOrNull()
+                                if (change == null || !change.pressed) {
+                                    gestureEndedBeforeTimeout = true
+                                    break
+                                }
+                                val totalDelta = change.position - startPos
+                                if (totalDelta.getDistance() > touchSlop) {
+                                    if (abs(totalDelta.x) > abs(totalDelta.y) * 1.15f) {
+                                        isHorizontalSwipe = true
+                                        horizontalDrag = totalDelta.x
+                                        change.consume()
+                                    } else {
+                                        gestureEndedBeforeTimeout = true
+                                    }
+                                    break
+                                }
+                            }
+                            false
+                        } == null
+
+                        if (timedOutForLongPress && !gestureEndedBeforeTimeout && !isHorizontalSwipe) {
+                            if (latestAodScreenEnabled) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                latestOnEnterAodScreen()
+                            }
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                event.changes.forEach { it.consume() }
+                                if (event.changes.none { it.pressed }) break
+                            }
+                        } else if (isHorizontalSwipe) {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                    ?: event.changes.firstOrNull()
+                                if (change == null || !change.pressed) break
+                                val stepDx = change.positionChange().x
+                                val stepDy = change.positionChange().y
+                                if (abs(stepDx) > abs(stepDy) * 1.1f) {
+                                    horizontalDrag += stepDx
+                                    change.consume()
+                                }
+                            }
+                            if (horizontalDrag > swipeSkipThresholdPx) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                latestOnPrevious()
+                            } else if (horizontalDrag < -swipeSkipThresholdPx) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                latestOnNext()
+                            }
                         }
                     }
-
-                    val committed = sliderDragValue ?: initialFraction
-                    targetSeekFraction = committed
-                    lastSeekFinishedTime = System.currentTimeMillis()
-                    sliderDragValue = null
-                    latestOnSeek((committed * latestDurationForCalc).roundToLong())
                 }
             }
     ) {
@@ -1533,6 +1616,8 @@ private fun VerticalExpressiveControlStack(
     onLikedContainerColor: Color,
     neutralContainerColor: Color,
     onNeutralContainerColor: Color,
+    aodSourceBounds: AodSourceBounds? = null,
+    aodTransitionProgressProvider: () -> Float = { 0f },
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -1546,9 +1631,9 @@ private fun VerticalExpressiveControlStack(
     val miniGapPx = remember(density) { with(density) { 8.dp.toPx() } }
     val miniIconSizePx = remember(density) { with(density) { 22.dp.toPx() } }
 
-    val prevBounds = remember { MorphElementBounds() }
-    val playBounds = remember { MorphElementBounds() }
-    val nextBounds = remember { MorphElementBounds() }
+    val prevBounds = aodSourceBounds?.prevBounds ?: remember { MorphElementBounds() }
+    val playBounds = aodSourceBounds?.playBounds ?: remember { MorphElementBounds() }
+    val nextBounds = aodSourceBounds?.nextBounds ?: remember { MorphElementBounds() }
 
     var activeButton by remember { mutableStateOf<VerticalControlButton?>(null) }
     var playPauseVisualState by remember { mutableStateOf(isPlaying) }
@@ -1603,7 +1688,8 @@ private fun VerticalExpressiveControlStack(
                 .fillMaxWidth()
                 .weight(moreWeight)
                 .graphicsLayer {
-                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                 },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 14.dp,
@@ -1645,7 +1731,8 @@ private fun VerticalExpressiveControlStack(
                 .fillMaxWidth()
                 .weight(likeWeight)
                 .graphicsLayer {
-                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                 },
             defaultCornerDp = if (isFavorite) 20.dp else 34.dp,
             pressedCornerDp = 14.dp,
@@ -1704,6 +1791,7 @@ private fun VerticalExpressiveControlStack(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniPrevLeftPx - destX) * (1f - s.posT)
                     translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                    alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
                 },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
@@ -1766,6 +1854,7 @@ private fun VerticalExpressiveControlStack(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniPlayLeftPx - destX) * (1f - s.posT)
                     translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                    alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
                 },
             defaultCornerDp = if (playPauseVisualState) 20.dp else 34.dp,
             pressedCornerDp = 14.dp,
@@ -1835,6 +1924,7 @@ private fun VerticalExpressiveControlStack(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniNextLeftPx - destX) * (1f - s.posT)
                     translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                    alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
                 },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,

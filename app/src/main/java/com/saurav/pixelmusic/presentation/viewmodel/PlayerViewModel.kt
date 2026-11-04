@@ -777,7 +777,7 @@ class PlayerViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlbumArtQuality.HIGH)
 
     val aodScreenEnabled: StateFlow<Boolean> = userPreferencesRepository.aodScreenEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     fun setLyricsSyncOffset(songId: String, offsetMs: Int) {
         lyricsStateHolder.setSyncOffset(songId, offsetMs)
@@ -1942,7 +1942,7 @@ class PlayerViewModel @Inject constructor(
         val selectedRouteName: String? = null,
         val isBluetoothEnabled: Boolean = false,
         val bluetoothName: String? = null,
-        val aodScreenEnabled: Boolean = false
+        val aodScreenEnabled: Boolean = true
     )
 
     // Intermediate combine #1: 5 settings flows

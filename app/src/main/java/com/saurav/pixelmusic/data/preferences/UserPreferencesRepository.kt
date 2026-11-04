@@ -1348,7 +1348,7 @@ constructor(
 
     val aodScreenEnabledFlow: Flow<Boolean> =
             dataStore.data.map { preferences ->
-                preferences[PreferencesKeys.AOD_SCREEN_ENABLED] ?: false
+                preferences[PreferencesKeys.AOD_SCREEN_ENABLED] ?: true
             }
         
 

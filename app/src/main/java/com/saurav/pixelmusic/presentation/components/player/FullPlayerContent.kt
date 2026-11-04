@@ -32,6 +32,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -365,7 +366,25 @@ fun FullPlayerContent(
 
     var showFetchLyricsDialog by remember { mutableStateOf(false) }
     var showAodScreen by remember { mutableStateOf(false) }
+    val aodMorphAnim = remember { Animatable(0f) }
+    val aodSourceBounds = remember { AodSourceBounds() }
+    val aodTransitionProgressProvider = remember(aodMorphAnim) { { aodMorphAnim.value } }
     var totalDrag by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(showAodScreen) {
+        val smoothCurve = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+        if (showAodScreen) {
+            aodMorphAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 560, easing = smoothCurve)
+            )
+        } else if (aodMorphAnim.value > 0f) {
+            aodMorphAnim.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 480, easing = smoothCurve)
+            )
+        }
+    }
 
     val context = LocalContext.current
     val fileImportScope = rememberCoroutineScope()
@@ -454,21 +473,7 @@ fun FullPlayerContent(
         }
     }
 
-    if (showAodScreen) {
-        AodScreen(
-            songTitle = song.title,
-            artistName = song.artist,
-            albumArtUriString = song.albumArtUriString,
-            isPlayingProvider = isPlayingProvider,
-            currentPositionProvider = currentPositionProvider,
-            totalDurationProvider = totalDurationProvider,
-            onPlayPauseClick = { playerViewModel.playPause() },
-            onSkipNextClick = { playerViewModel.nextSong() },
-            onSkipPreviousClick = { playerViewModel.previousSong() },
-            onDismiss = { showAodScreen = false },
-            onSeekTo = { playerViewModel.seekTo(it) }
-        )
-    }
+    // AodScreen is rendered as an in-window morphing overlay at the end of FullPlayerContent
 
     if (showFetchLyricsDialog) {
         MaterialTheme(
@@ -628,11 +633,15 @@ fun FullPlayerContent(
     }
 
     val rootCoordsHolder = remember { LayoutCoordsHolder() }
-    val defaultArtBounds = remember { MorphElementBounds() }
+    val defaultArtBounds = aodSourceBounds.artBounds
     val artworkMorphTracker = remember { ArtworkMorphTracker() }
     val density = LocalDensity.current
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
     val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
+
+    if (!isComplex) {
+        aodSourceBounds.artStyle = if (isImmersive) AodSourceArtStyle.IMMERSIVE_RECT else AodSourceArtStyle.STANDARD_ROUNDED
+    }
 
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
         FullPlayerAlbumCoverSection(
@@ -670,6 +679,7 @@ fun FullPlayerContent(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniArtOffsetPx - destX) * (1f - s.posT)
                     translationY = (miniArtOffsetPx - destY) * (1f - s.posT)
+                    alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
                 }
         )
     }
@@ -725,7 +735,9 @@ fun FullPlayerContent(
             isFullScreenArt = isImmersive,
             morphTracker = artworkMorphTracker,
             rootCoordsHolder = rootCoordsHolder,
-            containerWidthPxProvider = { rootCoordsHolder.widthPx }
+            containerWidthPxProvider = { rootCoordsHolder.widthPx },
+            aodSourceBounds = aodSourceBounds,
+            aodTransitionProgressProvider = aodTransitionProgressProvider
         )
     }
 
@@ -1639,8 +1651,14 @@ fun FullPlayerContent(
                                 val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
                                 val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
                                 layout(targetW, targetH) {
+                                    defaultArtBounds.offset = Offset(placeX.toFloat(), placeY.toFloat())
+                                    defaultArtBounds.size = IntSize(targetW, targetH)
+                                    defaultArtBounds.hasBounds = true
                                     placeable.place(placeX, placeY)
                                 }
+                            }
+                            .graphicsLayer {
+                                alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
                             }
                             .clip(morphShape)
                             .combinedClickable(
@@ -1748,8 +1766,14 @@ fun FullPlayerContent(
                                 val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
                                 val placeable = measurable.measure(Constraints.fixed(targetW, targetH))
                                 layout(targetW, targetH) {
+                                    defaultArtBounds.offset = Offset(placeX.toFloat(), placeY.toFloat())
+                                    defaultArtBounds.size = IntSize(targetW, targetH)
+                                    defaultArtBounds.hasBounds = true
                                     placeable.place(placeX, placeY)
                                 }
+                            }
+                            .graphicsLayer {
+                                alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
                             }
                             .clip(morphShape)
                             .combinedClickable(
@@ -1829,7 +1853,9 @@ fun FullPlayerContent(
                     onCollapse = onCollapse,
                     onLyricsClick = onLyricsClick,
                     onArtistClick = onSongMetadataArtistClick,
-                    onMoreOptionsClick = { showSongInfoBottomSheet = true }
+                    onMoreOptionsClick = { showSongInfoBottomSheet = true },
+                    aodSourceBounds = aodSourceBounds,
+                    aodTransitionProgressProvider = aodTransitionProgressProvider
                 )
             } else {
                 if (isLandscape) {
@@ -1853,6 +1879,24 @@ fun FullPlayerContent(
                         isFullScreenArt = isImmersive
                     )
                 }
+            }
+
+            if (showAodScreen || aodMorphAnim.value > 0.001f) {
+                AodScreen(
+                    songTitle = song.title,
+                    artistName = song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist,
+                    albumArtUriString = song.albumArtUriString,
+                    isPlayingProvider = isPlayingProvider,
+                    currentPositionProvider = currentPositionProvider,
+                    totalDurationProvider = totalDurationProvider,
+                    onPlayPauseClick = { playerViewModel.playPause() },
+                    onSkipNextClick = onNextWithOptimisticCarousel,
+                    onSkipPreviousClick = onPreviousWithOptimisticCarousel,
+                    onDismiss = { showAodScreen = false },
+                    onSeekTo = { playerViewModel.seekTo(it) },
+                    enterProgressProvider = aodTransitionProgressProvider,
+                    sourceBounds = aodSourceBounds
+                )
             }
         }
     }
@@ -2567,7 +2611,9 @@ private fun FullPlayerControlsSection(
     isFullScreenArt: Boolean,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
     rootCoordsHolder: LayoutCoordsHolder? = null,
-    containerWidthPxProvider: () -> Float = { 0f }
+    containerWidthPxProvider: () -> Float = { 0f },
+    aodSourceBounds: AodSourceBounds? = null,
+    aodTransitionProgressProvider: () -> Float = { 0f }
 ) {
     val stableControlAnimationSpec = remember {
         tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
@@ -2598,7 +2644,10 @@ private fun FullPlayerControlsSection(
         ) {
             AnimatedPlaybackControls(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .graphicsLayer {
+                        alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                    },
                 isPlayingProvider = isPlayingProvider,
                 onPrevious = onPrevious,
                 onPlayPause = onPlayPause,
@@ -2619,7 +2668,10 @@ private fun FullPlayerControlsSection(
                 morphTracker = morphTracker,
                 expansionFractionProvider = expansionFractionProvider,
                 rootCoordsHolder = rootCoordsHolder,
-                containerWidthPxProvider = containerWidthPxProvider
+                containerWidthPxProvider = containerWidthPxProvider,
+                capturePrevBounds = aodSourceBounds?.prevBounds,
+                capturePlayBounds = aodSourceBounds?.playBounds,
+                captureNextBounds = aodSourceBounds?.nextBounds
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -2631,7 +2683,8 @@ private fun FullPlayerControlsSection(
                     .padding(horizontal = 26.dp, vertical = 0.dp)
                     .padding(bottom = 6.dp)
                     .graphicsLayer {
-                        alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                        val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                        alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                     },
                 isShuffleEnabled = isShuffleEnabledProvider(),
                 isShuffleTransitionInProgress = shuffleTransitionInProgress,
