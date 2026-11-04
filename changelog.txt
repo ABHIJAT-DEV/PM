@@ -42,7 +42,3 @@
   - Resolved repeating songs in Quick Picks and Your Mix, enabling fresh related track fetching on pull-to-refresh.
   - Enforced 720p artwork resolution and unified single-download cache sharing to prevent duplicate network calls.
   - Prevented crashes on delete requests for invalid or SD-card URIs and cleaned up phantom library songs.
-* ⚙️ **Build System & CI Performance:**
-  - Configured test and release builds to produce exclusively `arm64-v8a` APKs for faster builds and reduced package size.
-  - Optimized CI build runner: tuned Gradle JVM heap (4GB), unlocked multi-worker execution, enabled CI build cache, and limited R8 to 1 pass.
-  - Automated R8 `mapping.txt` artifact uploads with test builds for effortless stack trace de-obfuscation.
