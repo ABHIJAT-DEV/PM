@@ -76,7 +76,7 @@ data class ArtistPage(
                     }
                 }.ifEmpty { null } ?: return null,
                 moreEndpoint = renderer.header.musicCarouselShelfBasicHeaderRenderer.moreContentButton?.buttonRenderer?.navigationEndpoint?.browseEndpoint
-                    ?: renderer.header.musicCarouselShelfBasicHeaderRenderer.title.runs?.firstOrNull()?.navigationEndpoint?.browseEndpoint,
+                    ?: renderer.header.musicCarouselShelfBasicHeaderRenderer.title.runs.firstOrNull()?.navigationEndpoint?.browseEndpoint,
                 isSongsSection = hasResponsiveSongs
             )
         }

@@ -137,19 +137,13 @@ fun OptimizedAlbumArt(
             else -> ImageRequest.Builder(context)
                 .data(optimizedUri)
                 .diskCacheKey(canonicalDiskKey)
+                .memoryCacheKey(memoryCacheKey)
+                .placeholderMemoryCacheKey(placeholderMemoryCacheKey)
                 .crossfade(350) // Use Coil's native crossfade
                 .error(R.drawable.ic_music_placeholder)
                 .size(requestTargetSize)
                 .memoryCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(if (isStableLocalArtwork) CachePolicy.DISABLED else CachePolicy.ENABLED)
-                .apply {
-                    if (memoryCacheKey != null) {
-                        memoryCacheKey(memoryCacheKey)
-                    }
-                    if (placeholderMemoryCacheKey != null) {
-                        placeholderMemoryCacheKey(placeholderMemoryCacheKey)
-                    }
-                }
                 .build()
         }
     }
