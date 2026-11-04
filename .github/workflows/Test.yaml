@@ -58,8 +58,8 @@ jobs:
           sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Test<\/string>/g' app/src/main/res/values/strings.xml
 
           # 4. Configure ABI splits to build ONLY arm64-v8a
-          sed -i 's/include("arm64-v8a", "armeabi-v7a")/include("arm64-v8a")/' app/build.gradle.kts
-          sed -i 's/isUniversalApk = true/isUniversalApk = false/' app/build.gradle.kts
+          sed -i 's/include("arm64-v8a", "armeabi-v7a")/include("arm64-v8a")/' app/build.gradle.kts 2>/dev/null || true
+          sed -i 's/isUniversalApk = true/isUniversalApk = false/' app/build.gradle.kts 2>/dev/null || true
 
       - name: Calculate Sequential Version
         run: |

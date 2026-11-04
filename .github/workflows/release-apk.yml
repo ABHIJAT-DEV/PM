@@ -1,7 +1,7 @@
 name: 📦 Release APK (signed)
 
-# Manual workflow: builds ALL signed release APKs (arm64-v8a, armeabi-v7a,
-# universal), zips them, and uploads the zip as a run artifact.
+# Manual workflow: builds signed arm64-v8a release APK, zips it,
+# and uploads the zip as a run artifact.
 # Nothing else — no version bump, no distribution, no uploads anywhere.
 
 on:
