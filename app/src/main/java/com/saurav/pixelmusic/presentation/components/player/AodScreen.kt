@@ -127,6 +127,7 @@ class AodSourceBounds {
     val nextBounds = MorphElementBounds()
     var artStyle: AodSourceArtStyle = AodSourceArtStyle.STANDARD_ROUNDED
     var complexRightRisePx: Float = 0f
+    var washColor: Color = Color.Unspecified
 }
 
 private val SmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
@@ -862,6 +863,7 @@ fun AodScreen(
                         .fillMaxWidth(0.90f)
                         .captureUntransformedBounds(aodRootCoordsHolder, aodSongInfoDestBounds)
                         .graphicsLayer {
+                            alpha = ((enterProgress - 0.45f) / 0.40f).coerceIn(0f, 1f)
                             val src = sourceBounds?.songInfoBounds
                             if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
                                 val destX = aodSongInfoDestBounds.offset.x
@@ -928,7 +930,7 @@ fun AodScreen(
                                 translationX = (src.offset.x - destX) * (1f - posT)
                                 translationY = (src.offset.y - destY) * (1f - posT)
                             }
-                            alpha = ((enterProgress - 0.12f) / 0.88f).coerceIn(0f, 1f)
+                            alpha = ((enterProgress - 0.45f) / 0.40f).coerceIn(0f, 1f)
                         }
                 )
 
@@ -1080,6 +1082,26 @@ fun AodScreen(
                 targetSize = coil.size.Size.ORIGINAL,
                 modifier = Modifier.fillMaxSize()
             )
+            // Same bottom wash the immersive Now Playing art draws, so the hand-off to the real art
+            // at the end of the exit transition doesn't pop (and the image's dark matte stays hidden).
+            val washColorForArt = sourceBounds?.washColor ?: Color.Unspecified
+            if (sourceArtStyle == AodSourceArtStyle.IMMERSIVE_RECT && washColorForArt != Color.Unspecified) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer { alpha = (1f - sizeT).coerceIn(0f, 1f) }
+                        .background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.55f to Color.Transparent,
+                                    0.80f to washColorForArt.copy(alpha = 0.85f),
+                                    1.0f to washColorForArt
+                                )
+                            )
+                        )
+                )
+            }
         }
     }
 }

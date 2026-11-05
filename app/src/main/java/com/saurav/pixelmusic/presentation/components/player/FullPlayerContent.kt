@@ -1601,6 +1601,7 @@ fun FullPlayerContent(
                 }
                 val isBwTheme = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
                 val targetWash = if (isBwTheme) bgColor else androidx.compose.ui.graphics.lerp(bgColor, extractedColor, 0.5f)
+                aodSourceBounds.washColor = targetWash
                 val washColor by animateColorAsState(
                     targetValue = targetWash,
                     animationSpec = tween(500),
