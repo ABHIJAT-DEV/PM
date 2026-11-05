@@ -103,23 +103,7 @@ object LastFM {
         return "https://www.last.fm/api/auth/?api_key=$API_KEY&token=$token"
     }
 
-    suspend fun getMobileSession(username: String, password: String) = runCatching {
-        val response = client.post {
-            lastfmParams(
-                method = "auth.getMobileSession",
-                apiKey = API_KEY,
-                secret = SECRET,
-                extra = mapOf("username" to username, "password" to password)
-            )
-        }
-        
-        val responseText = response.bodyAsText()
-        if (responseText.contains("\"error\"")) {
-            val error = json.decodeFromString<LastFmError>(responseText)
-            throw LastFmException(error.error, error.message)
-        }
-        json.decodeFromString<Authentication>(responseText)
-    }
+
     
     class LastFmException(val code: Int, override val message: String) : Exception(message) {
         override fun toString(): String = "LastFmException(code=$code, message=$message)"

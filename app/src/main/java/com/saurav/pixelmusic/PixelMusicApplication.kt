@@ -175,14 +175,6 @@ NewPipe.init(object : Downloader() {
         )
         startupScope.launch {
             val prefs = userPreferencesRepository.get()
-            val savedApiKey = prefs.lastfmApiKeyFlow.first()
-            val savedSecret = prefs.lastfmApiSecretFlow.first()
-            if (savedApiKey.isNotEmpty() && savedSecret.isNotEmpty()) {
-                com.saurav.pixelmusic.data.lastfm.LastFM.initialize(
-                    apiKey = savedApiKey,
-                    secret = savedSecret
-                )
-            }
             val sessionKey = prefs.lastfmSessionFlow.first()
             if (sessionKey.isNotEmpty()) {
                 com.saurav.pixelmusic.data.lastfm.LastFM.sessionKey = sessionKey
