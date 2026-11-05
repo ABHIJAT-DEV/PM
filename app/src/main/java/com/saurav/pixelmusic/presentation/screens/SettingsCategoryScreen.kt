@@ -1226,11 +1226,11 @@ fun SettingsCategoryScreen(
                                     }
 
                                     SwitchSettingItem(
-                                        title = "Always-on lock display",
-                                        subtitle = "When the screen turns off while music plays, show the AOD over the lockscreen for 15 seconds, then go dark. Press power or double-tap to reach the normal lockscreen. High-end devices only.",
-                                        checked = settingsViewModel.aodAutoOnScreenOff.collectAsStateWithLifecycle().value,
+                                        title = "AOD Screen",
+                                        subtitle = "Long-press the album art in Now Playing for a glowing, AMOLED-friendly ambient view. On high-end devices it also appears over the lockscreen for 15 seconds when the screen turns off while music plays. Double-tap to exit.",
+                                        checked = uiState.aodScreenEnabled,
                                         onCheckedChange = { enabled ->
-                                            settingsViewModel.setAodAutoOnScreenOff(enabled)
+                                            settingsViewModel.setAodScreenEnabled(enabled)
                                             if (enabled && android.os.Build.VERSION.SDK_INT >= 34) {
                                                 try {
                                                     val nm = context.getSystemService(android.app.NotificationManager::class.java)
@@ -1251,15 +1251,7 @@ fun SettingsCategoryScreen(
                                         }
                                     )
 
-                                    SwitchSettingItem(
-                                        title = "AOD Screen",
-                                        subtitle = "Long-press the album art in Now Playing for a glowing, AMOLED-friendly ambient view. Tap anywhere to exit.",
-                                        checked = uiState.aodScreenEnabled,
-                                        onCheckedChange = { settingsViewModel.setAodScreenEnabled(it) },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.DarkMode, null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
+                                    
 
                                     SettingsItem(
                                         title = stringResource(R.string.setcat_battery_optimization_title),

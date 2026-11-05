@@ -72,7 +72,7 @@ object AodScreenOffTrigger {
                 if (isAodShowing || SystemClock.elapsedRealtime() - lastAodEndMs < COOLDOWN_MS) return
                 if (!isHighEndDevice(app) || !isPlaying()) return
                 scope.launch {
-                    val enabled = prefs.aodScreenEnabledFlow.first() && prefs.aodAutoOnScreenOffFlow.first()
+                    val enabled = prefs.aodScreenEnabledFlow.first()
                     if (!enabled) return@launch
                     // Let the screen finish turning off before we ask for it to come back on.
                     delay(400L)

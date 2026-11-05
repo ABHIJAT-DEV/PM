@@ -645,6 +645,8 @@ fun FullPlayerContent(
 
     if (!isComplex) {
         aodSourceBounds.artStyle = if (isImmersive) AodSourceArtStyle.IMMERSIVE_RECT else AodSourceArtStyle.STANDARD_ROUNDED
+        aodSourceBounds.carouselStyle =
+            if (currentPlaybackQueue.size <= 1) CarouselStyle.NO_PEEK else carouselStyle
     }
 
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
@@ -1603,6 +1605,10 @@ fun FullPlayerContent(
                 val isBwTheme = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
                 val targetWash = if (isBwTheme) bgColor else androidx.compose.ui.graphics.lerp(bgColor, extractedColor, 0.5f)
                 aodSourceBounds.washColor = targetWash
+                aodSourceBounds.washStart = 0.55f
+                aodSourceBounds.washMid = 0.80f
+                aodSourceBounds.washMidAlpha = 0.85f
+                aodSourceBounds.topScrimAlpha = 0f
                 val washColor by animateColorAsState(
                     targetValue = targetWash,
                     animationSpec = tween(500),
@@ -1725,6 +1731,12 @@ fun FullPlayerContent(
                     com.saurav.pixelmusic.utils.ThumbnailUrlUtils.optimizeArtworkUrl(song.albumArtUriString, effectiveQuality) ?: song.albumArtUriString.orEmpty()
                 }
                 val targetArtHeightPx = fullHeightPx * 0.55f
+                // Share the exact art gradient with the AOD stand-in art so it doesn't pop in after the morph starts.
+                aodSourceBounds.washColor = bgColor
+                aodSourceBounds.washStart = 0.50f
+                aodSourceBounds.washMid = 0.85f
+                aodSourceBounds.washMidAlpha = 0.9f
+                aodSourceBounds.topScrimAlpha = if (isDarkTheme) 0.3f else 0f
                 val morphShape = remember(artworkMorphTracker, expansionFractionProvider, density) {
                     object : androidx.compose.ui.graphics.Shape {
                         override fun createOutline(

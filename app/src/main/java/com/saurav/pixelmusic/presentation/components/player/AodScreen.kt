@@ -101,6 +101,7 @@ import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -128,9 +129,54 @@ class AodSourceBounds {
     var artStyle: AodSourceArtStyle = AodSourceArtStyle.STANDARD_ROUNDED
     var complexRightRisePx: Float = 0f
     var washColor: Color = Color.Unspecified
+    var washStart: Float = 0.55f
+    var washMid: Float = 0.80f
+    var washMidAlpha: Float = 0.85f
+    var topScrimAlpha: Float = 0f
+    var carouselStyle: String = ""
 }
 
 private val SmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
+/**
+ * The Now Playing album-cover container is wider than the focal card when a peek carousel style is
+ * selected (and has 8dp of vertical padding). Narrow the captured container bounds down to the focal
+ * card so the AOD art morphs from exactly where the visible album art is.
+ */
+private fun resolveFocalArtBounds(
+    raw: MorphElementBounds,
+    style: String,
+    density: Density
+): MorphElementBounds {
+    val pad = with(density) { 8.dp.toPx() }
+    val w = raw.size.width.toFloat()
+    val h = raw.size.height.toFloat()
+    val itemW: Float
+    val itemX: Float
+    when (style) {
+        com.saurav.pixelmusic.data.preferences.CarouselStyle.ONE_PEEK -> {
+            itemW = w * 0.8f
+            itemX = 0f
+        }
+        com.saurav.pixelmusic.data.preferences.CarouselStyle.TWO_PEEK -> {
+            itemW = w * 0.6f
+            itemX = w * 0.2f
+        }
+        else -> {
+            itemW = w
+            itemX = 0f
+        }
+    }
+    val itemH = min(itemW, (h - pad * 2f).coerceAtLeast(1f))
+    return MorphElementBounds(
+        offset = androidx.compose.ui.geometry.Offset(raw.offset.x + itemX, raw.offset.y + pad),
+        size = androidx.compose.ui.unit.IntSize(
+            itemW.roundToInt().coerceAtLeast(1),
+            itemH.roundToInt().coerceAtLeast(1)
+        ),
+        hasBounds = true
+    )
+}
 
 /**
  * Curated Material You Expressive shapes:
@@ -712,7 +758,10 @@ fun AodScreen(
 
     val aodRootCoordsHolder = remember { LayoutCoordsHolder() }
     val aodArtSlotBounds = remember { MorphElementBounds() }
+    var slotReady by remember { mutableStateOf(false) }
     val aodSongInfoDestBounds = remember { MorphElementBounds() }
+    var titleTextWidthPx by remember { mutableFloatStateOf(0f) }
+    var artistTextWidthPx by remember { mutableFloatStateOf(0f) }
     val aodProgressDestBounds = remember { MorphElementBounds() }
 
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
@@ -851,6 +900,7 @@ fun AodScreen(
                         modifier = Modifier
                             .size(aodArtSizeDp)
                             .captureUntransformedBounds(aodRootCoordsHolder, aodArtSlotBounds)
+                            .onGloballyPositioned { slotReady = true }
                     )
                 }
 
@@ -863,18 +913,22 @@ fun AodScreen(
                         .fillMaxWidth(0.90f)
                         .captureUntransformedBounds(aodRootCoordsHolder, aodSongInfoDestBounds)
                         .graphicsLayer {
-                            alpha = ((enterProgress - 0.45f) / 0.40f).coerceIn(0f, 1f)
                             val src = sourceBounds?.songInfoBounds
+                            alpha = if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
+                                1f
+                            } else {
+                                ((enterProgress - 0.45f) / 0.40f).coerceIn(0f, 1f)
+                            }
                             if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
                                 val destX = aodSongInfoDestBounds.offset.x
                                 val destY = aodSongInfoDestBounds.offset.y
-                                translationX = (src.offset.x - destX) * (1f - posT)
                                 translationY = (src.offset.y - destY) * (1f - posT)
                             }
                         }
                 ) {
                     Text(
                         text = songTitle,
+                        onTextLayout = { titleTextWidthPx = it.getLineRight(0) - it.getLineLeft(0) },
                         fontFamily = GoogleSansRounded,
                         color = morphedTitleColor,
                         fontWeight = FontWeight.ExtraBold,
@@ -884,11 +938,21 @@ fun AodScreen(
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .graphicsLayer {
+                                val src = sourceBounds?.songInfoBounds
+                                if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
+                                    val colW = aodSongInfoDestBounds.size.width.toFloat()
+                                    val textW = min(titleTextWidthPx, colW)
+                                    val destLeft = aodSongInfoDestBounds.offset.x + (colW - textW) / 2f
+                                    translationX = (src.offset.x - destLeft) * (1f - posT)
+                                }
+                            }
                             .basicMarquee()
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = artistName,
+                        onTextLayout = { artistTextWidthPx = it.getLineRight(0) - it.getLineLeft(0) },
                         fontFamily = GoogleSansRounded,
                         color = morphedArtistColor,
                         fontWeight = FontWeight.SemiBold,
@@ -897,6 +961,15 @@ fun AodScreen(
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth(0.86f)
+                            .graphicsLayer {
+                                val src = sourceBounds?.songInfoBounds
+                                if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
+                                    val colW = aodSongInfoDestBounds.size.width.toFloat()
+                                    val textW = min(artistTextWidthPx, colW)
+                                    val destLeft = aodSongInfoDestBounds.offset.x + (colW - textW) / 2f
+                                    translationX = (src.offset.x - destLeft) * (1f - posT)
+                                }
+                            }
                             .basicMarquee()
                     )
                 }
@@ -999,7 +1072,18 @@ fun AodScreen(
         Box(
             modifier = Modifier
                 .layout { measurable, _ ->
-                    val srcArt = sourceBounds?.artBounds
+                    // Re-run layout once the destination slot has reported its bounds; otherwise the art
+                    // stays at the fallback position whenever enterProgress is constant (lockscreen AOD).
+                    @Suppress("UNUSED_VARIABLE")
+                    val slotReadyTick = slotReady
+                    val rawSrcArt = sourceBounds?.artBounds
+                    val srcArt = if (rawSrcArt != null && rawSrcArt.hasBounds &&
+                        sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED
+                    ) {
+                        resolveFocalArtBounds(rawSrcArt, sourceBounds?.carouselStyle.orEmpty(), density)
+                    } else {
+                        rawSrcArt
+                    }
                     val fallbackSrcH = when (sourceArtStyle) {
                         AodSourceArtStyle.COMPLEX_ARCH -> screenHeightPx * 0.52f
                         AodSourceArtStyle.IMMERSIVE_RECT -> screenHeightPx * 0.48f
@@ -1049,6 +1133,7 @@ fun AodScreen(
                     }
                 }
                 .graphicsLayer {
+                    alpha = if (slotReady) 1f else 0f
                     val effectiveScale = lerp(1f, artPlayingScale, sizeT)
                     scaleX = effectiveScale
                     scaleY = effectiveScale
@@ -1093,9 +1178,9 @@ fun AodScreen(
                         .background(
                             Brush.verticalGradient(
                                 colorStops = arrayOf(
-                                    0.0f to Color.Transparent,
-                                    0.55f to Color.Transparent,
-                                    0.80f to washColorForArt.copy(alpha = 0.85f),
+                                    0.0f to Color.Black.copy(alpha = sourceBounds?.topScrimAlpha ?: 0f),
+                                    (sourceBounds?.washStart ?: 0.55f) to Color.Transparent,
+                                    (sourceBounds?.washMid ?: 0.80f) to washColorForArt.copy(alpha = sourceBounds?.washMidAlpha ?: 0.85f),
                                     1.0f to washColorForArt
                                 )
                             )
