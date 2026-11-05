@@ -405,6 +405,7 @@ class MusicService : MediaLibraryService() {
             oldPlayer.removeListener(playerListener)
         }
         userSelectedVolume = engine.masterPlayer.volume.coerceIn(0f, 1f)
+        AodScreenOffTrigger.register(this, serviceScope, userPreferencesRepository) { engine.masterPlayer.isPlaying }
         syncLocalListeningStatsFromPlayer(engine.masterPlayer)
 
         engine.masterPlayer.addListener(playerListener)
@@ -1983,6 +1984,7 @@ class MusicService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
 
     override fun onDestroy() {
+        AodScreenOffTrigger.unregister(this)
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
         stopLiveProgressTracker()
         playbackSnapshotPersistJob?.cancel()

@@ -1563,7 +1563,16 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setAodScreenEnabled(enabled: Boolean) {
+    val aodAutoOnScreenOff: StateFlow<Boolean> = userPreferencesRepository.aodAutoOnScreenOffFlow
+         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+     fun setAodAutoOnScreenOff(enabled: Boolean) {
+         viewModelScope.launch {
+             userPreferencesRepository.setAodAutoOnScreenOff(enabled)
+         }
+     }
+
+     fun setAodScreenEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setAodScreenEnabled(enabled)
         }

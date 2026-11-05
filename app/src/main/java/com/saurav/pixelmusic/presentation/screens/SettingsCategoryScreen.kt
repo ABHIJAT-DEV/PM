@@ -1226,6 +1226,32 @@ fun SettingsCategoryScreen(
                                     }
 
                                     SwitchSettingItem(
+                                        title = "Always-on lock display",
+                                        subtitle = "When the screen turns off while music plays, show the AOD over the lockscreen for 15 seconds, then go dark. Press power or double-tap to reach the normal lockscreen. High-end devices only.",
+                                        checked = settingsViewModel.aodAutoOnScreenOff.collectAsStateWithLifecycle().value,
+                                        onCheckedChange = { enabled ->
+                                            settingsViewModel.setAodAutoOnScreenOff(enabled)
+                                            if (enabled && android.os.Build.VERSION.SDK_INT >= 34) {
+                                                try {
+                                                    val nm = context.getSystemService(android.app.NotificationManager::class.java)
+                                                    if (nm != null && !nm.canUseFullScreenIntent() && !Settings.canDrawOverlays(context)) {
+                                                        context.startActivity(
+                                                            Intent(
+                                                                Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                                                                "package:${context.packageName}".toUri()
+                                                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        )
+                                                    }
+                                                } catch (_: Exception) {
+                                                }
+                                            }
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.DarkMode, null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+
+                                    SwitchSettingItem(
                                         title = "AOD Screen",
                                         subtitle = "Long-press the album art in Now Playing for a glowing, AMOLED-friendly ambient view. Tap anywhere to exit.",
                                         checked = uiState.aodScreenEnabled,

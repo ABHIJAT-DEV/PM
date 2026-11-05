@@ -248,6 +248,7 @@ constructor(
         val FOLDER_BACK_GESTURE_NAVIGATION = booleanPreferencesKey("folder_back_gesture_navigation")
         val USE_SMOOTH_CORNERS = booleanPreferencesKey("use_smooth_corners")
         val AOD_SCREEN_ENABLED = booleanPreferencesKey("aod_screen_enabled")
+         val AOD_AUTO_ON_SCREEN_OFF = booleanPreferencesKey("aod_auto_on_screen_off")
         val KEEP_PLAYING_IN_BACKGROUND = booleanPreferencesKey("keep_playing_in_background")
         val IS_CROSSFADE_ENABLED = booleanPreferencesKey("is_crossfade_enabled")
         val CROSSFADE_ON_MANUAL_SKIP = booleanPreferencesKey("crossfade_on_manual_skip")
@@ -1346,7 +1347,12 @@ constructor(
                 preferences[PreferencesKeys.KEEP_PLAYING_IN_BACKGROUND] ?: true
             }
 
-    val aodScreenEnabledFlow: Flow<Boolean> =
+    val aodAutoOnScreenOffFlow: Flow<Boolean> =
+             dataStore.data.map { preferences ->
+                 preferences[PreferencesKeys.AOD_AUTO_ON_SCREEN_OFF] ?: false
+             }
+
+     val aodScreenEnabledFlow: Flow<Boolean> =
             dataStore.data.map { preferences ->
                 preferences[PreferencesKeys.AOD_SCREEN_ENABLED] ?: true
             }
@@ -1879,7 +1885,13 @@ constructor(
         }
     }
     
-    suspend fun setAodScreenEnabled(enabled: Boolean) {
+    suspend fun setAodAutoOnScreenOff(enabled: Boolean) {
+         dataStore.edit { preferences ->
+             preferences[PreferencesKeys.AOD_AUTO_ON_SCREEN_OFF] = enabled
+         }
+     }
+
+     suspend fun setAodScreenEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.AOD_SCREEN_ENABLED] = enabled
         }
