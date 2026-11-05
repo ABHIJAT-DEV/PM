@@ -964,8 +964,9 @@ private fun CurvedArcSeekBar(
     Box(
         modifier = modifier
             .graphicsLayer {
-                val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
-                alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else a
+                // Keep alpha at 1f (never semi-transparent) so the dark album art underneath the upper
+                // half of the stroke never bleeds through to create a two-tone split along the arch seam.
+                alpha = if (aodTransitionProgressProvider() > 0.001f || expansionFractionProvider() <= 0.22f) 0f else 1f
             }
             .pointerInput(songId, rightRisePx, isExpanded) {
                 if (!isExpanded) return@pointerInput
@@ -1090,6 +1091,8 @@ private fun CurvedArcSeekBar(
             if (w <= 0f || h <= 0f) return@Canvas
 
             val sample = morphTracker.evaluate(expansionFractionProvider())
+            val visScale = sample.nonArtAlpha
+            if (visScale <= 0.02f) return@Canvas
             val t = sample.sizeT
             val currentCenterXFraction = androidx.compose.ui.util.lerp(0.5f, ARCH_CENTER_X_FRACTION, t)
             val currentRightRisePx = androidx.compose.ui.util.lerp(h * 0.5f, rightRisePx, t)
@@ -1114,10 +1117,10 @@ private fun CurvedArcSeekBar(
             val totalSweepDeg = -(alphaStartDeg + alphaEndDeg)
             val thumbAngleDeg = startAngleDeg + (totalSweepDeg * currentProgress)
 
-            val scaleFactor = androidx.compose.ui.util.lerp(0.6f, 1.0f, t)
+            val scaleFactor = androidx.compose.ui.util.lerp(0.6f, 1.0f, t) * visScale
             val trackStrokePx = 10.dp.toPx() * scaleFactor
             // Angular gap around the expressive pill thumb (Material 3 Expressive split track)
-            val gapArcLengthPx = 13.dp.toPx() * scaleFactor
+            val gapArcLengthPx = 13.dp.toPx() * androidx.compose.ui.util.lerp(0.6f, 1.0f, t)
             val gapDeg = Math.toDegrees((gapArcLengthPx / circle.radius).toDouble()).toFloat()
 
             val arcRectTopLeft = Offset(circle.cx - circle.radius, circle.cy - circle.radius)

@@ -348,8 +348,6 @@ private class AodMorphingAlbumShape(
         var archCx0 = 0f
         var archCy0 = 0f
         var archRadius0 = 1f
-        var rightEdgeY0 = srcH0
-        var leftEdgeY0 = srcH0
         if (useComplexArch) {
             val archCenterXFraction = 0.25f
             archCx0 = srcW0 * archCenterXFraction
@@ -357,41 +355,28 @@ private class AodMorphingAlbumShape(
             val sRight = complexRightRisePx.coerceIn(16f, (srcH0 - 4f).coerceAtLeast(16f))
             archRadius0 = (sRight / 2f) + ((dxRight * dxRight) / (2f * sRight))
             archCy0 = srcH0 - archRadius0
-            rightEdgeY0 = srcH0 - sRight
-            leftEdgeY0 = archCy0 + sqrt((archRadius0 * archRadius0 - archCx0 * archCx0).coerceAtLeast(0f))
         }
 
+        val minDim0 = min(srcW0, srcH0)
+        // Smoothly round the corners as soon as the album art pulls away from the screen edges
+        // so the transition never exhibits sharp 90-degree polygon vertices.
         val srcCornerR = when (sourceArtStyle) {
-            AodSourceArtStyle.STANDARD_ROUNDED -> standardCornerPx.coerceIn(0f, min(srcW0, srcH0) * 0.5f)
-            AodSourceArtStyle.IMMERSIVE_RECT, AodSourceArtStyle.COMPLEX_ARCH -> 0f
+            AodSourceArtStyle.STANDARD_ROUNDED -> {
+                val startR = standardCornerPx.coerceIn(0f, minDim0 * 0.5f)
+                lerp(startR, minDim0 * 0.45f, (clampedEnter * 2.2f).coerceIn(0f, 1f))
+            }
+            AodSourceArtStyle.IMMERSIVE_RECT, AodSourceArtStyle.COMPLEX_ARCH -> {
+                minDim0 * (clampedEnter * 2.8f).coerceAtMost(0.46f)
+            }
         }
         val halfW0 = srcW0 * 0.5f
         val halfH0 = srcH0 * 0.5f
         val innerCornerX = (halfW0 - srcCornerR).coerceAtLeast(0f)
         val innerCornerY = (halfH0 - srcCornerR).coerceAtLeast(0f)
 
-        fun normalizeAngle(rad: Double): Double {
-            var a = rad % twoPi
-            if (a < 0.0) a += twoPi
-            return a
-        }
-
-        val angles = DoubleArray(count + 4)
-        for (i in 0 until count) {
-            angles[i] = (twoPi * i) / count
-        }
-        // Include exact corner angles of the source shape so t=0 corners are 100% sharp
-        val brY = if (useComplexArch) (rightEdgeY0 - halfH0) else halfH0
-        val blY = if (useComplexArch) (leftEdgeY0 - halfH0) else halfH0
-        angles[count] = normalizeAngle(atan2(brY.toDouble(), halfW0.toDouble()))
-        angles[count + 1] = normalizeAngle(atan2(blY.toDouble(), (-halfW0).toDouble()))
-        angles[count + 2] = normalizeAngle(atan2((-halfH0).toDouble(), (-halfW0).toDouble()))
-        angles[count + 3] = normalizeAngle(atan2((-halfH0).toDouble(), halfW0.toDouble()))
-        angles.sort()
-
         val path = Path().apply {
-            for (i in angles.indices) {
-                val theta = angles[i]
+            for (i in 0 until count) {
+                val theta = (twoPi * i) / count
                 val cosT = cos(theta).toFloat()
                 val sinT = sin(theta).toFloat()
 
@@ -428,7 +413,13 @@ private class AodMorphingAlbumShape(
                         val disc = (bQuad * bQuad - cQuad).coerceAtLeast(0f)
                         val tArch = -bQuad + sqrt(disc)
                         if (tArch > 0f) {
-                            rSrc0 = min(rSrc0, tArch)
+                            val kSmooth = srcCornerR * 0.65f
+                            rSrc0 = if (kSmooth > 0.5f) {
+                                val hSm = (0.5f + 0.5f * (tArch - rSrc0) / kSmooth).coerceIn(0f, 1f)
+                                lerp(tArch, rSrc0, hSm) - kSmooth * hSm * (1f - hSm)
+                            } else {
+                                min(rSrc0, tArch)
+                            }
                         }
                     }
 
@@ -757,7 +748,7 @@ fun AodScreen(
     val resolvedSrcArtForShape = if (rawSrcArtForShape != null && rawSrcArtForShape.hasBounds &&
         sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED
     ) {
-        resolveFocalArtBounds(rawSrcArtForShape, sourceBounds?.carouselStyle.orEmpty(), density)
+        resolveFocalArtBounds(rawSrcArtForShape, sourceBounds.carouselStyle, density)
     } else {
         rawSrcArtForShape
     }
@@ -1181,7 +1172,7 @@ fun AodScreen(
                     val srcArt = if (rawSrcArt != null && rawSrcArt.hasBounds &&
                         sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED
                     ) {
-                        resolveFocalArtBounds(rawSrcArt, sourceBounds?.carouselStyle.orEmpty(), density)
+                        resolveFocalArtBounds(rawSrcArt, sourceBounds.carouselStyle, density)
                     } else {
                         rawSrcArt
                     }
@@ -1327,9 +1318,11 @@ fun AodScreen(
                 }
             }
 
-            // Stand-in Complex curved arch seekbar drawn ON TOP of the clipped stand-in art so the top
-            // half of the track/thumb is never sliced by the art and stays glued to the morphing arch.
-            if (sourceArtStyle == AodSourceArtStyle.COMPLEX_ARCH && sizeT < 0.36f) {
+            // Stand-in Complex curved arch seekbar drawn at 100% opacity ON TOP of the clipped stand-in art
+            // and scaled down by thickness rather than alpha so the dark album art underneath never bleeds
+            // through the top half of the track/thumb to create a two-tone split along the arch seam.
+            val arcVisScale = (1f - sizeT * 3.0f).coerceIn(0f, 1f)
+            if (sourceArtStyle == AodSourceArtStyle.COMPLEX_ARCH && arcVisScale > 0.02f) {
                 val totalMsForArc = totalDurationProvider().coerceAtLeast(0L)
                 val liveProgressForArc = if (totalMsForArc > 0L) {
                     (positionMs.toFloat() / totalMsForArc.toFloat()).coerceIn(0f, 1f)
@@ -1341,13 +1334,7 @@ fun AodScreen(
                 val activeArcColor = baseTheme.primary
                 val inactiveArcColor = baseTheme.onPrimary
 
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            alpha = (1f - sizeT * 3.0f).coerceIn(0f, 1f)
-                        }
-                ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
                     val w = size.width
                     val h = size.height
                     if (w <= 0f || h <= 0f) return@Canvas
@@ -1355,13 +1342,20 @@ fun AodScreen(
                     val srcW0 = shapeSrcW.coerceAtLeast(1f)
                     val srcH0 = shapeSrcH.coerceAtLeast(1f)
                     val destD = aodArtSizePx.coerceAtLeast(1f)
+                    val halfW0 = srcW0 * 0.5f
+                    val halfH0 = srcH0 * 0.5f
+                    val minDim0 = min(srcW0, srcH0)
+                    val srcCornerR = minDim0 * (sizeT * 2.8f).coerceAtMost(0.46f)
+                    val innerCornerX = (halfW0 - srcCornerR).coerceAtLeast(0f)
+                    val innerCornerY = (halfH0 - srcCornerR).coerceAtLeast(0f)
+
                     val archCx0 = srcW0 * 0.25f
                     val dxRight0 = (srcW0 - archCx0).coerceAtLeast(1f)
                     val sRight0 = complexRightRisePx.coerceIn(16f, (srcH0 - 4f).coerceAtLeast(16f))
                     val archRadius0 = (sRight0 / 2f) + ((dxRight0 * dxRight0) / (2f * sRight0))
                     val archCy0 = srcH0 - archRadius0
 
-                    val edgeInsetPx = 18.dp.toPx()
+                    val edgeInsetPx = lerp(18.dp.toPx(), 42.dp.toPx(), sizeT)
                     val leftChord = (archCx0 - edgeInsetPx).coerceAtLeast(0f)
                     val rightChord = ((srcW0 - edgeInsetPx) - archCx0).coerceAtLeast(0f)
                     val alphaStartDeg = Math.toDegrees(asin((leftChord / archRadius0).coerceIn(-1f, 1f).toDouble())).toFloat()
@@ -1371,8 +1365,9 @@ fun AodScreen(
                     val totalSweepDeg = -(alphaStartDeg + alphaEndDeg)
                     val thumbAngleDeg = startAngleDeg + (totalSweepDeg * seekProgressForArc)
 
-                    val scaleFactor = lerp(1f, destD / srcW0, sizeT)
-                    val trackStrokePx = 10.dp.toPx() * scaleFactor
+                    val geomScale = lerp(1f, destD / srcW0, sizeT)
+                    val strokeScale = geomScale * arcVisScale
+                    val trackStrokePx = 10.dp.toPx() * strokeScale
                     val gapArcLengthPx = 13.dp.toPx()
                     val gapDeg = Math.toDegrees((gapArcLengthPx / archRadius0).toDouble()).toFloat()
 
@@ -1382,21 +1377,45 @@ fun AodScreen(
 
                     fun mapArchPoint(circleAngleDeg: Float, radialOffsetPx: Float): Offset {
                         val rad = Math.toRadians(circleAngleDeg.toDouble())
-                        val rCircle = archRadius0 + radialOffsetPx
-                        val x0 = archCx0 + rCircle * cos(rad).toFloat()
-                        val y0 = archCy0 + rCircle * sin(rad).toFloat()
-                        val dx0 = x0 - srcW0 * 0.5f
-                        val dy0 = y0 - srcH0 * 0.5f
-                        val r0 = sqrt(dx0 * dx0 + dy0 * dy0).coerceAtLeast(1e-4f)
+                        val xOnArch = archCx0 + archRadius0 * cos(rad).toFloat()
+                        val yOnArch = archCy0 + archRadius0 * sin(rad).toFloat()
+                        val dx0 = xOnArch - halfW0
+                        val dy0 = yOnArch - halfH0
+                        val rayLen = sqrt(dx0 * dx0 + dy0 * dy0).coerceAtLeast(1e-4f)
+                        val cosT = dx0 / rayLen
+                        val sinT = dy0 / rayLen
+                        val absCos = abs(cosT).coerceAtLeast(1e-5f)
+                        val absSin = abs(sinT).coerceAtLeast(1e-5f)
+
+                        var rRect0 = min(halfW0 / absCos, halfH0 / absSin)
+                        if (srcCornerR > 0.5f) {
+                            val px = rRect0 * absCos
+                            val py = rRect0 * absSin
+                            if (px > innerCornerX && py > innerCornerY) {
+                                val dot = innerCornerX * absCos + innerCornerY * absSin
+                                val cVal = innerCornerX * innerCornerX + innerCornerY * innerCornerY - srcCornerR * srcCornerR
+                                val disc = (dot * dot - cVal).coerceAtLeast(0f)
+                                rRect0 = min(rRect0, dot + sqrt(disc))
+                            }
+                        }
+                        val kSmooth = srcCornerR * 0.65f
+                        val rSrcBoundary = if (kSmooth > 0.5f) {
+                            val hSm = (0.5f + 0.5f * (rayLen - rRect0) / kSmooth).coerceIn(0f, 1f)
+                            lerp(rayLen, rRect0, hSm) - kSmooth * hSm * (1f - hSm)
+                        } else {
+                            min(rRect0, rayLen)
+                        }
+                        val r0 = rSrcBoundary + radialOffsetPx * arcVisScale
+
                         val theta = atan2(dy0.toDouble(), dx0.toDouble())
                         val rotatedTheta = theta - shapeRotRad
                         val rFrom = fromKind.normalizedRadiusAt(rotatedTheta)
                         val rTo = toKind.normalizedRadiusAt(rotatedTheta)
-                        val r1 = destD * 0.476f * lerp(rFrom, rTo, quantizedMorph) + radialOffsetPx * scaleFactor
+                        val r1 = destD * 0.476f * lerp(rFrom, rTo, quantizedMorph) + radialOffsetPx * strokeScale
                         val fR = lerp(r0, r1, sizeT)
                         return Offset(
-                            x = w * 0.5f + fR * (dx0 / r0),
-                            y = h * 0.5f + fR * (dy0 / r0)
+                            x = w * 0.5f + fR * cosT,
+                            y = h * 0.5f + fR * sinT
                         )
                     }
 
@@ -1444,7 +1463,7 @@ fun AodScreen(
                         color = activeArcColor,
                         start = innerPt,
                         end = outerPt,
-                        strokeWidth = 7.dp.toPx() * scaleFactor,
+                        strokeWidth = 7.dp.toPx() * strokeScale,
                         cap = StrokeCap.Round
                     )
                 }
