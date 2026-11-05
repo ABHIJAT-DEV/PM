@@ -1126,6 +1126,38 @@ class MainActivity : ComponentActivity() {
                 
                 val currentSong by remember { playerViewModel.stablePlayerState.map { it.currentSong }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
                 val bottomSheetZoomProgress = com.saurav.pixelmusic.presentation.components.rememberBottomSheetZoomProgress()
+                val isPlayerFullyExpandedForBg by remember {
+                    derivedStateOf {
+                        currentSong != null && playerViewModel.playerContentExpansionFraction.value >= 0.98f
+                    }
+                }
+                val zoomClipShape = remember {
+                    object : androidx.compose.ui.graphics.Shape {
+                        override fun createOutline(
+                            size: androidx.compose.ui.geometry.Size,
+                            layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+                            density: androidx.compose.ui.unit.Density
+                        ): androidx.compose.ui.graphics.Outline {
+                            val p = bottomSheetZoomProgress.value.coerceIn(0f, 1f)
+                            if (p <= 0.002f) {
+                                return androidx.compose.ui.graphics.Outline.Rectangle(
+                                    androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
+                                )
+                            }
+                            val inset = with(density) { 1.5.dp.toPx() } * p
+                            val radius = with(density) { (24f * p).dp.toPx() }
+                            return androidx.compose.ui.graphics.Outline.Rounded(
+                                androidx.compose.ui.geometry.RoundRect(
+                                    left = inset,
+                                    top = inset,
+                                    right = (size.width - inset).coerceAtLeast(inset),
+                                    bottom = (size.height - inset).coerceAtLeast(inset),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+                                )
+                            )
+                        }
+                    }
+                }
 
                 Box(
                     modifier = Modifier
@@ -1141,8 +1173,13 @@ class MainActivity : ComponentActivity() {
                             scaleX = zoomScale
                             scaleY = zoomScale
                             translationY = -4.dp.toPx() * p
+                            shape = zoomClipShape
+                            clip = p > 0.002f
+                            shadowElevation = 0f
+                            ambientColor = Color.Transparent
+                            spotColor = Color.Transparent
                         }
-                        .background(MaterialTheme.colorScheme.background)
+                        .background(if (isPlayerFullyExpandedForBg) Color.Black else MaterialTheme.colorScheme.background)
                 ) {
                     // 1. The Global Wallpaper (Drawn only once!)
                     // We bundle the triggers into a single state so it only fades when these specific values change
@@ -1516,7 +1553,8 @@ class MainActivity : ComponentActivity() {
                             
                         val isExpandedOrExpanding by remember {
                             derivedStateOf {
-                                playerViewModel.playerContentExpansionFraction.value > 0.01f
+                                val f = playerViewModel.playerContentExpansionFraction.value
+                                f > 0.01f && f < 0.98f
                             }
                         }
                         if (isExpandedOrExpanding) {

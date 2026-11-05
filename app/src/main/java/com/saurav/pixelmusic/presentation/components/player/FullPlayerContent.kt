@@ -1654,6 +1654,11 @@ fun FullPlayerContent(
                             val t = artworkMorphTracker.evaluate(expansionFractionProvider()).sizeT
                             val maxR = minOf(size.width, size.height) * 0.5f
                             val r = (maxR * (1f - t)).coerceIn(0f, maxR)
+                            if (r <= 0.5f) {
+                                return androidx.compose.ui.graphics.Outline.Rectangle(
+                                    Rect(0f, 0f, size.width, size.height)
+                                )
+                            }
                             return androidx.compose.ui.graphics.Outline.Rounded(
                                 androidx.compose.ui.geometry.RoundRect(
                                     rect = Rect(0f, 0f, size.width, size.height),
@@ -1664,11 +1669,12 @@ fun FullPlayerContent(
                     }
                 }
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Wash background fades in with nonArtAlpha
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    // Wash background fades in with nonArtAlpha (inset from top so light wash never bleeds around top artwork edges)
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
+                            .padding(top = 96.dp)
                             .graphicsLayer {
                                 alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
                             }
@@ -1777,6 +1783,11 @@ fun FullPlayerContent(
                             val t = artworkMorphTracker.evaluate(expansionFractionProvider()).sizeT
                             val maxR = minOf(size.width, size.height) * 0.5f
                             val r = (maxR * (1f - t)).coerceIn(0f, maxR)
+                            if (r <= 0.5f) {
+                                return androidx.compose.ui.graphics.Outline.Rectangle(
+                                    Rect(0f, 0f, size.width, size.height)
+                                )
+                            }
                             return androidx.compose.ui.graphics.Outline.Rounded(
                                 androidx.compose.ui.geometry.RoundRect(
                                     rect = Rect(0f, 0f, size.width, size.height),
@@ -1787,10 +1798,11 @@ fun FullPlayerContent(
                     }
                 }
 
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
+                            .padding(top = 96.dp)
                             .graphicsLayer {
                                 alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
                             }

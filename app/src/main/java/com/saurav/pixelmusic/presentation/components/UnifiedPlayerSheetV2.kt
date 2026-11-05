@@ -657,13 +657,33 @@ fun UnifiedPlayerSheetV2(
                                     1f
                                 }
                                 if (solidAlpha > 0.005f) {
+                                    val edgeInset = if (fraction >= 0.98f) 2.dp.toPx() else 0f
                                     val outline = dynamicPlayerShape.createOutline(size, layoutDirection, this)
                                     if (outline is Outline.Rounded) {
                                         reusableOutlinePath.reset()
-                                        reusableOutlinePath.addRoundRect(outline.roundRect)
+                                        val rr = outline.roundRect
+                                        reusableOutlinePath.addRoundRect(
+                                            androidx.compose.ui.geometry.RoundRect(
+                                                left = rr.left + edgeInset,
+                                                top = rr.top + edgeInset,
+                                                right = (rr.right - edgeInset).coerceAtLeast(rr.left + edgeInset),
+                                                bottom = rr.bottom,
+                                                topLeftCornerRadius = rr.topLeftCornerRadius,
+                                                topRightCornerRadius = rr.topRightCornerRadius,
+                                                bottomRightCornerRadius = rr.bottomRightCornerRadius,
+                                                bottomLeftCornerRadius = rr.bottomLeftCornerRadius
+                                            )
+                                        )
                                         drawPath(reusableOutlinePath, color = playerAreaBackground.copy(alpha = solidAlpha))
                                     } else {
-                                        drawRect(color = playerAreaBackground.copy(alpha = solidAlpha))
+                                        drawRect(
+                                            color = playerAreaBackground.copy(alpha = solidAlpha),
+                                            topLeft = androidx.compose.ui.geometry.Offset(edgeInset, edgeInset),
+                                            size = androidx.compose.ui.geometry.Size(
+                                                (size.width - edgeInset * 2f).coerceAtLeast(0f),
+                                                (size.height - edgeInset).coerceAtLeast(0f)
+                                            )
+                                        )
                                     }
                                 }
                             }
