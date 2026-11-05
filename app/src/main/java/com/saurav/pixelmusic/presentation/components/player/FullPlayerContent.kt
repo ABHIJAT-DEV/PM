@@ -892,7 +892,8 @@ fun FullPlayerContent(
             ) {
                 TopAppBar(
                     modifier = Modifier.graphicsLayer {
-                        alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                        val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                        alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
