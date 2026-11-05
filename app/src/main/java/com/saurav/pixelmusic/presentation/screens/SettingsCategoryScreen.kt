@@ -2584,12 +2584,62 @@ fun SettingsCategoryScreen(
                                     var password by remember { mutableStateOf("") }
                                     var apiKey by remember { mutableStateOf(uiState.lastfmApiKey) }
                                     var apiSecret by remember { mutableStateOf(uiState.lastfmApiSecret) }
+                                    var showAdvancedApi by remember {
+                                        mutableStateOf(uiState.lastfmApiKey.isNotBlank() || uiState.lastfmApiSecret.isNotBlank())
+                                    }
                                     var isLoggingIn by remember { mutableStateOf(false) }
+                                    var isStartingBrowserAuth by remember { mutableStateOf(false) }
+                                    var pendingWebToken by remember { mutableStateOf<String?>(null) }
                                     var loginError by remember { mutableStateOf<String?>(null) }
                                     val loginCoroutineScope = rememberCoroutineScope()
 
+                                    val resolveActiveKeys = {
+                                        val customKey = apiKey.trim()
+                                        val customSecret = apiSecret.trim()
+                                        val effectiveKey = customKey.ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_API_KEY }
+                                        val effectiveSecret = customSecret.ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_SECRET }
+                                        Pair(effectiveKey, effectiveSecret)
+                                    }
+
+                                    LaunchedEffect(pendingWebToken) {
+                                        val token = pendingWebToken ?: return@LaunchedEffect
+                                        while (pendingWebToken == token) {
+                                            delay(3000L)
+                                            val (effectiveKey, effectiveSecret) = resolveActiveKeys()
+                                            com.saurav.pixelmusic.data.lastfm.LastFM.initialize(effectiveKey, effectiveSecret)
+                                            val sessionResult = com.saurav.pixelmusic.data.lastfm.LastFM.getSession(token)
+                                            sessionResult.fold(
+                                                onSuccess = { authSession ->
+                                                    val sk = authSession.session.key
+                                                    val name = authSession.session.name
+                                                    settingsViewModel.setLastfmSession(sk)
+                                                    settingsViewModel.setLastfmUsername(name)
+                                                    settingsViewModel.setLastfmApiKey(apiKey.trim())
+                                                    settingsViewModel.setLastfmApiSecret(apiSecret.trim())
+                                                    com.saurav.pixelmusic.data.lastfm.LastFM.sessionKey = sk
+                                                    pendingWebToken = null
+                                                    isLoggingIn = false
+                                                    showLoginDialog = false
+                                                    Toast.makeText(context, context.getString(R.string.lastfm_login_success), Toast.LENGTH_SHORT).show()
+                                                },
+                                                onFailure = { throwable ->
+                                                    val lastFmErr = throwable as? com.saurav.pixelmusic.data.lastfm.LastFM.LastFmException
+                                                    if (lastFmErr != null && lastFmErr.code != 14) {
+                                                        pendingWebToken = null
+                                                        loginError = lastFmErr.message
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+
                                     AlertDialog(
-                                        onDismissRequest = { if (!isLoggingIn) showLoginDialog = false },
+                                        onDismissRequest = {
+                                            if (!isLoggingIn && !isStartingBrowserAuth) {
+                                                pendingWebToken = null
+                                                showLoginDialog = false
+                                            }
+                                        },
                                         title = { Text(text = stringResource(R.string.lastfm_login_dialog_title)) },
                                         text = {
                                             Column(
@@ -2601,6 +2651,59 @@ fun SettingsCategoryScreen(
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
+                                                androidx.compose.material3.FilledTonalButton(
+                                                    onClick = {
+                                                        isStartingBrowserAuth = true
+                                                        loginError = null
+                                                        loginCoroutineScope.launch {
+                                                            val (effectiveKey, effectiveSecret) = resolveActiveKeys()
+                                                            com.saurav.pixelmusic.data.lastfm.LastFM.initialize(effectiveKey, effectiveSecret)
+                                                            val tokenResult = com.saurav.pixelmusic.data.lastfm.LastFM.getToken()
+                                                            tokenResult.fold(
+                                                                onSuccess = { tokenResponse ->
+                                                                    isStartingBrowserAuth = false
+                                                                    pendingWebToken = tokenResponse.token
+                                                                    val authUrl = com.saurav.pixelmusic.data.lastfm.LastFM.getAuthUrl(tokenResponse.token)
+                                                                    runCatching {
+                                                                        context.startActivity(Intent(Intent.ACTION_VIEW, authUrl.toUri()))
+                                                                    }.onFailure {
+                                                                        loginError = "Could not open browser for Last.fm authorization"
+                                                                    }
+                                                                },
+                                                                onFailure = { throwable ->
+                                                                    isStartingBrowserAuth = false
+                                                                    loginError = throwable.localizedMessage ?: "Failed to start browser login"
+                                                                }
+                                                            )
+                                                        }
+                                                    },
+                                                    enabled = !isLoggingIn && !isStartingBrowserAuth,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    if (isStartingBrowserAuth || pendingWebToken != null) {
+                                                        CircularProgressIndicator(
+                                                            modifier = Modifier.size(16.dp),
+                                                            strokeWidth = 2.dp
+                                                        )
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Text(if (pendingWebToken != null) "Waiting for Browser Approval…" else "Opening Browser…")
+                                                    } else {
+                                                        Icon(
+                                                            imageVector = Icons.Outlined.Public,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Text("Log in via Browser")
+                                                    }
+                                                }
+                                                if (pendingWebToken != null) {
+                                                    Text(
+                                                        text = "Tap 'Yes, allow access' in your browser—you'll be logged in automatically when you return.",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
                                                 OutlinedTextField(
                                                     value = username,
                                                     onValueChange = { username = it },
@@ -2618,22 +2721,58 @@ fun SettingsCategoryScreen(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     enabled = !isLoggingIn
                                                 )
-                                                OutlinedTextField(
-                                                    value = apiKey,
-                                                    onValueChange = { apiKey = it },
-                                                    label = { Text("API Key") },
-                                                    singleLine = true,
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    enabled = !isLoggingIn
+                                                val chevronRotation by animateFloatAsState(
+                                                    targetValue = if (showAdvancedApi) 180f else 0f,
+                                                    label = "advancedApiChevron"
                                                 )
-                                                OutlinedTextField(
-                                                    value = apiSecret,
-                                                    onValueChange = { apiSecret = it },
-                                                    label = { Text("API Secret") },
-                                                    singleLine = true,
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    enabled = !isLoggingIn
-                                                )
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .clickable(enabled = !isLoggingIn) { showAdvancedApi = !showAdvancedApi }
+                                                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = "Advanced: Use custom API key",
+                                                        style = MaterialTheme.typography.labelLarge,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.ExpandMore,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.rotate(chevronRotation)
+                                                    )
+                                                }
+                                                AnimatedVisibility(
+                                                    visible = showAdvancedApi,
+                                                    enter = expandVertically() + fadeIn(),
+                                                    exit = shrinkVertically() + fadeOut()
+                                                ) {
+                                                    Column(
+                                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        OutlinedTextField(
+                                                            value = apiKey,
+                                                            onValueChange = { apiKey = it },
+                                                            label = { Text("Custom API Key (Optional)") },
+                                                            singleLine = true,
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            enabled = !isLoggingIn
+                                                        )
+                                                        OutlinedTextField(
+                                                            value = apiSecret,
+                                                            onValueChange = { apiSecret = it },
+                                                            label = { Text("Custom API Secret (Optional)") },
+                                                            singleLine = true,
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            enabled = !isLoggingIn
+                                                        )
+                                                    }
+                                                }
                                                 if (loginError != null) {
                                                     Text(
                                                         text = loginError!!,
@@ -2646,26 +2785,63 @@ fun SettingsCategoryScreen(
                                         confirmButton = {
                                             TextButton(
                                                 onClick = {
-                                                    if (username.isBlank() || password.isBlank() || apiKey.isBlank() || apiSecret.isBlank()) {
-                                                        loginError = "All fields (Username, Password, API Key, and API Secret) are required"
+                                                    val currentToken = pendingWebToken
+                                                    if (username.isBlank() && password.isBlank() && currentToken != null) {
+                                                        isLoggingIn = true
+                                                        loginError = null
+                                                        loginCoroutineScope.launch {
+                                                            val (effectiveKey, effectiveSecret) = resolveActiveKeys()
+                                                            com.saurav.pixelmusic.data.lastfm.LastFM.initialize(effectiveKey, effectiveSecret)
+                                                            val sessionResult = com.saurav.pixelmusic.data.lastfm.LastFM.getSession(currentToken)
+                                                            sessionResult.fold(
+                                                                onSuccess = { authSession ->
+                                                                    val sk = authSession.session.key
+                                                                    val name = authSession.session.name
+                                                                    settingsViewModel.setLastfmSession(sk)
+                                                                    settingsViewModel.setLastfmUsername(name)
+                                                                    settingsViewModel.setLastfmApiKey(apiKey.trim())
+                                                                    settingsViewModel.setLastfmApiSecret(apiSecret.trim())
+                                                                    com.saurav.pixelmusic.data.lastfm.LastFM.sessionKey = sk
+                                                                    pendingWebToken = null
+                                                                    isLoggingIn = false
+                                                                    showLoginDialog = false
+                                                                    Toast.makeText(context, context.getString(R.string.lastfm_login_success), Toast.LENGTH_SHORT).show()
+                                                                },
+                                                                onFailure = { throwable ->
+                                                                    isLoggingIn = false
+                                                                    val lastFmErr = throwable as? com.saurav.pixelmusic.data.lastfm.LastFM.LastFmException
+                                                                    loginError = if (lastFmErr?.code == 14) {
+                                                                        "Please tap 'Yes, allow access' in your browser first."
+                                                                    } else {
+                                                                        throwable.localizedMessage ?: "Unknown authentication error"
+                                                                    }
+                                                                }
+                                                            )
+                                                        }
+                                                        return@TextButton
+                                                    }
+                                                    if (username.isBlank() || password.isBlank()) {
+                                                        loginError = "Please enter your Last.fm username and password (or use Log in via Browser)"
                                                         return@TextButton
                                                     }
                                                     isLoggingIn = true
                                                     loginError = null
                                                     loginCoroutineScope.launch {
-                                                        val finalApiKey = apiKey.trim()
-                                                        val finalApiSecret = apiSecret.trim()
-                                                        com.saurav.pixelmusic.data.lastfm.LastFM.initialize(finalApiKey, finalApiSecret)
-                                                        val result = com.saurav.pixelmusic.data.lastfm.LastFM.getMobileSession(username, password)
+                                                        val customKey = apiKey.trim()
+                                                        val customSecret = apiSecret.trim()
+                                                        val (effectiveKey, effectiveSecret) = resolveActiveKeys()
+                                                        com.saurav.pixelmusic.data.lastfm.LastFM.initialize(effectiveKey, effectiveSecret)
+                                                        val result = com.saurav.pixelmusic.data.lastfm.LastFM.getMobileSession(username.trim(), password)
                                                         result.fold(
                                                             onSuccess = { authSession ->
                                                                 val sk = authSession.session.key
                                                                 val name = authSession.session.name
                                                                 settingsViewModel.setLastfmSession(sk)
                                                                 settingsViewModel.setLastfmUsername(name)
-                                                                settingsViewModel.setLastfmApiKey(finalApiKey)
-                                                                settingsViewModel.setLastfmApiSecret(finalApiSecret)
+                                                                settingsViewModel.setLastfmApiKey(customKey)
+                                                                settingsViewModel.setLastfmApiSecret(customSecret)
                                                                 com.saurav.pixelmusic.data.lastfm.LastFM.sessionKey = sk
+                                                                pendingWebToken = null
                                                                 isLoggingIn = false
                                                                 showLoginDialog = false
                                                                 Toast.makeText(context, context.getString(R.string.lastfm_login_success), Toast.LENGTH_SHORT).show()
@@ -2696,7 +2872,10 @@ fun SettingsCategoryScreen(
                                         },
                                         dismissButton = {
                                             TextButton(
-                                                onClick = { showLoginDialog = false },
+                                                onClick = {
+                                                    pendingWebToken = null
+                                                    showLoginDialog = false
+                                                },
                                                 enabled = !isLoggingIn
                                             ) {
                                                 Text("Cancel")

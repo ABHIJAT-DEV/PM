@@ -68,24 +68,36 @@ object LastFM {
     }
 
     suspend fun getToken() = runCatching {
-        client.post {
+        val response = client.post {
             lastfmParams(
                 method = "auth.getToken",
                 apiKey = API_KEY,
                 secret = SECRET
             )
-        }.body<TokenResponse>()
+        }
+        val responseText = response.bodyAsText()
+        if (responseText.contains("\"error\"")) {
+            val error = json.decodeFromString<LastFmError>(responseText)
+            throw LastFmException(error.error, error.message)
+        }
+        json.decodeFromString<TokenResponse>(responseText)
     }
 
     suspend fun getSession(token: String) = runCatching {
-        client.post {
+        val response = client.post {
             lastfmParams(
                 method = "auth.getSession",
                 apiKey = API_KEY,
                 secret = SECRET,
                 extra = mapOf("token" to token)
             )
-        }.body<Authentication>()
+        }
+        val responseText = response.bodyAsText()
+        if (responseText.contains("\"error\"")) {
+            val error = json.decodeFromString<LastFmError>(responseText)
+            throw LastFmException(error.error, error.message)
+        }
+        json.decodeFromString<Authentication>(responseText)
     }
 
     fun getAuthUrl(token: String): String {
@@ -171,12 +183,15 @@ object LastFM {
         }.bodyAsText()
     }
 
-    private var API_KEY = ""
-    private var SECRET = ""
+    const val DEFAULT_API_KEY = "ffb648875fdb97a786630e887320dcd7"
+    const val DEFAULT_SECRET = "eb27ad1aca46257cbf18f0f663b0a38d"
+
+    private var API_KEY = DEFAULT_API_KEY
+    private var SECRET = DEFAULT_SECRET
 
     fun initialize(apiKey: String, secret: String) {
-        API_KEY = apiKey
-        SECRET = secret
+        API_KEY = apiKey.ifBlank { DEFAULT_API_KEY }
+        SECRET = secret.ifBlank { DEFAULT_SECRET }
     }
 
     fun isInitialized(): Boolean = API_KEY.isNotEmpty() && SECRET.isNotEmpty()

@@ -10,7 +10,7 @@ data class Authentication(
     data class Session(
         val name: String,       // Username
         val key: String,        // Session Key
-        val subscriber: Int,    // Last.fm Pro?
+        val subscriber: Int = 0 // Last.fm Pro?
     )
 }
 

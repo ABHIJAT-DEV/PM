@@ -89,12 +89,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val lastfmApiKey = localProperties.getProperty("LASTFM_API_KEY")
-            ?: System.getenv("LASTFM_API_KEY")
-            ?: ""
-        val lastfmSecret = localProperties.getProperty("LASTFM_SECRET")
-            ?: System.getenv("LASTFM_SECRET")
-            ?: ""
+        val lastfmApiKey = localProperties.getProperty("LASTFM_API_KEY")?.takeIf { it.isNotBlank() }
+            ?: System.getenv("LASTFM_API_KEY")?.takeIf { it.isNotBlank() }
+            ?: "ffb648875fdb97a786630e887320dcd7"
+        val lastfmSecret = localProperties.getProperty("LASTFM_SECRET")?.takeIf { it.isNotBlank() }
+            ?: System.getenv("LASTFM_SECRET")?.takeIf { it.isNotBlank() }
+            ?: "eb27ad1aca46257cbf18f0f663b0a38d"
         buildConfigField("String", "LASTFM_API_KEY", "\"$lastfmApiKey\"")
         buildConfigField("String", "LASTFM_SECRET", "\"$lastfmSecret\"")
     }
