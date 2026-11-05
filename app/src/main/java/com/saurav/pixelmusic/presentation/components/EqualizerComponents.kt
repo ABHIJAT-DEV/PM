@@ -295,7 +295,7 @@ fun CustomPresetsSheet(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
     )
 
-    ModalBottomSheet(
+    SmoothModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
@@ -408,10 +408,11 @@ fun ReorderPresetsSheet(
     val coroutineScope = rememberCoroutineScope()
     var currentPinned by remember(pinnedPresetsNames) { mutableStateOf(pinnedPresetsNames.toList()) }
 
-    ModalBottomSheet(
+    SmoothModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
+        val smoothDismiss = LocalSmoothDismiss.current
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -509,7 +510,7 @@ fun ReorderPresetsSheet(
 
             FilledTonalButton(
                 onClick = {
-                    coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+                    smoothDismiss(null)
                 },
                 modifier = Modifier
                     .fillMaxWidth()

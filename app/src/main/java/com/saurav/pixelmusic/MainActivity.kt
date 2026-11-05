@@ -1125,8 +1125,31 @@ class MainActivity : ComponentActivity() {
                 val backgroundBlur by playerViewModel.userPreferencesRepository.appBackgroundBlurFlow.collectAsStateWithLifecycle(initialValue = 0f)
                 
                 val currentSong by remember { playerViewModel.stablePlayerState.map { it.currentSong }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
+                val bottomSheetZoomProgress by animateFloatAsState(
+                    targetValue = com.saurav.pixelmusic.presentation.components.BottomSheetSceneController.targetOpenFraction,
+                    animationSpec = com.saurav.pixelmusic.presentation.components.SmoothBottomSheetSpringSpec,
+                    label = "BottomSheetBackgroundZoom"
+                )
 
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            val p = bottomSheetZoomProgress.coerceIn(0f, 1f)
+                            val zoomScale = androidx.compose.ui.util.lerp(1f, 0.88f, p)
+                            scaleX = zoomScale
+                            scaleY = zoomScale
+                            translationY = -12.dp.toPx() * p
+                            shape = RoundedCornerShape((28f * p).dp)
+                            clip = p > 0.002f
+                        }
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
                     // 1. The Global Wallpaper (Drawn only once!)
                     // We bundle the triggers into a single state so it only fades when these specific values change
                     val backgroundTarget = remember(backgroundStyle, currentSong?.albumArtUriString, backgroundCustomUri) {
@@ -1632,6 +1655,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     }
+                }
                 }
             }
         }

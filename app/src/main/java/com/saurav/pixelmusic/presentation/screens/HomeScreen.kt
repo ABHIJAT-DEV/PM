@@ -861,15 +861,11 @@ fun HomeScreen(
             onDismissRequest = { showOptionsBottomSheet = false },
             sheetState = sheetState
         ) {
+            val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
             HomeOptionsBottomSheet(
                 onNavigateToMashup = {
-                    scope.launch {
-                        sheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            showOptionsBottomSheet = false
-                            navController.navigateSafely(Screen.DJSpace.route)
-                        }
+                    smoothDismiss {
+                        navController.navigateSafely(Screen.DJSpace.route)
                     }
                 }
             )

@@ -113,9 +113,9 @@ internal class QueueSheetController(
                 1f
             }
             val durationMillis = if (targetExpanded) {
-                (220f + (120f * travelFraction)).toInt()
+                (360f + (160f * travelFraction)).toInt()
             } else {
-                (190f + (110f * travelFraction)).toInt()
+                (360f + (160f * travelFraction)).toInt()
             }
             queueSheetOffset.animateTo(
                 targetValue = target,
