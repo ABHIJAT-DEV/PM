@@ -1149,8 +1149,6 @@ class MainActivity : ComponentActivity() {
                             shape = BottomSheetZoomClipShape(cornerRadiusPx)
                             clip = cornerRadiusPx > 0.5f
                             shadowElevation = 0f
-                            ambientColor = Color.Transparent
-                            spotColor = Color.Transparent
                         }
                         .background(if (isPlayerFullyExpandedForBg) Color.Black else MaterialTheme.colorScheme.background)
                 ) {
