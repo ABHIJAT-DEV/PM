@@ -470,6 +470,10 @@ fun ComplexPlayerLayout(
         aodSourceBounds?.let { bounds ->
             bounds.artStyle = AodSourceArtStyle.COMPLEX_ARCH
             bounds.complexRightRisePx = rightRisePx
+            // Same 104dp top scrim the real Complex art draws, so the AOD stand-in art can carry it too.
+            bounds.topShadowHeightDp = 104f
+            bounds.topShadowStartAlpha = 0.38f
+            bounds.topShadowMidAlpha = 0.10f
             val edgeInsetPx = with(density) { 18.dp.toPx() }
             bounds.progressBounds.offset = Offset(edgeInsetPx, artHeightPx - rightRisePx * 0.55f)
             bounds.progressBounds.size = IntSize(

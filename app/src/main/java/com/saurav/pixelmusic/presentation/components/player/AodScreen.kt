@@ -133,6 +133,11 @@ class AodSourceBounds {
     var washMid: Float = 0.80f
     var washMidAlpha: Float = 0.85f
     var topScrimAlpha: Float = 0f
+    // Top status-bar scrim the real Now Playing art draws; the AOD stand-in art draws the same one so
+    // the hand-off to the real art doesn't pop darker at the top.
+    var topShadowHeightDp: Float = 0f
+    var topShadowStartAlpha: Float = 0f
+    var topShadowMidAlpha: Float = 0f
     var carouselStyle: String = ""
 }
 
@@ -759,6 +764,30 @@ fun AodScreen(
     val aodRootCoordsHolder = remember { LayoutCoordsHolder() }
     val aodArtSlotBounds = remember { MorphElementBounds() }
     var slotReady by remember { mutableStateOf(false) }
+    // The morphing art is measured before the AOD layout is placed, so on its own it only ever sees the
+    // slot position from an earlier pass. Bump this tick whenever the slot really moves (lockscreen
+    // launch, system bars hiding, clock text appearing...) so the art re-measures and follows it
+    // instead of staying at a stale position next to the halo.
+    var slotLayoutTick by remember { mutableIntStateOf(0) }
+    val lastSeenSlot = remember { floatArrayOf(Float.NaN, Float.NaN, Float.NaN, Float.NaN) }
+    LaunchedEffect(aodArtSlotBounds) {
+        while (true) {
+            if (aodArtSlotBounds.hasBounds) {
+                val sx = aodArtSlotBounds.offset.x
+                val sy = aodArtSlotBounds.offset.y
+                val sw = aodArtSlotBounds.size.width.toFloat()
+                val sh = aodArtSlotBounds.size.height.toFloat()
+                if (sx != lastSeenSlot[0] || sy != lastSeenSlot[1] || sw != lastSeenSlot[2] || sh != lastSeenSlot[3]) {
+                    lastSeenSlot[0] = sx
+                    lastSeenSlot[1] = sy
+                    lastSeenSlot[2] = sw
+                    lastSeenSlot[3] = sh
+                    slotLayoutTick++
+                }
+            }
+            delay(40)
+        }
+    }
     val aodSongInfoDestBounds = remember { MorphElementBounds() }
     var titleTextWidthPx by remember { mutableFloatStateOf(0f) }
     var artistTextWidthPx by remember { mutableFloatStateOf(0f) }
@@ -1076,6 +1105,8 @@ fun AodScreen(
                     // stays at the fallback position whenever enterProgress is constant (lockscreen AOD).
                     @Suppress("UNUSED_VARIABLE")
                     val slotReadyTick = slotReady
+                    @Suppress("UNUSED_VARIABLE")
+                    val slotMovedTick = slotLayoutTick
                     val rawSrcArt = sourceBounds?.artBounds
                     val srcArt = if (rawSrcArt != null && rawSrcArt.hasBounds &&
                         sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED
@@ -1167,6 +1198,29 @@ fun AodScreen(
                 targetSize = coil.size.Size.ORIGINAL,
                 modifier = Modifier.fillMaxSize()
             )
+            // Top scrim the real Now Playing art draws for status-bar legibility. Without it the real art
+            // pops darker at the top the instant it replaces this stand-in.
+            val topShadowHeightDp = sourceBounds?.topShadowHeightDp ?: 0f
+            if (topShadowHeightDp > 0f) {
+                val topShadowStart = sourceBounds?.topShadowStartAlpha ?: 0f
+                val topShadowMid = sourceBounds?.topShadowMidAlpha ?: 0f
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(topShadowHeightDp.dp)
+                        .align(Alignment.TopCenter)
+                        .graphicsLayer { alpha = (1f - sizeT).coerceIn(0f, 1f) }
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = topShadowStart),
+                                    Color.Black.copy(alpha = topShadowMid),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+            }
             // Same bottom wash the immersive Now Playing art draws, so the hand-off to the real art
             // at the end of the exit transition doesn't pop (and the image's dark matte stays hidden).
             val washColorForArt = sourceBounds?.washColor ?: Color.Unspecified

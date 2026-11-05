@@ -645,6 +645,10 @@ fun FullPlayerContent(
 
     if (!isComplex) {
         aodSourceBounds.artStyle = if (isImmersive) AodSourceArtStyle.IMMERSIVE_RECT else AodSourceArtStyle.STANDARD_ROUNDED
+        // Same 130dp black top shadow both immersive styles draw over the art.
+        aodSourceBounds.topShadowHeightDp = if (isImmersive) 130f else 0f
+        aodSourceBounds.topShadowStartAlpha = 0.45f
+        aodSourceBounds.topShadowMidAlpha = 0.225f
         aodSourceBounds.carouselStyle =
             if (currentPlaybackQueue.size <= 1) CarouselStyle.NO_PEEK else carouselStyle
     }
@@ -1704,14 +1708,15 @@ fun FullPlayerContent(
                         )
                     }
 
-                    // Subtle top shadow for status bar readability
+                    // Subtle top shadow for status bar readability (hidden while the AOD stand-in art carries it)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(130.dp)
                             .align(Alignment.TopCenter)
                             .graphicsLayer {
-                                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha *
+                                    (if (aodTransitionProgressProvider() > 0.005f) 0f else 1f)
                             }
                             .background(
                                 Brush.verticalGradient(
@@ -1810,7 +1815,10 @@ fun FullPlayerContent(
                             modifier = Modifier
                                 .matchParentSize()
                                 .graphicsLayer {
-                                    alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                                    // Starts fading in as soon as the art starts growing instead of waiting
+                                    // for the sheet to be ~22% open, so the cover doesn't arrive late.
+                                    alpha = ((artworkMorphTracker.evaluate(expansionFractionProvider()).rawFraction - 0.04f) / 0.5f)
+                                        .coerceIn(0f, 1f)
                                 }
                                 .background(
                                     Brush.verticalGradient(
@@ -1825,14 +1833,15 @@ fun FullPlayerContent(
                         )
                     }
 
-                    // LAYER 3: Subtle top shadow for status bar and top buttons readability
+                    // LAYER 3: Subtle top shadow for status bar and top buttons readability (hidden while the AOD stand-in art carries it)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(130.dp)
                             .align(Alignment.TopCenter)
                             .graphicsLayer {
-                                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha *
+                                    (if (aodTransitionProgressProvider() > 0.005f) 0f else 1f)
                             }
                             .background(
                                 Brush.verticalGradient(
@@ -1901,6 +1910,11 @@ fun FullPlayerContent(
 
             if (aodVisible) {
                 AodScreen(
+                    // Hide the AOD overlay in the exact draw frame the real Now Playing art/title/scrim flip
+                    // visible (same 0.005 threshold), so the two are never drawn on top of each other.
+                    modifier = Modifier.graphicsLayer {
+                        alpha = if (showAodScreen || aodMorphAnim.value > 0.005f) 1f else 0f
+                    },
                     songTitle = song.title,
                     artistName = song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist,
                     albumArtUriString = song.albumArtUriString,
