@@ -1131,34 +1131,6 @@ class MainActivity : ComponentActivity() {
                         currentSong != null && playerViewModel.playerContentExpansionFraction.value >= 0.98f
                     }
                 }
-                val zoomClipShape = remember {
-                    object : androidx.compose.ui.graphics.Shape {
-                        override fun createOutline(
-                            size: androidx.compose.ui.geometry.Size,
-                            layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-                            density: androidx.compose.ui.unit.Density
-                        ): androidx.compose.ui.graphics.Outline {
-                            val p = bottomSheetZoomProgress.value.coerceIn(0f, 1f)
-                            if (p <= 0.002f) {
-                                return androidx.compose.ui.graphics.Outline.Rectangle(
-                                    androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
-                                )
-                            }
-                            val inset = with(density) { 1.5.dp.toPx() } * p
-                            val radius = with(density) { (24f * p).dp.toPx() }
-                            return androidx.compose.ui.graphics.Outline.Rounded(
-                                androidx.compose.ui.geometry.RoundRect(
-                                    left = inset,
-                                    top = inset,
-                                    right = (size.width - inset).coerceAtLeast(inset),
-                                    bottom = (size.height - inset).coerceAtLeast(inset),
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
-                                )
-                            )
-                        }
-                    }
-                }
-
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1170,11 +1142,12 @@ class MainActivity : ComponentActivity() {
                         .graphicsLayer {
                             val p = bottomSheetZoomProgress.value.coerceIn(0f, 1f)
                             val zoomScale = androidx.compose.ui.util.lerp(1f, 0.96f, p)
+                            val cornerRadiusPx = ((28.dp.toPx() * p) * 2f).toInt() / 2f
                             scaleX = zoomScale
                             scaleY = zoomScale
                             translationY = -4.dp.toPx() * p
-                            shape = zoomClipShape
-                            clip = p > 0.002f
+                            shape = BottomSheetZoomClipShape(cornerRadiusPx)
+                            clip = cornerRadiusPx > 0.5f
                             shadowElevation = 0f
                             ambientColor = Color.Transparent
                             spotColor = Color.Transparent
@@ -1771,6 +1744,31 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+    }
+}
+
+private data class BottomSheetZoomClipShape(
+    val radiusPx: Float
+) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        if (radiusPx <= 0.5f) {
+            return androidx.compose.ui.graphics.Outline.Rectangle(
+                androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
+            )
+        }
+        return androidx.compose.ui.graphics.Outline.Rounded(
+            androidx.compose.ui.geometry.RoundRect(
+                left = 0f,
+                top = 0f,
+                right = size.width,
+                bottom = size.height,
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(radiusPx, radiusPx)
+            )
+        )
     }
 }
 
