@@ -87,8 +87,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -144,6 +150,163 @@ class AodSourceBounds {
     var topShadowMidAlpha: Float = 0f
     var carouselStyle: String = ""
     var currentSeekProgress: Float = -1f
+    val titleMarquee = MarqueeSyncState()
+    val artistMarquee = MarqueeSyncState()
+}
+
+class MarqueeSyncState {
+    var text: String = ""
+    var scrollPx: Float by mutableFloatStateOf(0f)
+    var frozenEnterScrollPx: Float = 0f
+    var pauseRemainingMs: Long = 1600L
+
+    fun syncText(newText: String) {
+        if (text != newText) {
+            text = newText
+            scrollPx = 0f
+            frozenEnterScrollPx = 0f
+            pauseRemainingMs = 1600L
+        }
+    }
+
+    fun reset() {
+        scrollPx = 0f
+        frozenEnterScrollPx = 0f
+        pauseRemainingMs = 1600L
+    }
+}
+
+@Composable
+fun SharedPlayerMarqueeText(
+    text: String,
+    style: TextStyle,
+    marqueeState: MarqueeSyncState,
+    shouldRunMarquee: Boolean,
+    modifier: Modifier = Modifier,
+    isAodOverlay: Boolean = false,
+    enterProgress: Float = 0f,
+    srcWidthPx: Float = 0f,
+    destWidthPx: Float = 0f
+) {
+    val density = LocalDensity.current
+    val gapPx = with(density) { 36.dp.toPx() }
+    val velocityPxPerSec = with(density) { 28.dp.toPx() }
+
+    marqueeState.syncText(text)
+
+    var textWidthPx by remember(text) { mutableFloatStateOf(0f) }
+    var containerWidthPx by remember(text) { mutableFloatStateOf(0f) }
+
+    val targetContainerW = if (isAodOverlay && destWidthPx > 0f) destWidthPx else containerWidthPx
+    val overflowsTarget = textWidthPx > targetContainerW + 1f && targetContainerW > 0f
+
+    LaunchedEffect(isAodOverlay, shouldRunMarquee, overflowsTarget, text) {
+        if (isAodOverlay && shouldRunMarquee && !overflowsTarget && textWidthPx > 0f) {
+            // Once settled in AOD, if the text fits on one line without scrolling, reset the
+            // marquee offset so exiting back to Now Playing starts cleanly from 0f.
+            marqueeState.reset()
+        }
+    }
+
+    LaunchedEffect(text, overflowsTarget, shouldRunMarquee) {
+        if (!overflowsTarget || !shouldRunMarquee) return@LaunchedEffect
+        var lastFrameNanos = 0L
+        while (isActive) {
+            withFrameNanos { nanos ->
+                if (lastFrameNanos != 0L) {
+                    val dtMs = ((nanos - lastFrameNanos) / 1_000_000L).coerceIn(0L, 100L)
+                    if (marqueeState.pauseRemainingMs > 0L) {
+                        marqueeState.pauseRemainingMs = (marqueeState.pauseRemainingMs - dtMs).coerceAtLeast(0L)
+                    } else {
+                        val cyclePx = (textWidthPx + gapPx).coerceAtLeast(1f)
+                        val nextPx = marqueeState.scrollPx + velocityPxPerSec * (dtMs / 1000f)
+                        if (nextPx >= cyclePx) {
+                            marqueeState.scrollPx = 0f
+                            marqueeState.frozenEnterScrollPx = 0f
+                            marqueeState.pauseRemainingMs = 1400L
+                        } else {
+                            marqueeState.scrollPx = nextPx
+                            marqueeState.frozenEnterScrollPx = nextPx
+                        }
+                    }
+                }
+                lastFrameNanos = nanos
+            }
+        }
+    }
+
+    Layout(
+        content = {
+            Text(
+                text = text,
+                style = style,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip
+            )
+            Text(
+                text = text,
+                style = style,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip
+            )
+        },
+        modifier = modifier.clipToBounds()
+    ) { measurables, constraints ->
+        val cW = constraints.maxWidth.coerceAtLeast(1)
+        val cWF = cW.toFloat()
+        val unbounded = constraints.copy(minWidth = 0, maxWidth = Constraints.Infinity)
+        val primaryPlaceable = measurables[0].measure(unbounded)
+        val tW = primaryPlaceable.width.toFloat()
+        val tH = primaryPlaceable.height
+
+        if (textWidthPx != tW) textWidthPx = tW
+        if (containerWidthPx != cWF) containerWidthPx = cWF
+
+        val cyclePx = (tW + gapPx).coerceAtLeast(1f)
+        val primaryX: Float
+        val secondX: Float
+        val needSecondCopy: Boolean
+
+        if (!isAodOverlay) {
+            val overflowsHere = tW > cWF + 1f
+            val curScroll = if (overflowsHere) marqueeState.scrollPx.coerceIn(0f, cyclePx) else 0f
+            primaryX = -curScroll
+            secondX = primaryX + cyclePx
+            needSecondCopy = overflowsHere && curScroll > 0.5f && secondX < cWF
+        } else {
+            val sW = srcWidthPx.takeIf { it > 0f } ?: cWF
+            val dW = destWidthPx.takeIf { it > 0f } ?: cWF
+            val overflowsSrc = tW > sW + 1f
+            val overflowsDest = tW > dW + 1f
+            val rawFrozen = marqueeState.frozenEnterScrollPx.coerceIn(0f, cyclePx)
+            val wrapLeft = overflowsSrc && !overflowsDest && rawFrozen > cyclePx * 0.5f
+
+            val startX = when {
+                !overflowsSrc -> 0f
+                wrapLeft -> -rawFrozen + cyclePx
+                else -> -rawFrozen
+            }
+            val endX = if (overflowsDest) {
+                -marqueeState.scrollPx.coerceIn(0f, cyclePx)
+            } else {
+                (dW - tW) * 0.5f
+            }
+
+            primaryX = lerp(startX, endX, enterProgress.coerceIn(0f, 1f))
+            secondX = if (wrapLeft) primaryX - cyclePx else primaryX + cyclePx
+            needSecondCopy = (overflowsSrc || overflowsDest) &&
+                if (wrapLeft) (secondX + tW > 0f) else (primaryX < -0.5f && secondX < cWF)
+        }
+
+        val secondPlaceable = if (needSecondCopy) measurables[1].measure(unbounded) else null
+
+        layout(cW, tH) {
+            primaryPlaceable.placeRelative(primaryX.roundToInt(), 0)
+            secondPlaceable?.placeRelative(secondX.roundToInt(), 0)
+        }
+    }
 }
 
 private val SmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
@@ -852,8 +1015,8 @@ fun AodScreen(
         }
     }
     val aodSongInfoDestBounds = remember { MorphElementBounds() }
-    var titleTextWidthPx by remember { mutableFloatStateOf(0f) }
-    var artistTextWidthPx by remember { mutableFloatStateOf(0f) }
+    val fallbackTitleMarquee = remember { MarqueeSyncState() }
+    val fallbackArtistMarquee = remember { MarqueeSyncState() }
     val aodProgressDestBounds = remember { MorphElementBounds() }
 
     val liveStatusBarTopDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -1000,74 +1163,85 @@ fun AodScreen(
 
                 Spacer(Modifier.height(32.dp))
 
-                // Song Title & Artist — morphs in-place from Now Playing songInfoBounds
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                // Song Title & Artist — morphs container bounds and shared marquee offset from Now Playing
+                Box(
                     modifier = Modifier
                         .fillMaxWidth(0.90f)
                         .captureUntransformedBounds(aodRootCoordsHolder, aodSongInfoDestBounds)
-                        .graphicsLayer {
-                            val src = sourceBounds?.songInfoBounds
-                            alpha = if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
-                                1f
-                            } else {
-                                ((enterProgress - 0.45f) / 0.40f).coerceIn(0f, 1f)
-                            }
-                            if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
-                                val destX = aodSongInfoDestBounds.offset.x
-                                val destY = aodSongInfoDestBounds.offset.y
-                                translationY = (src.offset.y - destY) * (1f - posT)
-                            }
-                        }
                 ) {
-                    Text(
-                        text = songTitle,
-                        onTextLayout = { titleTextWidthPx = it.getLineRight(0) - it.getLineLeft(0) },
-                        fontFamily = GoogleSansRounded,
-                        color = morphedTitleColor,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 24.sp,
-                        lineHeight = 30.sp,
-                        letterSpacing = 0.sp,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center,
+                    val srcSongInfo = sourceBounds?.songInfoBounds
+                    val destW = aodSongInfoDestBounds.size.width.toFloat()
+                    val srcW = if (srcSongInfo != null && srcSongInfo.hasBounds && srcSongInfo.size.width > 0) {
+                        srcSongInfo.size.width.toFloat()
+                    } else destW
+
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                val src = sourceBounds?.songInfoBounds
-                                if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
-                                    val colW = aodSongInfoDestBounds.size.width.toFloat()
-                                    val textW = min(titleTextWidthPx, colW)
-                                    val destLeft = aodSongInfoDestBounds.offset.x + (colW - textW) / 2f
-                                    translationX = (src.offset.x - destLeft) * (1f - posT)
+                            .layout { measurable, constraints ->
+                                val dW = constraints.maxWidth.toFloat()
+                                val hasSrc = srcSongInfo != null && srcSongInfo.hasBounds && srcSongInfo.size.width > 0
+                                val sW = if (hasSrc) srcSongInfo!!.size.width.toFloat() else dW
+                                val curW = lerp(sW, dW, posT).roundToInt().coerceAtLeast(1)
+                                val placeable = measurable.measure(
+                                    constraints.copy(minWidth = curW, maxWidth = curW)
+                                )
+                                layout(constraints.maxWidth, placeable.height) {
+                                    val dx = if (hasSrc && aodSongInfoDestBounds.hasBounds) {
+                                        (srcSongInfo!!.offset.x - aodSongInfoDestBounds.offset.x) * (1f - posT)
+                                    } else 0f
+                                    val dy = if (hasSrc && aodSongInfoDestBounds.hasBounds) {
+                                        (srcSongInfo!!.offset.y - aodSongInfoDestBounds.offset.y) * (1f - posT)
+                                    } else 0f
+                                    placeable.place(dx.roundToInt(), dy.roundToInt())
                                 }
                             }
-                            .basicMarquee()
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = artistName,
-                        onTextLayout = { artistTextWidthPx = it.getLineRight(0) - it.getLineLeft(0) },
-                        fontFamily = GoogleSansRounded,
-                        color = morphedArtistColor,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        lineHeight = 20.sp,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
                             .graphicsLayer {
-                                val src = sourceBounds?.songInfoBounds
-                                if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
-                                    val colW = aodSongInfoDestBounds.size.width.toFloat()
-                                    val textW = min(artistTextWidthPx, colW)
-                                    val destLeft = aodSongInfoDestBounds.offset.x + (colW - textW) / 2f
-                                    translationX = (src.offset.x - destLeft) * (1f - posT)
+                                val hasSrc = srcSongInfo != null && srcSongInfo.hasBounds
+                                alpha = if (hasSrc) {
+                                    1f
+                                } else {
+                                    ((enterProgress - 0.45f) / 0.40f).coerceIn(0f, 1f)
                                 }
                             }
-                            .basicMarquee()
-                    )
+                    ) {
+                        SharedPlayerMarqueeText(
+                            text = songTitle,
+                            style = TextStyle(
+                                fontFamily = GoogleSansRounded,
+                                color = morphedTitleColor,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 24.sp,
+                                lineHeight = 30.sp,
+                                letterSpacing = 0.sp
+                            ),
+                            marqueeState = sourceBounds?.titleMarquee ?: fallbackTitleMarquee,
+                            shouldRunMarquee = isSettledInAod,
+                            isAodOverlay = true,
+                            enterProgress = posT,
+                            srcWidthPx = srcW,
+                            destWidthPx = destW,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        SharedPlayerMarqueeText(
+                            text = artistName,
+                            style = TextStyle(
+                                fontFamily = GoogleSansRounded,
+                                color = morphedArtistColor,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                lineHeight = 20.sp,
+                                letterSpacing = 0.sp
+                            ),
+                            marqueeState = sourceBounds?.artistMarquee ?: fallbackArtistMarquee,
+                            shouldRunMarquee = isSettledInAod,
+                            isAodOverlay = true,
+                            enterProgress = posT,
+                            srcWidthPx = srcW,
+                            destWidthPx = destW,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(28.dp))

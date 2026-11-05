@@ -641,6 +641,10 @@ fun ComplexPlayerLayout(
                 // Song Title & Artist — morphs in-place via GPU graphicsLayer from MiniPlayer slot (66.dp, 13.dp)
                 val fallbackSongInfoLeftPx = with(density) { 26.dp.toPx() }
                 val fallbackSongInfoTopPx = with(density) { (leftColumnTopDp).toPx() }
+                val fallbackTitleMarquee = remember { MarqueeSyncState() }
+                val fallbackArtistMarquee = remember { MarqueeSyncState() }
+                val shouldRunComplexMarquee =
+                    expansionFractionProvider() > 0.99f && aodTransitionProgressProvider() <= 0.001f
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -659,66 +663,49 @@ fun ComplexPlayerLayout(
                             alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                         }
                 ) {
-                    key(song.id, resolvedTitle) {
-                        Text(
-                            text = resolvedTitle,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontFamily = GoogleSansRounded,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 24.sp,
-                                lineHeight = 30.sp
-                            ),
-                            color = contentColor,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Clip,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .basicMarquee(
-                                    iterations = Int.MAX_VALUE,
-                                    initialDelayMillis = 1600,
-                                    velocity = 28.dp
-                                )
-                        )
-                    }
+                    SharedPlayerMarqueeText(
+                        text = resolvedTitle,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 24.sp,
+                            lineHeight = 30.sp,
+                            color = contentColor
+                        ),
+                        marqueeState = aodSourceBounds?.titleMarquee ?: fallbackTitleMarquee,
+                        shouldRunMarquee = shouldRunComplexMarquee,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    key(song.id, resolvedArtist) {
-                        Text(
-                            text = resolvedArtist,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontFamily = GoogleSansRounded,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp,
-                                lineHeight = 20.sp
-                            ),
-                            color = contentColor.copy(alpha = 0.78f),
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .graphicsLayer {
-                                    // Counter-scale artist text so at t=0 (parent scale 0.625) it renders at ~13.sp matching MiniPlayer
-                                    val s = morphTracker.evaluate(expansionFractionProvider())
-                                    val artistScale = androidx.compose.ui.util.lerp(1.38f, 1f, s.sizeT)
-                                    transformOrigin = TransformOrigin(0f, 0f)
-                                    scaleX = artistScale
-                                    scaleY = artistScale
-                                }
-                                .basicMarquee(
-                                    iterations = Int.MAX_VALUE,
-                                    initialDelayMillis = 2000,
-                                    velocity = 24.dp
-                                )
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = onArtistClick
-                                )
-                        )
-                    }
+                    SharedPlayerMarqueeText(
+                        text = resolvedArtist,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            lineHeight = 20.sp,
+                            color = contentColor.copy(alpha = 0.78f)
+                        ),
+                        marqueeState = aodSourceBounds?.artistMarquee ?: fallbackArtistMarquee,
+                        shouldRunMarquee = shouldRunComplexMarquee,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                // Counter-scale artist text so at t=0 (parent scale 0.625) it renders at ~13.sp matching MiniPlayer
+                                val s = morphTracker.evaluate(expansionFractionProvider())
+                                val artistScale = androidx.compose.ui.util.lerp(1.38f, 1f, s.sizeT)
+                                transformOrigin = TransformOrigin(0f, 0f)
+                                scaleX = artistScale
+                                scaleY = artistScale
+                            }
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onArtistClick
+                            )
+                    )
                 }
 
                 // Glowing Word-by-Word Karaoke Lyrics Stage (UNCLIPPED so glow radiates freely)
@@ -779,87 +766,7 @@ fun ComplexPlayerLayout(
             }
         }
 
-        // =====================================================================
-        // LAYER 5: Minimal Chrome (Small Top Drag Handle + Solid Filled Top-Right Collapse Button)
-        // =====================================================================
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
-                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
-                }
-                .padding(
-                    top = (statusBarTopPadding + 10.dp).coerceAtLeast(0.dp),
-                    start = 20.dp,
-                    end = 20.dp
-                )
-                .height(46.dp)
-                .align(Alignment.TopCenter)
-        ) {
-            // Small drag handle at top center
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 6.dp)
-                    .width(38.dp)
-                    .height(4.5.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.82f))
-            )
-
-            // Solid filled collapse chevron button at top right (NO border, NO transparent fill)
-            val collapseOffsetY = remember { Animatable(0f) }
-            val collapseScale = remember { Animatable(1f) }
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(baseTheme.onPrimary, CircleShape)
-                    .clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        coroutineScope.launch {
-                            collapseOffsetY.snapTo(6f)
-                            collapseScale.snapTo(1.16f)
-                            launch {
-                                collapseOffsetY.animateTo(
-                                    0f,
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    )
-                                )
-                            }
-                            launch {
-                                collapseScale.animateTo(
-                                    1f,
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    )
-                                )
-                            }
-                        }
-                        onCollapse()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.rounded_keyboard_arrow_down_24),
-                    contentDescription = stringResource(R.string.presentation_batch_g_player_cd_collapse),
-                    tint = baseTheme.primary,
-                    modifier = Modifier
-                        .size(26.dp)
-                        .graphicsLayer {
-                            translationY = collapseOffsetY.value
-                            scaleX = collapseScale.value
-                            scaleY = collapseScale.value
-                        }
-                )
-            }
-        }
+        // Top bar (left collapse button + right speaker/listen-together/queue pills) is rendered by FullPlayerContent's TopAppBar.
     }
 }
 

@@ -443,7 +443,7 @@ fun FullPlayerContent(
     val transportPlayPauseColors = TransportButtonColors(container = playerAccentColor, content = playerOnAccentColor)
     val transportSkipButtonColors = TransportButtonColors(container = playerOnAccentColor, content = playerAccentColor)
 
-    val topBarButtonBg = playerOnAccentColor.copy(alpha = 0.78f)
+    val topBarButtonBg = if (isComplex) playerOnAccentColor else playerOnAccentColor.copy(alpha = 0.78f)
     val topBarIconColor = playerAccentColor
 
     val progressActiveColor = playerOnBaseColor
@@ -909,7 +909,7 @@ fun FullPlayerContent(
         topBar = {
             // MD3: TopAppBar 在竖屏时滑入，横屏时向上滑出淡出
             AnimatedVisibility(
-                visible = !isLandscape && !isComplex,
+                visible = !isLandscape,
                 enter = fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
                         slideInVertically(
                             initialOffsetY = { -it / 2 },
@@ -931,7 +931,7 @@ fun FullPlayerContent(
                         titleContentColor = LocalMaterialTheme.current.onPrimaryContainer,
                     ),
                     title = {
-                        if (!isCastConnecting) {
+                        if (!isCastConnecting && !isComplex) {
                             AnimatedVisibility(visible = (!isRemotePlaybackActive)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
@@ -3142,6 +3142,8 @@ private fun SongMetadataDisplaySection(
                 gradientEdgeColor = gradientEdgeColor,
                 playerViewModel = playerViewModel,
                 onClickArtist = onClickArtist,
+                aodSourceBounds = aodSourceBounds,
+                aodTransitionProgressProvider = aodTransitionProgressProvider,
                 modifier = Modifier
                     .weight(1f)
                     .align(Alignment.CenterVertically)
@@ -4063,6 +4065,8 @@ private fun PlayerSongInfo(
     gradientEdgeColor: Color,
     playerViewModel: PlayerViewModel,
     onClickArtist: () -> Unit,
+    aodSourceBounds: AodSourceBounds? = null,
+    aodTransitionProgressProvider: () -> Float = { 0f },
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -4070,6 +4074,10 @@ private fun PlayerSongInfo(
     val resolvedArtistId by remember(artists, artistId) {
         derivedStateOf { artists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: artistId }
     }
+    val fallbackTitleMarquee = remember { MarqueeSyncState() }
+    val fallbackArtistMarquee = remember { MarqueeSyncState() }
+    val shouldRunMarquee = expansionFractionProvider() > 0.99f && aodTransitionProgressProvider() <= 0.001f
+
     val titleStyle = MaterialTheme.typography.headlineSmall.copy(
         fontWeight = FontWeight.ExtraBold,
         fontFamily = GoogleSansRounded,
@@ -4092,20 +4100,20 @@ private fun PlayerSongInfo(
         horizontalAlignment = Alignment.Start,
         modifier = modifier.fillMaxWidth()
     ) {
-        AutoScrollingTextOnDemand(
-            title,
-            titleStyle,
-            gradientEdgeColor,
-            expansionFractionProvider,
+        SharedPlayerMarqueeText(
+            text = title,
+            style = titleStyle,
+            marqueeState = aodSourceBounds?.titleMarquee ?: fallbackTitleMarquee,
+            shouldRunMarquee = shouldRunMarquee,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(4.dp))
 
-        AutoScrollingTextOnDemand(
+        SharedPlayerMarqueeText(
             text = artist,
             style = artistStyle,
-            gradientEdgeColor = gradientEdgeColor,
-            expansionFractionProvider = expansionFractionProvider,
+            marqueeState = aodSourceBounds?.artistMarquee ?: fallbackArtistMarquee,
+            shouldRunMarquee = shouldRunMarquee,
             modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(
@@ -4122,19 +4130,18 @@ private fun PlayerSongInfo(
                             }
                         }
                     },
-
-                onLongClick = {
-                    if (isNavigatingToArtist) return@combinedClickable
-                    coroutineScope.launch {
-                        isNavigatingToArtist = true
-                        try {
-                            playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistId)
-                        } finally {
-                            isNavigatingToArtist = false
+                    onLongClick = {
+                        if (isNavigatingToArtist) return@combinedClickable
+                        coroutineScope.launch {
+                            isNavigatingToArtist = true
+                            try {
+                                playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistId)
+                            } finally {
+                                isNavigatingToArtist = false
+                            }
                         }
                     }
-                }
-            )
+                )
         )
     }
 }
