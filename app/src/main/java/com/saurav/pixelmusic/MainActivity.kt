@@ -1145,7 +1145,7 @@ class MainActivity : ComponentActivity() {
                             scaleX = zoomScale
                             scaleY = zoomScale
                             translationY = -12.dp.toPx() * p
-                            shape = RoundedCornerShape((28f * p).dp)
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape((28f * p).dp)
                             clip = p > 0.002f
                         }
                         .background(MaterialTheme.colorScheme.background)

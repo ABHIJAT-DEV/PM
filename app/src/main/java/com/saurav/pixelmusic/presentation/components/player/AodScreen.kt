@@ -1180,17 +1180,17 @@ fun AodScreen(
                             .layout { measurable, constraints ->
                                 val dW = constraints.maxWidth.toFloat()
                                 val hasSrc = srcSongInfo != null && srcSongInfo.hasBounds && srcSongInfo.size.width > 0
-                                val sW = if (hasSrc) srcSongInfo!!.size.width.toFloat() else dW
+                                val sW = if (hasSrc) srcSongInfo.size.width.toFloat() else dW
                                 val curW = lerp(sW, dW, posT).roundToInt().coerceAtLeast(1)
                                 val placeable = measurable.measure(
                                     constraints.copy(minWidth = curW, maxWidth = curW)
                                 )
                                 layout(constraints.maxWidth, placeable.height) {
                                     val dx = if (hasSrc && aodSongInfoDestBounds.hasBounds) {
-                                        (srcSongInfo!!.offset.x - aodSongInfoDestBounds.offset.x) * (1f - posT)
+                                        (srcSongInfo.offset.x - aodSongInfoDestBounds.offset.x) * (1f - posT)
                                     } else 0f
                                     val dy = if (hasSrc && aodSongInfoDestBounds.hasBounds) {
-                                        (srcSongInfo!!.offset.y - aodSongInfoDestBounds.offset.y) * (1f - posT)
+                                        (srcSongInfo.offset.y - aodSongInfoDestBounds.offset.y) * (1f - posT)
                                     } else 0f
                                     placeable.place(dx.roundToInt(), dy.roundToInt())
                                 }
