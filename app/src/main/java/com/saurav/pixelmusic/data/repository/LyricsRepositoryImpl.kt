@@ -828,13 +828,27 @@ class LyricsRepositoryImpl @Inject constructor(
              )
         )
 
+        lyricsCache.evictAll()
         val cacheKey = generateCacheKey(songId.toString())
         lyricsCache.put(cacheKey, parsedLyrics)
+
+        try {
+            val lyricsDir = File(context.filesDir, "lyrics")
+            if (lyricsDir.exists()) {
+                lyricsDir.listFiles()?.forEach { file ->
+                    val stem = file.nameWithoutExtension
+                    if (stem == songId.toString() || resolveLyricsDbId(stem) == songId) {
+                        file.delete()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error clearing stale JSON cache on manual update: ${e.message}")
+        }
     }
 
     override suspend fun resetLyrics(songId: Long): Unit = withContext(Dispatchers.IO) {
-        val cacheKey = generateCacheKey(songId.toString())
-        lyricsCache.remove(cacheKey)
+        lyricsCache.evictAll()
         try {
             lyricsDao.deleteLyrics(songId)
         } catch (e: Exception) {
@@ -842,8 +856,15 @@ class LyricsRepositoryImpl @Inject constructor(
         }
         
         try {
-            val file = File(context.filesDir, "lyrics/${songId}.json")
-            if (file.exists()) file.delete()
+            val lyricsDir = File(context.filesDir, "lyrics")
+            if (lyricsDir.exists()) {
+                lyricsDir.listFiles()?.forEach { file ->
+                    val stem = file.nameWithoutExtension
+                    if (stem == songId.toString() || resolveLyricsDbId(stem) == songId) {
+                        file.delete()
+                    }
+                }
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Error deleting JSON cache: ${e.message}")
         }
@@ -968,7 +989,7 @@ class LyricsRepositoryImpl @Inject constructor(
  * as the DB key for YouTube songs. This must match exactly so that lyrics
  * written here are found by PlayerViewModel and AutoQueueManager.
  */
-private fun resolveLyricsDbId(songId: String): Long? {
+internal fun resolveLyricsDbId(songId: String): Long? {
     return when {
         songId.startsWith("youtube_") -> {
             val videoId = songId.substringAfter("youtube_")

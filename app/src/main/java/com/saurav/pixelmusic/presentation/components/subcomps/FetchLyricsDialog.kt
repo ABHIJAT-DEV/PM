@@ -1,6 +1,8 @@
 package com.saurav.pixelmusic.presentation.components.subcomps
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,20 +17,29 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.CloudUpload
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -37,10 +48,13 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,19 +72,76 @@ import com.saurav.pixelmusic.presentation.viewmodel.LyricsSearchUiState
 import com.saurav.pixelmusic.utils.ProviderText
 import com.saurav.pixelmusic.utils.shapes.RoundedStarShape
 
+private fun cleanSongTitleForLyrics(rawTitle: String): String {
+    if (rawTitle.isBlank()) return ""
+    val cleaned = rawTitle
+        .replace(Regex("""\s*[\(\[][^\)\]]*[\)\]]"""), " ")
+        .replace(Regex("""\s*[\(\[][^\)\]]*$"""), " ")
+        .replace(Regex("""\s+[-|]\s+(?:from\b|official\b|lyrical\b|full\s+video\b|video\b|audio\b).*$""", RegexOption.IGNORE_CASE), " ")
+        .replace(Regex("""\s+\b(?:feat\.?|ft\.?|featuring)\b.*$""", RegexOption.IGNORE_CASE), " ")
+        .replace(Regex("""\s+"""), " ")
+        .trim()
+        .trim('-', '|', '/', '~')
+        .trim()
+    return cleaned.ifBlank { rawTitle.trim() }
+}
+
+private fun cleanArtistForLyrics(rawArtist: String?): String {
+    if (rawArtist.isNullOrBlank() || rawArtist.equals("<unknown>", ignoreCase = true)) return ""
+    val withoutTopic = rawArtist.replace(Regex("""\s*-\s*Topic$""", RegexOption.IGNORE_CASE), "").trim()
+    val primary = withoutTopic
+        .split(Regex("""\s*(?:,|&|\bfeat\.?|\bft\.?|\bfeaturing\b|\bx\b|\band\b)\s*""", RegexOption.IGNORE_CASE))
+        .firstOrNull { it.isNotBlank() }
+        ?.trim()
+        ?: withoutTopic
+    return primary
+}
+
+private fun formatSongTildeArtist(title: String, artist: String?): String {
+    val cleanT = title.trim()
+    val cleanA = artist?.trim()?.takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
+    return if (cleanA != null) "$cleanT ~ $cleanA" else cleanT
+}
+
+private fun parseSongTildeArtist(input: String): Pair<String, String?> {
+    val trimmed = input.trim()
+    if (trimmed.contains("~")) {
+        val songPart = trimmed.substringBefore("~").trim()
+        val artistPart = trimmed.substringAfter("~").trim().takeIf { it.isNotBlank() }
+        return songPart.ifBlank { trimmed } to artistPart
+    }
+    if (trimmed.contains(" - ")) {
+        val songPart = trimmed.substringBefore(" - ").trim()
+        val artistPart = trimmed.substringAfter(" - ").trim().takeIf { it.isNotBlank() }
+        if (songPart.isNotBlank() && artistPart != null) {
+            return songPart to artistPart
+        }
+    }
+    return trimmed to null
+}
+
 @Composable
 fun FetchLyricsDialog(
     uiState: LyricsSearchUiState,
     currentSong: Song?,
     onConfirm: (Boolean) -> Unit,
     onPickResult: (LyricsSearchResult) -> Unit,
-    onManualSearch: (String, String?) -> Unit,
+    onManualSearch: (String, String?, Boolean) -> Unit,
     onDismiss: () -> Unit,
-    onImport: () -> Unit
+    onImport: () -> Unit,
+    initialManualMode: Boolean = false
 ) {
     if (uiState is LyricsSearchUiState.Success) return
 
-    var forcePickResults by rememberSaveable { mutableStateOf(false) }
+    var forcePickResults by rememberSaveable(initialManualMode) { mutableStateOf(initialManualMode) }
+    var manualModeEnabled by rememberSaveable(initialManualMode) { mutableStateOf(initialManualMode) }
+    var forceManualViewFromPicker by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(uiState) {
+        if (uiState is LyricsSearchUiState.Loading) {
+            forceManualViewFromPicker = false
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -88,41 +159,75 @@ fun FetchLyricsDialog(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                when (uiState) {
-                    LyricsSearchUiState.Idle -> {
+                when {
+                    forceManualViewFromPicker -> {
                         IdleContent(
                             currentSong = currentSong,
+                            manualModeEnabled = true,
+                            onToggleManualMode = {
+                                if (!it) forceManualViewFromPicker = false
+                                manualModeEnabled = it
+                            },
                             forcePickResults = forcePickResults,
                             onToggleForcePickResults = { forcePickResults = it },
                             onSearch = { onConfirm(forcePickResults) },
+                            onManualSearch = { title, artist ->
+                                forceManualViewFromPicker = false
+                                onManualSearch(title, artist, !forcePickResults)
+                            },
+                            onImport = onImport,
+                            onCancel = { forceManualViewFromPicker = false }
+                        )
+                    }
+                    uiState is LyricsSearchUiState.Idle -> {
+                        IdleContent(
+                            currentSong = currentSong,
+                            manualModeEnabled = manualModeEnabled,
+                            onToggleManualMode = { manualModeEnabled = it },
+                            forcePickResults = forcePickResults,
+                            onToggleForcePickResults = { forcePickResults = it },
+                            onSearch = { onConfirm(forcePickResults) },
+                            onManualSearch = { title, artist ->
+                                onManualSearch(title, artist, !forcePickResults)
+                            },
                             onImport = onImport,
                             onCancel = onDismiss
                         )
                     }
-                    LyricsSearchUiState.Loading -> {
+                    uiState is LyricsSearchUiState.Loading -> {
                         LoadingContent()
                     }
-                    is LyricsSearchUiState.PickResult -> {
+                    uiState is LyricsSearchUiState.PickResult -> {
                         PickResultContent(
                             results = uiState.results,
                             onPickResult = onPickResult,
-                            onCancel = onDismiss
-                        )
-                    }
-                    is LyricsSearchUiState.NotFound -> {
-                        NotFoundContent(
-                            message = uiState.message,
-                            initialTitle = currentSong?.title.orEmpty(),
-                            initialArtist = currentSong?.displayArtist,
-                            onManualSearch = { title, artist ->
-                                onManualSearch(title, artist)
+                            onOpenManualSearch = {
+                                manualModeEnabled = true
+                                forceManualViewFromPicker = true
                             },
                             onCancel = onDismiss
                         )
                     }
-                    is LyricsSearchUiState.Error -> {
+                    uiState is LyricsSearchUiState.NotFound -> {
+                        NotFoundContent(
+                            message = uiState.message,
+                            initialTitle = currentSong?.title.orEmpty(),
+                            initialArtist = currentSong?.displayArtist,
+                            forcePickResults = forcePickResults,
+                            onToggleForcePickResults = { forcePickResults = it },
+                            onManualSearch = { title, artist ->
+                                onManualSearch(title, artist, !forcePickResults)
+                            },
+                            onCancel = onDismiss
+                        )
+                    }
+                    uiState is LyricsSearchUiState.Error -> {
                         ErrorContent(
                             message = uiState.message,
+                            onRetryManualSearch = {
+                                manualModeEnabled = true
+                                forceManualViewFromPicker = true
+                            },
                             onDismiss = onDismiss
                         )
                     }
@@ -137,35 +242,146 @@ fun FetchLyricsDialog(
 // --------------------------------------------------------------------------
 
 @Composable
+private fun SongTildeArtistInputSection(
+    rawTitle: String,
+    rawArtist: String?,
+    queryText: String,
+    onQueryTextChange: (String) -> Unit,
+    onTriggerSearch: () -> Unit
+) {
+    val cleanedTitle = remember(rawTitle) { cleanSongTitleForLyrics(rawTitle) }
+    val cleanedArtist = remember(rawArtist) { cleanArtistForLyrics(rawArtist) }
+    val cleanedCombo = remember(cleanedTitle, cleanedArtist) {
+        formatSongTildeArtist(cleanedTitle, cleanedArtist)
+    }
+    val rawCombo = remember(rawTitle, rawArtist) {
+        formatSongTildeArtist(rawTitle, rawArtist)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedTextField(
+            value = queryText,
+            onValueChange = onQueryTextChange,
+            label = { Text("Song ~ Artist") },
+            placeholder = { Text("e.g. Jugraafiya ~ Udit Narayan") },
+            singleLine = true,
+            shape = RoundedCornerShape(18.dp),
+            trailingIcon = {
+                if (queryText.isNotEmpty()) {
+                    IconButton(onClick = { onQueryTextChange("") }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Clear,
+                            contentDescription = "Clear"
+                        )
+                    }
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(
+                onSearch = {
+                    if (queryText.isNotBlank()) onTriggerSearch()
+                }
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        if (rawTitle.isNotBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (cleanedCombo.isNotBlank() && cleanedCombo != queryText) {
+                    AssistChip(
+                        onClick = { onQueryTextChange(cleanedCombo) },
+                        label = { Text("Cleaned", maxLines = 1) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoFixHigh,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+                if (cleanedTitle.isNotBlank() && cleanedTitle != queryText) {
+                    AssistChip(
+                        onClick = { onQueryTextChange(cleanedTitle) },
+                        label = { Text("Song only", maxLines = 1) }
+                    )
+                }
+                if (rawCombo.isNotBlank() && rawCombo != queryText && rawCombo != cleanedCombo) {
+                    AssistChip(
+                        onClick = { onQueryTextChange(rawCombo) },
+                        label = { Text("Original", maxLines = 1) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun IdleContent(
     currentSong: Song?,
+    manualModeEnabled: Boolean,
+    onToggleManualMode: (Boolean) -> Unit,
     forcePickResults: Boolean,
     onToggleForcePickResults: (Boolean) -> Unit,
     onSearch: () -> Unit,
+    onManualSearch: (String, String?) -> Unit,
     onImport: () -> Unit,
     onCancel: () -> Unit
 ) {
+    val rawTitle = currentSong?.title.orEmpty()
+    val rawArtist = currentSong?.displayArtist
+    val defaultCleanedQuery = remember(rawTitle, rawArtist) {
+        formatSongTildeArtist(
+            cleanSongTitleForLyrics(rawTitle),
+            cleanArtistForLyrics(rawArtist)
+        )
+    }
+    var manualQuery by rememberSaveable(rawTitle, rawArtist) {
+        mutableStateOf(defaultCleanedQuery)
+    }
+
+    val triggerActiveSearch = {
+        if (manualModeEnabled) {
+            val (parsedTitle, parsedArtist) = parseSongTildeArtist(manualQuery)
+            if (parsedTitle.isNotBlank()) {
+                onManualSearch(parsedTitle, parsedArtist)
+            }
+        } else {
+            onSearch()
+        }
+    }
+
     Box(
         modifier = Modifier
-            .size(72.dp)
+            .size(64.dp)
             .clip(RoundedStarShape(sides = 8, curve = 0.1, rotation = 0f))
             .background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.MusicNote,
+            imageVector = if (manualModeEnabled) Icons.Rounded.EditNote else Icons.Rounded.MusicNote,
             contentDescription = null,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(34.dp),
             tint = MaterialTheme.colorScheme.onSecondaryContainer
         )
     }
 
-    Spacer(modifier = Modifier.height(20.dp))
+    Spacer(modifier = Modifier.height(16.dp))
 
     if (currentSong != null) {
         Text(
             text = currentSong.title,
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             maxLines = 2,
@@ -173,9 +389,11 @@ private fun IdleContent(
         )
         Text(
             text = currentSong.displayArtist,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     } else {
         Text(
@@ -185,17 +403,65 @@ private fun IdleContent(
         )
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(16.dp))
 
-    Text(
-        text = stringResource(R.string.search_lyrics_online_prompt),
-        style = MaterialTheme.typography.bodyMedium,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    // Manual Search (Song ~ Artist) Toggle Card
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Manual search (Song ~ Artist)",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        text = "Type custom song ~ artist name for messy titles",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                    )
+                }
+                Switch(
+                    checked = manualModeEnabled,
+                    onCheckedChange = onToggleManualMode,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
 
-    Spacer(modifier = Modifier.height(32.dp))
+            AnimatedVisibility(visible = manualModeEnabled) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    SongTildeArtistInputSection(
+                        rawTitle = rawTitle,
+                        rawArtist = rawArtist,
+                        queryText = manualQuery,
+                        onQueryTextChange = { manualQuery = it },
+                        onTriggerSearch = triggerActiveSearch
+                    )
+                }
+            }
+        }
+    }
 
+    Spacer(modifier = Modifier.height(10.dp))
+
+    // Show All Options Toggle Card
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -218,7 +484,7 @@ private fun IdleContent(
                 )
                 Text(
                     text = stringResource(R.string.fetch_lyrics_show_options_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
                 )
             }
@@ -236,23 +502,28 @@ private fun IdleContent(
     Spacer(modifier = Modifier.height(16.dp))
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Button(
-            onClick = onSearch,
+            onClick = triggerActiveSearch,
+            enabled = !manualModeEnabled || manualQuery.isNotBlank(),
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = CircleShape
         ) {
             Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.search), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                text = if (manualModeEnabled) "Search Manual Query" else stringResource(R.string.search),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
         Button(
             onClick = onImport,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.secondary,
                 contentColor = MaterialTheme.colorScheme.onSecondary
@@ -265,7 +536,7 @@ private fun IdleContent(
 
         TextButton(
             onClick = onCancel,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
             shape = RoundedCornerShape(18.dp)
         ) {
             Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -295,6 +566,7 @@ private fun LoadingContent() {
 private fun PickResultContent(
     results: List<LyricsSearchResult>,
     onPickResult: (LyricsSearchResult) -> Unit,
+    onOpenManualSearch: () -> Unit,
     onCancel: () -> Unit
 ) {
     Text(
@@ -304,10 +576,10 @@ private fun PickResultContent(
         modifier = Modifier.fillMaxWidth()
     )
 
-    Spacer(modifier = Modifier.height(24.dp))
+    Spacer(modifier = Modifier.height(20.dp))
 
     LazyColumn(
-        modifier = Modifier.heightIn(max = 350.dp),
+        modifier = Modifier.heightIn(max = 330.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
@@ -316,7 +588,19 @@ private fun PickResultContent(
         }
     }
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(14.dp))
+
+    FilledTonalButton(
+        onClick = onOpenManualSearch,
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Icon(Icons.Rounded.EditNote, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("Search manually (Song ~ Artist)", maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+
+    Spacer(modifier = Modifier.height(6.dp))
 
     TextButton(
         onClick = onCancel,
@@ -432,22 +716,31 @@ fun NotFoundContent(
     initialTitle: String,
     initialArtist: String?,
     message: String,
+    forcePickResults: Boolean = true,
+    onToggleForcePickResults: (Boolean) -> Unit = {},
     onManualSearch: (String, String?) -> Unit,
     onCancel: () -> Unit
 ) {
-    val normalizedArtist = rememberSaveable(initialArtist) {
-        initialArtist
-            ?.takeIf { it.isNotBlank() }
-            ?.takeUnless { it.equals("<unknown>", ignoreCase = true) }
-            .orEmpty()
+    val defaultCleanedQuery = remember(initialTitle, initialArtist) {
+        formatSongTildeArtist(
+            cleanSongTitleForLyrics(initialTitle),
+            cleanArtistForLyrics(initialArtist)
+        )
+    }
+    var manualQuery by rememberSaveable(initialTitle, initialArtist) {
+        mutableStateOf(defaultCleanedQuery)
     }
 
-    var title by rememberSaveable { mutableStateOf(initialTitle) }
-    var artist by rememberSaveable { mutableStateOf(normalizedArtist) }
+    val triggerManual = {
+        val (parsedTitle, parsedArtist) = parseSongTildeArtist(manualQuery)
+        if (parsedTitle.isNotBlank()) {
+            onManualSearch(parsedTitle, parsedArtist)
+        }
+    }
 
     Box(
         modifier = Modifier
-            .size(72.dp)
+            .size(64.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center
@@ -455,79 +748,85 @@ fun NotFoundContent(
         Icon(
             imageVector = Icons.Rounded.SearchOff,
             contentDescription = null,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(34.dp),
             tint = MaterialTheme.colorScheme.onSecondaryContainer
         )
     }
 
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(14.dp))
 
     Text(
         text = stringResource(R.string.lyrics_not_found),
         style = MaterialTheme.typography.headlineSmall
     )
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(8.dp))
 
     Text(
-        text = stringResource(R.string.lyrics_custom_search_hint),
+        text = "Enter Song ~ Artist below to search across all lyric providers",
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(14.dp))
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+    SongTildeArtistInputSection(
+        rawTitle = initialTitle,
+        rawArtist = initialArtist,
+        queryText = manualQuery,
+        onQueryTextChange = { manualQuery = it },
+        onTriggerSearch = triggerManual
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
     ) {
-        Text(
-            text = stringResource(R.string.song_field_title),
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelLarge
-        )
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = it },
-            placeholder = { Text(stringResource(R.string.song_field_title)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.fetch_lyrics_show_options_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = stringResource(R.string.fetch_lyrics_show_options_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                )
+            }
+            Switch(
+                checked = forcePickResults,
+                onCheckedChange = onToggleForcePickResults,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
     }
 
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(18.dp))
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.song_field_artist_optional),
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelLarge
-        )
-        OutlinedTextField(
-            value = artist,
-            onValueChange = { artist = it },
-            placeholder = { Text(stringResource(R.string.song_field_artist_optional)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-    }
-
-    Spacer(Modifier.height(24.dp))
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Button(
-            onClick = {
-                onManualSearch(
-                    title,
-                    artist.takeIf { it.isNotBlank() }
-                )
-            },
-            enabled = title.isNotBlank(),
+            onClick = triggerManual,
+            enabled = manualQuery.isNotBlank(),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -540,7 +839,7 @@ fun NotFoundContent(
 
         TextButton(
             onClick = onCancel,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
             shape = RoundedCornerShape(18.dp)
         ) {
             Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -551,6 +850,7 @@ fun NotFoundContent(
 @Composable
 private fun ErrorContent(
     message: String,
+    onRetryManualSearch: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Box(
@@ -585,7 +885,19 @@ private fun ErrorContent(
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
-    Spacer(modifier = Modifier.height(32.dp))
+    Spacer(modifier = Modifier.height(24.dp))
+
+    FilledTonalButton(
+        onClick = onRetryManualSearch,
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Icon(Icons.Rounded.EditNote, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("Search manually (Song ~ Artist)", maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+
+    Spacer(modifier = Modifier.height(10.dp))
 
     Button(
         onClick = onDismiss,

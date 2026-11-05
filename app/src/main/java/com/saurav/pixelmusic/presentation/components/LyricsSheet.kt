@@ -229,7 +229,7 @@ fun LyricsSheet(
     resetLyricsForCurrentSong: () -> Unit,
     onSearchLyrics: (Boolean) -> Unit,
     onPickResult: (LyricsSearchResult) -> Unit,
-    onManualSearch: (String, String?) -> Unit,
+    onManualSearch: (String, String?, Boolean) -> Unit,
     onImportLyrics: () -> Unit,
     onDismissLyricsSearch: () -> Unit,
     lyricsSyncOffset: Int,
@@ -424,6 +424,7 @@ fun LyricsSheet(
     }
 
     var showFetchLyricsDialog by remember { mutableStateOf(false) }
+    var startFetchDialogInManualMode by remember { mutableStateOf(false) }
     // Flag to prevent dialog from showing briefly after reset
     var wasResetTriggered by remember { mutableStateOf(false) }
     var hasDismissedDialogForSong by remember(currentSong?.id) { mutableStateOf(false) }
@@ -516,9 +517,17 @@ fun LyricsSheet(
             if (!wasResetTriggered && !hasDismissedDialogForSong) {
                 showFetchLyricsDialog = true
             }
-        } else if (lyrics != null || isLoadingLyrics) {
+        } else if ((lyrics != null || isLoadingLyrics) && !startFetchDialogInManualMode) {
             showFetchLyricsDialog = false
             wasResetTriggered = false // Reset the flag when lyrics are loaded
+        }
+    }
+
+    LaunchedEffect(lyricsSearchUiState) {
+        if (lyricsSearchUiState is LyricsSearchUiState.Success && showFetchLyricsDialog) {
+            showFetchLyricsDialog = false
+            startFetchDialogInManualMode = false
+            onDismissLyricsSearch()
         }
     }
 
@@ -531,11 +540,13 @@ fun LyricsSheet(
             FetchLyricsDialog(
                 uiState = lyricsSearchUiState,
                 currentSong = currentSong,
+                initialManualMode = startFetchDialogInManualMode,
                 onConfirm = onSearchLyrics,
                 onPickResult = onPickResult,
                 onManualSearch = onManualSearch,
                 onDismiss = {
                     showFetchLyricsDialog = false
+                    startFetchDialogInManualMode = false
                     hasDismissedDialogForSong = true
                     onDismissLyricsSearch()
                     if (lyrics == null && !isLoadingLyrics) {
@@ -1017,6 +1028,12 @@ fun LyricsSheet(
                     lyrics = lyrics,
                     showSyncedLyrics = showSyncedLyrics == true,
                     isSyncControlsVisible = showSyncControls,
+                    onManualSearchLyrics = {
+                        resetImmersiveTimer()
+                        onDismissLyricsSearch()
+                        startFetchDialogInManualMode = true
+                        showFetchLyricsDialog = true
+                    },
                     onSaveLyricsAsLrc = { showSaveLyricsDialog = true },
                     onResetImportedLyrics = {
                         wasResetTriggered = true

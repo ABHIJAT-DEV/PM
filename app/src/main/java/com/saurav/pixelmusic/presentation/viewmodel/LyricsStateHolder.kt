@@ -8,6 +8,12 @@ import com.saurav.pixelmusic.data.model.Lyrics
 import com.saurav.pixelmusic.data.model.LyricsSourcePreference
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
+import com.saurav.pixelmusic.data.remote.lyrics_providers.ScoredHit
+import com.saurav.pixelmusic.data.remote.lyrics_providers.util.Providers
+import com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.ConfidenceBreakdown
+import com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.MatchStrategy
+import com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.MatchTier
+import com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.ProviderResult
 import com.saurav.pixelmusic.data.repository.LyricsSearchResult
 import com.saurav.pixelmusic.data.repository.MusicRepository
 import com.saurav.pixelmusic.data.repository.NoLyricsFoundException
@@ -255,7 +261,7 @@ class LyricsStateHolder @Inject constructor(
                         val lyrics = parsed.copy(areFromRemote = false)
                         _searchUiState.value = LyricsSearchUiState.Success(lyrics)
 
-                        val songId = song.id.toLongOrNull()
+                        val songId = resolveSongDbId(song.id)
                         if (songId != null) {
                             musicRepository.updateLyrics(songId, rawLyrics)
                         }
@@ -303,18 +309,77 @@ class LyricsStateHolder @Inject constructor(
     }
 
     /**
-     * Manual search by query.
+     * Manual search by query (supports both showing candidate list and auto-applying the best match,
+     * with full provider fallback including YouTube Music).
      */
-    fun searchLyricsManually(title: String, artist: String?) {
-        if (title.isBlank()) return
+    fun searchLyricsManually(
+        title: String,
+        artist: String?,
+        autoApplyBest: Boolean = false,
+        currentSong: Song? = null
+    ) {
+        val cleanTitle = title.trim()
+        val cleanArtist = artist?.trim()?.takeIf { it.isNotBlank() }
+        if (cleanTitle.isBlank()) return
         loadingJob?.cancel()
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
-            musicRepository.searchRemoteLyricsByQuery(title, artist)
+            musicRepository.searchRemoteLyricsByQuery(cleanTitle, cleanArtist)
                 .onSuccess { (q, results) ->
-                    _searchUiState.value = LyricsSearchUiState.PickResult(q, results)
+                    if (autoApplyBest && results.isNotEmpty() && currentSong != null) {
+                        val best = results.firstOrNull { !it.lyrics.synced.isNullOrEmpty() } ?: results.first()
+                        acceptLyricsSearchResult(best, currentSong)
+                    } else {
+                        _searchUiState.value = LyricsSearchUiState.PickResult(q, results)
+                    }
                 }
-                .onFailure { error -> handleError(error) }
+                .onFailure { error ->
+                    val probeSong = (currentSong ?: Song.emptySong()).copy(
+                        title = cleanTitle,
+                        artist = cleanArtist.orEmpty(),
+                        youtubeId = null,
+                        id = "",
+                        contentUriString = ""
+                    )
+                    val ytLyricsRaw = withContext(Dispatchers.IO) { fetchYouTubeLyrics(probeSong) }
+                    if (ytLyricsRaw != null) {
+                        val parsed = LyricsUtils.parseLyrics(ytLyricsRaw).copy(areFromRemote = true)
+                        if (hasValidLyrics(parsed)) {
+                            val hasSynced = !parsed.synced.isNullOrEmpty()
+                            val ytHit = ScoredHit(
+                                provider = Providers.LYRICSPLUS,
+                                strategy = MatchStrategy.TAGS,
+                                result = ProviderResult(
+                                    title = cleanTitle,
+                                    artist = cleanArtist ?: currentSong?.displayArtist,
+                                    durationSec = null,
+                                    album = "YouTube Music",
+                                    hasSyncedLyrics = hasSynced
+                                ),
+                                confidence = ConfidenceBreakdown(
+                                    score = 0.85,
+                                    title = 1.0,
+                                    artist = 1.0,
+                                    duration = 1.0,
+                                    album = 1.0,
+                                    tier = MatchTier.REVIEW,
+                                    durationMatched = false
+                                ),
+                                inlineLyrics = ytLyricsRaw,
+                                neteaseId = null
+                            )
+                            val ytResult = LyricsSearchResult(ytHit, parsed, ytLyricsRaw)
+                            if (autoApplyBest && currentSong != null) {
+                                acceptLyricsSearchResult(ytResult, currentSong)
+                            } else {
+                                val queryLabel = listOfNotNull(cleanTitle, cleanArtist).joinToString(" ~ ")
+                                _searchUiState.value = LyricsSearchUiState.PickResult(queryLabel, listOf(ytResult))
+                            }
+                            return@launch
+                        }
+                    }
+                    handleError(error)
+                }
         }
     }
 
@@ -325,8 +390,8 @@ class LyricsStateHolder @Inject constructor(
         scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Success(result.lyrics)
 
-            // 1. Update DB cache
-            currentSong.id.toLongOrNull()?.let { songId ->
+            // 1. Update DB cache (supports both local numeric IDs and YouTube/cloud IDs)
+            resolveSongDbId(currentSong.id)?.let { songId ->
                 musicRepository.updateLyrics(songId, result.rawLyrics)
             }
 
@@ -455,6 +520,22 @@ class LyricsStateHolder @Inject constructor(
         loadingJob?.cancel()
         scope = null
         loadCallback = null
+    }
+}
+
+internal fun resolveSongDbId(songId: String): Long? {
+    return when {
+        songId.startsWith("youtube_") -> {
+            val videoId = songId.substringAfter("youtube_")
+            val hash = videoId.hashCode().toLong()
+            -(15_000_000_000_000L + if (hash < 0) -hash else hash)
+        }
+        songId.startsWith("youtube://") -> {
+            val videoId = songId.substringAfter("youtube://")
+            val hash = videoId.hashCode().toLong()
+            -(15_000_000_000_000L + if (hash < 0) -hash else hash)
+        }
+        else -> songId.toLongOrNull()
     }
 }
 

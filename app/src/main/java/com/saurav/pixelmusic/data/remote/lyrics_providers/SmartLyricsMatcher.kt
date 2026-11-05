@@ -65,7 +65,10 @@ class SmartLyricsMatcher(private val client: OkHttpClient) {
                 }
                 if (instantHit != null) {
                     log("  [LRCLib Fast-Path Hit] ${instantHit.result.title} (${instantHit.confidence.percent()}%) -> Instant Return")
-                    return@coroutineScope listOf(instantHit)
+                    val validLrcHits = lrcHits
+                        .filter { it.tier != MatchTier.REJECT && !it.inlineLyrics.isNullOrBlank() }
+                        .sortedByDescending { it.confidence.score }
+                    return@coroutineScope validLrcHits.ifEmpty { listOf(instantHit) }
                 }
             }
         }

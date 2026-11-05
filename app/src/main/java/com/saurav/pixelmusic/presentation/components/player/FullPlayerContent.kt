@@ -495,8 +495,8 @@ fun FullPlayerContent(
                 onPickResult = { result ->
                     playerViewModel.acceptLyricsSearchResultForCurrentSong(result)
                 },
-                onManualSearch = { title, artist ->
-                    playerViewModel.searchLyricsManually(title, artist)
+                onManualSearch = { title, artist, autoApply ->
+                    playerViewModel.searchLyricsManually(title, artist, autoApply)
                 },
                 onDismiss = {
                     showFetchLyricsDialog = false
@@ -1978,7 +1978,9 @@ fun FullPlayerContent(
             },
             onSearchLyrics = { forcePick -> playerViewModel.fetchLyricsForCurrentSong(forcePick) },
             onPickResult = { playerViewModel.acceptLyricsSearchResultForCurrentSong(it) },
-            onManualSearch = { title, artist -> playerViewModel.searchLyricsManually(title, artist) },
+            onManualSearch = { title, artist, autoApply ->
+                playerViewModel.searchLyricsManually(title, artist, autoApply)
+            },
             onImportLyrics = { filePickerLauncher.launch(com.saurav.pixelmusic.utils.LyricsImportSecurity.pickerMimeTypes()) },
             onDismissLyricsSearch = { playerViewModel.resetLyricsSearchState() },
             lyricsSyncOffset = lyricsSyncOffset,

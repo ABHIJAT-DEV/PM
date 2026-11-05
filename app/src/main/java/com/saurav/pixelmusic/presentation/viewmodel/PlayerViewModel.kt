@@ -6957,8 +6957,13 @@ private fun preCacheLyricsForSongs(songs: List<Song>, sourcePref: LyricsSourcePr
     /**
      * Manual search lyrics using query provided by user (title and artist)
      */
-    fun searchLyricsManually(title: String, artist: String? = null) {
-        lyricsStateHolder.searchLyricsManually(title, artist)
+    fun searchLyricsManually(
+        title: String,
+        artist: String? = null,
+        autoApplyBest: Boolean = false
+    ) {
+        val currentSong = stablePlayerState.value.currentSong
+        lyricsStateHolder.searchLyricsManually(title, artist, autoApplyBest, currentSong)
     }
 
     fun acceptLyricsSearchResultForCurrentSong(result: LyricsSearchResult) {
@@ -6967,7 +6972,8 @@ private fun preCacheLyricsForSongs(songs: List<Song>, sourcePref: LyricsSourcePr
     }
 
     fun resetLyricsForCurrentSong() {
-        val songId = stablePlayerState.value.currentSong?.id?.toLongOrNull() ?: return
+        val currentSongId = stablePlayerState.value.currentSong?.id ?: return
+        val songId = resolveSongDbId(currentSongId) ?: return
         lyricsStateHolder.resetLyrics(songId)
         playbackStateHolder.updateStablePlayerState { state -> state.copy(lyrics = null) }
     }

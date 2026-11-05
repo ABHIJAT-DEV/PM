@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -65,6 +66,7 @@ fun LyricsMoreBottomSheet(
     lyrics: Lyrics?,
     showSyncedLyrics: Boolean,
     isSyncControlsVisible: Boolean,
+    onManualSearchLyrics: () -> Unit = {},
     onSaveLyricsAsLrc: () -> Unit,
     onResetImportedLyrics: () -> Unit,
     onToggleSyncControls: () -> Unit,
@@ -129,7 +131,33 @@ fun LyricsMoreBottomSheet(
                     color = accentColor,
                     style = MaterialTheme.typography.bodyLargeEmphasized
                 )
-                 // Save lyrics to .lrc
+                // Search lyrics manually (Song ~ Artist)
+                ListItem(
+                    headlineContent = { Text("Search lyrics manually") },
+                    supportingContent = { Text("Find lyrics by Song ~ Artist name") },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = null
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 8.dp, bottomEnd = 8.dp))
+                        .background(itemBackgroundColor)
+                        .clickable {
+                            onDismissRequest()
+                            onManualSearchLyrics()
+                        },
+                    colors = ListItemDefaults.colors(
+                        containerColor = Color.Transparent,
+                        headlineColor = contentColor,
+                        supportingColor = contentColor.copy(alpha = 0.7f),
+                        leadingIconColor = contentColor
+                    )
+                )
+
+                // Save lyrics to .lrc
                 if (lyrics != null) {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.save_lyrics_dialog_title).substringBefore("?")) },
@@ -141,7 +169,7 @@ fun LyricsMoreBottomSheet(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 8.dp, bottomEnd = 8.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(itemBackgroundColor)
                             .clickable {
                                 onDismissRequest()
@@ -156,11 +184,7 @@ fun LyricsMoreBottomSheet(
                 }
 
                 // Reset imported lyrics
-                val resetShape = if (lyrics != null) {
-                    RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
-                } else {
-                    RoundedCornerShape(24.dp)
-                }
+                val resetShape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
 
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.reset_imported_lyrics)) },
