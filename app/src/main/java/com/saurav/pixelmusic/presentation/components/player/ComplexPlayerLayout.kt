@@ -376,6 +376,21 @@ private enum class VerticalControlButton {
     MORE, LIKE, PREVIOUS, PLAY_PAUSE, NEXT
 }
 
+private data class DynamicStackRoundRectShape(
+    val rxPx: Float,
+    val ryPx: Float
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val rx = rxPx.coerceIn(0f, size.width * 0.5f)
+        val ry = ryPx.coerceIn(0f, size.height * 0.5f)
+        return Outline.Rounded(RoundRect(Rect(0f, 0f, size.width, size.height), CornerRadius(rx, ry)))
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ComplexPlayerLayout(
@@ -2332,29 +2347,7 @@ private fun ExpressiveMorphingStackButton(
         label = "stackButtonScale"
     )
 
-    val shape: Shape = if (miniCornerDp != null && morphTracker != null && expansionFractionProvider != null && miniBtnSizePx > 0f) {
-        remember(miniCornerDp, miniBtnSizePx, morphTracker, expansionFractionProvider) {
-            object : Shape {
-                override fun createOutline(
-                    size: Size,
-                    layoutDirection: LayoutDirection,
-                    density: Density
-                ): Outline {
-                    val w = size.width.coerceAtLeast(1f)
-                    val h = size.height.coerceAtLeast(1f)
-                    val t = morphTracker.evaluate(expansionFractionProvider()).sizeT
-                    val fullCornerPx = with(density) { cornerRadius.toPx() }
-                    val miniCornerPx = with(density) { miniCornerDp.toPx() }
-                    val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, t)
-                    val sx = (androidx.compose.ui.util.lerp(miniBtnSizePx, w, t) / w).coerceAtLeast(0.01f)
-                    val sy = (androidx.compose.ui.util.lerp(miniBtnSizePx, h, t) / h).coerceAtLeast(0.01f)
-                    val rx = (targetVisualR / sx).coerceIn(0f, w * 0.5f)
-                    val ry = (targetVisualR / sy).coerceIn(0f, h * 0.5f)
-                    return Outline.Rounded(RoundRect(Rect(0f, 0f, w, h), CornerRadius(rx, ry)))
-                }
-            }
-        }
-    } else {
+    val smoothShape = remember(cornerRadius) {
         AbsoluteSmoothCornerShape(
             cornerRadiusTL = cornerRadius,
             smoothnessAsPercentTL = 60,
@@ -2372,9 +2365,27 @@ private fun ExpressiveMorphingStackButton(
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
+                clip = true
+                shape = if (miniCornerDp != null && morphTracker != null && expansionFractionProvider != null && miniBtnSizePx > 0f) {
+                    val w = size.width.coerceAtLeast(1f)
+                    val h = size.height.coerceAtLeast(1f)
+                    val t = morphTracker.evaluate(expansionFractionProvider()).sizeT
+                    val fullCornerPx = cornerRadius.toPx()
+                    val miniCornerPx = miniCornerDp.toPx()
+                    val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, t)
+                    val sx = (androidx.compose.ui.util.lerp(miniBtnSizePx, w, t) / w).coerceAtLeast(0.01f)
+                    val sy = (androidx.compose.ui.util.lerp(miniBtnSizePx, h, t) / h).coerceAtLeast(0.01f)
+                    val rx = (targetVisualR / sx).coerceIn(0f, w * 0.5f)
+                    val ry = (targetVisualR / sy).coerceIn(0f, h * 0.5f)
+                    DynamicStackRoundRectShape(
+                        rxPx = (rx * 4f).roundToInt() / 4f,
+                        ryPx = (ry * 4f).roundToInt() / 4f
+                    )
+                } else {
+                    smoothShape
+                }
             }
-            .clip(shape)
-            .background(containerColor, shape)
+            .background(containerColor)
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)

@@ -62,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -860,12 +861,7 @@ fun AodScreen(
     val statusBarTopDp = remember(configuration.orientation) { liveStatusBarTopDp }
     val navBarBottomDp = remember(configuration.orientation) { liveNavBarBottomDp }
 
-    // Interpolate background & button colors between Now Playing and AOD palette
-    val currentBgColor = lerp(targetPalette.sourceBgColor, targetPalette.canvasColor, smoothEnter)
-    val morphedPlayContainerColor = lerp(baseTheme.primary, accentColor, sizeT)
-    val morphedPlayIconColor = lerp(baseTheme.onPrimary, onAccentColor, sizeT)
-    val morphedOtherContainerColor = lerp(baseTheme.onPrimary, secondaryContainerColor, sizeT)
-    val morphedOtherIconColor = lerp(baseTheme.primary, onSecondaryContainerColor, sizeT)
+    // Interpolate text colors between Now Playing and AOD palette, and draw background in Draw phase
     val morphedTitleColor = lerp(baseTheme.onPrimaryContainer, titlePaletteColor, sizeT)
     val morphedArtistColor = lerp(baseTheme.onPrimaryContainer.copy(alpha = 0.76f), subtitlePaletteColor, sizeT)
 
@@ -873,7 +869,13 @@ fun AodScreen(
         modifier = modifier
             .fillMaxSize()
             .captureRootCoords(aodRootCoordsHolder)
-            .background(currentBgColor.copy(alpha = bgFadeAlpha))
+            .drawBehind {
+                val ep = enterProgressProvider().coerceIn(0f, 1f)
+                val sm = ep * ep * (3f - 2f * ep)
+                val bgAlpha = ((ep - 0.01f) / 0.88f).coerceIn(0f, 1f)
+                val bgColor = lerp(targetPalette.sourceBgColor, targetPalette.canvasColor, sm)
+                drawRect(bgColor.copy(alpha = bgAlpha))
+            }
             .pointerInput(Unit) {
                 detectTapGestures(
                     onDoubleTap = { onDismiss() }
@@ -1104,32 +1106,41 @@ fun AodScreen(
                 }
 
                 // Playback Controls — Previous, Play/Pause, Next morph in-place from Now Playing slots!
+                val isComplexSource = sourceArtStyle == AodSourceArtStyle.COMPLEX_ARCH
                 AnimatedPlaybackControls(
-                    modifier = Modifier.fillMaxWidth(0.90f),
+                    modifier = Modifier.fillMaxWidth(),
                     isPlayingProvider = isPlayingProvider,
                     onPrevious = onSkipPreviousClick,
                     onPlayPause = onPlayPauseClick,
                     onNext = onSkipNextClick,
-                    height = 76.dp,
+                    height = 80.dp,
                     pressAnimationSpec = controlAnimationSpec,
                     releaseDelay = 220L,
-                    colorOtherButtons = morphedOtherContainerColor,
-                    colorPlayPause = morphedPlayContainerColor,
-                    tintPlayPauseIcon = morphedPlayIconColor,
-                    tintOtherIcons = morphedOtherIconColor,
-                    colorPreviousButton = morphedOtherContainerColor,
-                    colorNextButton = morphedOtherContainerColor,
-                    tintPreviousIcon = morphedOtherIconColor,
-                    tintNextIcon = morphedOtherIconColor,
-                    playPauseCornerPlaying = 38.dp,
-                    playPauseCornerPaused = 22.dp,
+                    colorOtherButtons = secondaryContainerColor,
+                    colorPlayPause = accentColor,
+                    tintPlayPauseIcon = onAccentColor,
+                    tintOtherIcons = onSecondaryContainerColor,
+                    colorPreviousButton = secondaryContainerColor,
+                    colorNextButton = secondaryContainerColor,
+                    tintPreviousIcon = onSecondaryContainerColor,
+                    tintNextIcon = onSecondaryContainerColor,
+                    playPauseCornerPlaying = 26.dp,
+                    playPauseCornerPaused = 26.dp,
                     rootCoordsHolder = aodRootCoordsHolder,
                     sourcePrevBounds = sourceBounds?.prevBounds,
                     sourcePlayBounds = sourceBounds?.playBounds,
                     sourceNextBounds = sourceBounds?.nextBounds,
                     sourceMorphProgressProvider = enterProgressProvider,
-                    sourceBtnCornerDp = 34.dp,
-                    sourcePlayCornerDp = if (isPlaying) 20.dp else 34.dp
+                    sourceBtnCornerDp = if (isComplexSource) 34.dp else 40.dp,
+                    sourcePlayCornerDp = if (isComplexSource) {
+                        if (isPlaying) 20.dp else 34.dp
+                    } else {
+                        26.dp
+                    },
+                    sourceColorOtherButtons = baseTheme.onPrimary,
+                    sourceColorPlayPause = baseTheme.primary,
+                    sourceTintPlayPauseIcon = baseTheme.onPrimary,
+                    sourceTintOtherIcons = baseTheme.primary
                 )
             }
 

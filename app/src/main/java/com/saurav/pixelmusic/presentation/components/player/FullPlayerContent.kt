@@ -376,16 +376,17 @@ fun FullPlayerContent(
     var totalDrag by remember { mutableStateOf(0f) }
 
     LaunchedEffect(showAodScreen) {
-        val smoothCurve = CubicBezierEasing(0.22f, 0.68f, 0.35f, 1f)
+        val enterCurve = CubicBezierEasing(0.22f, 0.68f, 0.35f, 1f)
+        val exitCurve = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
         if (showAodScreen) {
             aodMorphAnim.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 540, easing = smoothCurve)
+                animationSpec = tween(durationMillis = 520, easing = enterCurve)
             )
         } else if (aodMorphAnim.value > 0f) {
             aodMorphAnim.animateTo(
                 targetValue = 0f,
-                animationSpec = tween(durationMillis = 460, easing = smoothCurve)
+                animationSpec = tween(durationMillis = 400, easing = exitCurve)
             )
         }
     }
