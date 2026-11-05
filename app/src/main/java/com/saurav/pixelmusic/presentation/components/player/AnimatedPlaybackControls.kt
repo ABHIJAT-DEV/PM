@@ -233,9 +233,8 @@ fun AnimatedPlaybackControls(
                     .graphicsLayer {
                         if (sourceMorphProgressProvider != null && sourcePrevBounds != null && sourcePrevBounds.hasBounds) {
                             val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                            val smooth = f * f * (3f - 2f * f)
-                            val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
-                            val posT = androidx.compose.ui.util.lerp(f, smooth, 0.25f)
+                            val sizeT = f
+                            val posT = f
                             val srcW = sourcePrevBounds.size.width.toFloat().coerceAtLeast(1f)
                             val srcH = sourcePrevBounds.size.height.toFloat().coerceAtLeast(1f)
                             val destX = prevBounds.offset.x
@@ -309,8 +308,7 @@ fun AnimatedPlaybackControls(
                             val bh = prevBounds.size.height.toFloat()
                             if (sourceMorphProgressProvider != null && sourcePrevBounds != null && sourcePrevBounds.hasBounds && bw > 0f && bh > 0f) {
                                 val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                                val smooth = f * f * (3f - 2f * f)
-                                val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                                val sizeT = f
                                 val srcW = sourcePrevBounds.size.width.toFloat().coerceAtLeast(1f)
                                 val srcH = sourcePrevBounds.size.height.toFloat().coerceAtLeast(1f)
                                 val parentScaleX = androidx.compose.ui.util.lerp(srcW, bw, sizeT) / bw
@@ -369,9 +367,8 @@ fun AnimatedPlaybackControls(
                     .graphicsLayer {
                         if (sourceMorphProgressProvider != null && sourcePlayBounds != null && sourcePlayBounds.hasBounds) {
                             val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                            val smooth = f * f * (3f - 2f * f)
-                            val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
-                            val posT = androidx.compose.ui.util.lerp(f, smooth, 0.25f)
+                            val sizeT = f
+                            val posT = f
                             val srcW = sourcePlayBounds.size.width.toFloat().coerceAtLeast(1f)
                             val srcH = sourcePlayBounds.size.height.toFloat().coerceAtLeast(1f)
                             val destX = playBounds.offset.x
@@ -439,8 +436,7 @@ fun AnimatedPlaybackControls(
                         val bh = playBounds.size.height.toFloat()
                         if (sourceMorphProgressProvider != null && sourcePlayBounds != null && sourcePlayBounds.hasBounds && bw > 0f && bh > 0f) {
                             val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                            val smooth = f * f * (3f - 2f * f)
-                            val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                            val sizeT = f
                             val srcW = sourcePlayBounds.size.width.toFloat().coerceAtLeast(1f)
                             val srcH = sourcePlayBounds.size.height.toFloat().coerceAtLeast(1f)
                             val parentScaleX = androidx.compose.ui.util.lerp(srcW, bw, sizeT) / bw
@@ -497,9 +493,8 @@ fun AnimatedPlaybackControls(
                     .graphicsLayer {
                         if (sourceMorphProgressProvider != null && sourceNextBounds != null && sourceNextBounds.hasBounds) {
                             val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                            val smooth = f * f * (3f - 2f * f)
-                            val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
-                            val posT = androidx.compose.ui.util.lerp(f, smooth, 0.25f)
+                            val sizeT = f
+                            val posT = f
                             val srcW = sourceNextBounds.size.width.toFloat().coerceAtLeast(1f)
                             val srcH = sourceNextBounds.size.height.toFloat().coerceAtLeast(1f)
                             val destX = nextBounds.offset.x
@@ -571,8 +566,7 @@ fun AnimatedPlaybackControls(
                             val bh = nextBounds.size.height.toFloat()
                             if (sourceMorphProgressProvider != null && sourceNextBounds != null && sourceNextBounds.hasBounds && bw > 0f && bh > 0f) {
                                 val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                                val smooth = f * f * (3f - 2f * f)
-                                val sizeT = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+                                val sizeT = f
                                 val srcW = sourceNextBounds.size.width.toFloat().coerceAtLeast(1f)
                                 val srcH = sourceNextBounds.size.height.toFloat().coerceAtLeast(1f)
                                 val parentScaleX = androidx.compose.ui.util.lerp(srcW, bw, sizeT) / bw
@@ -614,8 +608,7 @@ private class MorphingTransportButtonShape(
         val fullCornerPx = with(density) { fullCornerDpProvider().toPx() }
         if (sourceMorphProgressProvider != null && sourceBounds != null && sourceBounds.hasBounds) {
             val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-            val smooth = f * f * (3f - 2f * f)
-            val t = androidx.compose.ui.util.lerp(f, smooth, 0.35f)
+            val t = f
             val srcW = sourceBounds.size.width.toFloat().coerceAtLeast(1f)
             val srcH = sourceBounds.size.height.toFloat().coerceAtLeast(1f)
             val srcCornerPx = with(density) { miniCornerDp.toPx() }.coerceAtMost(minOf(srcW, srcH) * 0.5f)

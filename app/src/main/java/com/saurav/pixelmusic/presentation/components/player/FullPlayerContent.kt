@@ -376,16 +376,16 @@ fun FullPlayerContent(
     var totalDrag by remember { mutableStateOf(0f) }
 
     LaunchedEffect(showAodScreen) {
-        val smoothCurve = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+        val smoothCurve = CubicBezierEasing(0.22f, 0.68f, 0.35f, 1f)
         if (showAodScreen) {
             aodMorphAnim.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 560, easing = smoothCurve)
+                animationSpec = tween(durationMillis = 540, easing = smoothCurve)
             )
         } else if (aodMorphAnim.value > 0f) {
             aodMorphAnim.animateTo(
                 targetValue = 0f,
-                animationSpec = tween(durationMillis = 480, easing = smoothCurve)
+                animationSpec = tween(durationMillis = 460, easing = smoothCurve)
             )
         }
     }
@@ -689,7 +689,7 @@ fun FullPlayerContent(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniArtOffsetPx - destX) * (1f - s.posT)
                     translationY = (miniArtOffsetPx - destY) * (1f - s.posT)
-                    alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                    alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 }
         )
     }
@@ -715,7 +715,10 @@ fun FullPlayerContent(
             isSheetDragGestureActive = isSheetDragGestureActive,
             loadingTweaks = loadingTweaks,
             isLiquidGlass = isLiquidGlassActive,
-            backdrop = activeBackdrop
+            backdrop = activeBackdrop,
+            rootCoordsHolder = rootCoordsHolder,
+            aodSourceBounds = aodSourceBounds,
+            aodTransitionProgressProvider = aodTransitionProgressProvider
         )
     }
 
@@ -764,7 +767,8 @@ fun FullPlayerContent(
                 lyricsStyle = nowPlayingLyricsStyle,
                 onClick = onLyricsClick,
                 modifier = Modifier.graphicsLayer {
-                    alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                    alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                 }
             )
         }
@@ -793,7 +797,9 @@ fun FullPlayerContent(
             isLiquidGlass = isLiquidGlassActive,
             backdrop = activeBackdrop,
             morphTracker = artworkMorphTracker,
-            rootCoordsHolder = rootCoordsHolder
+            rootCoordsHolder = rootCoordsHolder,
+            aodSourceBounds = aodSourceBounds,
+            aodTransitionProgressProvider = aodTransitionProgressProvider
         )
     }
 
@@ -820,7 +826,9 @@ fun FullPlayerContent(
             isLiquidGlass = isLiquidGlassActive,
             backdrop = activeBackdrop,
             morphTracker = artworkMorphTracker,
-            rootCoordsHolder = rootCoordsHolder
+            rootCoordsHolder = rootCoordsHolder,
+            aodSourceBounds = aodSourceBounds,
+            aodTransitionProgressProvider = aodTransitionProgressProvider
         )
     }
 
@@ -1674,7 +1682,7 @@ fun FullPlayerContent(
                                 }
                             }
                             .graphicsLayer {
-                                alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                                alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                             }
                             .clip(morphShape)
                             .combinedClickable(
@@ -1716,7 +1724,7 @@ fun FullPlayerContent(
                             .align(Alignment.TopCenter)
                             .graphicsLayer {
                                 alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha *
-                                    (if (aodTransitionProgressProvider() > 0.005f) 0f else 1f)
+                                    (if (aodTransitionProgressProvider() > 0.001f) 0f else 1f)
                             }
                             .background(
                                 Brush.verticalGradient(
@@ -1796,7 +1804,7 @@ fun FullPlayerContent(
                                 }
                             }
                             .graphicsLayer {
-                                alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                                alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                             }
                             .clip(morphShape)
                             .combinedClickable(
@@ -1841,7 +1849,7 @@ fun FullPlayerContent(
                             .align(Alignment.TopCenter)
                             .graphicsLayer {
                                 alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha *
-                                    (if (aodTransitionProgressProvider() > 0.005f) 0f else 1f)
+                                    (if (aodTransitionProgressProvider() > 0.001f) 0f else 1f)
                             }
                             .background(
                                 Brush.verticalGradient(
@@ -1911,9 +1919,9 @@ fun FullPlayerContent(
             if (aodVisible) {
                 AodScreen(
                     // Hide the AOD overlay in the exact draw frame the real Now Playing art/title/scrim flip
-                    // visible (same 0.005 threshold), so the two are never drawn on top of each other.
+                    // visible (same 0.001 threshold), so the two are never drawn on top of each other.
                     modifier = Modifier.graphicsLayer {
-                        alpha = if (showAodScreen || aodMorphAnim.value > 0.005f) 1f else 0f
+                        alpha = if (aodMorphAnim.value > 0.001f) 1f else 0f
                     },
                     songTitle = song.title,
                     artistName = song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist,
@@ -2678,7 +2686,7 @@ private fun FullPlayerControlsSection(
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .graphicsLayer {
-                        alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                        alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                     },
                 isPlayingProvider = isPlayingProvider,
                 onPrevious = onPrevious,
@@ -2754,7 +2762,10 @@ private fun FullPlayerProgressSection(
     isSheetDragGestureActive: Boolean,
     loadingTweaks: FullPlayerLoadingTweaks,
     isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null
+    backdrop: com.kyant.backdrop.Backdrop? = null,
+    rootCoordsHolder: LayoutCoordsHolder? = null,
+    aodSourceBounds: AodSourceBounds? = null,
+    aodTransitionProgressProvider: () -> Float = { 0f }
 ) {
     val isMetadataForCurrentSong = playbackMetadataMediaId == song.id
     val audioMimeType = if (isMetadataForCurrentSong) {
@@ -2794,7 +2805,10 @@ private fun FullPlayerProgressSection(
         isSheetDragGestureActive = isSheetDragGestureActive,
         loadingTweaks = loadingTweaks,
         isLiquidGlass = isLiquidGlass,
-        backdrop = backdrop
+        backdrop = backdrop,
+        rootCoordsHolder = rootCoordsHolder,
+        aodSourceBounds = aodSourceBounds,
+        aodTransitionProgressProvider = aodTransitionProgressProvider
     )
 }
 
@@ -2915,7 +2929,9 @@ private fun FullPlayerSongMetadataSection(
     isLiquidGlass: Boolean = false,
     backdrop: com.kyant.backdrop.Backdrop? = null,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
-    rootCoordsHolder: LayoutCoordsHolder? = null
+    rootCoordsHolder: LayoutCoordsHolder? = null,
+    aodSourceBounds: AodSourceBounds? = null,
+    aodTransitionProgressProvider: () -> Float = { 0f }
 ) {
     DelayedContent(
         shouldDelay = false,
@@ -2962,7 +2978,9 @@ private fun FullPlayerSongMetadataSection(
             isLiquidGlass = isLiquidGlass,
             backdrop = backdrop,
             morphTracker = morphTracker,
-            rootCoordsHolder = rootCoordsHolder
+            rootCoordsHolder = rootCoordsHolder,
+            aodSourceBounds = aodSourceBounds,
+            aodTransitionProgressProvider = aodTransitionProgressProvider
         )
     }
 }
@@ -3075,12 +3093,14 @@ private fun SongMetadataDisplaySection(
     isLiquidGlass: Boolean = false,
     backdrop: com.kyant.backdrop.Backdrop? = null,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
-    rootCoordsHolder: LayoutCoordsHolder? = null
+    rootCoordsHolder: LayoutCoordsHolder? = null,
+    aodSourceBounds: AodSourceBounds? = null,
+    aodTransitionProgressProvider: () -> Float = { 0f }
 ) {
     val density = LocalDensity.current
     val miniSongInfoLeftPx = remember(density) { with(density) { 66.dp.toPx() } }
     val miniSongInfoTopPx = remember(density) { with(density) { 10.dp.toPx() } }
-    val songInfoBounds = remember { MorphElementBounds() }
+    val songInfoBounds = aodSourceBounds?.songInfoBounds ?: remember { MorphElementBounds() }
     val isDark = LocalPixelMusicDarkTheme.current
     val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
     val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
@@ -3096,7 +3116,7 @@ private fun SongMetadataDisplaySection(
         song?.let { currentSong ->
             PlayerSongInfo(
                 title = currentSong.title,
-                artist = currentSong.displayArtist,
+                artist = currentSong.displayArtist.takeIf { it.isNotBlank() } ?: currentSong.artist,
                 artistId = currentSong.artistId,
                 artists = currentSongArtists,
                 expansionFractionProvider = expansionFractionProvider,
@@ -3108,6 +3128,7 @@ private fun SongMetadataDisplaySection(
                 modifier = Modifier
                     .weight(1f)
                     .align(Alignment.CenterVertically)
+                    .padding(vertical = 4.dp)
                     .captureUntransformedBounds(rootCoordsHolder, songInfoBounds)
                     .graphicsLayer {
                         val s = morphTracker.evaluate(expansionFractionProvider())
@@ -3119,6 +3140,7 @@ private fun SongMetadataDisplaySection(
                         scaleY = scale
                         translationX = (miniSongInfoLeftPx - destX) * (1f - s.posT)
                         translationY = (miniSongInfoTopPx - destY) * (1f - s.posT)
+                        alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                     }
             )
         }
@@ -3175,7 +3197,8 @@ private fun SongMetadataDisplaySection(
             // Landscape mode: [Lyrics] [Theme] [⋮] [Queue]
             Row(
                 modifier = Modifier.graphicsLayer {
-                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                 },
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -3254,7 +3277,8 @@ private fun SongMetadataDisplaySection(
 
             Row(
                 modifier = Modifier.graphicsLayer {
-                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                    val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                    alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                 },
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -3491,8 +3515,12 @@ private fun PlayerProgressBarSection(
     loadingTweaks: FullPlayerLoadingTweaks? = null,
     isLiquidGlass: Boolean = false,
     backdrop: com.kyant.backdrop.Backdrop? = null,
+    rootCoordsHolder: LayoutCoordsHolder? = null,
+    aodSourceBounds: AodSourceBounds? = null,
+    aodTransitionProgressProvider: () -> Float = { 0f },
     modifier: Modifier = Modifier
 ) {
+    val progressBounds = aodSourceBounds?.progressBounds ?: remember { MorphElementBounds() }
     val progressSectionHorizontalInset = 0.dp
     val isVisible by remember(expansionFractionProvider) {
         derivedStateOf { expansionFractionProvider() > 0.01f }
@@ -3636,6 +3664,11 @@ private fun PlayerProgressBarSection(
             modifier = modifier
                 .fillMaxWidth()
                 .heightIn(min = 70.dp)
+                .captureUntransformedBounds(rootCoordsHolder, progressBounds)
+                .graphicsLayer {
+                    val aodFade = (1f - aodTransitionProgressProvider() * 2.4f).coerceIn(0f, 1f)
+                    alpha = aodFade
+                }
         ) {
             // Isolated Slider Component
             androidx.compose.runtime.key(songId) {
@@ -4021,21 +4054,26 @@ private fun PlayerSongInfo(
         derivedStateOf { artists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: artistId }
     }
     val titleStyle = MaterialTheme.typography.headlineSmall.copy(
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.ExtraBold,
         fontFamily = GoogleSansRounded,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = 0.sp,
         color = textColor
     )
 
     val artistStyle = MaterialTheme.typography.titleMedium.copy(
+        fontFamily = GoogleSansRounded,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp,
+        lineHeight = 20.sp,
         letterSpacing = 0.sp,
         color = artistTextColor
     )
 
     Column(
         horizontalAlignment = Alignment.Start,
-        modifier = modifier
-            .padding(vertical = 4.dp)
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         AutoScrollingTextOnDemand(
             title,
@@ -4044,7 +4082,7 @@ private fun PlayerSongInfo(
             expansionFractionProvider,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         AutoScrollingTextOnDemand(
             text = artist,

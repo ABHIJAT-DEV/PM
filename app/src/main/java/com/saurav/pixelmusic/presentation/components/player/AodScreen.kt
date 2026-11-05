@@ -104,6 +104,8 @@ import java.util.Locale
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.asin
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.pow
@@ -139,6 +141,7 @@ class AodSourceBounds {
     var topShadowStartAlpha: Float = 0f
     var topShadowMidAlpha: Float = 0f
     var carouselStyle: String = ""
+    var currentSeekProgress: Float = -1f
 }
 
 private val SmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
@@ -314,7 +317,10 @@ private class AodMorphingAlbumShape(
     private val sourceArtStyle: AodSourceArtStyle,
     private val complexRightRisePx: Float,
     private val standardCornerPx: Float,
-    private val steps: Int = 160
+    private val srcWidthPx: Float = 0f,
+    private val srcHeightPx: Float = 0f,
+    private val destSizePx: Float = 0f,
+    private val steps: Int = 240
 ) : Shape {
     override fun createOutline(
         size: Size,
@@ -325,83 +331,112 @@ private class AodMorphingAlbumShape(
         val h = size.height.coerceAtLeast(1f)
         val cx = w * 0.5f
         val cy = h * 0.5f
-        val baseRadius = min(w, h) * 0.476f
+        val srcW0 = srcWidthPx.takeIf { it > 0f } ?: w
+        val srcH0 = srcHeightPx.takeIf { it > 0f } ?: h
+        val destD = destSizePx.takeIf { it > 0f } ?: min(w, h)
+        val baseRadius = destD * 0.476f
         val clampedShapeMorph = shapeMorphProgress.coerceIn(0f, 1f)
         val clampedEnter = enterMorphT.coerceIn(0f, 1f)
-        val count = steps.coerceAtLeast(96)
+        val count = steps.coerceAtLeast(120)
         val twoPi = 2.0 * PI
 
-        // Precompute Complex asymmetric arch circle parameters when needed
+        // Evaluate the source Now Playing shape in its true t=0 dimensions (srcW0, srcH0)
+        // and the AOD shape in its true t=1 dimensions (destD, destD) so that interpolating
+        // finalR = lerp(rSrc0, rAod, clampedEnter) moves every boundary point along a pure
+        // monotonic straight line in screen space without any mid-transition upward bow or end jump.
         val useComplexArch = sourceArtStyle == AodSourceArtStyle.COMPLEX_ARCH && clampedEnter < 0.999f
-        var archCx = 0f
-        var archCy = 0f
-        var archRadius = 1f
+        var archCx0 = 0f
+        var archCy0 = 0f
+        var archRadius0 = 1f
+        var rightEdgeY0 = srcH0
+        var leftEdgeY0 = srcH0
         if (useComplexArch) {
             val archCenterXFraction = 0.25f
-            archCx = w * archCenterXFraction
-            val dxRight = (w - archCx).coerceAtLeast(1f)
-            val sRight = complexRightRisePx.coerceIn(16f, (h - 4f).coerceAtLeast(16f))
-            archRadius = (sRight / 2f) + ((dxRight * dxRight) / (2f * sRight))
-            archCy = h - archRadius
+            archCx0 = srcW0 * archCenterXFraction
+            val dxRight = (srcW0 - archCx0).coerceAtLeast(1f)
+            val sRight = complexRightRisePx.coerceIn(16f, (srcH0 - 4f).coerceAtLeast(16f))
+            archRadius0 = (sRight / 2f) + ((dxRight * dxRight) / (2f * sRight))
+            archCy0 = srcH0 - archRadius0
+            rightEdgeY0 = srcH0 - sRight
+            leftEdgeY0 = archCy0 + sqrt((archRadius0 * archRadius0 - archCx0 * archCx0).coerceAtLeast(0f))
         }
 
         val srcCornerR = when (sourceArtStyle) {
-            AodSourceArtStyle.STANDARD_ROUNDED -> standardCornerPx.coerceIn(0f, min(w, h) * 0.5f)
+            AodSourceArtStyle.STANDARD_ROUNDED -> standardCornerPx.coerceIn(0f, min(srcW0, srcH0) * 0.5f)
             AodSourceArtStyle.IMMERSIVE_RECT, AodSourceArtStyle.COMPLEX_ARCH -> 0f
         }
-        val halfW = w * 0.5f
-        val halfH = h * 0.5f
-        val innerCornerX = (halfW - srcCornerR).coerceAtLeast(0f)
-        val innerCornerY = (halfH - srcCornerR).coerceAtLeast(0f)
+        val halfW0 = srcW0 * 0.5f
+        val halfH0 = srcH0 * 0.5f
+        val innerCornerX = (halfW0 - srcCornerR).coerceAtLeast(0f)
+        val innerCornerY = (halfH0 - srcCornerR).coerceAtLeast(0f)
+
+        fun normalizeAngle(rad: Double): Double {
+            var a = rad % twoPi
+            if (a < 0.0) a += twoPi
+            return a
+        }
+
+        val angles = DoubleArray(count + 4)
+        for (i in 0 until count) {
+            angles[i] = (twoPi * i) / count
+        }
+        // Include exact corner angles of the source shape so t=0 corners are 100% sharp
+        val brY = if (useComplexArch) (rightEdgeY0 - halfH0) else halfH0
+        val blY = if (useComplexArch) (leftEdgeY0 - halfH0) else halfH0
+        angles[count] = normalizeAngle(atan2(brY.toDouble(), halfW0.toDouble()))
+        angles[count + 1] = normalizeAngle(atan2(blY.toDouble(), (-halfW0).toDouble()))
+        angles[count + 2] = normalizeAngle(atan2((-halfH0).toDouble(), (-halfW0).toDouble()))
+        angles[count + 3] = normalizeAngle(atan2((-halfH0).toDouble(), halfW0.toDouble()))
+        angles.sort()
 
         val path = Path().apply {
-            for (i in 0 until count) {
-                val theta = (twoPi * i) / count
+            for (i in angles.indices) {
+                val theta = angles[i]
                 val cosT = cos(theta).toFloat()
                 val sinT = sin(theta).toFloat()
 
-                // 1. Target AOD Expressive Shape radius at rotated angle
+                // 1. Target AOD Expressive Shape radius at rotated angle (in destD coordinates)
                 val rotatedTheta = theta - shapeRotationRad
                 val rFrom = fromShape.normalizedRadiusAt(rotatedTheta)
                 val rTo = toShape.normalizedRadiusAt(rotatedTheta)
                 val rAod = baseRadius * lerp(rFrom, rTo, clampedShapeMorph)
 
-                // 2. Source Now Playing shape radius along ray (cosT, sinT) from (cx, cy)
+                // 2. Source Now Playing shape radius along ray (cosT, sinT) in (srcW0, srcH0)
                 val finalR = if (clampedEnter >= 0.999f) {
                     rAod
                 } else {
                     val absCos = abs(cosT).coerceAtLeast(1e-5f)
                     val absSin = abs(sinT).coerceAtLeast(1e-5f)
-                    var rSrc = min(halfW / absCos, halfH / absSin)
+                    var rSrc0 = min(halfW0 / absCos, halfH0 / absSin)
 
                     if (srcCornerR > 0.5f) {
-                        val px = rSrc * absCos
-                        val py = rSrc * absSin
+                        val px = rSrc0 * absCos
+                        val py = rSrc0 * absSin
                         if (px > innerCornerX && py > innerCornerY) {
                             val dot = innerCornerX * absCos + innerCornerY * absSin
                             val cVal = innerCornerX * innerCornerX + innerCornerY * innerCornerY - srcCornerR * srcCornerR
                             val disc = (dot * dot - cVal).coerceAtLeast(0f)
-                            rSrc = min(rSrc, dot + sqrt(disc))
+                            rSrc0 = min(rSrc0, dot + sqrt(disc))
                         }
                     }
 
                     if (useComplexArch) {
-                        val ox = cx - archCx
-                        val oy = cy - archCy
+                        val ox = halfW0 - archCx0
+                        val oy = halfH0 - archCy0
                         val bQuad = ox * cosT + oy * sinT
-                        val cQuad = ox * ox + oy * oy - archRadius * archRadius
+                        val cQuad = ox * ox + oy * oy - archRadius0 * archRadius0
                         val disc = (bQuad * bQuad - cQuad).coerceAtLeast(0f)
                         val tArch = -bQuad + sqrt(disc)
                         if (tArch > 0f) {
-                            rSrc = min(rSrc, tArch)
+                            rSrc0 = min(rSrc0, tArch)
                         }
                     }
 
-                    lerp(rSrc, rAod, clampedEnter)
+                    lerp(rSrc0, rAod, clampedEnter)
                 }
 
-                val x = cx + finalR * cosT
-                val y = cy + finalR * sinT
+                val x = (cx + finalR * cosT).coerceIn(0f, w)
+                val y = (cy + finalR * sinT).coerceIn(0f, h)
                 if (i == 0) moveTo(x, y) else lineTo(x, y)
             }
             close()
@@ -635,10 +670,10 @@ fun AodScreen(
     val isPlaying = isPlayingProvider()
 
     var positionMs by remember { mutableLongStateOf(currentPositionProvider()) }
-    var currentClockTime by remember { mutableStateOf("") }
-    var currentClockDate by remember { mutableStateOf("") }
     val timeFormatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
+    var currentClockTime by remember { mutableStateOf(timeFormatter.format(Date())) }
+    var currentClockDate by remember { mutableStateOf(dateFormatter.format(Date())) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -708,15 +743,44 @@ fun AodScreen(
     }
 
     val smoothEnter = enterProgress * enterProgress * (3f - 2f * enterProgress)
-    val sizeT = lerp(enterProgress, smoothEnter, 0.35f).coerceIn(0f, 1f)
-    val posT = lerp(enterProgress, smoothEnter, 0.25f).coerceIn(0f, 1f)
+    val sizeT = enterProgress
+    val posT = enterProgress
     val aodChromeAlpha = ((enterProgress - 0.34f) / 0.66f).coerceIn(0f, 1f)
     val bgFadeAlpha = ((enterProgress - 0.01f) / 0.88f).coerceIn(0f, 1f)
+
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val aodArtSizeDp = 240.dp
+    val aodArtSizePx = with(density) { aodArtSizeDp.toPx() }
+
+    val rawSrcArtForShape = sourceBounds?.artBounds
+    val resolvedSrcArtForShape = if (rawSrcArtForShape != null && rawSrcArtForShape.hasBounds &&
+        sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED
+    ) {
+        resolveFocalArtBounds(rawSrcArtForShape, sourceBounds?.carouselStyle.orEmpty(), density)
+    } else {
+        rawSrcArtForShape
+    }
+    val fallbackShapeSrcH = when (sourceArtStyle) {
+        AodSourceArtStyle.COMPLEX_ARCH -> screenHeightPx * 0.52f
+        AodSourceArtStyle.IMMERSIVE_RECT -> screenHeightPx * 0.48f
+        AodSourceArtStyle.STANDARD_ROUNDED -> screenWidthPx - with(density) { 48.dp.toPx() }
+    }
+    val fallbackShapeSrcW = when (sourceArtStyle) {
+        AodSourceArtStyle.STANDARD_ROUNDED -> screenWidthPx - with(density) { 48.dp.toPx() }
+        else -> screenWidthPx
+    }
+    val shapeSrcW = if (resolvedSrcArtForShape != null && resolvedSrcArtForShape.hasBounds && resolvedSrcArtForShape.size.width > 0) {
+        resolvedSrcArtForShape.size.width.toFloat()
+    } else fallbackShapeSrcW
+    val shapeSrcH = if (resolvedSrcArtForShape != null && resolvedSrcArtForShape.hasBounds && resolvedSrcArtForShape.size.height > 0) {
+        resolvedSrcArtForShape.size.height.toFloat()
+    } else fallbackShapeSrcH
 
     val effectiveRotationDeg = (tapSpinRotationDeg.value + if (isPlaying) continuousRotationDeg else 0f) * sizeT
     val quantizedRotationDeg = (effectiveRotationDeg * 4f).roundToInt() / 4f
     val quantizedMorph = (shapeMorphAnim.value * 90f).roundToInt() / 90f
-    val quantizedEnter = (sizeT * 90f).roundToInt() / 90f
+    val quantizedEnter = (sizeT * 120f).roundToInt() / 120f
     val standardCornerPx = with(density) { 18.dp.toPx() }
     val complexRightRisePx = sourceBounds?.complexRightRisePx?.takeIf { it > 0f }
         ?: with(density) { (configuration.screenWidthDp.dp * 0.23f).coerceIn(74.dp, 108.dp).toPx() }
@@ -729,7 +793,10 @@ fun AodScreen(
         quantizedEnter,
         sourceArtStyle,
         complexRightRisePx,
-        standardCornerPx
+        standardCornerPx,
+        shapeSrcW,
+        shapeSrcH,
+        aodArtSizePx
     ) {
         AodMorphingAlbumShape(
             fromShape = AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
@@ -739,7 +806,10 @@ fun AodScreen(
             enterMorphT = quantizedEnter,
             sourceArtStyle = sourceArtStyle,
             complexRightRisePx = complexRightRisePx,
-            standardCornerPx = standardCornerPx
+            standardCornerPx = standardCornerPx,
+            srcWidthPx = shapeSrcW,
+            srcHeightPx = shapeSrcH,
+            destSizePx = aodArtSizePx
         )
     }
 
@@ -793,10 +863,6 @@ fun AodScreen(
     var artistTextWidthPx by remember { mutableFloatStateOf(0f) }
     val aodProgressDestBounds = remember { MorphElementBounds() }
 
-    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
-    val aodArtSizeDp = 240.dp
-    val aodArtSizePx = with(density) { aodArtSizeDp.toPx() }
     val liveStatusBarTopDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val liveNavBarBottomDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     // Frozen on first composition (bars still visible) so hiding the system bars cannot shift the AOD layout.
@@ -961,8 +1027,9 @@ fun AodScreen(
                         fontFamily = GoogleSansRounded,
                         color = morphedTitleColor,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 23.sp,
-                        letterSpacing = (-0.3).sp,
+                        fontSize = 24.sp,
+                        lineHeight = 30.sp,
+                        letterSpacing = 0.sp,
                         maxLines = 1,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
@@ -978,7 +1045,7 @@ fun AodScreen(
                             }
                             .basicMarquee()
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = artistName,
                         onTextLayout = { artistTextWidthPx = it.getLineRight(0) - it.getLineLeft(0) },
@@ -986,10 +1053,11 @@ fun AodScreen(
                         color = morphedArtistColor,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp,
+                        lineHeight = 20.sp,
                         maxLines = 1,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
-                            .fillMaxWidth(0.86f)
+                            .fillMaxWidth()
                             .graphicsLayer {
                                 val src = sourceBounds?.songInfoBounds
                                 if (src != null && src.hasBounds && aodSongInfoDestBounds.hasBounds) {
@@ -1026,7 +1094,9 @@ fun AodScreen(
                         .captureUntransformedBounds(aodRootCoordsHolder, aodProgressDestBounds)
                         .graphicsLayer {
                             val src = sourceBounds?.progressBounds
-                            if (src != null && src.hasBounds && aodProgressDestBounds.hasBounds) {
+                            if (sourceArtStyle != AodSourceArtStyle.COMPLEX_ARCH &&
+                                src != null && src.hasBounds && aodProgressDestBounds.hasBounds
+                            ) {
                                 val destX = aodProgressDestBounds.offset.x
                                 val destY = aodProgressDestBounds.offset.y
                                 translationX = (src.offset.x - destX) * (1f - posT)
@@ -1146,30 +1216,32 @@ fun AodScreen(
                     val destH = if (aodArtSlotBounds.hasBounds && aodArtSlotBounds.size.height > 0) {
                         aodArtSlotBounds.size.height.toFloat()
                     } else aodArtSizePx
-                    val destX = if (aodArtSlotBounds.hasBounds) {
-                        aodArtSlotBounds.offset.x
-                    } else (screenWidthPx - destW) * 0.5f
-                    val destY = if (aodArtSlotBounds.hasBounds) {
-                        aodArtSlotBounds.offset.y
-                    } else (screenHeightPx * 0.20f)
 
                     val curW = lerp(srcW, destW, sizeT).roundToInt().coerceAtLeast(1)
                     val curH = lerp(srcH, destH, sizeT).roundToInt().coerceAtLeast(1)
-                    val placeX = lerp(srcX, destX, posT).roundToInt()
-                    val placeY = lerp(srcY, destY, posT).roundToInt()
 
                     val placeable = measurable.measure(Constraints.fixed(curW, curH))
                     layout(curW, curH) {
+                        // Read aodArtSlotBounds.offset inside placement (after Layer 1 has been placed)
+                        // so the destination coordinates are always up-to-date on the very first frame.
+                        val destX = if (aodArtSlotBounds.hasBounds) {
+                            aodArtSlotBounds.offset.x
+                        } else (screenWidthPx - destW) * 0.5f
+                        val destY = if (aodArtSlotBounds.hasBounds) {
+                            aodArtSlotBounds.offset.y
+                        } else (screenHeightPx * 0.24f)
+                        val placeX = lerp(srcX, destX, posT).roundToInt()
+                        val placeY = lerp(srcY, destY, posT).roundToInt()
                         placeable.place(placeX, placeY)
                     }
                 }
                 .graphicsLayer {
                     alpha = if (slotReady) 1f else 0f
-                    val effectiveScale = lerp(1f, artPlayingScale, sizeT)
+                    val startScale = if (sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED) artPlayingScale else 1f
+                    val effectiveScale = lerp(startScale, artPlayingScale, sizeT)
                     scaleX = effectiveScale
                     scaleY = effectiveScale
                 }
-                .clip(albumShape)
                 .pointerInput(Unit) {
                     var lastTapTimeMs = 0L
                     awaitEachGesture {
@@ -1191,55 +1263,191 @@ fun AodScreen(
                     }
                 }
         ) {
-            SmartImage(
-                model = optimizedAlbumArtUri,
-                contentDescription = songTitle,
-                contentScale = ContentScale.Crop,
-                targetSize = coil.size.Size.ORIGINAL,
-                modifier = Modifier.fillMaxSize()
-            )
-            // Top scrim the real Now Playing art draws for status-bar legibility. Without it the real art
-            // pops darker at the top the instant it replaces this stand-in.
-            val topShadowHeightDp = sourceBounds?.topShadowHeightDp ?: 0f
-            if (topShadowHeightDp > 0f) {
-                val topShadowStart = sourceBounds?.topShadowStartAlpha ?: 0f
-                val topShadowMid = sourceBounds?.topShadowMidAlpha ?: 0f
-                Box(
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(albumShape)
+            ) {
+                SmartImage(
+                    model = optimizedAlbumArtUri,
+                    contentDescription = songTitle,
+                    contentScale = ContentScale.Crop,
+                    targetSize = coil.size.Size.ORIGINAL,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(topShadowHeightDp.dp)
-                        .align(Alignment.TopCenter)
-                        .graphicsLayer { alpha = (1f - sizeT).coerceIn(0f, 1f) }
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = topShadowStart),
-                                    Color.Black.copy(alpha = topShadowMid),
-                                    Color.Transparent
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            val srcImgScale = if (sourceArtStyle == AodSourceArtStyle.COMPLEX_ARCH && isPlaying) 1.03f else 1f
+                            val imgScale = lerp(srcImgScale, 1f, sizeT)
+                            scaleX = imgScale
+                            scaleY = imgScale
+                        }
+                )
+                // Top scrim the real Now Playing art draws for status-bar legibility. Without it the real art
+                // pops darker at the top the instant it replaces this stand-in.
+                val topShadowHeightDp = sourceBounds?.topShadowHeightDp ?: 0f
+                if (topShadowHeightDp > 0f) {
+                    val topShadowStart = sourceBounds?.topShadowStartAlpha ?: 0f
+                    val topShadowMid = sourceBounds?.topShadowMidAlpha ?: 0f
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(topShadowHeightDp.dp)
+                            .align(Alignment.TopCenter)
+                            .graphicsLayer { alpha = (1f - sizeT).coerceIn(0f, 1f) }
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = topShadowStart),
+                                        Color.Black.copy(alpha = topShadowMid),
+                                        Color.Transparent
+                                    )
                                 )
                             )
-                        )
-                )
+                    )
+                }
+                // Same bottom wash the immersive Now Playing art draws, so the hand-off to the real art
+                // at the end of the exit transition doesn't pop (and the image's dark matte stays hidden).
+                val washColorForArt = sourceBounds?.washColor ?: Color.Unspecified
+                if (sourceArtStyle == AodSourceArtStyle.IMMERSIVE_RECT && washColorForArt != Color.Unspecified) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .graphicsLayer { alpha = (1f - sizeT).coerceIn(0f, 1f) }
+                            .background(
+                                Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to Color.Black.copy(alpha = sourceBounds?.topScrimAlpha ?: 0f),
+                                        (sourceBounds?.washStart ?: 0.55f) to Color.Transparent,
+                                        (sourceBounds?.washMid ?: 0.80f) to washColorForArt.copy(alpha = sourceBounds?.washMidAlpha ?: 0.85f),
+                                        1.0f to washColorForArt
+                                    )
+                                )
+                            )
+                    )
+                }
             }
-            // Same bottom wash the immersive Now Playing art draws, so the hand-off to the real art
-            // at the end of the exit transition doesn't pop (and the image's dark matte stays hidden).
-            val washColorForArt = sourceBounds?.washColor ?: Color.Unspecified
-            if (sourceArtStyle == AodSourceArtStyle.IMMERSIVE_RECT && washColorForArt != Color.Unspecified) {
-                Box(
+
+            // Stand-in Complex curved arch seekbar drawn ON TOP of the clipped stand-in art so the top
+            // half of the track/thumb is never sliced by the art and stays glued to the morphing arch.
+            if (sourceArtStyle == AodSourceArtStyle.COMPLEX_ARCH && sizeT < 0.36f) {
+                val totalMsForArc = totalDurationProvider().coerceAtLeast(0L)
+                val liveProgressForArc = if (totalMsForArc > 0L) {
+                    (positionMs.toFloat() / totalMsForArc.toFloat()).coerceIn(0f, 1f)
+                } else 0f
+                val seekProgressForArc = sourceBounds?.currentSeekProgress
+                    ?.takeIf { it >= 0f }
+                    ?.let { lerp(it, liveProgressForArc, sizeT) }
+                    ?: liveProgressForArc
+                val activeArcColor = baseTheme.primary
+                val inactiveArcColor = baseTheme.onPrimary
+
+                Canvas(
                     modifier = Modifier
-                        .matchParentSize()
-                        .graphicsLayer { alpha = (1f - sizeT).coerceIn(0f, 1f) }
-                        .background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.Black.copy(alpha = sourceBounds?.topScrimAlpha ?: 0f),
-                                    (sourceBounds?.washStart ?: 0.55f) to Color.Transparent,
-                                    (sourceBounds?.washMid ?: 0.80f) to washColorForArt.copy(alpha = sourceBounds?.washMidAlpha ?: 0.85f),
-                                    1.0f to washColorForArt
-                                )
-                            )
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = (1f - sizeT * 3.0f).coerceIn(0f, 1f)
+                        }
+                ) {
+                    val w = size.width
+                    val h = size.height
+                    if (w <= 0f || h <= 0f) return@Canvas
+
+                    val srcW0 = shapeSrcW.coerceAtLeast(1f)
+                    val srcH0 = shapeSrcH.coerceAtLeast(1f)
+                    val destD = aodArtSizePx.coerceAtLeast(1f)
+                    val archCx0 = srcW0 * 0.25f
+                    val dxRight0 = (srcW0 - archCx0).coerceAtLeast(1f)
+                    val sRight0 = complexRightRisePx.coerceIn(16f, (srcH0 - 4f).coerceAtLeast(16f))
+                    val archRadius0 = (sRight0 / 2f) + ((dxRight0 * dxRight0) / (2f * sRight0))
+                    val archCy0 = srcH0 - archRadius0
+
+                    val edgeInsetPx = 18.dp.toPx()
+                    val leftChord = (archCx0 - edgeInsetPx).coerceAtLeast(0f)
+                    val rightChord = ((srcW0 - edgeInsetPx) - archCx0).coerceAtLeast(0f)
+                    val alphaStartDeg = Math.toDegrees(asin((leftChord / archRadius0).coerceIn(-1f, 1f).toDouble())).toFloat()
+                    val alphaEndDeg = Math.toDegrees(asin((rightChord / archRadius0).coerceIn(-1f, 1f).toDouble())).toFloat()
+
+                    val startAngleDeg = 90f + alphaStartDeg
+                    val totalSweepDeg = -(alphaStartDeg + alphaEndDeg)
+                    val thumbAngleDeg = startAngleDeg + (totalSweepDeg * seekProgressForArc)
+
+                    val scaleFactor = lerp(1f, destD / srcW0, sizeT)
+                    val trackStrokePx = 10.dp.toPx() * scaleFactor
+                    val gapArcLengthPx = 13.dp.toPx()
+                    val gapDeg = Math.toDegrees((gapArcLengthPx / archRadius0).toDouble()).toFloat()
+
+                    val shapeRotRad = Math.toRadians(quantizedRotationDeg.toDouble())
+                    val fromKind = AOD_EXPRESSIVE_SHAPES[previousShapeIndex]
+                    val toKind = AOD_EXPRESSIVE_SHAPES[targetShapeIndex]
+
+                    fun mapArchPoint(circleAngleDeg: Float, radialOffsetPx: Float): Offset {
+                        val rad = Math.toRadians(circleAngleDeg.toDouble())
+                        val rCircle = archRadius0 + radialOffsetPx
+                        val x0 = archCx0 + rCircle * cos(rad).toFloat()
+                        val y0 = archCy0 + rCircle * sin(rad).toFloat()
+                        val dx0 = x0 - srcW0 * 0.5f
+                        val dy0 = y0 - srcH0 * 0.5f
+                        val r0 = sqrt(dx0 * dx0 + dy0 * dy0).coerceAtLeast(1e-4f)
+                        val theta = atan2(dy0.toDouble(), dx0.toDouble())
+                        val rotatedTheta = theta - shapeRotRad
+                        val rFrom = fromKind.normalizedRadiusAt(rotatedTheta)
+                        val rTo = toKind.normalizedRadiusAt(rotatedTheta)
+                        val r1 = destD * 0.476f * lerp(rFrom, rTo, quantizedMorph) + radialOffsetPx * scaleFactor
+                        val fR = lerp(r0, r1, sizeT)
+                        return Offset(
+                            x = w * 0.5f + fR * (dx0 / r0),
+                            y = h * 0.5f + fR * (dy0 / r0)
                         )
-                )
+                    }
+
+                    val activeSweepDeg = (thumbAngleDeg - startAngleDeg) + gapDeg
+                    if (activeSweepDeg < -0.15f) {
+                        val clampedSweep = activeSweepDeg.coerceAtLeast(totalSweepDeg)
+                        val segs = 32
+                        val activePath = Path().apply {
+                            for (i in 0..segs) {
+                                val a = startAngleDeg + clampedSweep * (i.toFloat() / segs)
+                                val pt = mapArchPoint(a, 0f)
+                                if (i == 0) moveTo(pt.x, pt.y) else lineTo(pt.x, pt.y)
+                            }
+                        }
+                        drawPath(
+                            path = activePath,
+                            color = activeArcColor,
+                            style = Stroke(width = trackStrokePx, cap = StrokeCap.Round)
+                        )
+                    }
+
+                    val inactiveStartDeg = thumbAngleDeg - gapDeg
+                    val endAngleDeg = startAngleDeg + totalSweepDeg
+                    val inactiveSweepDeg = endAngleDeg - inactiveStartDeg
+                    if (inactiveSweepDeg < -0.15f) {
+                        val segs = 32
+                        val inactivePath = Path().apply {
+                            for (i in 0..segs) {
+                                val a = inactiveStartDeg + inactiveSweepDeg * (i.toFloat() / segs)
+                                val pt = mapArchPoint(a, 0f)
+                                if (i == 0) moveTo(pt.x, pt.y) else lineTo(pt.x, pt.y)
+                            }
+                        }
+                        drawPath(
+                            path = inactivePath,
+                            color = inactiveArcColor,
+                            style = Stroke(width = trackStrokePx, cap = StrokeCap.Round)
+                        )
+                    }
+
+                    val halfThumbLenPx = 12.dp.toPx()
+                    val innerPt = mapArchPoint(thumbAngleDeg, -halfThumbLenPx)
+                    val outerPt = mapArchPoint(thumbAngleDeg, +halfThumbLenPx)
+                    drawLine(
+                        color = activeArcColor,
+                        start = innerPt,
+                        end = outerPt,
+                        strokeWidth = 7.dp.toPx() * scaleFactor,
+                        cap = StrokeCap.Round
+                    )
+                }
             }
         }
     }

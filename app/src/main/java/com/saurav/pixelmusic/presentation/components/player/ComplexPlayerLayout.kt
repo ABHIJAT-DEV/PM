@@ -474,13 +474,7 @@ fun ComplexPlayerLayout(
             bounds.topShadowHeightDp = 104f
             bounds.topShadowStartAlpha = 0.38f
             bounds.topShadowMidAlpha = 0.10f
-            val edgeInsetPx = with(density) { 18.dp.toPx() }
-            bounds.progressBounds.offset = Offset(edgeInsetPx, artHeightPx - rightRisePx * 0.55f)
-            bounds.progressBounds.size = IntSize(
-                (screenWidthPx - edgeInsetPx * 2f).roundToInt().coerceAtLeast(1),
-                with(density) { 34.dp.toPx() }.roundToInt()
-            )
-            bounds.progressBounds.hasBounds = true
+            bounds.progressBounds.hasBounds = false
         }
 
         val morphTracker = remember { ArtworkMorphTracker() }
@@ -534,7 +528,7 @@ fun ComplexPlayerLayout(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                        alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                     }
                     .clip(scoopedShape)
             ) {
@@ -594,6 +588,7 @@ fun ComplexPlayerLayout(
                 onEnterAodScreen = onEnterAodScreen,
                 onPrevious = onPrevious,
                 onNext = onNext,
+                aodSourceBounds = aodSourceBounds,
                 aodTransitionProgressProvider = aodTransitionProgressProvider,
                 modifier = Modifier.fillMaxSize()
             )
@@ -646,7 +641,7 @@ fun ComplexPlayerLayout(
                             scaleY = scale
                             translationX = (miniSongInfoLeftPx - destX) * (1f - s.posT)
                             translationY = (miniSongInfoTopPx - destY) * (1f - s.posT)
-                            alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                            alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                         }
                 ) {
                     key(song.id, resolvedTitle) {
@@ -877,6 +872,7 @@ private fun CurvedArcSeekBar(
     onEnterAodScreen: () -> Unit = {},
     onPrevious: () -> Unit = {},
     onNext: () -> Unit = {},
+    aodSourceBounds: AodSourceBounds? = null,
     aodTransitionProgressProvider: () -> Float = { 0f },
     modifier: Modifier = Modifier
 ) {
@@ -942,6 +938,7 @@ private fun CurvedArcSeekBar(
         targetSeekFraction >= 0f -> targetSeekFraction
         else -> smoothProgressState.value
     }.coerceIn(0f, 1f)
+    aodSourceBounds?.currentSeekProgress = currentProgress
 
     val isDragging = sliderDragValue != null
     val thumbLengthScale by animateFloatAsState(
@@ -967,9 +964,8 @@ private fun CurvedArcSeekBar(
     Box(
         modifier = modifier
             .graphicsLayer {
-                val aodFade = (1f - aodTransitionProgressProvider() * 2.4f).coerceIn(0f, 1f)
-                val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
-                alpha = a
+                val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
+                alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else a
             }
             .pointerInput(songId, rightRisePx, isExpanded) {
                 if (!isExpanded) return@pointerInput
@@ -1795,7 +1791,7 @@ private fun VerticalExpressiveControlStack(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniPrevLeftPx - destX) * (1f - s.posT)
                     translationY = (miniBtnTopPx - destY) * (1f - s.posT)
-                    alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                    alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
@@ -1858,7 +1854,7 @@ private fun VerticalExpressiveControlStack(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniPlayLeftPx - destX) * (1f - s.posT)
                     translationY = (miniBtnTopPx - destY) * (1f - s.posT)
-                    alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                    alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 },
             defaultCornerDp = if (playPauseVisualState) 20.dp else 34.dp,
             pressedCornerDp = 14.dp,
@@ -1928,7 +1924,7 @@ private fun VerticalExpressiveControlStack(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniNextLeftPx - destX) * (1f - s.posT)
                     translationY = (miniBtnTopPx - destY) * (1f - s.posT)
-                    alpha = if (aodTransitionProgressProvider() > 0.005f) 0f else 1f
+                    alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 },
             defaultCornerDp = 34.dp,
             pressedCornerDp = 16.dp,
