@@ -2462,6 +2462,7 @@ fun SettingsCategoryScreen(
 
                             SettingsCategory.LASTFM -> {
                                 var showLoginDialog by remember { mutableStateOf(false) }
+                                var showCustomApiDialog by remember { mutableStateOf(false) }
 
                                 SettingsSubsection(title = stringResource(R.string.settings_accounts_row_title)) {
                                     val isLoggedIn = uiState.lastfmSession.isNotEmpty()
@@ -2496,6 +2497,26 @@ fun SettingsCategoryScreen(
                                                 showLoginDialog = true
                                             }
                                         }
+                                    )
+                                    val hasCustomApi = uiState.lastfmApiKey.isNotBlank() && uiState.lastfmApiSecret.isNotBlank()
+                                    SettingsItem(
+                                        title = "Custom API Key",
+                                        subtitle = if (hasCustomApi) "Using custom Last.fm API credentials" else "Using built-in PixelMusic API key (Default)",
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.DeveloperBoard,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.secondary
+                                            )
+                                        },
+                                        trailingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.ChevronRight,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        },
+                                        onClick = { showCustomApiDialog = true }
                                     )
                                 }
 
@@ -2579,14 +2600,67 @@ fun SettingsCategoryScreen(
                                     )
                                 }
 
+                                if (showCustomApiDialog) {
+                                    var customKeyInput by remember { mutableStateOf(uiState.lastfmApiKey) }
+                                    var customSecretInput by remember { mutableStateOf(uiState.lastfmApiSecret) }
+
+                                    AlertDialog(
+                                        onDismissRequest = { showCustomApiDialog = false },
+                                        title = { Text("Custom Last.fm API Key") },
+                                        text = {
+                                            Column(
+                                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    text = "Leave both fields blank to use PixelMusic's built-in Last.fm API key.",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                OutlinedTextField(
+                                                    value = customKeyInput,
+                                                    onValueChange = { customKeyInput = it },
+                                                    label = { Text("Custom API Key") },
+                                                    singleLine = true,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                                OutlinedTextField(
+                                                    value = customSecretInput,
+                                                    onValueChange = { customSecretInput = it },
+                                                    label = { Text("Custom API Secret") },
+                                                    singleLine = true,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        },
+                                        confirmButton = {
+                                            TextButton(
+                                                onClick = {
+                                                    val trimmedKey = customKeyInput.trim()
+                                                    val trimmedSecret = customSecretInput.trim()
+                                                    settingsViewModel.setLastfmApiKey(trimmedKey)
+                                                    settingsViewModel.setLastfmApiSecret(trimmedSecret)
+                                                    com.saurav.pixelmusic.data.lastfm.LastFM.initialize(
+                                                        trimmedKey.ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_API_KEY },
+                                                        trimmedSecret.ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_SECRET }
+                                                    )
+                                                    showCustomApiDialog = false
+                                                }
+                                            ) {
+                                                Text("Save")
+                                            }
+                                        },
+                                        dismissButton = {
+                                            TextButton(onClick = { showCustomApiDialog = false }) {
+                                                Text("Cancel")
+                                            }
+                                        }
+                                    )
+                                }
+
                                 if (showLoginDialog) {
                                     var username by remember { mutableStateOf("") }
                                     var password by remember { mutableStateOf("") }
-                                    var apiKey by remember { mutableStateOf(uiState.lastfmApiKey) }
-                                    var apiSecret by remember { mutableStateOf(uiState.lastfmApiSecret) }
-                                    var showAdvancedApi by remember {
-                                        mutableStateOf(uiState.lastfmApiKey.isNotBlank() || uiState.lastfmApiSecret.isNotBlank())
-                                    }
                                     var isLoggingIn by remember { mutableStateOf(false) }
                                     var isStartingBrowserAuth by remember { mutableStateOf(false) }
                                     var pendingWebToken by remember { mutableStateOf<String?>(null) }
@@ -2594,10 +2668,8 @@ fun SettingsCategoryScreen(
                                     val loginCoroutineScope = rememberCoroutineScope()
 
                                     val resolveActiveKeys = {
-                                        val customKey = apiKey.trim()
-                                        val customSecret = apiSecret.trim()
-                                        val effectiveKey = customKey.ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_API_KEY }
-                                        val effectiveSecret = customSecret.ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_SECRET }
+                                        val effectiveKey = uiState.lastfmApiKey.trim().ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_API_KEY }
+                                        val effectiveSecret = uiState.lastfmApiSecret.trim().ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_SECRET }
                                         Pair(effectiveKey, effectiveSecret)
                                     }
 
@@ -2614,8 +2686,6 @@ fun SettingsCategoryScreen(
                                                     val name = authSession.session.name
                                                     settingsViewModel.setLastfmSession(sk)
                                                     settingsViewModel.setLastfmUsername(name)
-                                                    settingsViewModel.setLastfmApiKey(apiKey.trim())
-                                                    settingsViewModel.setLastfmApiSecret(apiSecret.trim())
                                                     com.saurav.pixelmusic.data.lastfm.LastFM.sessionKey = sk
                                                     pendingWebToken = null
                                                     isLoggingIn = false
@@ -2707,7 +2777,7 @@ fun SettingsCategoryScreen(
                                                 OutlinedTextField(
                                                     value = username,
                                                     onValueChange = { username = it },
-                                                    label = { Text(stringResource(R.string.lastfm_username)) },
+                                                    label = { Text("Username or Email") },
                                                     singleLine = true,
                                                     modifier = Modifier.fillMaxWidth(),
                                                     enabled = !isLoggingIn
@@ -2721,58 +2791,6 @@ fun SettingsCategoryScreen(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     enabled = !isLoggingIn
                                                 )
-                                                val chevronRotation by animateFloatAsState(
-                                                    targetValue = if (showAdvancedApi) 180f else 0f,
-                                                    label = "advancedApiChevron"
-                                                )
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .clickable(enabled = !isLoggingIn) { showAdvancedApi = !showAdvancedApi }
-                                                        .padding(vertical = 6.dp, horizontal = 4.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        text = "Advanced: Use custom API key",
-                                                        style = MaterialTheme.typography.labelLarge,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                    Icon(
-                                                        imageVector = Icons.Rounded.ExpandMore,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.rotate(chevronRotation)
-                                                    )
-                                                }
-                                                AnimatedVisibility(
-                                                    visible = showAdvancedApi,
-                                                    enter = expandVertically() + fadeIn(),
-                                                    exit = shrinkVertically() + fadeOut()
-                                                ) {
-                                                    Column(
-                                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) {
-                                                        OutlinedTextField(
-                                                            value = apiKey,
-                                                            onValueChange = { apiKey = it },
-                                                            label = { Text("Custom API Key (Optional)") },
-                                                            singleLine = true,
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            enabled = !isLoggingIn
-                                                        )
-                                                        OutlinedTextField(
-                                                            value = apiSecret,
-                                                            onValueChange = { apiSecret = it },
-                                                            label = { Text("Custom API Secret (Optional)") },
-                                                            singleLine = true,
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            enabled = !isLoggingIn
-                                                        )
-                                                    }
-                                                }
                                                 if (loginError != null) {
                                                     Text(
                                                         text = loginError!!,
@@ -2799,8 +2817,6 @@ fun SettingsCategoryScreen(
                                                                     val name = authSession.session.name
                                                                     settingsViewModel.setLastfmSession(sk)
                                                                     settingsViewModel.setLastfmUsername(name)
-                                                                    settingsViewModel.setLastfmApiKey(apiKey.trim())
-                                                                    settingsViewModel.setLastfmApiSecret(apiSecret.trim())
                                                                     com.saurav.pixelmusic.data.lastfm.LastFM.sessionKey = sk
                                                                     pendingWebToken = null
                                                                     isLoggingIn = false
@@ -2827,8 +2843,6 @@ fun SettingsCategoryScreen(
                                                     isLoggingIn = true
                                                     loginError = null
                                                     loginCoroutineScope.launch {
-                                                        val customKey = apiKey.trim()
-                                                        val customSecret = apiSecret.trim()
                                                         val (effectiveKey, effectiveSecret) = resolveActiveKeys()
                                                         com.saurav.pixelmusic.data.lastfm.LastFM.initialize(effectiveKey, effectiveSecret)
                                                         val result = com.saurav.pixelmusic.data.lastfm.LastFM.getMobileSession(username.trim(), password)
@@ -2838,8 +2852,6 @@ fun SettingsCategoryScreen(
                                                                 val name = authSession.session.name
                                                                 settingsViewModel.setLastfmSession(sk)
                                                                 settingsViewModel.setLastfmUsername(name)
-                                                                settingsViewModel.setLastfmApiKey(customKey)
-                                                                settingsViewModel.setLastfmApiSecret(customSecret)
                                                                 com.saurav.pixelmusic.data.lastfm.LastFM.sessionKey = sk
                                                                 pendingWebToken = null
                                                                 isLoggingIn = false
@@ -2848,9 +2860,13 @@ fun SettingsCategoryScreen(
                                                             },
                                                             onFailure = { throwable ->
                                                                 isLoggingIn = false
-                                                                loginError = throwable.localizedMessage ?: "Unknown authentication error"
-                                                                val savedKey = uiState.lastfmApiKey.ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_API_KEY }
-                                                                val savedSecret = uiState.lastfmApiSecret.ifEmpty { com.saurav.pixelmusic.BuildConfig.LASTFM_SECRET }
+                                                                val lastFmErr = throwable as? com.saurav.pixelmusic.data.lastfm.LastFM.LastFmException
+                                                                loginError = if (lastFmErr?.code == 4) {
+                                                                    "Incorrect Last.fm username/email or password (make sure you enter your Last.fm username, or use Log in via Browser)."
+                                                                } else {
+                                                                    throwable.localizedMessage ?: "Unknown authentication error"
+                                                                }
+                                                                val (savedKey, savedSecret) = resolveActiveKeys()
                                                                 com.saurav.pixelmusic.data.lastfm.LastFM.initialize(savedKey, savedSecret)
                                                             }
                                                         )

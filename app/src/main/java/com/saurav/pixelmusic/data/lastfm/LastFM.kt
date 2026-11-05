@@ -49,7 +49,6 @@ object LastFM {
         extra: Map<String, String> = emptyMap(),
         format: String = "json"
     ) {
-        contentType(ContentType.Application.FormUrlEncoded)
         userAgent("PixelMusic (https://github.com/Saurav-02/PixelMusic)")
         val paramsForSig = mutableMapOf(
             "method" to method,
