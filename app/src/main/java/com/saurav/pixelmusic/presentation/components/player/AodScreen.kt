@@ -471,7 +471,11 @@ fun AodScreen(
     val coroutineScope = rememberCoroutineScope()
 
     val enterProgress = enterProgressProvider().coerceIn(0f, 1f)
-    val isSettledInAod = enterProgress > 0.65f
+    // Only flips once the enter transition has fully finished (and flips back as soon as exit starts),
+    // so system bars / brightness changes never happen mid-transition.
+    val isSettledInAod by remember {
+        androidx.compose.runtime.derivedStateOf { enterProgressProvider() >= 0.999f }
+    }
 
     BackHandler(enabled = enterProgress > 0.05f) {
         onDismiss()
@@ -550,7 +554,14 @@ fun AodScreen(
     val shapeMorphAnim = remember { Animatable(1f) }
     val tapSpinRotationDeg = remember { Animatable(0f) }
 
+    var firstShapeRun by remember { mutableStateOf(true) }
     LaunchedEffect(songTitle, optimizedAlbumArtUri) {
+        // Skip on first composition: the enter transition already morphs the art, and this 780ms
+        // morph/spin would otherwise keep running after the 560ms enter tween has finished.
+        if (firstShapeRun) {
+            firstShapeRun = false
+            return@LaunchedEffect
+        }
         val nextIdx = pickNextExpressiveShapeIndex(targetShapeIndex)
         previousShapeIndex = targetShapeIndex
         targetShapeIndex = nextIdx
@@ -707,8 +718,11 @@ fun AodScreen(
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
     val aodArtSizeDp = 240.dp
     val aodArtSizePx = with(density) { aodArtSizeDp.toPx() }
-    val statusBarTopDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val navBarBottomDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val liveStatusBarTopDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val liveNavBarBottomDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    // Frozen on first composition (bars still visible) so hiding the system bars cannot shift the AOD layout.
+    val statusBarTopDp = remember(configuration.orientation) { liveStatusBarTopDp }
+    val navBarBottomDp = remember(configuration.orientation) { liveNavBarBottomDp }
 
     // Interpolate background & button colors between Now Playing and AOD palette
     val currentBgColor = lerp(targetPalette.sourceBgColor, targetPalette.canvasColor, smoothEnter)

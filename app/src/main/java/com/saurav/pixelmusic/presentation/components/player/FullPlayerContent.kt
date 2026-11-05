@@ -370,6 +370,9 @@ fun FullPlayerContent(
     val aodMorphAnim = remember { Animatable(0f) }
     val aodSourceBounds = remember { AodSourceBounds() }
     val aodTransitionProgressProvider = remember(aodMorphAnim) { { aodMorphAnim.value } }
+    val aodVisible by remember {
+        androidx.compose.runtime.derivedStateOf { showAodScreen || aodMorphAnim.value > 0.001f }
+    }
     var totalDrag by remember { mutableStateOf(0f) }
 
     LaunchedEffect(showAodScreen) {
@@ -1882,7 +1885,7 @@ fun FullPlayerContent(
                 }
             }
 
-            if (showAodScreen || aodMorphAnim.value > 0.001f) {
+            if (aodVisible) {
                 AodScreen(
                     songTitle = song.title,
                     artistName = song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist,
