@@ -70,9 +70,19 @@ fun PlayerSeekBar(
             val now = System.currentTimeMillis()
             val timeSinceSeek = now - lastSeekFinishedTime
             val diffFraction = kotlin.math.abs(progressFraction - targetSeekFraction)
-            if (targetSeekFraction < 0f || timeSinceSeek > 5000L || diffFraction < 0.04f) {
+            if (targetSeekFraction < 0f || timeSinceSeek > 2000L || diffFraction < 0.04f) {
                 seekFraction = progressFraction
                 targetSeekFraction = -1f
+            }
+        }
+    }
+
+    LaunchedEffect(lastSeekFinishedTime, targetSeekFraction, isUserSeeking) {
+        if (!isUserSeeking && targetSeekFraction >= 0f && lastSeekFinishedTime > 0L) {
+            kotlinx.coroutines.delay(2000L)
+            if (!isUserSeeking) {
+                targetSeekFraction = -1f
+                seekFraction = progressFraction
             }
         }
     }

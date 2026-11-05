@@ -2322,12 +2322,14 @@ class PlayerViewModel @Inject constructor(
             } else {
                 syncDisplayedMediaItemIfChanged(newPlayer)
             }
+            startProgressUpdates()
         }
     }
 
     private val dualEngineDisplayListener: (Player) -> Unit = { incomingPlayer ->
         viewModelScope.launch(Dispatchers.Main.immediate) {
             syncDisplayedMediaItemIfChanged(incomingPlayer)
+            startProgressUpdates()
         }
     }
 
@@ -2346,14 +2348,21 @@ class PlayerViewModel @Inject constructor(
                     playWhenReady = ctrl.playWhenReady
                 )
             }
+            if (ctrl.isPlaying || ctrl.playWhenReady) {
+                startProgressUpdates()
+            }
         }
     }
 
     init {
         Log.i("PlayerViewModel", "init started.")
+        playbackStateHolder.setOnMediaItemMismatchListener { player ->
+            syncDisplayedMediaItemIfChanged(player)
+        }
         dualPlayerEngine.addPlayerSwapListener(dualEngineSwapListener)
         dualPlayerEngine.addTransitionDisplayPlayerListener(dualEngineDisplayListener)
         dualPlayerEngine.addTransitionFinishedListener(dualEngineFinishedListener)
+        startProgressUpdates()
 
         // Cast initialization if already connected
         val currentSession = sessionManager?.currentCastSession
@@ -2785,6 +2794,16 @@ class PlayerViewModel @Inject constructor(
     fun checkAndReconnectMediaController(action: (() -> Unit)? = null) {
         val currentController = mediaController
         if (currentController != null && currentController.isConnected) {
+            syncDisplayedMediaItemIfChanged(currentController)
+            val currentPos = currentController.currentPosition.coerceAtLeast(0L)
+            syncPlaybackPositionFromPlayer(currentController.currentMediaItem?.mediaId, currentPos)
+            playbackStateHolder.updateStablePlayerState {
+                it.copy(
+                    isPlaying = currentController.isPlaying,
+                    playWhenReady = currentController.playWhenReady
+                )
+            }
+            startProgressUpdates()
             action?.invoke()
             return
         }
@@ -4590,7 +4609,6 @@ class PlayerViewModel @Inject constructor(
                         }
                     }
                 } else {
-                    stopProgressUpdates()
                     val pausedPosition = playerCtrl.currentPosition.coerceAtLeast(0L)
                     syncPlaybackPositionFromPlayer(playerCtrl.currentMediaItem?.mediaId, pausedPosition)
                 }
@@ -6397,6 +6415,8 @@ class PlayerViewModel @Inject constructor(
 
     override fun onCleared() {
         dualPlayerEngine.removePlayerSwapListener(dualEngineSwapListener)
+        playbackStateHolder.setOnMediaItemMismatchListener(null)
+        dualPlayerEngine.removePlayerSwapListener(dualEngineSwapListener)
         dualPlayerEngine.removeTransitionDisplayPlayerListener(dualEngineDisplayListener)
         dualPlayerEngine.removeTransitionFinishedListener(dualEngineFinishedListener)
         mediaControllerPlaybackListener?.let { listener ->
@@ -6414,7 +6434,6 @@ class PlayerViewModel @Inject constructor(
         castSongUiSyncJob?.cancel()
         stopProgressUpdates()
         playbackStateHolder.onCleared()
-        listeningStatsTracker.onCleared()
         dailyMixStateHolder.onCleared()
         lyricsStateHolder.onCleared()
         themeStateHolder.onCleared()

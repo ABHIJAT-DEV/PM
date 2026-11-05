@@ -73,15 +73,19 @@ fun rememberSmoothProgress(
     val latestSampleWhilePausedMs by rememberUpdatedState(sampleWhilePausedMs)
     val latestIsVisible by rememberUpdatedState(isVisible)
 
-    val safeUpperBound = totalDuration.coerceAtLeast(0L)
-    val safeDuration = totalDuration.coerceAtLeast(1L)
+    val latestTotalDuration by rememberUpdatedState(totalDuration)
 
-    LaunchedEffect(totalDuration, songId) {
+    LaunchedEffect(songId) {
         fun sampleNow() {
-            val rawPosition = latestPositionProvider()
-            val clampedPosition = rawPosition.coerceIn(0L, safeUpperBound)
+            val rawPosition = latestPositionProvider().coerceAtLeast(0L)
+            val dur = latestTotalDuration.coerceAtLeast(0L)
+            val clampedPosition = if (dur > 0L) rawPosition.coerceIn(0L, dur) else rawPosition
             sampledPosition = clampedPosition
-            sampledFraction = (clampedPosition / safeDuration.toFloat()).coerceIn(0f, 1f)
+            sampledFraction = if (dur > 0L) {
+                (clampedPosition.toFloat() / dur.toFloat()).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
         }
 
         sampleNow()

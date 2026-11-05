@@ -35,6 +35,7 @@ import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.PlaylistViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.StablePlayerState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 internal data class SaveQueueOverlayData(
@@ -180,7 +181,7 @@ internal fun UnifiedPlayerSongInfoLayer(
         val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
         val favoriteSongIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle()
         val liveSongState by remember(playerViewModel, staticSong.id) {
-            playerViewModel.observeSong(staticSong.id).map { it ?: staticSong }
+            playerViewModel.observeSong(staticSong.id).map { it ?: staticSong }.distinctUntilChanged()
         }.collectAsStateWithLifecycle(initialValue = staticSong)
 
         val liveSong = remember(liveSongState, favoriteSongIds) {

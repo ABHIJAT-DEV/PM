@@ -2090,6 +2090,7 @@ fun FullPlayerContent(
             shape = sheetShape,
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
         ) {
+            val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
             val isLiquidGlass = LocalLiquidGlassEnabled.current
             val isDark = LocalPixelMusicDarkTheme.current
 
@@ -2136,11 +2137,12 @@ fun FullPlayerContent(
                                 ?: if (song.albumId > 0) song.albumId.toString() else null
 
                             val navigateToOrigin = {
-                                showSongInfoBottomSheet = false
-                                if (resolvedAlbumIdStr != null) {
-                                    playerViewModel.triggerAlbumNavigationFromPlayer(resolvedAlbumIdStr)
-                                } else {
-                                    onSongMetadataArtistClick()
+                                smoothDismiss {
+                                    if (resolvedAlbumIdStr != null) {
+                                        playerViewModel.triggerAlbumNavigationFromPlayer(resolvedAlbumIdStr)
+                                    } else {
+                                        onSongMetadataArtistClick()
+                                    }
                                 }
                             }
 
@@ -2195,8 +2197,9 @@ fun FullPlayerContent(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.clickable {
-                                                showSongInfoBottomSheet = false
-                                                onSongMetadataArtistClick()
+                                                smoothDismiss {
+                                                    onSongMetadataArtistClick()
+                                                }
                                             }
                                         )
                                         val sourceOrAlbum = if (song.album.isNotBlank() && song.album != song.title) {
@@ -2257,8 +2260,8 @@ fun FullPlayerContent(
                                 tonalElevation = if (isLiquidGlass) 0.dp else 2.dp,
                                 shadowElevation = 0.dp,
                                 onClick = {
-                                    showSongInfoBottomSheet = false
                                     playerViewModel.startMixFromSong(song)
+                                    smoothDismiss(null)
                                 }
                             ) {
                                 Row(
@@ -2350,8 +2353,9 @@ fun FullPlayerContent(
                                         },
                                         iconTint = LocalMaterialTheme.current.primary,
                                         onClick = {
-                                            showSongInfoBottomSheet = false
-                                            showPlaylistBottomSheet = true
+                                            smoothDismiss {
+                                                showPlaylistBottomSheet = true
+                                            }
                                         }
                                     )
 
@@ -2376,7 +2380,7 @@ fun FullPlayerContent(
                                         },
                                         onClick = {
                                             if (!isDownloaded) {
-                                                showSongInfoBottomSheet = false
+                                                smoothDismiss(null)
                                                 fileImportScope.launch {
                                                     var currentLyricsObj = lyricsProvider()
                                                     if (currentLyricsObj == null) {
@@ -2422,8 +2426,9 @@ fun FullPlayerContent(
                                         },
                                         iconTint = LocalMaterialTheme.current.onSurfaceVariant,
                                         onClick = {
-                                            showSongInfoBottomSheet = false
-                                            showShareSheet = true
+                                            smoothDismiss {
+                                                showShareSheet = true
+                                            }
                                         }
                                     )
 
@@ -2470,8 +2475,9 @@ fun FullPlayerContent(
                                             }
                                         },
                                         onClick = {
-                                            showSongInfoBottomSheet = false
-                                            showSleepTimerSheet = true
+                                            smoothDismiss {
+                                                showSleepTimerSheet = true
+                                            }
                                         }
                                     )
 
@@ -2501,7 +2507,7 @@ fun FullPlayerContent(
                                             )
                                         },
                                         onClick = {
-                                            showSongInfoBottomSheet = false
+                                            smoothDismiss {
                                             coroutineScope.launch {
                                                 val selectedType = playerViewModel.userPreferencesRepository.equalizerTypeFlow.first()
                                                 if (selectedType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
@@ -2521,6 +2527,7 @@ fun FullPlayerContent(
                                                 } else {
                                                     playerViewModel.triggerEqualizerNavigation()
                                                 }
+                                            }
                                             }
                                         }
                                     )
@@ -3610,9 +3617,8 @@ private fun PlayerProgressBarSection(
         lastSeekFinishedTime = 0L
     }
 
-    // Release the held target once smooth progress catches up (within 4%) or after a 5 s
-    // safety net — same thresholds as the LyricsSheet PlayerSeekBar. Re-keying on songId
-    // restarts the snapshotFlow so the new song's progress drives the catch-up cleanly.
+    // Release the held target once smooth progress catches up (within 4%) or after a 1.5 s
+    // safety net — same thresholds as the LyricsSheet PlayerSeekBar.
     LaunchedEffect(songId) {
         snapshotFlow { smoothProgressState.value }.collect { progress ->
             if (sliderDragValue != null) return@collect
@@ -3621,6 +3627,15 @@ private fun PlayerProgressBarSection(
             val timeSinceSeek = System.currentTimeMillis() - lastSeekFinishedTime
             val diff = kotlin.math.abs(progress - target)
             if (timeSinceSeek > 1500L || diff < 0.04f) {
+                targetSeekFraction = -1f
+            }
+        }
+    }
+
+    LaunchedEffect(lastSeekFinishedTime, targetSeekFraction) {
+        if (targetSeekFraction >= 0f && lastSeekFinishedTime > 0L) {
+            kotlinx.coroutines.delay(1500L)
+            if (sliderDragValue == null) {
                 targetSeekFraction = -1f
             }
         }

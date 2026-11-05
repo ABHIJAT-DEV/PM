@@ -72,6 +72,26 @@ class PlaybackStateHolder @Inject constructor(
     var mediaController: MediaController? = null
         private set
 
+    private var onMediaItemMismatch: ((Player) -> Unit)? = null
+
+    fun setOnMediaItemMismatchListener(listener: ((Player) -> Unit)?) {
+        onMediaItemMismatch = listener
+    }
+
+    private fun isSameMediaTrack(song: Song, mediaId: String): Boolean {
+        if (song.id == mediaId) return true
+        val cleanMediaId = mediaId.removePrefix("youtube://").removePrefix("youtube_")
+        val cleanSongId = song.id.removePrefix("youtube://").removePrefix("youtube_")
+        if (cleanMediaId.isNotEmpty() && cleanMediaId == cleanSongId) return true
+        val ytId = song.youtubeId?.takeIf { it.isNotBlank() }
+        if (ytId != null && cleanMediaId == ytId) return true
+        if (song.contentUriString.startsWith("youtube://")) {
+            val uriYtId = song.contentUriString.removePrefix("youtube://").removePrefix("youtube_")
+            if (uriYtId.isNotEmpty() && uriYtId == cleanMediaId) return true
+        }
+        return false
+    }
+
     // Player State
     private val _stablePlayerState = MutableStateFlow(StablePlayerState())
     val stablePlayerState: StateFlow<StablePlayerState> = _stablePlayerState.asStateFlow()
@@ -615,8 +635,9 @@ class PlaybackStateHolder @Inject constructor(
     )
 
     fun startProgressUpdates() {
-        stopProgressUpdates()
+        if (progressJob?.isActive == true) return
         progressJob = scope.launch(Dispatchers.Main) {
+            var consecutiveMismatchTicks = 0
             while (true) {
                 val tickMs = currentProgressTickMs()
                 try {
@@ -624,6 +645,7 @@ class PlaybackStateHolder @Inject constructor(
                     val isRemote = castSession?.remoteMediaClient != null
                     
                     if (isRemote) {
+                        consecutiveMismatchTicks = 0
                         val remoteClient = castSession.remoteMediaClient
                         if (remoteClient != null) {
                             val isRemotePlaying = remoteClient.isPlaying
@@ -661,46 +683,78 @@ class PlaybackStateHolder @Inject constructor(
                             }
                         }
                     } else {
-                         val controller = mediaController
-                         // Media3: Check isPlaying or playbackState == READY/BUFFERING
-                         if (controller != null && controller.isPlaying && !isSeeking) {
-                             val visibleSong = _stablePlayerState.value.currentSong
-                             val currentMediaId = controller.currentMediaItem?.mediaId
-                             val hasMediaMismatch = visibleSong?.id != null &&
-                                 currentMediaId != null &&
-                                 visibleSong.id != currentMediaId
+                        val activePlayer: Player? = mediaController?.takeIf { it.isConnected }
+                            ?: runCatching { dualPlayerEngine.masterPlayer }.getOrNull()
+                        if (activePlayer != null && !isSeeking) {
+                            val playerIsPlaying = activePlayer.isPlaying
+                            val playerPlayWhenReady = activePlayer.playWhenReady
+                            if (playerIsPlaying) {
+                                val visibleSong = _stablePlayerState.value.currentSong
+                                val currentMediaId = activePlayer.currentMediaItem?.mediaId
+                                val hasMediaMismatch = visibleSong != null &&
+                                    currentMediaId != null &&
+                                    !isSameMediaTrack(visibleSong, currentMediaId)
 
-                             if (hasMediaMismatch) {
-                                Timber.tag(TAG).v(
-                                     "Skipping local progress tick due media mismatch (visible=%s, player=%s)",
-                                     visibleSong.id,
-                                     currentMediaId
-                                 )
-                                delay(tickMs)
-                                continue
+                                if (hasMediaMismatch) {
+                                    consecutiveMismatchTicks++
+                                    onMediaItemMismatch?.invoke(activePlayer)
+                                    if (consecutiveMismatchTicks < 2) {
+                                        Timber.tag(TAG).v(
+                                            "Resyncing local progress tick due media mismatch (visible=%s, player=%s)",
+                                            visibleSong?.id,
+                                            currentMediaId
+                                        )
+                                        delay(tickMs)
+                                        continue
+                                    }
+                                } else {
+                                    consecutiveMismatchTicks = 0
+                                }
+
+                                val currentPosition = activePlayer.currentPosition.coerceAtLeast(0L)
+                                val songDurationHint = visibleSong?.duration ?: 0L
+                                val duration = resolveEffectiveDuration(
+                                    reportedDurationMs = activePlayer.duration,
+                                    songDurationHintMs = songDurationHint,
+                                    currentPositionMs = currentPosition
+                                )
+
+                                val resolvedPosition = resolveUiPosition(currentMediaId, currentPosition)
+                                if (_currentPosition.value != resolvedPosition) {
+                                    _currentPosition.value = resolvedPosition
+                                }
+
+                                _stablePlayerState.update { state ->
+                                    if (
+                                        state.totalDuration == duration &&
+                                        state.isPlaying == true &&
+                                        state.playWhenReady == playerPlayWhenReady
+                                    ) {
+                                        state
+                                    } else {
+                                        state.copy(
+                                            totalDuration = duration,
+                                            isPlaying = true,
+                                            playWhenReady = playerPlayWhenReady
+                                        )
+                                    }
+                                }
+                            } else {
+                                consecutiveMismatchTicks = 0
+                                if (
+                                    _stablePlayerState.value.isPlaying &&
+                                    !playerPlayWhenReady &&
+                                    activePlayer.playbackState != Player.STATE_BUFFERING
+                                ) {
+                                    _stablePlayerState.update { state ->
+                                        state.copy(
+                                            isPlaying = false,
+                                            playWhenReady = false
+                                        )
+                                    }
+                                }
                             }
-
-                              val currentPosition = controller.currentPosition.coerceAtLeast(0L)
-                              val songDurationHint = visibleSong?.duration ?: 0L
-                              val duration = resolveEffectiveDuration(
-                                  reportedDurationMs = controller.duration,
-                                  songDurationHintMs = songDurationHint,
-                                  currentPositionMs = currentPosition
-                              )
-
-                              val resolvedPosition = resolveUiPosition(currentMediaId, currentPosition)
-                              if (_currentPosition.value != resolvedPosition) {
-                                  _currentPosition.value = resolvedPosition
-                              }
-
-                              _stablePlayerState.update { state ->
-                                  if (state.totalDuration == duration) {
-                                      state
-                                  } else {
-                                      state.copy(totalDuration = duration)
-                                  }
-                             }
-                          }
+                        }
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e

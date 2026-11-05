@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -252,8 +254,9 @@ fun SongInfoBottomSheet(
             CompositionLocalProvider(
                 LocalOverscrollFactory provides null
             ) {
+            val smoothDismiss = LocalSmoothDismiss.current
             val view = LocalView.current
-            LaunchedEffect(view) {
+            androidx.compose.runtime.DisposableEffect(view) {
                 var parent = view.parent
                 while (parent != null) {
                     if (parent is DialogWindowProvider) {
@@ -263,6 +266,7 @@ fun SongInfoBottomSheet(
                     }
                     parent = parent.parent
                 }
+                onDispose { }
             }
             Box(
                 modifier = Modifier
@@ -326,12 +330,7 @@ fun SongInfoBottomSheet(
 
                     // Swipeable Content
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateContentSize(
-                                animationSpec = tween(durationMillis = 280),
-                                alignment = Alignment.TopCenter
-                            )
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         HorizontalPager(
                             state = pagerState,
@@ -342,35 +341,16 @@ fun SongInfoBottomSheet(
                         ) { page ->
                             when (page) {
                                 0 -> { // Options / Actions
-                                    LazyColumn(
+                                    Column(
                                         modifier = Modifier
-                                            .fillMaxWidth(),
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                            .fillMaxWidth()
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(horizontal = 16.dp),
                                         verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        item {
-                                            val playerViewModel: PlayerViewModel = hiltViewModel()
+                                        run {
                                             val isLiquidGlass = LocalLiquidGlassEnabled.current
                                             val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                                            val glassBorderBrush = remember(isDark) {
-                                                Brush.verticalGradient(
-                                                    colors = if (isDark) listOf(
-                                                        Color.White.copy(alpha = 0.07f),
-                                                        Color.White.copy(alpha = 0.02f)
-                                                    ) else listOf(
-                                                        Color.White.copy(alpha = 0.14f),
-                                                        Color.White.copy(alpha = 0.04f)
-                                                    )
-                                                )
-                                            }
-                                            val sheenBrush = remember(isDark) {
-                                                Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                                                        Color.Transparent
-                                                    )
-                                                )
-                                            }
                                             FilledTonalButton(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -383,8 +363,8 @@ fun SongInfoBottomSheet(
                                                 ),
                                                 shape = CircleShape,
                                                 onClick = {
-                                                    onDismiss()
                                                     playerViewModel.startMixFromSong(song)
+                                                    smoothDismiss(null)
                                                 }
                                             ) {
                                                 Icon(
@@ -400,7 +380,7 @@ fun SongInfoBottomSheet(
                                                 )
                                             }
                                         }
-                                        item {
+                                        run {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -412,7 +392,7 @@ fun SongInfoBottomSheet(
                                                     modifier = Modifier
                                                         .weight(0.5f)
                                                         .fillMaxHeight(),
-                                                    onClick = onPlaySong,
+                                                    onClick = { smoothDismiss { onPlaySong() } },
                                                     elevation = FloatingActionButtonDefaults.elevation(0.dp),
                                                     shape = playButtonShape,
                                                     icon = {
@@ -501,7 +481,7 @@ fun SongInfoBottomSheet(
                                                 }
                                             }
                                         }
-                                        item {
+                                        run {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -519,7 +499,7 @@ fun SongInfoBottomSheet(
                                                     ),
                                                     contentPadding = PaddingValues(horizontal = 0.dp),
                                                     shape = CircleShape,
-                                                    onClick = onAddToQueue
+                                                    onClick = { smoothDismiss { onAddToQueue() } }
                                                 ) {
                                                     Icon(
                                                         Icons.AutoMirrored.Rounded.QueueMusic,
@@ -538,7 +518,7 @@ fun SongInfoBottomSheet(
                                                     ),
                                                     contentPadding = PaddingValues(horizontal = 0.dp),
                                                     shape = CircleShape,
-                                                    onClick = onAddNextToQueue
+                                                    onClick = { smoothDismiss { onAddNextToQueue() } }
                                                 ) {
                                                     Icon(
                                                         Icons.AutoMirrored.Filled.QueueMusic,
@@ -550,7 +530,7 @@ fun SongInfoBottomSheet(
                                             }
                                         }
 
-                                        item {
+                                        run {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -567,7 +547,7 @@ fun SongInfoBottomSheet(
                                                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                                     ),
                                                     shape = CircleShape,
-                                                    onClick = onAddToPlayList
+                                                    onClick = { smoothDismiss { onAddToPlayList() } }
                                                 ) {
                                                     Icon(
                                                         Icons.AutoMirrored.Rounded.PlaylistAdd,
@@ -588,13 +568,12 @@ fun SongInfoBottomSheet(
                                                     shape = CircleShape,
                                                     onClick = {
                                                         if (isFromPlaylist) {
-                                                            removeFromListTrigger()
-                                                            onDismiss()
+                                                            smoothDismiss { removeFromListTrigger() }
                                                         } else {
                                                             (context as? Activity)?.let { activity ->
                                                                 onDeleteFromDevice(activity, song) { result ->
                                                                     if (result) {
-                                                                        onDismiss()
+                                                                        smoothDismiss(null)
                                                                     }
                                                                 }
                                                             }
@@ -615,7 +594,7 @@ fun SongInfoBottomSheet(
                                             }
                                         }
 
-                                        item {
+                                        run {
                                             val interestedIds by playerViewModel.interestedSongIds.collectAsStateWithLifecycle()
                                             val notInterestedIds by playerViewModel.notInterestedSongIds.collectAsStateWithLifecycle()
                                             val isInterested = song.id in interestedIds
@@ -645,7 +624,7 @@ fun SongInfoBottomSheet(
                                                             playerViewModel.markSongInterested(song)
                                                             Toast.makeText(context, context.getString(R.string.toast_marked_interested), Toast.LENGTH_SHORT).show()
                                                         }
-                                                        onDismiss()
+                                                        smoothDismiss(null)
                                                     }
                                                 ) {
                                                     Icon(
@@ -677,7 +656,7 @@ fun SongInfoBottomSheet(
                                                             playerViewModel.markSongNotInterested(song)
                                                             Toast.makeText(context, context.getString(R.string.toast_marked_not_interested), Toast.LENGTH_SHORT).show()
                                                         }
-                                                        onDismiss()
+                                                        smoothDismiss(null)
                                                     }
                                                 ) {
                                                     Icon(
@@ -695,169 +674,163 @@ fun SongInfoBottomSheet(
                                         }
 
                                         if (song.youtubeId != null) {
-
                                             val isYouTubeSong = !song.youtubeId.isNullOrEmpty() ||
                                                     song.contentUriString.startsWith("youtube://") ||
                                                     song.id.startsWith("youtube_")
                                             if (isYouTubeSong) {
-                                                item {
-                                                    var isLikedState by remember(isFavorite) { mutableStateOf(isFavorite) }
-                                                    Row(
+                                                var isLikedState by remember(isFavorite) { mutableStateOf(isFavorite) }
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(IntrinsicSize.Min),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    FilledTonalButton(
                                                         modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .height(IntrinsicSize.Min),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                                    ) {
-                                                        FilledTonalButton(
-                                                            modifier = Modifier
-                                                                .weight(0.5f)
-                                                                .heightIn(min = 66.dp),
-                                                            colors = ButtonDefaults.filledTonalButtonColors(
-                                                                containerColor = if (isLikedState) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                                                contentColor = if (isLikedState) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                                            ),
-                                                            shape = CircleShape,
-                                                            onClick = {
-                                                                val targetState = !isLikedState
-                                                                if (!songInfoViewModel.isLoggedIn()) {
-                                                                    Toast.makeText(context, "Please login to YouTube Music first", Toast.LENGTH_LONG).show()
-                                                                } else {
-                                                                    songInfoViewModel.likeOnYouTube(song, targetState) { success ->
-                                                                        if (success) {
-                                                                            isLikedState = targetState
-                                                                            Toast.makeText(context, if (targetState) "Liked on YouTube" else "Removed Like from YouTube", Toast.LENGTH_SHORT).show()
-                                                                            if (targetState != isFavorite) {
-                                                                                onToggleFavorite()
-                                                                            }
-                                                                        } else {
-                                                                            Toast.makeText(context, "Failed to update YouTube like", Toast.LENGTH_SHORT).show()
+                                                            .weight(0.5f)
+                                                            .heightIn(min = 66.dp),
+                                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                                            containerColor = if (isLikedState) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                                            contentColor = if (isLikedState) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                        ),
+                                                        shape = CircleShape,
+                                                        onClick = {
+                                                            val targetState = !isLikedState
+                                                            if (!songInfoViewModel.isLoggedIn()) {
+                                                                Toast.makeText(context, "Please login to YouTube Music first", Toast.LENGTH_LONG).show()
+                                                            } else {
+                                                                songInfoViewModel.likeOnYouTube(song, targetState) { success ->
+                                                                    if (success) {
+                                                                        isLikedState = targetState
+                                                                        Toast.makeText(context, if (targetState) "Liked on YouTube" else "Removed Like from YouTube", Toast.LENGTH_SHORT).show()
+                                                                        if (targetState != isFavorite) {
+                                                                            onToggleFavorite()
                                                                         }
+                                                                    } else {
+                                                                        Toast.makeText(context, "Failed to update YouTube like", Toast.LENGTH_SHORT).show()
                                                                     }
                                                                 }
                                                             }
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = if (isLikedState) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                                                contentDescription = "Like on YouTube"
-                                                            )
-                                                            Spacer(Modifier.width(8.dp))
-                                                            Text("Like on YouTube")
                                                         }
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = if (isLikedState) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                                            contentDescription = "Like on YouTube"
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text("Like on YouTube")
+                                                    }
 
-                                                        FilledTonalButton(
-                                                            modifier = Modifier
-                                                                .weight(0.5f)
-                                                                .heightIn(min = 66.dp),
-                                                            colors = ButtonDefaults.filledTonalButtonColors(
-                                                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                                            ),
-                                                            shape = CircleShape,
-                                                            onClick = onAddToPlayList
-                                                        ) {
-                                                            Icon(
-                                                                Icons.AutoMirrored.Rounded.PlaylistAdd,
-                                                                contentDescription = "Add to YouTube Playlist"
-                                                            )
-                                                            Spacer(Modifier.width(8.dp))
-                                                            Text("Add to YT Playlist")
-                                                        }
+                                                    FilledTonalButton(
+                                                        modifier = Modifier
+                                                            .weight(0.5f)
+                                                            .heightIn(min = 66.dp),
+                                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                                        ),
+                                                        shape = CircleShape,
+                                                        onClick = { smoothDismiss { onAddToPlayList() } }
+                                                    ) {
+                                                        Icon(
+                                                            Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                                            contentDescription = "Add to YouTube Playlist"
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text("Add to YT Playlist")
                                                     }
                                                 }
                                             }
                                         }
 
-                                        item {
-                                            Spacer(Modifier.navigationBarsPadding().height(80.dp))
-                                        }
+                                        Spacer(Modifier.navigationBarsPadding().height(80.dp))
                                     }
                                 }
                                 1 -> { // Details / Info
-                                    LazyColumn(
+                                    Column(
                                         modifier = Modifier
-                                            .fillMaxWidth(),
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                            .fillMaxWidth()
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(horizontal = 16.dp),
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        item {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(infoSegmentContainerShape),
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(infoSegmentContainerShape),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            SongInfoSegmentedListItem(
+                                                headline = stringResource(R.string.song_info_label_duration),
+                                                supporting = formatDuration(song.duration),
+                                                icon = Icons.Rounded.Schedule,
+                                                iconDescription = stringResource(R.string.cd_duration_icon),
+                                                shape = infoSegmentItemShape,
+                                            )
+
+                                            if (!song.genre.isNullOrEmpty()) {
                                                 SongInfoSegmentedListItem(
-                                                    headline = stringResource(R.string.song_info_label_duration),
-                                                    supporting = formatDuration(song.duration),
-                                                    icon = Icons.Rounded.Schedule,
-                                                    iconDescription = stringResource(R.string.cd_duration_icon),
-                                                    shape = infoSegmentItemShape,
-                                                )
-
-                                                if (!song.genre.isNullOrEmpty()) {
-                                                    SongInfoSegmentedListItem(
-                                                        headline = stringResource(R.string.song_field_genre),
-                                                        supporting = song.genre,
-                                                        icon = Icons.Rounded.MusicNote,
-                                                        iconDescription = stringResource(R.string.cd_genre_icon),
-                                                        shape = infoSegmentItemShape,
-                                                    )
-                                                }
-
-                                                SongInfoSegmentedListItem(
-                                                    headline = stringResource(R.string.song_field_album),
-                                                    supporting = song.album,
-                                                    icon = Icons.Rounded.Album,
-                                                    iconDescription = stringResource(R.string.cd_album_icon),
-                                                    shape = infoSegmentItemShape,
-                                                    onClick = onNavigateToAlbum,
-                                                )
-
-                                                SongInfoSegmentedListItem(
-                                                    headline = stringResource(R.string.song_field_artist),
-                                                    supporting = song.displayArtist,
-                                                    icon = Icons.Rounded.Person,
-                                                    iconDescription = stringResource(R.string.cd_artist_icon),
-                                                    shape = infoSegmentItemShape,
-                                                    onClick = {
-                                                        if (song.artists.size > 1) {
-                                                            showArtistPicker = true
-                                                        } else {
-                                                            val primary = song.primaryArtist
-                                                            onNavigateToArtistById(primary.channelId ?: primary.id.toString())
-                                                        }
-                                                    },
-                                                )
-
-                                                if (!audioMetaLabel.isNullOrEmpty()) {
-                                                    SongInfoSegmentedListItem(
-                                                        headline = stringResource(R.string.song_info_label_song_metadata),
-                                                        supporting = audioMetaLabel,
-                                                        icon = Icons.Rounded.Info,
-                                                        iconDescription = stringResource(R.string.cd_audio_format_icon),
-                                                        shape = infoSegmentItemShape,
-                                                    )
-                                                }
-
-                                                SongInfoSegmentedListItem(
-                                                    headline = songLocationInfo.label,
-                                                    supporting = songLocationInfo.value,
-                                                    icon = if (songLocationInfo.isCloud) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
-                                                    iconDescription = stringResource(
-                                                        if (songLocationInfo.isCloud) {
-                                                            R.string.cd_provider_icon
-                                                        } else {
-                                                            R.string.cd_file_icon
-                                                        }
-                                                    ),
+                                                    headline = stringResource(R.string.song_field_genre),
+                                                    supporting = song.genre,
+                                                    icon = Icons.Rounded.MusicNote,
+                                                    iconDescription = stringResource(R.string.cd_genre_icon),
                                                     shape = infoSegmentItemShape,
                                                 )
                                             }
+
+                                            SongInfoSegmentedListItem(
+                                                headline = stringResource(R.string.song_field_album),
+                                                supporting = song.album,
+                                                icon = Icons.Rounded.Album,
+                                                iconDescription = stringResource(R.string.cd_album_icon),
+                                                shape = infoSegmentItemShape,
+                                                onClick = { smoothDismiss { onNavigateToAlbum() } },
+                                            )
+
+                                            SongInfoSegmentedListItem(
+                                                headline = stringResource(R.string.song_field_artist),
+                                                supporting = song.displayArtist,
+                                                icon = Icons.Rounded.Person,
+                                                iconDescription = stringResource(R.string.cd_artist_icon),
+                                                shape = infoSegmentItemShape,
+                                                onClick = {
+                                                    if (song.artists.size > 1) {
+                                                        showArtistPicker = true
+                                                    } else {
+                                                        val primary = song.primaryArtist
+                                                        smoothDismiss {
+                                                            onNavigateToArtistById(primary.channelId ?: primary.id.toString())
+                                                        }
+                                                    }
+                                                },
+                                            )
+
+                                            if (!audioMetaLabel.isNullOrEmpty()) {
+                                                SongInfoSegmentedListItem(
+                                                    headline = stringResource(R.string.song_info_label_song_metadata),
+                                                    supporting = audioMetaLabel,
+                                                    icon = Icons.Rounded.Info,
+                                                    iconDescription = stringResource(R.string.cd_audio_format_icon),
+                                                    shape = infoSegmentItemShape,
+                                                )
+                                            }
+
+                                            SongInfoSegmentedListItem(
+                                                headline = songLocationInfo.label,
+                                                supporting = songLocationInfo.value,
+                                                icon = if (songLocationInfo.isCloud) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
+                                                iconDescription = stringResource(
+                                                    if (songLocationInfo.isCloud) {
+                                                        R.string.cd_provider_icon
+                                                    } else {
+                                                        R.string.cd_file_icon
+                                                    }
+                                                ),
+                                                shape = infoSegmentItemShape,
+                                            )
                                         }
-                                        item {
-                                            Spacer(Modifier.navigationBarsPadding().height(80.dp))
-                                        }
+                                        Spacer(Modifier.navigationBarsPadding().height(80.dp))
                                     }
                                 }
                             }

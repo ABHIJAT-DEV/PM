@@ -1125,11 +1125,7 @@ class MainActivity : ComponentActivity() {
                 val backgroundBlur by playerViewModel.userPreferencesRepository.appBackgroundBlurFlow.collectAsStateWithLifecycle(initialValue = 0f)
                 
                 val currentSong by remember { playerViewModel.stablePlayerState.map { it.currentSong }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
-                val bottomSheetZoomProgress by animateFloatAsState(
-                    targetValue = com.saurav.pixelmusic.presentation.components.BottomSheetSceneController.targetOpenFraction,
-                    animationSpec = com.saurav.pixelmusic.presentation.components.SmoothBottomSheetSpringSpec,
-                    label = "BottomSheetBackgroundZoom"
-                )
+                val bottomSheetZoomProgress = com.saurav.pixelmusic.presentation.components.rememberBottomSheetZoomProgress()
 
                 Box(
                     modifier = Modifier
@@ -1140,13 +1136,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            val p = bottomSheetZoomProgress.coerceIn(0f, 1f)
+                            val p = bottomSheetZoomProgress.value.coerceIn(0f, 1f)
                             val zoomScale = androidx.compose.ui.util.lerp(1f, 0.96f, p)
                             scaleX = zoomScale
                             scaleY = zoomScale
                             translationY = -4.dp.toPx() * p
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape((20f * p).dp)
-                            clip = p > 0.002f
                         }
                         .background(MaterialTheme.colorScheme.background)
                 ) {

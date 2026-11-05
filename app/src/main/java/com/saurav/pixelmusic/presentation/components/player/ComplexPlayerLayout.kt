@@ -855,6 +855,15 @@ private fun CurvedArcSeekBar(
         }
     }
 
+    LaunchedEffect(lastSeekFinishedTime, targetSeekFraction) {
+        if (targetSeekFraction >= 0f && lastSeekFinishedTime > 0L) {
+            kotlinx.coroutines.delay(1500L)
+            if (sliderDragValue == null) {
+                targetSeekFraction = -1f
+            }
+        }
+    }
+
     val currentProgress = when {
         sliderDragValue != null -> sliderDragValue!!
         targetSeekFraction >= 0f -> targetSeekFraction
@@ -920,22 +929,28 @@ private fun CurvedArcSeekBar(
                         lastQuantizedStep = (initialFraction * 24f).toInt()
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
-                        drag(down.id) { change ->
-                            change.consume()
-                            val newFraction = ((change.position.x - edgeInsetPx) / usableWidth).coerceIn(0f, 1f)
-                            sliderDragValue = newFraction
-                            val step = (newFraction * 24f).toInt()
-                            if (step != lastQuantizedStep) {
-                                lastQuantizedStep = step
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        var dragCompleted = false
+                        try {
+                            drag(down.id) { change ->
+                                change.consume()
+                                val newFraction = ((change.position.x - edgeInsetPx) / usableWidth).coerceIn(0f, 1f)
+                                sliderDragValue = newFraction
+                                val step = (newFraction * 24f).toInt()
+                                if (step != lastQuantizedStep) {
+                                    lastQuantizedStep = step
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+                            dragCompleted = true
+                        } finally {
+                            val committed = sliderDragValue ?: initialFraction
+                            sliderDragValue = null
+                            if (dragCompleted) {
+                                targetSeekFraction = committed
+                                lastSeekFinishedTime = System.currentTimeMillis()
+                                latestOnSeek((committed * latestDurationForCalc).roundToLong())
                             }
                         }
-
-                        val committed = sliderDragValue ?: initialFraction
-                        targetSeekFraction = committed
-                        lastSeekFinishedTime = System.currentTimeMillis()
-                        sliderDragValue = null
-                        latestOnSeek((committed * latestDurationForCalc).roundToLong())
                         return@awaitEachGesture
                     }
 

@@ -20,16 +20,18 @@ object LiveNotificationHelper {
 
     private var lastArtworkBytes: ByteArray? = null
     private var cachedArtworkBitmap: Bitmap? = null
+    @Volatile
+    private var isChannelInitialized = false
 
     // Animation state for the dynamic island
     private val animatedNotes = arrayOf("♫", "♩", "♪", "𝅗𝅥", "𝅘𝅥𝅯", "𝅘𝅥𝅰", "𝅘𝅥𝅱", "𝅘𝅥𝅲", "𝄞")
     private var noteIndex = 0
 
     fun createNotificationChannel(context: Context) {
+        if (isChannelInitialized) return
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Clean up the graveyard of testing channels from your settings
             for (i in 1..10) {
                 notificationManager.deleteNotificationChannel("pixelmusic_live_progress_v$i")
             }
@@ -38,7 +40,7 @@ object LiveNotificationHelper {
             val channel = NotificationChannel(
                 LIVE_CHANNEL_ID,
                 "Dynamic Island Tracker",
-                NotificationManager.IMPORTANCE_LOW // Keeps the top-left status bar clean of double icons!
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Keeps the OriginOS Dynamic Island active"
                 setShowBadge(false)
@@ -47,6 +49,7 @@ object LiveNotificationHelper {
             }
             notificationManager.createNotificationChannel(channel)
         }
+        isChannelInitialized = true
     }
 
     private fun formatTimeMs(ms: Long): String {

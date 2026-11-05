@@ -287,6 +287,9 @@ class MusicService : MediaLibraryService() {
 
         Timber.tag("MusicService").d(logMessage)
         syncLocalListeningStatsFromPlayer(player)
+        if (isDynamicIslandEnabled && player.isPlaying) {
+            startLiveProgressTracker()
+        }
         requestWidgetFullUpdate(force = true)
         refreshMediaSessionUi(session)
     }
@@ -3641,11 +3644,20 @@ class MusicService : MediaLibraryService() {
 
     private fun startLiveProgressTracker() {
         if (!isDynamicIslandEnabled) return
-        liveProgressTickerJob?.cancel()
+        if (liveProgressTickerJob?.isActive == true) {
+            triggerLiveProgressTrackerUpdate()
+            return
+        }
         liveProgressTickerJob = serviceScope.launch {
             while (true) {
-                triggerLiveProgressTrackerUpdate()
-                delay(1000L) // Fixes the frozen progress bar
+                try {
+                    triggerLiveProgressTrackerUpdate()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    Timber.tag(TAG).w(e, "Failed to update live progress notification")
+                }
+                delay(1000L)
             }
         }
     }
@@ -3687,7 +3699,7 @@ class MusicService : MediaLibraryService() {
                 artworkData = artworkData,
                 style = dynamicIslandStyle
             )
-        } else {
+        } else if (!player.playWhenReady || player.playbackState == Player.STATE_IDLE || player.playbackState == Player.STATE_ENDED) {
             stopLiveProgressTracker()
         }
     }
