@@ -1141,11 +1141,11 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .graphicsLayer {
                             val p = bottomSheetZoomProgress.coerceIn(0f, 1f)
-                            val zoomScale = androidx.compose.ui.util.lerp(1f, 0.88f, p)
+                            val zoomScale = androidx.compose.ui.util.lerp(1f, 0.96f, p)
                             scaleX = zoomScale
                             scaleY = zoomScale
-                            translationY = -12.dp.toPx() * p
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape((28f * p).dp)
+                            translationY = -4.dp.toPx() * p
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape((20f * p).dp)
                             clip = p > 0.002f
                         }
                         .background(MaterialTheme.colorScheme.background)
