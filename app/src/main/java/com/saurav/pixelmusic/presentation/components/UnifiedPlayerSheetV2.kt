@@ -245,8 +245,10 @@ fun UnifiedPlayerSheetV2(
     }
     val dismissThresholdPx = remember(screenWidthPx) { screenWidthPx * 0.4f }
 
-    val screenHeightPx = remember(configuration, density) {
-        with(density) { configuration.screenHeightDp.dp.toPx() }
+    val screenHeightPx = remember(containerHeight, configuration, density) {
+        with(density) {
+            containerHeight.toPx().takeIf { it > 0f } ?: configuration.screenHeightDp.dp.toPx()
+        }
     }
     val miniPlayerContentHeightPx = remember { with(density) { 64.dp.toPx() } }
 
@@ -613,11 +615,11 @@ fun UnifiedPlayerSheetV2(
                             // Layout still runs per-frame, but composition is skipped entirely.
                             .layout { measurable, constraints ->
                                 val targetHeightPx = playerContentAreaHeightPxProvider()
-                                    .toInt().coerceAtLeast(0)
+                                    .roundToInt().coerceIn(0, constraints.maxHeight)
                                 val startPaddingPx = currentHorizontalPaddingStartPxProvider()
-                                    .toInt().coerceAtLeast(0)
+                                    .roundToInt().coerceAtLeast(0)
                                 val endPaddingPx = currentHorizontalPaddingEndPxProvider()
-                                    .toInt().coerceAtLeast(0)
+                                    .roundToInt().coerceAtLeast(0)
                                 val innerWidth = (constraints.maxWidth - startPaddingPx - endPaddingPx)
                                     .coerceAtLeast(0)
                                 val placeable = measurable.measure(

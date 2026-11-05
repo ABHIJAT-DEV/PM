@@ -19,11 +19,10 @@ internal fun computeSheetVerticalDragFrame(
     initialFractionOnDragStart: Float,
     initialYOnDragStart: Float
 ): SheetVerticalDragFrame {
+    val minY = minOf(expandedY, collapsedY)
+    val maxY = maxOf(expandedY, collapsedY)
     val newY = (currentTranslationY + dragAmount)
-        .coerceIn(
-            expandedY - miniHeightPx * 0.2f,
-            collapsedY + miniHeightPx * 0.2f
-        )
+        .coerceIn(minY, maxY)
     val denominator = (collapsedY - expandedY).coerceAtLeast(1f)
     val dragRatio = (initialYOnDragStart - newY) / denominator
     val newFraction = (initialFractionOnDragStart + dragRatio).coerceIn(0f, 1f)

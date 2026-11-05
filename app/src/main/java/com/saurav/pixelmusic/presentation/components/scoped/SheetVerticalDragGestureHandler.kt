@@ -98,10 +98,16 @@ internal class SheetVerticalDragGestureHandler(
             currentFraction = currentFraction
         )
 
-        // The state observer in UnifiedPlayerSheetV2 is the single owner of
-        // settled sheet animations. Do not also animate here: that races the
-        // state-triggered animation and can produce a second settle/bounce.
-        if (targetState == PlayerSheetState.EXPANDED) {
+        val targetExpanded = targetState == PlayerSheetState.EXPANDED
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            sheetMotionController.animateTo(
+                targetExpanded = targetExpanded,
+                canExpand = true,
+                collapsedY = collapsedYProvider(),
+                initialVelocity = verticalVelocity
+            )
+        }
+        if (targetExpanded) {
             onExpandSheetState()
         } else {
             onCollapseSheetState()

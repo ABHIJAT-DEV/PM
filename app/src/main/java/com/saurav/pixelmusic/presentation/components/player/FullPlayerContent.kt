@@ -833,16 +833,20 @@ fun FullPlayerContent(
         )
     }
 
+    val latestAodVisible by rememberUpdatedState(aodVisible)
+
     Scaffold(
         containerColor = Color.Transparent,
         modifier = Modifier.pointerInput(currentSheetState, queueGestureBottomExclusionPx) {
-            val queueDragActivationThresholdPx = 4.dp.toPx()
+            val queueDragActivationThresholdPx = maxOf(viewConfiguration.touchSlop, 18.dp.toPx())
             val quickFlickVelocityThreshold = -520f
 
             awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
+                val down = awaitFirstDown(requireUnconsumed = true)
                 // Check condition AFTER the down event occurs
-                val isFullyExpanded = currentSheetState == PlayerSheetState.EXPANDED && expansionFractionProvider() >= 0.99f
+                val isFullyExpanded = currentSheetState == PlayerSheetState.EXPANDED &&
+                    expansionFractionProvider() >= 0.99f &&
+                    !latestAodVisible
 
                 if (!isFullyExpanded) {
                     return@awaitEachGesture
@@ -859,13 +863,23 @@ fun FullPlayerContent(
                 var dragConsumedByQueue = false
                 val velocityTracker = VelocityTracker()
                 var totalDrag = 0f
+                var totalHorizontalDrag = 0f
                 velocityTracker.addPosition(down.uptimeMillis, down.position)
 
                 drag(down.id) { change ->
-                    val dragAmount = change.positionChange().y
+                    if (latestAodVisible) {
+                        return@drag
+                    }
+                    if (!dragConsumedByQueue && change.isConsumed) {
+                        return@drag
+                    }
+                    val delta = change.positionChange()
+                    val dragAmount = delta.y
                     totalDrag += dragAmount
+                    totalHorizontalDrag += delta.x
                     velocityTracker.addPosition(change.uptimeMillis, change.position)
-                    val isDraggingUp = totalDrag < -queueDragActivationThresholdPx
+                    val isVerticalDominant = kotlin.math.abs(totalDrag) > kotlin.math.abs(totalHorizontalDrag) * 1.15f
+                    val isDraggingUp = isVerticalDominant && totalDrag < -queueDragActivationThresholdPx
 
                     if (isDraggingUp && !dragConsumedByQueue) {
                         dragConsumedByQueue = true
@@ -882,7 +896,9 @@ fun FullPlayerContent(
                 if (dragConsumedByQueue) {
                     onQueueRelease(totalDrag, velocity)
                 } else if (
-                    totalDrag < -(queueDragActivationThresholdPx * 2f) &&
+                    !latestAodVisible &&
+                    kotlin.math.abs(totalDrag) > kotlin.math.abs(totalHorizontalDrag) * 1.15f &&
+                    totalDrag < -(queueDragActivationThresholdPx * 1.5f) &&
                     velocity < quickFlickVelocityThreshold
                 ) {
                     // Treat short/fast upward flick as queue-open intent.

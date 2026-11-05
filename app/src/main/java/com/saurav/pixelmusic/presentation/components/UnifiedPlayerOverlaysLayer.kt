@@ -113,7 +113,10 @@ internal fun UnifiedPlayerQueueLayer(
                         .fillMaxSize()
                         .graphicsLayer {
                             translationY = queueSheetOffset.value
-                            alpha = if (showQueueSheet) 1f else 0f
+                            val isVisiblyOpen = showQueueSheet &&
+                                queueHiddenOffsetPx > 0f &&
+                                queueSheetOffset.value < queueHiddenOffsetPx - 0.5f
+                            alpha = if (isVisiblyOpen) 1f else 0f
                         }
                         .onGloballyPositioned { coordinates ->
                             val measuredHeight = coordinates.size.height.toFloat()
