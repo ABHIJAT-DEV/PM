@@ -16,5 +16,12 @@ interface AlbumArtThemeDao {
     suspend fun getThemeByUriAndStyle(uriString: String, paletteStyle: String): AlbumArtThemeEntity?
 
     @Query("DELETE FROM album_art_themes WHERE albumArtUriString IN (:uriStrings)")
-    suspend fun deleteThemesByUris(uriStrings: List<String>)
+    suspend fun deleteThemesByUrisRaw(uriStrings: List<String>)
+
+    suspend fun deleteThemesByUris(uriStrings: List<String>) {
+        if (uriStrings.isEmpty()) return
+        uriStrings.chunked(500).forEach { chunk ->
+            deleteThemesByUrisRaw(chunk)
+        }
+    }
 }

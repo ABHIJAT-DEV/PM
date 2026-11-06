@@ -241,7 +241,11 @@ fun SettingsCategoryScreen(
     val isSyncing by settingsViewModel.isSyncing.collectAsStateWithLifecycle()
     val syncProgress by settingsViewModel.syncProgress.collectAsStateWithLifecycle()
     val dataTransferProgress by settingsViewModel.dataTransferProgress.collectAsStateWithLifecycle()
-    val paletteRegenerateTargets by playerViewModel.paletteRegenerationTargets.collectAsStateWithLifecycle()
+    val paletteRegenerateTargets by if (category == SettingsCategory.DEVELOPER) {
+        playerViewModel.paletteRegenerationTargets.collectAsStateWithLifecycle()
+    } else {
+        remember { mutableStateOf(emptyList()) }
+    }
     val explorerRoot = settingsViewModel.explorerRoot()
 
     // Local State

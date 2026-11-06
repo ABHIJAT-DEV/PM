@@ -23,11 +23,27 @@ interface LyricsDao {
     @Query("DELETE FROM lyrics")
     suspend fun deleteAll()
 
-    @Query("SELECT * FROM lyrics")
-    suspend fun getAll(): List<LyricsEntity>
+    @Query("SELECT songId FROM lyrics")
+    suspend fun getAllSongIds(): List<Long>
+
+    @Query("SELECT * FROM lyrics WHERE songId IN (:songIds)")
+    suspend fun getByIdsRaw(songIds: List<Long>): List<LyricsEntity>
+
+    @Transaction
+    suspend fun getAll(): List<LyricsEntity> {
+        val ids = getAllSongIds()
+        if (ids.isEmpty()) return emptyList()
+        return ids.chunked(100).flatMap { chunk -> getByIdsRaw(chunk) }
+    }
 
     @Query("SELECT songId FROM lyrics WHERE songId IN (:songIds) AND content != ''")
-    suspend fun getSongIdsWithLyrics(songIds: List<Long>): List<Long>
+    suspend fun getSongIdsWithLyricsRaw(songIds: List<Long>): List<Long>
+
+    suspend fun getSongIdsWithLyrics(songIds: List<Long>): List<Long> {
+        if (songIds.isEmpty()) return emptyList()
+        if (songIds.size <= 500) return getSongIdsWithLyricsRaw(songIds)
+        return songIds.chunked(500).flatMap { chunk -> getSongIdsWithLyricsRaw(chunk) }
+    }
 
     @Transaction
     suspend fun replaceAll(lyrics: List<LyricsEntity>) {

@@ -321,7 +321,7 @@ constructor(
                         val totalToScan = mediaStoreSongIds.size
                         var totalScannedCount = 0
 
-                        mediaStoreSongIds.chunked(1000).forEach { idBatch ->
+                        mediaStoreSongIds.chunked(500).forEach { idBatch ->
                             val batchEntities = musicDao.getSongsByIdsListSimple(idBatch)
                             val batchSongs =
                                     batchEntities.map { entity ->

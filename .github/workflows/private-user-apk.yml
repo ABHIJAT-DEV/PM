@@ -1,0 +1,90 @@
+name: 🎯 Private User APK (Same Version)
+
+# Builds a signed production APK keeping the exact existing APP_VERSION_NAME,
+# APP_VERSION_CODE, applicationId ("com.saurav.pixelmusic"), and app_name ("PixelMusic").
+# Does NOT bump version numbers and does NOT publish or sync to any public/distribution repo.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Private Signed APK (Same Version)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle Build Cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Use local JDK for Gradle daemon
+        run: |
+          rm -f gradle/gradle-daemon-jvm.properties
+          echo "org.gradle.java.installations.auto-download=false" >> gradle.properties
+
+      - name: Create Keystore properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > keystore.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+
+      - name: Read Current Version Info
+        run: |
+          VERSION_CODE=$(grep "^APP_VERSION_CODE=" gradle.properties | cut -d'=' -f2 | tr -d '\r' | tr -d ' ')
+          VERSION_NAME=$(grep "^APP_VERSION_NAME=" gradle.properties | cut -d'=' -f2 | tr -d '\r' | tr -d ' ')
+          echo "Building signed APK for v${VERSION_NAME} (${VERSION_CODE})"
+          echo "VERSION_CODE=${VERSION_CODE}" >> $GITHUB_ENV
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+
+      - name: Build Signed Release APK
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Rename APK for Direct Sharing
+        run: |
+          mkdir -p dist-apk
+          for apk in app/build/outputs/apk/release/*.apk; do
+            cp "$apk" "dist-apk/PixelMusic-v${{ env.VERSION_NAME }}-${{ env.VERSION_CODE }}-arm64-v8a.apk"
+          done
+
+      - name: Upload Signed APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixelMusic-v${{ env.VERSION_NAME }}-${{ env.VERSION_CODE }}-private-apk
+          path: |
+            dist-apk/*.apk
+            app/build/outputs/mapping/release/mapping.txt
+
+      - name: Attach APK to Private Source Repo Pre-Release (Clean2.0 Only)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: private-v${{ env.VERSION_NAME }}-b${{ github.run_number }}
+          name: 🎯 Private Hotfix v${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }}) — Build #${{ github.run_number }}
+          prerelease: true
+          make_latest: false
+          body: |
+            Private signed build for direct sharing (`com.saurav.pixelmusic`, v${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }})).
+            Installs cleanly over existing v${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }}) without altering public releases or updater channels.
+          files: |
+            dist-apk/*.apk
+            app/build/outputs/mapping/release/mapping.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

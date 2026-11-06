@@ -11,6 +11,8 @@ import androidx.sqlite.db.SimpleSQLiteQuery
 import com.saurav.pixelmusic.utils.AudioMeta
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 private val SONG_SEARCH_QUERY_TOKEN_REGEX = Regex("""[\p{L}\p{N}]+""")
 private const val EMPTY_SONG_SEARCH_MATCH_QUERY = "pixelmusicemptyquery*"
@@ -122,8 +124,14 @@ interface MusicDao {
     @Query("UPDATE songs SET genre = :genre WHERE id = :songId")
     suspend fun updateSongGenre(songId: Long, genre: String)
 
-    @Query("SELECT " + SONG_LIST_PROJECTION + " FROM songs WHERE source_type = :type")
-    suspend fun getSongsBySourceType(type: Int): List<SongEntity>
+    @Query("SELECT id FROM songs WHERE source_type = :type")
+    suspend fun getSongIdsBySourceType(type: Int): List<Long>
+
+    @Transaction
+    suspend fun getSongsBySourceType(type: Int): List<SongEntity> {
+        val ids = getSongIdsBySourceType(type)
+        return getSongsByIdsListSimple(ids)
+    }
 
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -139,7 +147,15 @@ interface MusicDao {
     suspend fun updateArtists(artists: List<ArtistEntity>)
 
     @Query("SELECT * FROM artists WHERE id IN (:artistIds)")
-    suspend fun getArtistsByIds(artistIds: List<Long>): List<ArtistEntity>
+    suspend fun getArtistsByIdsBatchRaw(artistIds: List<Long>): List<ArtistEntity>
+
+    suspend fun getArtistsByIds(artistIds: List<Long>): List<ArtistEntity> {
+        if (artistIds.isEmpty()) return emptyList()
+        if (artistIds.size <= SONG_BATCH_SIZE) return getArtistsByIdsBatchRaw(artistIds)
+        return artistIds.chunked(SONG_BATCH_SIZE).flatMap { chunk ->
+            getArtistsByIdsBatchRaw(chunk)
+        }
+    }
 
     @Transaction
     suspend fun insertSongs(songs: List<SongEntity>) {
@@ -334,18 +350,52 @@ interface MusicDao {
 
     // --- Song Queries ---
     // Updated getSongs to include Telegram songs (negative IDs) regardless of directory filter
-    @Query("SELECT " + SONG_LIST_PROJECTION + """
+    @Query("""
+        SELECT id
         FROM songs
         WHERE (:applyDirectoryFilter = 0 OR id < 0 OR parent_directory_path IN (:allowedParentDirs))
         ORDER BY title ASC
     """)
+    fun getSongIdsFlow(
+        allowedParentDirs: List<String>,
+        applyDirectoryFilter: Boolean
+    ): Flow<List<Long>>
+
     fun getSongs(
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean
-    ): Flow<List<SongEntity>>
+    ): Flow<List<SongEntity>> = getSongIdsFlow(
+        allowedParentDirs = allowedParentDirs,
+        applyDirectoryFilter = applyDirectoryFilter
+    ).map { ids ->
+        if (ids.isEmpty()) emptyList()
+        else {
+            val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+            ids.mapNotNull { byId[it] }
+        }
+    }
 
     @Query("SELECT " + SONG_LIST_PROJECTION + " FROM songs WHERE id IN (:songIds)")
-    suspend fun getSongsByIdsListSimple(songIds: List<Long>): List<SongEntity>
+    suspend fun getSongsByIdsBatchRaw(songIds: List<Long>): List<SongEntity>
+
+    suspend fun getSongsByIdsListSimple(songIds: List<Long>): List<SongEntity> {
+        if (songIds.isEmpty()) return emptyList()
+        if (songIds.size <= SONG_BATCH_SIZE) return getSongsByIdsBatchRaw(songIds)
+        return songIds.chunked(SONG_BATCH_SIZE).flatMap { chunk ->
+            getSongsByIdsBatchRaw(chunk)
+        }
+    }
+
+    @Query("SELECT content_uri_string FROM songs WHERE id IN (:songIds) AND content_uri_string LIKE 'youtube://%'")
+    suspend fun getYoutubeContentUrisByIdsRaw(songIds: List<Long>): List<String>
+
+    suspend fun getYoutubeContentUrisByIds(songIds: List<Long>): List<String> {
+        if (songIds.isEmpty()) return emptyList()
+        if (songIds.size <= SONG_BATCH_SIZE) return getYoutubeContentUrisByIdsRaw(songIds)
+        return songIds.chunked(SONG_BATCH_SIZE).flatMap { chunk ->
+            getYoutubeContentUrisByIdsRaw(chunk)
+        }
+    }
 
     /**
      * Resolves the unified-table song id for a given content URI. Used when the
@@ -384,22 +434,59 @@ interface MusicDao {
     )
     suspend fun getSongByPath(path: String): SongEntity?
 
-    @Query("SELECT " + SONG_LIST_PROJECTION + """
+    @Query("""
+        SELECT id
         FROM songs
         WHERE id IN (:songIds)
         AND (:applyDirectoryFilter = 0 OR id < 0 OR parent_directory_path IN (:allowedParentDirs))
     """)
+    fun getMatchingSongIdsFlow(
+        songIds: List<Long>,
+        allowedParentDirs: List<String>,
+        applyDirectoryFilter: Boolean
+    ): Flow<List<Long>>
+
     fun getSongsByIds(
         songIds: List<Long>,
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean
-    ): Flow<List<SongEntity>>
+    ): Flow<List<SongEntity>> {
+        if (songIds.isEmpty()) return flowOf(emptyList())
+        if (songIds.size <= SONG_BATCH_SIZE) {
+            return getMatchingSongIdsFlow(songIds, allowedParentDirs, applyDirectoryFilter)
+                .map { ids -> getSongsByIdsListSimple(ids) }
+        }
+        val chunkFlows = songIds.chunked(SONG_BATCH_SIZE).map { chunk ->
+            getMatchingSongIdsFlow(chunk, allowedParentDirs, applyDirectoryFilter)
+        }
+        return combine(chunkFlows) { arrays ->
+            arrays.flatMap { it }
+        }.map { ids -> getSongsByIdsListSimple(ids) }
+    }
 
-    @Query("SELECT " + SONG_LIST_PROJECTION + " FROM songs WHERE album_id = :albumId ORDER BY disc_number ASC, track_number ASC")
-    fun getSongsByAlbumId(albumId: Long): Flow<List<SongEntity>>
+    @Query("SELECT id FROM songs WHERE album_id = :albumId ORDER BY disc_number ASC, track_number ASC")
+    fun getSongIdsByAlbumIdFlow(albumId: Long): Flow<List<Long>>
 
-    @Query("SELECT " + SONG_LIST_PROJECTION + " FROM songs WHERE artist_id = :artistId ORDER BY title ASC")
-    fun getSongsByArtistId(artistId: Long): Flow<List<SongEntity>>
+    fun getSongsByAlbumId(albumId: Long): Flow<List<SongEntity>> =
+        getSongIdsByAlbumIdFlow(albumId).map { ids ->
+            if (ids.isEmpty()) emptyList()
+            else {
+                val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+                ids.mapNotNull { byId[it] }
+            }
+        }
+
+    @Query("SELECT id FROM songs WHERE artist_id = :artistId ORDER BY title ASC")
+    fun getSongIdsByArtistIdFlow(artistId: Long): Flow<List<Long>>
+
+    fun getSongsByArtistId(artistId: Long): Flow<List<SongEntity>> =
+        getSongIdsByArtistIdFlow(artistId).map { ids ->
+            if (ids.isEmpty()) emptyList()
+            else {
+                val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+                ids.mapNotNull { byId[it] }
+            }
+        }
 
     @Query("""
         SELECT """ + SONG_LIST_TABLE_PROJECTION + """
@@ -421,6 +508,7 @@ interface MusicDao {
         )
         AND songs_fts MATCH :matchQuery
         ORDER BY songs.title ASC
+        LIMIT 500
     """)
     fun searchSongsMatch(
         matchQuery: String,
@@ -447,6 +535,7 @@ interface MusicDao {
         )
         AND (title LIKE '%' || :query || '%' OR artist_name LIKE '%' || :query || '%')
         ORDER BY title ASC
+        LIMIT 500
     """)
     fun searchSongsLike(
         query: String,
@@ -529,17 +618,31 @@ interface MusicDao {
     ): SongEntity?
 
     @Query("""
-        SELECT """ + SONG_LIST_PROJECTION + """
+        SELECT id
         FROM songs
         WHERE (:applyDirectoryFilter = 0 OR id < 0 OR parent_directory_path IN (:allowedParentDirs))
     """)
+    fun getAllSongIdsFilteredFlow(
+        allowedParentDirs: List<String> = emptyList(),
+        applyDirectoryFilter: Boolean = false
+    ): Flow<List<Long>>
+
     fun getAllSongs(
         allowedParentDirs: List<String> = emptyList(),
         applyDirectoryFilter: Boolean = false
-    ): Flow<List<SongEntity>>
+    ): Flow<List<SongEntity>> = getAllSongIdsFilteredFlow(
+        allowedParentDirs = allowedParentDirs,
+        applyDirectoryFilter = applyDirectoryFilter
+    ).map { ids ->
+        if (ids.isEmpty()) emptyList()
+        else {
+            val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+            ids.mapNotNull { byId[it] }
+        }
+    }
 
     @Query("""
-        SELECT """ + SONG_LIST_PROJECTION + """
+        SELECT id
         FROM songs
         WHERE id IN (
             SELECT MIN(id)
@@ -551,10 +654,24 @@ interface MusicDao {
         )
         ORDER BY title COLLATE NOCASE ASC, artist_name COLLATE NOCASE ASC, id ASC
     """)
+    fun getDistinctAlbumArtSongIdsFlow(
+        allowedParentDirs: List<String>,
+        applyDirectoryFilter: Boolean
+    ): Flow<List<Long>>
+
     fun getDistinctAlbumArtSongs(
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean
-    ): Flow<List<SongEntity>>
+    ): Flow<List<SongEntity>> = getDistinctAlbumArtSongIdsFlow(
+        allowedParentDirs = allowedParentDirs,
+        applyDirectoryFilter = applyDirectoryFilter
+    ).map { ids ->
+        if (ids.isEmpty()) emptyList()
+        else {
+            val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+            ids.mapNotNull { byId[it] }
+        }
+    }
 
     @Query("""
         SELECT """ + SONG_LIST_PROJECTION + """
@@ -837,34 +954,24 @@ interface MusicDao {
 
     /**
      * Returns all favorite songs as a list (for playback queue when shuffling).
+     * Chunked via IDs to prevent CursorWindow 2MB overflow on large favorite collections.
      */
-    @Query("""
-        SELECT """ + SONG_LIST_TABLE_PROJECTION + """
-        FROM songs
-        INNER JOIN favorites ON songs.id = favorites.songId AND favorites.isFavorite = 1
-        WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
-        AND (
-            :filterMode = 0
-            OR (
-                :filterMode = 1
-                AND (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != ''))
-            )
-            OR (
-                :filterMode = 2
-                AND songs.source_type != 0
-            )
-            OR (
-                :filterMode = 3
-                AND (songs.file_path IS NOT NULL AND songs.file_path != '')
-            )
-        )
-        ORDER BY songs.title COLLATE NOCASE ASC
-    """)
+    @Transaction
     suspend fun getFavoriteSongsList(
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         filterMode: Int
-    ): List<SongEntity>
+    ): List<SongEntity> {
+        val ids = getFavoriteSongIdsSorted(
+            allowedParentDirs = allowedParentDirs,
+            applyDirectoryFilter = applyDirectoryFilter,
+            sortOrder = "liked_title_az",
+            filterMode = filterMode
+        )
+        if (ids.isEmpty()) return emptyList()
+        val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+        return ids.mapNotNull { byId[it] }
+    }
 
     @Query("""
         SELECT """ + SONG_LIST_PROJECTION + """
@@ -1787,29 +1894,59 @@ interface MusicDao {
     // --- Genre Queries ---
     // Example: Get all songs for a specific genre
     @Query("""
-        SELECT """ + SONG_LIST_PROJECTION + """
+        SELECT id
         FROM songs
         WHERE (:applyDirectoryFilter = 0 OR id < 0 OR parent_directory_path IN (:allowedParentDirs))
         AND genre LIKE :genreName
         ORDER BY title ASC
     """)
+    fun getSongIdsByGenreFlow(
+        genreName: String,
+        allowedParentDirs: List<String>,
+        applyDirectoryFilter: Boolean
+    ): Flow<List<Long>>
+
     fun getSongsByGenre(
         genreName: String,
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean
-    ): Flow<List<SongEntity>>
+    ): Flow<List<SongEntity>> = getSongIdsByGenreFlow(
+        genreName = genreName,
+        allowedParentDirs = allowedParentDirs,
+        applyDirectoryFilter = applyDirectoryFilter
+    ).map { ids ->
+        if (ids.isEmpty()) emptyList()
+        else {
+            val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+            ids.mapNotNull { byId[it] }
+        }
+    }
 
     @Query("""
-        SELECT """ + SONG_LIST_PROJECTION + """
+        SELECT id
         FROM songs
         WHERE (:applyDirectoryFilter = 0 OR id < 0 OR parent_directory_path IN (:allowedParentDirs))
         AND (genre IS NULL OR genre = '')
         ORDER BY title ASC
     """)
+    fun getSongIdsWithNullGenreFlow(
+        allowedParentDirs: List<String>,
+        applyDirectoryFilter: Boolean
+    ): Flow<List<Long>>
+
     fun getSongsWithNullGenre(
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean
-    ): Flow<List<SongEntity>>
+    ): Flow<List<SongEntity>> = getSongIdsWithNullGenreFlow(
+        allowedParentDirs = allowedParentDirs,
+        applyDirectoryFilter = applyDirectoryFilter
+    ).map { ids ->
+        if (ids.isEmpty()) emptyList()
+        else {
+            val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+            ids.mapNotNull { byId[it] }
+        }
+    }
 
     // Example: Get all unique genre names
     @Query("SELECT DISTINCT genre FROM songs WHERE genre IS NOT NULL AND genre != '' ORDER BY genre ASC")
@@ -1957,8 +2094,12 @@ interface MusicDao {
     @Query("UPDATE songs SET lyrics = NULL")
     suspend fun resetAllLyrics()
 
-    @Query("SELECT " + SONG_LIST_PROJECTION + " FROM songs")
-    suspend fun getAllSongsList(): List<SongEntity>
+    @Transaction
+    suspend fun getAllSongsList(): List<SongEntity> {
+        val allIds = getAllSongIds()
+        if (allIds.isEmpty()) return emptyList()
+        return getSongsByIdsListSimple(allIds)
+    }
 
     @Query("SELECT id, title, artist_name, album_name, duration FROM songs WHERE source_type = 0")
     suspend fun getAllLocalSongSummaries(): List<SongSummary>
@@ -2024,25 +2165,42 @@ interface MusicDao {
      * Get all songs for a specific artist using the junction table.
      */
     @Query("""
-        SELECT """ + SONG_LIST_TABLE_PROJECTION + """
+        SELECT songs.id
         FROM songs
         INNER JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
         WHERE song_artist_cross_ref.artist_id = :artistId
         ORDER BY songs.title ASC
     """)
-    fun getSongsForArtist(artistId: Long): Flow<List<SongEntity>>
+    fun getSongIdsForArtistFlow(artistId: Long): Flow<List<Long>>
+
+    fun getSongsForArtist(artistId: Long): Flow<List<SongEntity>> =
+        getSongIdsForArtistFlow(artistId).map { ids ->
+            if (ids.isEmpty()) emptyList()
+            else {
+                val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+                ids.mapNotNull { byId[it] }
+            }
+        }
 
     /**
      * Get all songs for a specific artist (one-shot).
      */
     @Query("""
-        SELECT """ + SONG_LIST_TABLE_PROJECTION + """
+        SELECT songs.id
         FROM songs
         INNER JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
         WHERE song_artist_cross_ref.artist_id = :artistId
         ORDER BY songs.title ASC
     """)
-    suspend fun getSongsForArtistList(artistId: Long): List<SongEntity>
+    suspend fun getSongIdsForArtistList(artistId: Long): List<Long>
+
+    @Transaction
+    suspend fun getSongsForArtistList(artistId: Long): List<SongEntity> {
+        val ids = getSongIdsForArtistList(artistId)
+        if (ids.isEmpty()) return emptyList()
+        val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+        return ids.mapNotNull { byId[it] }
+    }
 
     /**
      * Get the cross-references for a specific song.
@@ -2345,6 +2503,7 @@ interface MusicDao {
             WHERE play_count >= 3 AND last_played_timestamp < :thirtyDaysAgo
         )
         ORDER BY RANDOM()
+        LIMIT 100
     """)
     fun forgottenFavorites(thirtyDaysAgo: Long): Flow<List<SongEntity>>
 

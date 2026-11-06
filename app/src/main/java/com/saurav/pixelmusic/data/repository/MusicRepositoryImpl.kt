@@ -1218,10 +1218,10 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun getFavoriteSongIdsOnce(): Set<String> = withContext(Dispatchers.IO) {
         val ids = favoritesDao.getFavoriteSongIdsOnce()
         val idStrings = ids.map { it.toString() }.toMutableSet()
-        val youtubeSongs = musicDao.getSongsByIdsListSimple(ids)
-        youtubeSongs.forEach { item ->
-            if (item.contentUriString.startsWith("youtube://")) {
-                val ytId = item.contentUriString.removePrefix("youtube://")
+        val youtubeUris = musicDao.getYoutubeContentUrisByIds(ids)
+        youtubeUris.forEach { uri ->
+            val ytId = uri.removePrefix("youtube://")
+            if (ytId.isNotBlank()) {
                 idStrings.add("youtube_$ytId")
             }
         }
@@ -1232,10 +1232,10 @@ class MusicRepositoryImpl @Inject constructor(
         return favoritesDao.getFavoriteSongIds()
             .map { ids ->
                 val idStrings = ids.asSequence().map(Long::toString).toMutableSet()
-                val youtubeSongs = musicDao.getSongsByIdsListSimple(ids)
-                youtubeSongs.forEach { item ->
-                    if (item.contentUriString.startsWith("youtube://")) {
-                        val ytId = item.contentUriString.removePrefix("youtube://")
+                val youtubeUris = musicDao.getYoutubeContentUrisByIds(ids)
+                youtubeUris.forEach { uri ->
+                    val ytId = uri.removePrefix("youtube://")
+                    if (ytId.isNotBlank()) {
                         idStrings.add("youtube_$ytId")
                     }
                 }
