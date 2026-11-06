@@ -1116,11 +1116,6 @@ class MainActivity : ComponentActivity() {
                 
                 val currentSong by remember { playerViewModel.stablePlayerState.map { it.currentSong }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
                 val bottomSheetZoomProgress = com.saurav.pixelmusic.presentation.components.rememberBottomSheetZoomProgress()
-                val isPlayerFullyExpandedForBg by remember {
-                    derivedStateOf {
-                        currentSong != null && playerViewModel.playerContentExpansionFraction.value >= 0.98f
-                    }
-                }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1140,7 +1135,7 @@ class MainActivity : ComponentActivity() {
                             clip = cornerRadiusPx > 0.5f
                             shadowElevation = 0f
                         }
-                        .background(if (isPlayerFullyExpandedForBg) Color.Black else MaterialTheme.colorScheme.background)
+                        .background(MaterialTheme.colorScheme.background)
                 ) {
                     // 1. The Global Wallpaper (Drawn only once!)
                     // We bundle the triggers into a single state so it only fades when these specific values change
@@ -1514,8 +1509,7 @@ class MainActivity : ComponentActivity() {
                             
                         val isExpandedOrExpanding by remember {
                             derivedStateOf {
-                                val f = playerViewModel.playerContentExpansionFraction.value
-                                f > 0.01f && f < 0.98f
+                                playerViewModel.playerContentExpansionFraction.value > 0.01f
                             }
                         }
                         if (isExpandedOrExpanding) {

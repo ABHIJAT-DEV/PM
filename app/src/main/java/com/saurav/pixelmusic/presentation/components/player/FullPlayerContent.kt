@@ -1669,12 +1669,11 @@ fun FullPlayerContent(
                     }
                 }
 
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                    // Wash background fades in with nonArtAlpha (inset from top so light wash never bleeds around top artwork edges)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Wash background fades in with nonArtAlpha
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 96.dp)
                             .graphicsLayer {
                                 alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
                             }
@@ -1798,11 +1797,10 @@ fun FullPlayerContent(
                     }
                 }
 
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                Box(modifier = Modifier.fillMaxSize()) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 96.dp)
                             .graphicsLayer {
                                 alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
                             }
