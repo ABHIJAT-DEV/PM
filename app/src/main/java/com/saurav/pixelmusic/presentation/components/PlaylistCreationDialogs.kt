@@ -156,6 +156,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
@@ -533,11 +534,24 @@ private fun AiPlaylistGeneratingFullScreenPage(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
+            // Focus-in entrance: content zooms down from 1.35x while the blur resolves
+            val enter = remember { Animatable(0f) }
+            LaunchedEffect(Unit) {
+                enter.animateTo(1f, tween(750, easing = FastOutSlowInEasing))
+            }
+            val enterBlur = (28f * (1f - enter.value)).dp
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
+                    .graphicsLayer {
+                        val s = 1.35f - 0.35f * enter.value
+                        scaleX = s
+                        scaleY = s
+                        alpha = (enter.value * 2.2f).coerceIn(0f, 1f)
+                    }
+                    .then(if (enterBlur > 0.5.dp) Modifier.blur(enterBlur) else Modifier)
             ) {
                 // Minimize/Close button at top right
                 AnimatedVisibility(
@@ -629,6 +643,22 @@ private fun CreateAiPlaylistSheetContent(
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessVeryLow),
         label = "ambient_energy"
     )
+    // Hero blobs morph into a different expressive shape whenever the vibe changes
+    var heroFrom by remember { mutableStateOf(0) }
+    var heroTo by remember { mutableStateOf(0) }
+    val heroMorph = remember { Animatable(1f) }
+    val heroTarget = if (basePrompt.isBlank()) 0 else ambientPick + 1
+    LaunchedEffect(heroTarget) {
+        if (heroTarget != heroTo) {
+            heroFrom = heroTo
+            heroTo = heroTarget
+            heroMorph.snapTo(0f)
+            heroMorph.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
+            )
+        }
+    }
     // Every keystroke / vibe pick kicks the hero + background with a small bouncy pulse
     val reactionKick = remember { Animatable(0f) }
     LaunchedEffect(basePrompt) {
@@ -766,7 +796,13 @@ private fun CreateAiPlaylistSheetContent(
                             translationY = -6.dp.toPx() * kick
                         }
                 ) {
-                    AiLibraryIndicatorsAnimation(isGenerating = false, isSuccess = false)
+                    AiLibraryIndicatorsAnimation(
+                        isGenerating = false,
+                        isSuccess = false,
+                        morphFrom = heroFrom,
+                        morphTo = heroTo,
+                        morphProgress = { heroMorph.value }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -1443,6 +1479,13 @@ fun AiMixCookieButton(
     }
 }
 
+/** Picks the shape a floating hero blob takes for a given vibe variant (0 = its resting shape). */
+private fun aiHeroShapeFor(spec: AiFloatingShapeSpec, index: Int, variant: Int): AiExpressiveShapeType {
+    if (variant == 0) return spec.shapeType
+    val all = AiExpressiveShapeType.entries
+    return all[(spec.shapeType.ordinal + variant * 3 + index % 2) % all.size]
+}
+
 private data class AiFloatingShapeSpec(
     val shapeType: AiExpressiveShapeType,
     val sizeDp: Float,
@@ -1607,6 +1650,9 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
 private fun AiLibraryIndicatorsAnimation(
     isGenerating: Boolean,
     isSuccess: Boolean = false,
+    morphFrom: Int = 0,
+    morphTo: Int = 0,
+    morphProgress: () -> Float = { 1f },
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -1814,6 +1860,15 @@ private fun AiLibraryIndicatorsAnimation(
                 else -> 1.0f + scaleAmp * kotlin.math.sin(scalePhase.toDouble()).toFloat()
             }
 
+            val fromType = aiHeroShapeFor(spec, index, morphFrom)
+            val toType = aiHeroShapeFor(spec, index, morphTo)
+            val morphT = morphProgress()
+            val floatShape: Shape = when {
+                fromType == toType -> shapeCache[fromType] ?: CircleShape
+                morphT >= 1f -> shapeCache[toType] ?: CircleShape
+                else -> AiMorphingExpressiveShape(fromType, toType, morphT)
+            }
+
             if (shapeAlpha > 0.01f && shapeScale > 0.01f) {
                 Box(
                     modifier = Modifier
@@ -1826,7 +1881,7 @@ private fun AiLibraryIndicatorsAnimation(
                             this.scaleY = shapeScale
                             this.alpha = shapeAlpha
                         }
-                        .clip(shapeCache[spec.shapeType] ?: CircleShape)
+                        .clip(floatShape)
                         .background(shapeColorPalette[spec.colorIndex % shapeColorPalette.size])
                 )
             }
