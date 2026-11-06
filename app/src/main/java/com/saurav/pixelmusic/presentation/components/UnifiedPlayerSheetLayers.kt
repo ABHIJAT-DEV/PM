@@ -182,7 +182,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                             onNext = { playerViewModel.nextSong() },
                             isLiquidGlass = isLiquidGlassActive,
                             albumArtAlphaProvider = {
-                                if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
+                                (1f - playerContentExpansionFraction.value * 3.5f).coerceIn(0f, 1f)
                             },
                             modifier = Modifier.fillMaxSize()
                         )
