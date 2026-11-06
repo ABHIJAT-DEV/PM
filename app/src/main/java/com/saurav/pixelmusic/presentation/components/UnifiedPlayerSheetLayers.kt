@@ -122,22 +122,24 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                     )
                 }
 
-                // Keep MiniPlayer composed at all times and move it off-screen when expanded
-                // so crossing 0.42f during a downward drag never triggers a mid-drag composition hitch.
+                // Keep MiniPlayer composed at all times and move it off-screen while the sheet
+                // is transitioning so its controls/text never render over the morphing FullPlayer.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
                         .height(MiniPlayerHeight)
                         .offset {
-                            if (playerContentExpansionFraction.value >= 0.45f) IntOffset(0, 10000)
+                            val threshold = if (isLiquidGlassActive) 0.45f else 0.004f
+                            if (playerContentExpansionFraction.value > threshold) IntOffset(0, 10000)
                             else IntOffset.Zero
                         }
                         .graphicsLayer {
-                            // Compute miniAlpha in the draw phase from the Animatable,
-                            // avoiding per-frame recomposition during gestures.
-                            alpha = (1f - playerContentExpansionFraction.value * 2.5f)
-                                .coerceIn(0f, 1f)
+                            alpha = if (isLiquidGlassActive) {
+                                (1f - playerContentExpansionFraction.value * 2.5f).coerceIn(0f, 1f)
+                            } else {
+                                if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
+                            }
                         }
                             .then(
                                 if (isLiquidGlassActive) {
@@ -182,7 +184,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                             onNext = { playerViewModel.nextSong() },
                             isLiquidGlass = isLiquidGlassActive,
                             albumArtAlphaProvider = {
-                                (1f - playerContentExpansionFraction.value * 3.5f).coerceIn(0f, 1f)
+                                if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
                             },
                             modifier = Modifier.fillMaxSize()
                         )

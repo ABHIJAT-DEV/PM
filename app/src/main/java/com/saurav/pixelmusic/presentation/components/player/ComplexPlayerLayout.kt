@@ -82,6 +82,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -376,21 +377,6 @@ private enum class VerticalControlButton {
     MORE, LIKE, PREVIOUS, PLAY_PAUSE, NEXT
 }
 
-private data class DynamicStackRoundRectShape(
-    val rxPx: Float,
-    val ryPx: Float
-) : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
-        val rx = rxPx.coerceIn(0f, size.width * 0.5f)
-        val ry = ryPx.coerceIn(0f, size.height * 0.5f)
-        return Outline.Rounded(RoundRect(Rect(0f, 0f, size.width, size.height), CornerRadius(rx, ry)))
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ComplexPlayerLayout(
@@ -660,8 +646,7 @@ fun ComplexPlayerLayout(
                             scaleY = scale
                             translationX = (miniSongInfoLeftPx - destX) * (1f - s.posT)
                             translationY = (miniSongInfoTopPx - destY) * (1f - s.posT)
-                            val textMorphAlpha = ((s.rawFraction - 0.03f) / 0.22f).coerceIn(0f, 1f)
-                            alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else textMorphAlpha
+                            alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                         }
                 ) {
                     SharedPlayerMarqueeText(
@@ -2270,45 +2255,36 @@ private fun ExpressiveMorphingStackButton(
         label = "stackButtonScale"
     )
 
-    val smoothShape = remember(cornerRadius) {
-        AbsoluteSmoothCornerShape(
-            cornerRadiusTL = cornerRadius,
-            smoothnessAsPercentTL = 60,
-            cornerRadiusTR = cornerRadius,
-            smoothnessAsPercentTR = 60,
-            cornerRadiusBL = cornerRadius,
-            smoothnessAsPercentBL = 60,
-            cornerRadiusBR = cornerRadius,
-            smoothnessAsPercentBR = 60
-        )
-    }
-
     Box(
         modifier = modifier
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
-                clip = true
-                shape = if (miniCornerDp != null && morphTracker != null && expansionFractionProvider != null && miniBtnSizePx > 0f) {
-                    val w = size.width.coerceAtLeast(1f)
-                    val h = size.height.coerceAtLeast(1f)
+            }
+            .drawBehind {
+                val w = size.width.coerceAtLeast(1f)
+                val h = size.height.coerceAtLeast(1f)
+                val fullCornerPx = cornerRadius.toPx()
+                val rx: Float
+                val ry: Float
+                if (miniCornerDp != null && morphTracker != null && expansionFractionProvider != null && miniBtnSizePx > 0f) {
                     val t = morphTracker.evaluate(expansionFractionProvider()).sizeT
-                    val fullCornerPx = cornerRadius.toPx()
                     val miniCornerPx = miniCornerDp.toPx()
                     val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, t)
                     val sx = (androidx.compose.ui.util.lerp(miniBtnSizePx, w, t) / w).coerceAtLeast(0.01f)
                     val sy = (androidx.compose.ui.util.lerp(miniBtnSizePx, h, t) / h).coerceAtLeast(0.01f)
-                    val rx = (targetVisualR / sx).coerceIn(0f, w * 0.5f)
-                    val ry = (targetVisualR / sy).coerceIn(0f, h * 0.5f)
-                    DynamicStackRoundRectShape(
-                        rxPx = (rx * 4f).roundToInt() / 4f,
-                        ryPx = (ry * 4f).roundToInt() / 4f
-                    )
+                    rx = (targetVisualR / sx).coerceIn(0f, w * 0.5f)
+                    ry = (targetVisualR / sy).coerceIn(0f, h * 0.5f)
                 } else {
-                    smoothShape
+                    val r = fullCornerPx.coerceIn(0f, minOf(w, h) * 0.5f)
+                    rx = r
+                    ry = r
                 }
+                drawRoundRect(
+                    color = containerColor,
+                    cornerRadius = CornerRadius(rx, ry)
+                )
             }
-            .background(containerColor)
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)

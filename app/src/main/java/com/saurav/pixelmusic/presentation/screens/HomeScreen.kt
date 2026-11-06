@@ -855,18 +855,9 @@ fun HomeScreen(
                         .graphicsLayer {
                             if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) {
                                 val p = com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress
-                                val handoff = ((p - 0.82f) / 0.14f).coerceIn(0f, 1f)
-                                alpha = handoff
-                                val cushion = if (p >= 0.76f && p <= 0.98f) {
-                                    val t = ((p - 0.76f) / 0.22f).coerceIn(0f, 1f)
-                                    1f + 0.14f * kotlin.math.sin(t * Math.PI).toFloat() * (1f - t * 0.35f)
-                                } else 1f
-                                scaleX = cushion
-                                scaleY = cushion
+                                alpha = ((p - 0.82f) / 0.16f).coerceIn(0f, 1f)
                             } else {
                                 alpha = 1f
-                                scaleX = 1f
-                                scaleY = 1f
                             }
                         }
                 )

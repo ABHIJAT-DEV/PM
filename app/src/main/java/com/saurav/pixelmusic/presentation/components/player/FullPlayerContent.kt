@@ -3178,8 +3178,7 @@ private fun SongMetadataDisplaySection(
                         scaleY = scale
                         translationX = (miniSongInfoLeftPx - destX) * (1f - s.posT)
                         translationY = (miniSongInfoTopPx - destY) * (1f - s.posT)
-                        val textMorphAlpha = ((s.rawFraction - 0.03f) / 0.22f).coerceIn(0f, 1f)
-                        alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else textMorphAlpha
+                        alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                     }
             )
         }

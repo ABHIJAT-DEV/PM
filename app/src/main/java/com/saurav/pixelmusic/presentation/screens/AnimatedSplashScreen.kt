@@ -224,8 +224,6 @@ fun AnimatedSplashScreen(
     }
     val defaultTargetSizePx = remember(density) { with(density) { 26.dp.toPx() } }
     val startLogoSizePx = remember(density) { with(density) { 88.dp.toPx() } }
-    val swoopCurveXPx = remember(density) { with(density) { 46.dp.toPx() } }
-    val swoopCurveYPx = remember(density) { with(density) { -32.dp.toPx() } }
 
     val resolvedTargetCenter = SplashTransitionState.targetCenterInRoot ?: defaultTargetCenter
     val resolvedTargetSizePx = if (SplashTransitionState.targetSizePx > 0f) {
@@ -244,19 +242,6 @@ fun AnimatedSplashScreen(
     val logoStartColor = MaterialTheme.colorScheme.onPrimaryContainer
     val logoEndColor = MaterialTheme.colorScheme.primary
 
-    // Evaluate quadratic Bézier arc position for any flight progress t in [0, 1]
-    fun evaluateArcDx(t: Float): Float {
-        val inv = 1f - t
-        val ctrlX = totalDx * 0.28f + swoopCurveXPx
-        return 2f * inv * t * ctrlX + (t * t) * totalDx
-    }
-
-    fun evaluateArcDy(t: Float): Float {
-        val inv = 1f - t
-        val ctrlY = totalDy * 0.58f + swoopCurveYPx
-        return 2f * inv * t * ctrlY + (t * t) * totalDy
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -271,7 +256,7 @@ fun AnimatedSplashScreen(
             }
             .drawBehind {
                 val p = exitProgress.value
-                val fadeRaw = ((p - 0.05f) / 0.50f).coerceIn(0f, 1f)
+                val fadeRaw = (p / 0.55f).coerceIn(0f, 1f)
                 val bgAlpha = 1f - (fadeRaw * fadeRaw * (3f - 2f * fadeRaw))
                 if (bgAlpha > 0.002f) {
                     drawRect(color = backgroundColor.copy(alpha = bgAlpha))
@@ -279,20 +264,19 @@ fun AnimatedSplashScreen(
             },
         contentAlignment = Alignment.Center
     ) {
-        // 1. Expanding harmonic halo ring on entrance + launch shockwave ripple on exit
+        // 1. Expanding harmonic halo ring on entrance (fades out cleanly in place as exit begins)
         Canvas(
             modifier = Modifier
                 .size(240.dp)
                 .graphicsLayer {
                     val p = exitProgress.value
                     val progress = haloProgress.value
-                    val launchBurst = 1f + p * 0.85f
-                    scaleX = (0.55f + (progress * 0.65f)) * launchBurst
-                    scaleY = (0.55f + (progress * 0.65f)) * launchBurst
-                    alpha = (1f - progress * 0.7f) * 0.55f * (1f - p * 2.2f).coerceIn(0f, 1f)
+                    scaleX = 0.55f + (progress * 0.65f)
+                    scaleY = 0.55f + (progress * 0.65f)
+                    alpha = (1f - progress * 0.7f) * 0.55f * (1f - p * 3.2f).coerceIn(0f, 1f)
                 }
         ) {
-            if (exitProgress.value < 0.5f) {
+            if (exitProgress.value < 0.35f) {
                 drawCircle(
                     color = haloColor,
                     radius = size.minDimension * 0.46f,
@@ -301,29 +285,27 @@ fun AnimatedSplashScreen(
             }
         }
 
-        // 2. Material 3 Expressive 12-lobe scalloped badge that contracts into the icon on launch and trails along the arc
+        // 2. Material 3 Expressive 12-lobe scalloped badge (dissolves smoothly in place at center)
         Canvas(
             modifier = Modifier
                 .size(156.dp)
                 .graphicsLayer {
                     val p = exitProgress.value
-                    val flightRaw = ((p - 0.06f) / 0.78f).coerceIn(0f, 1f)
-                    val flightT = FlightSpatialEasing.transform(flightRaw)
-                    val badgeShrink = 1f - FlightSpatialEasing.transform((p / 0.68f).coerceIn(0f, 1f)) * (1f - targetScale * 0.42f)
+                    val exitFade = (p / 0.42f).coerceIn(0f, 1f)
+                    val smoothFade = exitFade * exitFade * (3f - 2f * exitFade)
+                    val badgeShrink = 1f - smoothFade * 0.32f
                     scaleX = badgeScale.value * badgeShrink
                     scaleY = badgeScale.value * badgeShrink
-                    translationX = evaluateArcDx(flightT)
-                    translationY = evaluateArcDy(flightT)
-                    rotationZ = badgeRotation.value + p * 140f
-                    alpha = badgeAlpha.value * (1f - ((p - 0.10f) / 0.52f).coerceIn(0f, 1f))
+                    rotationZ = badgeRotation.value
+                    alpha = badgeAlpha.value * (1f - smoothFade)
                 }
         ) {
             val p = exitProgress.value
-            if (p < 0.65f) {
+            if (p < 0.45f) {
                 val cx = size.width * 0.5f
                 val cy = size.height * 0.5f
                 val baseRadius = min(cx, cy) * 0.88f
-                val waveAmplitude = scallopMorph.value * (1f - (p / 0.55f).coerceIn(0f, 1f))
+                val waveAmplitude = scallopMorph.value * (1f - (p / 0.42f).coerceIn(0f, 1f))
                 val lobes = 12
                 val steps = 120
 
@@ -348,65 +330,29 @@ fun AnimatedSplashScreen(
             }
         }
 
-        // 3. Landing Halo Ring that blooms around the Home top bar icon slot as the icon docks
-        Canvas(
-            modifier = Modifier
-                .size(64.dp)
-                .graphicsLayer {
-                    val p = exitProgress.value
-                    val ringProgress = ((p - 0.70f) / 0.28f).coerceIn(0f, 1f)
-                    val ringEase = 1f - (1f - ringProgress) * (1f - ringProgress)
-                    val ringScale = 0.35f + ringEase * 1.15f
-                    scaleX = ringScale
-                    scaleY = ringScale
-                    translationX = totalDx
-                    translationY = totalDy
-                    alpha = sin(ringProgress * PI).toFloat() * 0.55f
-                }
-        ) {
-            if (exitProgress.value > 0.70f) {
-                drawCircle(
-                    color = logoEndColor,
-                    radius = size.minDimension * 0.42f,
-                    style = Stroke(width = 3.5.dp.toPx())
-                )
-            }
-        }
-
-        // 4. Outer "P" Ribbon Layer (Anticipation swell -> Swooping Bézier arc + 360° spin -> Dock cushion)
+        // 3. Outer "P" Ribbon Layer (Smooth, direct glide into the Home top bar icon slot)
         Canvas(
             modifier = Modifier
                 .size(88.dp)
                 .graphicsLayer {
                     val p = exitProgress.value
-                    val anticipation = if (p < 0.16f) {
-                        sin((p / 0.16f) * PI).toFloat()
-                    } else 0f
-                    val flightRaw = ((p - 0.08f) / 0.76f).coerceIn(0f, 1f)
-                    val flightT = FlightSpatialEasing.transform(flightRaw)
-                    val dockCushion = if (p >= 0.76f && p <= 0.98f) {
-                        val t = ((p - 0.76f) / 0.22f).coerceIn(0f, 1f)
-                        1f + 0.14f * sin(t * PI).toFloat() * (1f - t * 0.35f)
-                    } else 1f
-
-                    val baseScale = (1f + anticipation * 0.14f) * (1f + (targetScale - 1f) * flightT) * dockCushion
+                    val flightT = FlightSpatialEasing.transform(p)
+                    val baseScale = 1f + (targetScale - 1f) * flightT
                     val settleLock = (p * 5f).coerceIn(0f, 1f)
                     val entranceScale = outerScale.value * (1f - settleLock) + settleLock
                     scaleX = entranceScale * baseScale
                     scaleY = entranceScale * baseScale
-                    translationX = evaluateArcDx(flightT)
-                    translationY = evaluateArcDy(flightT) - anticipation * 6.dp.toPx()
+                    translationX = totalDx * flightT
+                    translationY = totalDy * flightT
+                    rotationZ = outerRotation.value * (1f - settleLock)
 
-                    val spinAngle = -14f * anticipation + 360f * flightT
-                    rotationZ = outerRotation.value * (1f - settleLock) + spinAngle
-
-                    val handoffFadeOut = 1f - ((p - 0.88f) / 0.11f).coerceIn(0f, 1f)
+                    val handoffFadeOut = 1f - ((p - 0.86f) / 0.14f).coerceIn(0f, 1f)
                     alpha = outerAlpha.value * handoffFadeOut
                 }
         ) {
             val p = exitProgress.value
-            val colorT = ((p - 0.10f) / 0.65f).coerceIn(0f, 1f)
-            val currentColor = lerp(logoStartColor, logoEndColor, colorT)
+            val flightT = FlightSpatialEasing.transform(p)
+            val currentColor = lerp(logoStartColor, logoEndColor, flightT)
             withTransform({
                 scale(
                     scaleX = size.width / 600f,
@@ -426,43 +372,29 @@ fun AnimatedSplashScreen(
             }
         }
 
-        // 5. Inner Eighth Notes (♫) Layer (Playful trailing duet along the Bézier arc -> snaps into the "P" loop on dock)
+        // 4. Inner Eighth Notes (♫) Layer (Smooth, unified glide into the Home top bar icon slot)
         Canvas(
             modifier = Modifier
                 .size(88.dp)
                 .graphicsLayer {
                     val p = exitProgress.value
-                    val anticipation = if (p < 0.16f) {
-                        sin((p / 0.16f) * PI).toFloat()
-                    } else 0f
-                    // Trails the outer "P" ribbon by a tiny musical beat mid-flight, then catches up at the dock!
-                    val flightRaw = ((p - 0.11f) / 0.73f).coerceIn(0f, 1f)
-                    val flightT = FlightSpatialEasing.transform(flightRaw)
-                    val dockCushion = if (p >= 0.76f && p <= 0.98f) {
-                        val t = ((p - 0.76f) / 0.22f).coerceIn(0f, 1f)
-                        1f + 0.14f * sin(t * PI).toFloat() * (1f - t * 0.35f)
-                    } else 1f
-
-                    val baseScale = (1f + anticipation * 0.18f) * (1f + (targetScale - 1f) * flightT) * dockCushion
+                    val flightT = FlightSpatialEasing.transform(p)
+                    val baseScale = 1f + (targetScale - 1f) * flightT
                     val settleLock = (p * 5f).coerceIn(0f, 1f)
                     val entranceScale = notesScale.value * (1f - settleLock) + settleLock
                     scaleX = entranceScale * baseScale
                     scaleY = entranceScale * baseScale
-                    translationX = evaluateArcDx(flightT)
-                    translationY = evaluateArcDy(flightT) +
-                        (notesOffsetY.value * (1f - settleLock)).dp.toPx() -
-                        anticipation * 9.dp.toPx()
+                    translationX = totalDx * flightT
+                    translationY = totalDy * flightT + (notesOffsetY.value * (1f - settleLock)).dp.toPx()
+                    rotationZ = notesRotation.value * (1f - settleLock)
 
-                    val spinAngle = -18f * anticipation + 360f * flightT
-                    rotationZ = notesRotation.value * (1f - settleLock) + spinAngle
-
-                    val handoffFadeOut = 1f - ((p - 0.88f) / 0.11f).coerceIn(0f, 1f)
+                    val handoffFadeOut = 1f - ((p - 0.86f) / 0.14f).coerceIn(0f, 1f)
                     alpha = notesAlpha.value * handoffFadeOut
                 }
         ) {
             val p = exitProgress.value
-            val colorT = ((p - 0.10f) / 0.65f).coerceIn(0f, 1f)
-            val currentColor = lerp(logoStartColor, logoEndColor, colorT)
+            val flightT = FlightSpatialEasing.transform(p)
+            val currentColor = lerp(logoStartColor, logoEndColor, flightT)
             withTransform({
                 scale(
                     scaleX = size.width / 600f,
