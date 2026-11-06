@@ -241,9 +241,14 @@ object QueuePreloadManager {
                 .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
             val dataSource = cacheDataSourceFactory.createDataSource()
+            val streamCacheKey = if (streamUrl.contains("saavncdn.com", ignoreCase = true) || streamUrl.contains("jiosaavn.com", ignoreCase = true)) {
+                "${videoId}_saavn"
+            } else {
+                videoId
+            }
             val dataSpec = DataSpec.Builder()
                 .setUri(uri)
-                .setKey(videoId)
+                .setKey(streamCacheKey)
                 .setPosition(0)
                 .setLength(128 * 1024L)
                 .build()

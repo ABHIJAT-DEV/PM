@@ -177,7 +177,7 @@ object SongDownloader {
                 youtubeId = song.youtubeId ?: song.id.removePrefix("youtube_"),
                 title = song.title,
                 artist = song.displayArtist,
-                duration = "",
+                duration = if (song.duration > 0L) song.duration.toString() else "",
                 thumbnailHref = song.albumArtUriString ?: ""
             )
             var streamUrl = try {
@@ -298,7 +298,24 @@ object SongDownloader {
                 }
             }
 
-            val totalBytes = probeTotalBytes(streamUrl)
+            var totalBytes = probeTotalBytes(streamUrl)
+            if (totalBytes <= 0L && streamUrl.contains("saavncdn.com", ignoreCase = true)) {
+                if (streamUrl.contains("_320.mp4")) {
+                    val fallback160 = streamUrl.replace("_320.mp4", "_160.mp4")
+                    val bytes160 = probeTotalBytes(fallback160)
+                    if (bytes160 > 0L) {
+                        streamUrl = fallback160
+                        totalBytes = bytes160
+                    }
+                }
+                if (totalBytes <= 0L) {
+                    val ytFallback = runCatching { YoutubeHelper.getDownloadUrlFromYoutubeOnly(context, ytSong) }.getOrNull()
+                    if (!ytFallback.isNullOrBlank()) {
+                        streamUrl = ytFallback
+                        totalBytes = probeTotalBytes(streamUrl)
+                    }
+                }
+            }
             val activeStreamUrl = AtomicReference(streamUrl)
             val totalDownloaded = AtomicLong(0L)
 
@@ -1024,10 +1041,13 @@ try {
                 if (chunkBytesWritten > 0L) {
                     totalDownloaded.addAndGet(-chunkBytesWritten)
                 }
-                if (e.message?.contains("403") == true || e.message?.contains("410") == true) {
+                if (e.message?.contains("403") == true || e.message?.contains("410") == true || e.message?.contains("404") == true) {
                     try {
                         YoutubeHelper.invalidateStreamCache(ytSong.youtubeId)
-                        val freshUrl = if (attempt >= 1) {
+                        val currentIsSaavn = currentUrl.contains("saavncdn.com", ignoreCase = true)
+                        val freshUrl = if (currentIsSaavn) {
+                            YoutubeHelper.getDownloadUrlFromYoutubeOnly(context, ytSong)
+                        } else if (attempt >= 1) {
                             com.saurav.pixelmusic.data.remote.jiosaavn.JioSaavnHelper.getFallbackStreamUrl(
                                 youtubeId = ytSong.youtubeId,
                                 title = ytSong.title,

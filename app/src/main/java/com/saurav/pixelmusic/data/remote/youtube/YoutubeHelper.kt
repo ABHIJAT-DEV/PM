@@ -310,6 +310,27 @@ object YoutubeHelper {
         )
     }
 
+    private suspend fun getActiveStreamingQuality(context: Context): StreamingAudioQuality {
+        return try {
+            val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication<YoutubeHelperEntryPoint>(
+                context.applicationContext,
+                YoutubeHelperEntryPoint::class.java
+            )
+            val userPreferencesRepository = entryPoint.userPreferencesRepository()
+            val connectivityStateHolder = entryPoint.connectivityStateHolder()
+            val isMetered = connectivityStateHolder.isMeteredNetwork.value
+            val forceHigh = userPreferencesRepository.forceHighQualityOnMobileFlow.first()
+
+            if (isMetered && !forceHigh) {
+                userPreferencesRepository.streamingAudioQualityMobileFlow.first()
+            } else {
+                userPreferencesRepository.streamingAudioQualityWifiFlow.first()
+            }
+        } catch (e: Exception) {
+            StreamingAudioQuality.AUTO
+        }
+    }
+
     private suspend fun getTargetBitrateCeiling(context: Context, forDownload: Boolean = false): Int {
         return try {
             val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication<YoutubeHelperEntryPoint>(
@@ -344,12 +365,81 @@ object YoutubeHelper {
                             else -> if (isMetered) 128 else 0
                         }
                     }
-                    StreamingAudioQuality.HIGH -> if (isMetered && !forceHigh) 128 else 0
+                    StreamingAudioQuality.HIGH -> 0
                     else -> targetQuality.maxBitrateKbps
                 }
             }
         } catch (e: Exception) {
             0
+        }
+    }
+
+    private suspend fun resolveSongMetadataIfNeeded(context: Context, song: Song, savedSong: Song? = null): Song {
+        var title = song.title
+        var artist = song.artist
+        var duration = song.duration
+        val dbSong = savedSong ?: runCatching {
+            AppDatabase.getInstance(context).songRepository().getSong(song.youtubeId)
+        }.getOrNull()
+        if (dbSong != null) {
+            if (title.isBlank()) title = dbSong.title
+            if (artist.isBlank()) artist = dbSong.artist
+            if (duration.isBlank()) duration = dbSong.duration
+        }
+        if (title.isBlank() && song.youtubeId.isNotBlank()) {
+            runCatching {
+                val info = extractSongInfo(YoutubeRequestHelper.getPlayerInfo(song.youtubeId))
+                if (info.title.isNotBlank()) title = info.title
+                if (artist.isBlank() && info.artist.isNotBlank()) artist = info.artist
+                if (duration.isBlank() && info.duration.isNotBlank()) duration = info.duration
+            }
+        }
+        return if (title != song.title || artist != song.artist || duration != song.duration) {
+            song.copy(title = title, artist = artist, duration = duration)
+        } else {
+            song
+        }
+    }
+
+    suspend fun getDownloadUrlFromYoutubeOnly(context: Context, song: Song): String {
+        val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication<YoutubeHelperEntryPoint>(
+            context.applicationContext,
+            YoutubeHelperEntryPoint::class.java
+        )
+        val targetQuality = entryPoint.userPreferencesRepository().downloadAudioQualityFlow.first()
+        val (ytUri, _, _) = getSongUrlFromYoutube(
+            context = context,
+            song = song,
+            lowQuality = (targetQuality == StreamingAudioQuality.LOW),
+            maxBitrateKbps = targetQuality.maxBitrateKbps,
+            requireM4a = true,
+            explicitQuality = targetQuality
+        )
+        streamUrlLruCache.put("${song.youtubeId}_dl_${targetQuality.name}", ytUri)
+        return ytUri
+    }
+
+    suspend fun getYoutubeFallbackStreamUrl(context: Context, song: Song): String? {
+        return try {
+            val activeQuality = getActiveStreamingQuality(context)
+            val maxBitrate = getTargetBitrateCeiling(context)
+            val (ytUri, mimeType, bitrate) = getSongUrlFromYoutube(
+                context = context,
+                song = song,
+                lowQuality = (activeQuality == StreamingAudioQuality.LOW),
+                maxBitrateKbps = maxBitrate,
+                explicitQuality = activeQuality
+            )
+            val videoId = song.youtubeId
+            val cacheKey = if (activeQuality == StreamingAudioQuality.HIGH) "${videoId}_best"
+                else if (maxBitrate > 0) "${videoId}_q$maxBitrate"
+                else "${videoId}_high"
+            streamUrlLruCache.put(cacheKey, ytUri)
+            mimeType?.let { streamMimeTypeLruCache.put(cacheKey, it) }
+            bitrate?.let { streamBitrateLruCache.put(cacheKey, it) }
+            ytUri
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -366,24 +456,53 @@ object YoutubeHelper {
         val cachedQuality = streamUrlLruCache.get(cacheKey)
         if (cachedQuality != null && isYoutubeUrlValid(cachedQuality)) return cachedQuality
 
-        val (newUri, _, _) = try {
-            getSongUrlFromYoutube(
-                context = context,
-                song = song,
-                lowQuality = (targetQuality == StreamingAudioQuality.LOW),
-                maxBitrateKbps = targetQuality.maxBitrateKbps,
-                requireM4a = true,
-                explicitQuality = targetQuality
-            )
-        } catch (e: Exception) {
-            val fallback = com.saurav.pixelmusic.data.remote.jiosaavn.JioSaavnHelper.getFallbackStreamUrl(
+        val enrichedSong = resolveSongMetadataIfNeeded(context, song)
+        val durationMs = JioSaavnHelper.parseDurationToMs(enrichedSong.duration)
+
+        val newUri = if (targetQuality == StreamingAudioQuality.HIGH) {
+            // When Best quality is selected for downloads, search JioSaavn first in 320 kbps
+            val saavnUrl = JioSaavnHelper.getFallbackStreamUrl(
                 youtubeId = videoId,
-                title = song.title,
-                artist = song.artist,
-                durationMs = com.saurav.pixelmusic.data.remote.jiosaavn.JioSaavnHelper.parseDurationToMs(song.duration),
-                preferKbps = if (targetQuality.maxBitrateKbps >= 256) 320 else 160
+                title = enrichedSong.title,
+                artist = enrichedSong.artist,
+                durationMs = durationMs,
+                preferKbps = 320
             )
-            if (fallback != null) Triple(fallback, "audio/mp4", 160) else throw e
+            if (!saavnUrl.isNullOrBlank()) {
+                saavnUrl
+            } else {
+                getSongUrlFromYoutube(
+                    context = context,
+                    song = enrichedSong,
+                    lowQuality = false,
+                    maxBitrateKbps = targetQuality.maxBitrateKbps,
+                    requireM4a = true,
+                    explicitQuality = targetQuality
+                ).first
+            }
+        } else {
+            // For other qualities (Auto, Low, Medium), use YouTube first and fall back to JioSaavn
+            val (ytUri, _, _) = try {
+                getSongUrlFromYoutube(
+                    context = context,
+                    song = enrichedSong,
+                    lowQuality = (targetQuality == StreamingAudioQuality.LOW),
+                    maxBitrateKbps = targetQuality.maxBitrateKbps,
+                    requireM4a = true,
+                    explicitQuality = targetQuality
+                )
+            } catch (e: Exception) {
+                val preferKbps = if (targetQuality == StreamingAudioQuality.LOW) 96 else 160
+                val fallback = JioSaavnHelper.getFallbackStreamUrl(
+                    youtubeId = videoId,
+                    title = enrichedSong.title,
+                    artist = enrichedSong.artist,
+                    durationMs = durationMs,
+                    preferKbps = preferKbps
+                )
+                if (fallback != null) Triple(fallback, "audio/mp4", preferKbps) else throw e
+            }
+            ytUri
         }
         streamUrlLruCache.put(cacheKey, newUri)
         return newUri
@@ -405,34 +524,70 @@ object YoutubeHelper {
             return savedSong.audioFilePath
         }
 
+        val activeQuality = getActiveStreamingQuality(context)
+        val isBestQuality = (activeQuality == StreamingAudioQuality.HIGH)
         val maxBitrate = getTargetBitrateCeiling(context)
-        val cacheKey = if (maxBitrate > 0) "${videoId}_q$maxBitrate" else "${videoId}_high"
+        val cacheKey = when {
+            isBestQuality -> "${videoId}_best"
+            maxBitrate > 0 -> "${videoId}_q$maxBitrate"
+            else -> "${videoId}_auto"
+        }
 
         val cachedQuality = streamUrlLruCache.get(cacheKey)
         if (cachedQuality != null && isYoutubeUrlValid(cachedQuality)) return cachedQuality
 
-        if (maxBitrate == 0 || maxBitrate >= 256) {
-            val cachedHigh = streamUrlLruCache.get("${videoId}_high")
-            if (cachedHigh != null && isYoutubeUrlValid(cachedHigh)) return cachedHigh
-        }
+        val enrichedSong = resolveSongMetadataIfNeeded(context, song, savedSong)
+        val durationMs = JioSaavnHelper.parseDurationToMs(enrichedSong.duration)
 
-        val (newUri, mimeType, bitrate) = try {
-            getSongUrlFromYoutube(context, song, lowQuality = false, maxBitrateKbps = maxBitrate)
-        } catch (e: Exception) {
-            // Fallback: resolve the stream via JioSaavn when YouTube extraction fails.
-            val fallback = JioSaavnHelper.getFallbackStreamUrl(
+        val (newUri, mimeType, bitrate) = if (isBestQuality) {
+            // When Best quality (HIGH) is selected, search JioSaavn first in best quality (320 kbps),
+            // and fall back to YouTube if JioSaavn has no match.
+            val saavnUrl = JioSaavnHelper.getFallbackStreamUrl(
                 youtubeId = videoId,
-                title = song.title,
-                artist = song.artist,
-                durationMs = JioSaavnHelper.parseDurationToMs(song.duration),
-                preferKbps = if (maxBitrate >= 256) 320 else 160
+                title = enrichedSong.title,
+                artist = enrichedSong.artist,
+                durationMs = durationMs,
+                preferKbps = 320
             )
-            if (fallback != null) Triple(fallback, "audio/mp4", 160) else throw e
+            if (!saavnUrl.isNullOrBlank()) {
+                val saavnBitrate = if (saavnUrl.contains("_320.")) 320_000 else 160_000
+                Triple(saavnUrl, "audio/mp4", saavnBitrate)
+            } else {
+                getSongUrlFromYoutube(
+                    context = context,
+                    song = enrichedSong,
+                    lowQuality = false,
+                    maxBitrateKbps = maxBitrate,
+                    explicitQuality = StreamingAudioQuality.HIGH
+                )
+            }
+        } else {
+            // When any other quality (Auto, Low, Medium) is selected, search YouTube first,
+            // and fall back to JioSaavn only if YouTube fails.
+            try {
+                getSongUrlFromYoutube(
+                    context = context,
+                    song = enrichedSong,
+                    lowQuality = (activeQuality == StreamingAudioQuality.LOW),
+                    maxBitrateKbps = maxBitrate,
+                    explicitQuality = activeQuality
+                )
+            } catch (e: Exception) {
+                val preferKbps = if (activeQuality == StreamingAudioQuality.LOW) 96 else 160
+                val fallback = JioSaavnHelper.getFallbackStreamUrl(
+                    youtubeId = videoId,
+                    title = enrichedSong.title,
+                    artist = enrichedSong.artist,
+                    durationMs = durationMs,
+                    preferKbps = preferKbps
+                )
+                if (fallback != null) Triple(fallback, "audio/mp4", preferKbps * 1000) else throw e
+            }
         }
         streamUrlLruCache.put(cacheKey, newUri)
         mimeType?.let { streamMimeTypeLruCache.put(cacheKey, it) }
         bitrate?.let { streamBitrateLruCache.put(cacheKey, it) }
-        if (maxBitrate == 0 || maxBitrate >= 256) {
+        if (isBestQuality || maxBitrate == 0 || maxBitrate >= 256) {
             streamUrlLruCache.put("${videoId}_high", newUri)
             mimeType?.let { streamMimeTypeLruCache.put("${videoId}_high", it) }
             bitrate?.let { streamBitrateLruCache.put("${videoId}_high", it) }
@@ -468,36 +623,7 @@ object YoutubeHelper {
     }
 
     suspend fun getHighestQualityStreamUrl(context: Context, song: Song): String {
-        val videoId = song.youtubeId
-        if (song.audioFilePath?.isNotBlank() == true && File(song.audioFilePath).exists()) return song.audioFilePath
-
-        val cachedLocalPath = localFilePathCache.get(videoId)
-        if (cachedLocalPath != null && File(cachedLocalPath).exists()) return cachedLocalPath
-        
-        val localSongRepository = AppDatabase.getInstance(context).songRepository()
-        val savedSong = try { localSongRepository.getSong(videoId) } catch (_: Exception) { null }
-        if (savedSong?.audioFilePath != null && File(savedSong.audioFilePath).exists()) {
-            localFilePathCache.put(videoId, savedSong.audioFilePath)
-            return savedSong.audioFilePath
-        }
-
-        val maxBitrate = getTargetBitrateCeiling(context)
-        val cacheKey = if (maxBitrate > 0) "${videoId}_q$maxBitrate" else "${videoId}_high"
-        streamUrlLruCache.get(cacheKey)?.let { if (isYoutubeUrlValid(it)) return it }
-
-        val highResult = getSongUrlFromYoutube(context, song, lowQuality = false, maxBitrateKbps = maxBitrate)
-        val highUrl = highResult.first
-        val mimeType = highResult.second
-        val bitrate = highResult.third
-        streamUrlLruCache.put(cacheKey, highUrl)
-        mimeType?.let { streamMimeTypeLruCache.put(cacheKey, it) }
-        bitrate?.let { streamBitrateLruCache.put(cacheKey, it) }
-        if (maxBitrate == 0 || maxBitrate >= 256) {
-            streamUrlLruCache.put("${videoId}_high", highUrl)
-            mimeType?.let { streamMimeTypeLruCache.put("${videoId}_high", it) }
-            bitrate?.let { streamBitrateLruCache.put("${videoId}_high", it) }
-        }
-        return highUrl
+        return getSongPlayerUrl(context, song, allowLocal = true)
     }
 
     fun registerLocalFilePath(youtubeId: String, filePath: String) {
@@ -534,12 +660,16 @@ object YoutubeHelper {
     }
 
     fun invalidateStreamCache(youtubeId: String) {
-        streamUrlLruCache.remove("${youtubeId}_low")
-        streamUrlLruCache.remove("${youtubeId}_high")
-        streamMimeTypeLruCache.remove("${youtubeId}_low")
-        streamMimeTypeLruCache.remove("${youtubeId}_high")
-        streamBitrateLruCache.remove("${youtubeId}_low")
-        streamBitrateLruCache.remove("${youtubeId}_high")
+        val prefix = "${youtubeId}_"
+        streamUrlLruCache.snapshot().keys.filter { it.startsWith(prefix) }.forEach { streamUrlLruCache.remove(it) }
+        streamMimeTypeLruCache.snapshot().keys.filter { it.startsWith(prefix) }.forEach { streamMimeTypeLruCache.remove(it) }
+        streamBitrateLruCache.snapshot().keys.filter { it.startsWith(prefix) }.forEach { streamBitrateLruCache.remove(it) }
+    }
+
+    fun clearAllStreamCaches() {
+        streamUrlLruCache.evictAll()
+        streamMimeTypeLruCache.evictAll()
+        streamBitrateLruCache.evictAll()
     }
 
     private fun extractDuration(songContent: JsonObject): String {
@@ -705,6 +835,9 @@ private suspend fun getSongUrlFromYoutube(
 
     private suspend fun isYoutubeUrlValid(url: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (url.contains("saavncdn.com", ignoreCase = true) || url.contains("jiosaavn.com", ignoreCase = true)) {
+                return@withContext true
+            }
             val expireParam = url.substringAfter("expire=", "").substringBefore("&")
             if (expireParam.isNotEmpty()) {
                 val expireTimeSecs = expireParam.toLongOrNull()

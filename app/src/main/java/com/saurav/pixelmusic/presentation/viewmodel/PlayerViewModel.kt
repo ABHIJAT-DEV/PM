@@ -1580,7 +1580,7 @@ class PlayerViewModel @Inject constructor(
             if (uriStr.isNotBlank() && uriStr.startsWith("youtube://")) {
                 launch(Dispatchers.IO) {
                     try {
-                        dualPlayerEngine.resolveCloudUri(uriStr.toUri())
+                        dualPlayerEngine.resolveCloudUri(uriStr.toUri(), currentItem.title, currentItem.artist)
                     } catch (e: Exception) {
                         Timber.w(e, "Pre-fetching startup cloud URI failed for: $uriStr")
                     }
@@ -4346,10 +4346,20 @@ class PlayerViewModel @Inject constructor(
                 }
             }
 
-            // Bulletproof fallback: Parse the itag parameter from the YouTube URL if cache missed or was 0
+            // Bulletproof fallback: Parse JioSaavn or YouTube URL if cache missed or was 0
             if (cachedBitrate == null || cachedMime == null) {
                 val playingUriString = uri.toString()
-                if (playingUriString.startsWith("http")) {
+                if (playingUriString.contains("saavncdn.com", ignoreCase = true) || playingUriString.contains("jiosaavn.com", ignoreCase = true)) {
+                    if (cachedMime == null) cachedMime = "audio/mp4"
+                    if (cachedBitrate == null) {
+                        cachedBitrate = when {
+                            playingUriString.contains("_320.") -> 320_000
+                            playingUriString.contains("_160.") -> 160_000
+                            playingUriString.contains("_96.") -> 96_000
+                            else -> 320_000
+                        }
+                    }
+                } else if (playingUriString.startsWith("http")) {
                     val itag = playingUriString.substringAfter("itag=", "").substringBefore("&")
                     if (itag.isNotEmpty()) {
                         when (itag) {
@@ -4812,20 +4822,32 @@ class PlayerViewModel @Inject constructor(
                     return
                 }
 
-                // One-time JioSaavn fallback: if YouTube playback failed, try resolving
-                // the stream via JioSaavn once before giving up on this track.
+                // One-time alternate source fallback: if primary source failed, try the other source once.
                 val song = playbackStateHolder.stablePlayerState.value.currentSong
                 if (mediaId != null && song != null && jioSaavnRetriedIds.add(mediaId)) {
                     if (jioSaavnRetriedIds.size > 500) jioSaavnRetriedIds.clear()
                     viewModelScope.launch {
                         try {
-                            val fallbackUrl = JioSaavnHelper.getFallbackStreamUrl(
-                                youtubeId = song.youtubeId ?: mediaId,
-                                title = song.title,
-                                artist = song.artist,
-                                durationMs = song.duration,
-                                preferKbps = 160
-                            )
+                            val currentUriStr = playerCtrl.currentMediaItem?.localConfiguration?.uri?.toString().orEmpty()
+                            val fallbackUrl = if (currentUriStr.contains("saavncdn.com", ignoreCase = true) || currentUriStr.contains("jiosaavn.com", ignoreCase = true)) {
+                                com.saurav.pixelmusic.data.remote.youtube.YoutubeHelper.getYoutubeFallbackStreamUrl(
+                                    context,
+                                    com.saurav.pixelmusic.data.model.youtube.Song(
+                                        youtubeId = song.youtubeId ?: mediaId.removePrefix("youtube_"),
+                                        title = song.title,
+                                        artist = song.artist,
+                                        duration = if (song.duration > 0L) song.duration.toString() else ""
+                                    )
+                                )
+                            } else {
+                                JioSaavnHelper.getFallbackStreamUrl(
+                                    youtubeId = song.youtubeId ?: mediaId,
+                                    title = song.title,
+                                    artist = song.artist,
+                                    durationMs = song.duration,
+                                    preferKbps = 160
+                                )
+                            }
                             val currentItem = playerCtrl.currentMediaItem
                             if (fallbackUrl != null && currentItem != null &&
                                 playerCtrl.currentMediaItem?.mediaId == mediaId) {
@@ -5174,7 +5196,7 @@ class PlayerViewModel @Inject constructor(
                 }
                 // Pre-resolve asynchronously on Dispatchers.IO to not block player preparation
                 viewModelScope.launch(Dispatchers.IO) {
-                    dualPlayerEngine.resolveCloudUri(startingUri)
+                    dualPlayerEngine.resolveCloudUri(startingUri, effectiveStartSong.title, effectiveStartSong.artist)
                 }
             }
 
@@ -5244,7 +5266,7 @@ class PlayerViewModel @Inject constructor(
             }
         }
 
-        val resolvedUri = dualPlayerEngine.resolveCloudUri(finalUri)
+        val resolvedUri = dualPlayerEngine.resolveCloudUri(finalUri, song.title, song.artist)
 
         return if (resolvedUri == originalUri) {
             mediaItem

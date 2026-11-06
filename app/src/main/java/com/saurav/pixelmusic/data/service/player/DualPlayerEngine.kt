@@ -223,7 +223,13 @@ class DualPlayerEngine @Inject constructor(
         preResolutionJob = scope.launch {
             delay(600)
             try {
-                mediaItem?.localConfiguration?.uri?.let { resolveCloudUri(it) }
+                mediaItem?.localConfiguration?.uri?.let {
+                    resolveCloudUri(
+                        it,
+                        mediaItem.mediaMetadata.title?.toString(),
+                        mediaItem.mediaMetadata.artist?.toString()
+                    )
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e 
             } catch (e: Exception) {
@@ -520,6 +526,23 @@ class DualPlayerEngine @Inject constructor(
                     rebuildPlayersPreservingMasterState("Audio offload setting changed to $enabled")
                 }
             }
+        }
+        scope.launch {
+            var isFirstEmission = true
+            kotlinx.coroutines.flow.combine(
+                userPreferencesRepository.streamingAudioQualityWifiFlow,
+                userPreferencesRepository.streamingAudioQualityMobileFlow,
+                userPreferencesRepository.forceHighQualityOnMobileFlow
+            ) { wifi, mobile, forceHigh -> Triple(wifi, mobile, forceHigh) }
+                .collect {
+                    if (isFirstEmission) {
+                        isFirstEmission = false
+                    } else {
+                        resolvedUriCache.evictAll()
+                        activePlaybackResolvedUris.clear()
+                        com.saurav.pixelmusic.data.remote.youtube.YoutubeHelper.clearAllStreamCaches()
+                    }
+                }
         }
     }
 
@@ -853,12 +876,22 @@ class DualPlayerEngine @Inject constructor(
                             .build()
                     }
 
+                    fun streamCacheKeyFor(resolvedUri: Uri): String {
+                        val base = effectiveCacheKey ?: resolvedUri.toString()
+                        val s = resolvedUri.toString()
+                        return if (s.contains("saavncdn.com", ignoreCase = true) || s.contains("jiosaavn.com", ignoreCase = true)) {
+                            "${base}_saavn"
+                        } else {
+                            base
+                        }
+                    }
+
                     val resolved = resolvedUriCache.get(uriString)
                         ?: (if (!realYtId.isNullOrBlank() && !realYtId.startsWith("-15")) resolvedUriCache.get("youtube://$realYtId") else null)
                     if (resolved != null && !isUrlExpired(resolved)) {
                         return dataSpec.buildUpon()
                             .setUri(resolved)
-                            .setKey(effectiveCacheKey ?: resolved.toString())
+                            .setKey(streamCacheKeyFor(resolved))
                             .applyYtHeaders(resolved)
                             .build()
                     } else if (resolved != null) {
@@ -880,7 +913,7 @@ class DualPlayerEngine @Inject constructor(
                         if (fallbackResolved != null && fallbackResolved != targetUri && fallbackResolved != uri) {
                             return dataSpec.buildUpon()
                                 .setUri(fallbackResolved)
-                                .setKey(effectiveCacheKey ?: fallbackResolved.toString())
+                                .setKey(streamCacheKeyFor(fallbackResolved))
                                 .applyYtHeaders(fallbackResolved)
                                 .build()
                         } else {
@@ -1143,6 +1176,17 @@ private val inFlightResolutions = java.util.concurrent.ConcurrentHashMap<String,
                         if (artist.isBlank()) artist = dbSong.artistName
                     }
                 } catch (_: Exception) {}
+            }
+
+            if (title.isBlank() && youtubeId.isNotBlank()) {
+                val matchingItem = queueSnapshot.firstOrNull { item ->
+                    item.mediaId.removePrefix("youtube_") == youtubeId ||
+                        item.localConfiguration?.uri?.toString()?.endsWith(youtubeId) == true
+                }
+                if (matchingItem != null) {
+                    if (title.isBlank()) title = matchingItem.mediaMetadata.title?.toString().orEmpty()
+                    if (artist.isBlank()) artist = matchingItem.mediaMetadata.artist?.toString().orEmpty()
+                }
             }
 
             if (youtubeId.isBlank() || youtubeId.startsWith("-15")) {

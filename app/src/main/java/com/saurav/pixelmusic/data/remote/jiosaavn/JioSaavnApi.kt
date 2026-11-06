@@ -52,7 +52,8 @@ object JioSaavnApi {
     @Serializable
     private data class SaavnMoreInfo(
         @SerialName("encrypted_media_url") val encryptedMediaUrl: String = "",
-        val duration: String = ""
+        val duration: String = "",
+        @SerialName("320kbps") val has320kbps: String = "true"
     )
 
     data class SaavnTrack(
@@ -60,7 +61,8 @@ object JioSaavnApi {
         val title: String,
         val artists: String,
         val durationSec: Long,
-        val encryptedMediaUrl: String
+        val encryptedMediaUrl: String,
+        val has320kbps: Boolean = true
     )
 
     /**
@@ -103,7 +105,8 @@ object JioSaavnApi {
                         title = htmlUnescape(raw.title),
                         artists = htmlUnescape(raw.subtitle),
                         durationSec = info.duration.toLongOrNull() ?: 0L,
-                        encryptedMediaUrl = info.encryptedMediaUrl
+                        encryptedMediaUrl = info.encryptedMediaUrl,
+                        has320kbps = !info.has320kbps.equals("false", ignoreCase = true)
                     )
                 }
             }

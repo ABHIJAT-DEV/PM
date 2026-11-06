@@ -11,8 +11,12 @@ import kotlinx.coroutines.withContext
  */
 object JioSaavnHelper {
 
-    /** Cache of youtubeId -> JioSaavn stream url (avoids repeat searches). */
-    private data class CachedSaavnUrl(val url: String, val cachedAt: Long)
+    /** Cache of youtubeId -> decrypted JioSaavn stream url + 320kbps availability (avoids repeat searches). */
+    private data class CachedSaavnUrl(
+        val decryptedUrl: String,
+        val has320kbps: Boolean,
+        val cachedAt: Long
+    )
     private val urlCache = LruCache<String, CachedSaavnUrl>(200)
     private const val SAAVN_URL_EXPIRY_MS = 2 * 60 * 60 * 1000L // 2 hours
 
@@ -33,11 +37,13 @@ object JioSaavnHelper {
     ): String? = withContext(Dispatchers.IO) {
         if (!enabled) return@withContext null
         if (title.isBlank()) return@withContext null
-        urlCache.get(youtubeId)?.let { cached ->
+        val cacheKey = youtubeId.ifBlank { "${title.trim()}_${artist.trim()}" }
+        urlCache.get(cacheKey)?.let { cached ->
             if (System.currentTimeMillis() - cached.cachedAt < SAAVN_URL_EXPIRY_MS) {
-                return@withContext cached.url
+                val targetKbps = if (preferKbps >= 320 && !cached.has320kbps) 160 else preferKbps
+                return@withContext JioSaavnCrypto.withBitrate(cached.decryptedUrl, targetKbps)
             } else {
-                urlCache.remove(youtubeId)
+                urlCache.remove(cacheKey)
             }
         }
 
@@ -47,11 +53,11 @@ object JioSaavnHelper {
 
         val best = pickBestMatch(candidates, title, artist, durationMs) ?: return@withContext null
         val decrypted = JioSaavnCrypto.decryptMediaUrl(best.encryptedMediaUrl) ?: return@withContext null
-        val url = JioSaavnCrypto.withBitrate(decrypted, preferKbps)
-        if (!url.startsWith("https://")) return@withContext null
+        if (!decrypted.startsWith("https://")) return@withContext null
 
-        urlCache.put(youtubeId, CachedSaavnUrl(url, System.currentTimeMillis()))
-        url
+        urlCache.put(cacheKey, CachedSaavnUrl(decrypted, best.has320kbps, System.currentTimeMillis()))
+        val targetKbps = if (preferKbps >= 320 && !best.has320kbps) 160 else preferKbps
+        JioSaavnCrypto.withBitrate(decrypted, targetKbps)
     }
 
     fun clearCache() = urlCache.evictAll()
