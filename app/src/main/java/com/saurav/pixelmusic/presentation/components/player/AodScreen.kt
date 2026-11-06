@@ -1498,7 +1498,7 @@ fun AodScreen(
                             .background(
                                 Brush.verticalGradient(
                                     colorStops = arrayOf(
-                                        0.0f to Color.Black.copy(alpha = sourceBounds?.topScrimAlpha ?: 0f),
+                                        0.0f to if (sourceBounds?.topScrimAlpha ?: 0f > 0f) Color.Black.copy(alpha = sourceBounds!!.topScrimAlpha) else Color.Transparent,
                                         (sourceBounds?.washStart ?: 0.55f) to Color.Transparent,
                                         (sourceBounds?.washMid ?: 0.80f) to washColorForArt.copy(alpha = sourceBounds?.washMidAlpha ?: 0.85f),
                                         1.0f to washColorForArt

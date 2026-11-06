@@ -1119,11 +1119,6 @@ class MainActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black)
-                ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
                         .graphicsLayer {
                             val p = bottomSheetZoomProgress.value.coerceIn(0f, 1f)
                             val zoomScale = androidx.compose.ui.util.lerp(1f, 0.96f, p)
@@ -1640,7 +1635,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                    }
                     }
                 }
                 }
