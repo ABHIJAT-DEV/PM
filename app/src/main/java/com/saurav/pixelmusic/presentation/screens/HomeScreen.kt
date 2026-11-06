@@ -832,7 +832,27 @@ fun HomeScreen(
                     painter = painterResource(R.drawable.pixelmusic_base_monochrome),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier
+                        .size(26.dp)
+                        .onGloballyPositioned { coordinates ->
+                            if (coordinates.isAttached) {
+                                val pos = coordinates.positionInRoot()
+                                val w = coordinates.size.width.toFloat()
+                                val h = coordinates.size.height.toFloat()
+                                if (w > 0f && h > 0f) {
+                                    com.saurav.pixelmusic.presentation.screens.SplashTransitionState.updateTarget(
+                                        centerInRoot = androidx.compose.ui.geometry.Offset(
+                                            x = pos.x + w * 0.5f,
+                                            y = pos.y + h * 0.5f
+                                        ),
+                                        sizePx = w
+                                    )
+                                }
+                            }
+                        }
+                        .graphicsLayer {
+                            alpha = if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) 0f else 1f
+                        }
                 )
             },
             pillTextSize = 28.sp,

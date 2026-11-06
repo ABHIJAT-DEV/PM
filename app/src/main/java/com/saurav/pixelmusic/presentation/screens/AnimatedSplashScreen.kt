@@ -1,6 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -9,12 +10,18 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -23,7 +30,11 @@ import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -31,6 +42,21 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+
+object SplashTransitionState {
+    var targetCenterInRoot by mutableStateOf<Offset?>(null)
+        private set
+    var targetSizePx by mutableFloatStateOf(0f)
+        private set
+    var isSplashActive by mutableStateOf(false)
+
+    fun updateTarget(centerInRoot: Offset, sizePx: Float) {
+        targetCenterInRoot = centerInRoot
+        if (sizePx > 0f) {
+            targetSizePx = sizePx
+        }
+    }
+}
 
 private const val OUTER_RIBBON_PATH_DATA =
     "M 191.6 53.5 C 180.5 55.6 167 60.4 156.9 65.7 C 122.7 83.7 96.2 120.2 91 156.5 C 90.2 162.3 90 203 90.2 301.5 L 90.5 438.5 L 93.2 448.2 C 108 501.8 146.4 534.2 198 536.7 C 229.2 538.1 257.6 528.8 296.5 504.2 C 344.1 474.1 352 469.5 367.8 462.5 C 382.6 456 398.2 450.8 416 446.6 C 450.3 438.4 456.9 436.7 466 433.3 C 504.5 419 530.6 395.2 541.5 364.6 C 546.3 351.4 548 340.4 548 323.9 C 548 296.9 540.8 273.1 525.8 250.5 C 516.5 236.4 503.6 224.7 472 201.9 C 442.2 180.3 408.9 156.7 376 133.8 C 365.3 126.4 346.8 113.6 335 105.3 C 278.9 66.3 270.5 61.6 245.6 55.4 C 232.6 52.1 204.3 51.1 191.6 53.5 Z M 231.2 81.4 C 247.9 84.4 261.4 90.2 279.8 102.4 C 290.4 109.4 293.1 111.8 288.9 110.6 C 283.8 109.2 260.3 108.7 252 109.9 C 201.6 117.3 159.6 161.8 153.1 214.5 C 152.5 219.4 152 231.4 152 241 C 152 276 147.5 291.2 128.2 321 L 120.2 333.2 L 119.5 248.4 C 118.9 171 119 162.8 120.5 155.5 C 128.2 119.1 158.4 89 195 81.5 C 203.5 79.8 221.6 79.7 231.2 81.4 Z M 297.3 136.5 C 310.2 138.7 321.1 142.5 335.5 149.5 C 353.1 158.1 369.2 168.8 458.5 231.6 C 479.6 246.4 494.4 260.6 501.4 272.5 C 517.3 299.9 519.9 333.4 508 359.7 C 500.4 376.5 484.7 392.1 466.2 401.4 C 455.7 406.7 444.2 410.3 419.9 416 C 395.8 421.6 382.9 425.5 369 431 C 346.2 440.1 327.3 450.3 299.8 468.1 C 263.9 491.4 245.4 497.7 216 496.7 C 194.9 496 179.3 491.1 163.3 480.2 C 144.8 467.5 130.5 445.8 125.9 423.5 C 120.3 396.6 126.7 375 151.1 338.3 C 161 323.5 166.3 313.2 170.5 300.5 C 176 284.2 177.1 276.5 178 246 C 178.5 230.3 179.4 215.2 180 212.5 C 188.1 173.9 216.4 144.7 253.5 136.5 C 261.9 134.7 286.8 134.7 297.3 136.5 Z"
@@ -163,40 +189,84 @@ fun AnimatedSplashScreen(
             }
         }
 
-        // 4. Hold for the longer rotation choreography, then trigger slow high-level zoom into Home
-        delay(1650L)
+        // 4. Hold for the rotation choreography, then smoothly zoom out & fly the icon into the Home top bar
+        delay(1550L)
         onExitStarted()
         exitProgress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing)
+            animationSpec = tween(
+                durationMillis = 820,
+                easing = CubicBezierEasing(0.32f, 0.0f, 0.12f, 1.0f)
+            )
         )
         onSplashFinished()
     }
 
+    val density = LocalDensity.current
+    val statusBarTopPx = WindowInsets.statusBars.getTop(density).toFloat()
+    var boxCenterInRoot by remember { mutableStateOf(Offset.Zero) }
+
+    val defaultTargetCenter = remember(statusBarTopPx, density) {
+        Offset(
+            x = with(density) { 33.dp.toPx() },
+            y = statusBarTopPx + with(density) { 40.dp.toPx() }
+        )
+    }
+    val defaultTargetSizePx = remember(density) { with(density) { 26.dp.toPx() } }
+    val startLogoSizePx = remember(density) { with(density) { 88.dp.toPx() } }
+    val arcLateralOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
+
+    val resolvedTargetCenter = SplashTransitionState.targetCenterInRoot ?: defaultTargetCenter
+    val resolvedTargetSizePx = if (SplashTransitionState.targetSizePx > 0f) {
+        SplashTransitionState.targetSizePx
+    } else {
+        defaultTargetSizePx
+    }
+
+    val targetScale = (resolvedTargetSizePx / startLogoSizePx).coerceIn(0.15f, 1f)
+    val totalDx = if (boxCenterInRoot != Offset.Zero) resolvedTargetCenter.x - boxCenterInRoot.x else 0f
+    val totalDy = if (boxCenterInRoot != Offset.Zero) resolvedTargetCenter.y - boxCenterInRoot.y else 0f
+
     val backgroundColor = MaterialTheme.colorScheme.background
     val badgeColor = MaterialTheme.colorScheme.primaryContainer
     val haloColor = MaterialTheme.colorScheme.secondaryContainer
-    val logoColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val logoStartColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val logoEndColor = MaterialTheme.colorScheme.primary
+
+    val p = exitProgress.value
+    val backgroundAlpha = (1f - p * 1.35f).coerceIn(0f, 1f)
+    val currentFlightDx = totalDx * p - sin(p * PI).toFloat() * arcLateralOffsetPx
+    val currentFlightDy = totalDy * p
+    val currentLogoScale = 1f + (targetScale - 1f) * p
+    val animatedLogoColor = lerp(logoStartColor, logoEndColor, p)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer {
-                alpha = 1f - exitProgress.value
+            .onGloballyPositioned { coordinates ->
+                if (coordinates.isAttached) {
+                    val pos = coordinates.positionInRoot()
+                    boxCenterInRoot = Offset(
+                        x = pos.x + coordinates.size.width * 0.5f,
+                        y = pos.y + coordinates.size.height * 0.5f
+                    )
+                }
             }
-            .background(backgroundColor),
+            .background(backgroundColor.copy(alpha = backgroundAlpha)),
         contentAlignment = Alignment.Center
     ) {
-        // Expanding harmonic halo ring with high-level zoom on exit
+        // Expanding harmonic halo ring that gently contracts and dissolves as the icon takes flight
         Canvas(
             modifier = Modifier
                 .size(240.dp)
                 .graphicsLayer {
                     val progress = haloProgress.value
-                    val exitZoom = 1f + (exitProgress.value * 3.6f)
-                    scaleX = (0.55f + (progress * 0.65f)) * exitZoom
-                    scaleY = (0.55f + (progress * 0.65f)) * exitZoom
-                    alpha = (1f - progress * 0.7f) * 0.55f
+                    val exitShrink = 1f - (p * 0.55f)
+                    scaleX = (0.55f + (progress * 0.65f)) * exitShrink
+                    scaleY = (0.55f + (progress * 0.65f)) * exitShrink
+                    translationX = currentFlightDx * 0.35f
+                    translationY = currentFlightDy * 0.35f
+                    alpha = (1f - progress * 0.7f) * 0.55f * (1f - p * 1.8f).coerceIn(0f, 1f)
                 }
         ) {
             drawCircle(
@@ -206,22 +276,24 @@ fun AnimatedSplashScreen(
             )
         }
 
-        // Material 3 Expressive 12-lobe scalloped badge slowly rotating + high-level zoom on exit
+        // Material 3 Expressive 12-lobe scalloped badge that travels with the icon while zooming out & dissolving
         Canvas(
             modifier = Modifier
                 .size(156.dp)
                 .graphicsLayer {
-                    val exitZoom = 1f + (exitProgress.value * 3.4f)
-                    scaleX = badgeScale.value * exitZoom
-                    scaleY = badgeScale.value * exitZoom
+                    val badgeExitScale = 1f + ((targetScale * 0.55f) - 1f) * p
+                    scaleX = badgeScale.value * badgeExitScale
+                    scaleY = badgeScale.value * badgeExitScale
+                    translationX = currentFlightDx
+                    translationY = currentFlightDy
                     rotationZ = badgeRotation.value
-                    alpha = badgeAlpha.value
+                    alpha = badgeAlpha.value * (1f - p * 1.45f).coerceIn(0f, 1f)
                 }
         ) {
             val cx = size.width * 0.5f
             val cy = size.height * 0.5f
             val baseRadius = min(cx, cy) * 0.88f
-            val waveAmplitude = scallopMorph.value * (1f - exitProgress.value * 0.6f)
+            val waveAmplitude = scallopMorph.value * (1f - p * 0.8f)
             val lobes = 12
             val steps = 144
 
@@ -245,15 +317,16 @@ fun AnimatedSplashScreen(
             )
         }
 
-        // Outer "P" Ribbon Layer (Slow rotation + high-level zoom on exit)
+        // Outer "P" Ribbon Layer (Zooms out and lands in the Home top bar icon slot)
         Canvas(
             modifier = Modifier
                 .size(88.dp)
                 .graphicsLayer {
-                    val exitZoom = 1f + (exitProgress.value * 3.8f)
-                    scaleX = outerScale.value * exitZoom
-                    scaleY = outerScale.value * exitZoom
-                    rotationZ = outerRotation.value + (exitProgress.value * 12f)
+                    scaleX = outerScale.value * currentLogoScale
+                    scaleY = outerScale.value * currentLogoScale
+                    translationX = currentFlightDx
+                    translationY = currentFlightDy
+                    rotationZ = outerRotation.value * (1f - p)
                     alpha = outerAlpha.value
                 }
         ) {
@@ -271,21 +344,21 @@ fun AnimatedSplashScreen(
             }) {
                 drawPath(
                     path = outerRibbonPath,
-                    color = logoColor
+                    color = animatedLogoColor
                 )
             }
         }
 
-        // Inner Eighth Notes (♫) Layer (Staggered slow rotation + high-level zoom on exit)
+        // Inner Eighth Notes (♫) Layer (Zooms out and lands in the Home top bar icon slot)
         Canvas(
             modifier = Modifier
                 .size(88.dp)
                 .graphicsLayer {
-                    val exitZoom = 1f + (exitProgress.value * 3.8f)
-                    scaleX = notesScale.value * exitZoom
-                    scaleY = notesScale.value * exitZoom
-                    translationY = notesOffsetY.value.dp.toPx()
-                    rotationZ = notesRotation.value + (exitProgress.value * 12f)
+                    scaleX = notesScale.value * currentLogoScale
+                    scaleY = notesScale.value * currentLogoScale
+                    translationX = currentFlightDx
+                    translationY = currentFlightDy + (notesOffsetY.value * (1f - p)).dp.toPx()
+                    rotationZ = notesRotation.value * (1f - p)
                     alpha = notesAlpha.value
                 }
         ) {
@@ -303,7 +376,7 @@ fun AnimatedSplashScreen(
             }) {
                 drawPath(
                     path = innerNotesPath,
-                    color = logoColor
+                    color = animatedLogoColor
                 )
             }
         }

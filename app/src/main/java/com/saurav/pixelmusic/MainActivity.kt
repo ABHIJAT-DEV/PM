@@ -396,25 +396,17 @@ class MainActivity : ComponentActivity() {
                         intent?.getBooleanExtra("ACTION_SHOW_PLAYER", false) == true ||
                         intent?.getBooleanExtra("NAVIGATE_TO_ABOUT", false) == true
                 }
-                var showSplashScreen by remember { mutableStateOf(!shouldSkipSplash) }
+                var showSplashScreen by remember {
+                    mutableStateOf(!shouldSkipSplash).also {
+                        com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive = it.value
+                    }
+                }
                 var contentVisible by remember { mutableStateOf(shouldSkipSplash) }
                 
                 val contentAlpha by animateFloatAsState(
                     targetValue = if (contentVisible) 1f else 0f,
-                    animationSpec = tween(durationMillis = 820, easing = FastOutSlowInEasing),
+                    animationSpec = tween(durationMillis = 760, easing = FastOutSlowInEasing),
                     label = "AppContentAlpha"
-                )
-
-                val contentScale by animateFloatAsState(
-                    targetValue = if (contentVisible) 1f else 0.82f,
-                    animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
-                    label = "AppContentScale"
-                )
-                
-                val contentOffset by animateDpAsState(
-                    targetValue = if (contentVisible) 0.dp else 18.dp,
-                    animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
-                    label = "AppContentOffset"
                 )
 
                 // The Box allows us to layer the Splash Screen ON TOP of the app
@@ -424,9 +416,6 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .graphicsLayer {
                                 alpha = contentAlpha
-                                scaleX = contentScale
-                                scaleY = contentScale
-                                translationY = contentOffset.toPx()
                             },
                         color = MaterialTheme.colorScheme.background
                     ) {
@@ -498,6 +487,7 @@ class MainActivity : ComponentActivity() {
                             contentVisible = true
                         },
                         onSplashFinished = {
+                            com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive = false
                             contentVisible = true
                             showSplashScreen = false
                         }
