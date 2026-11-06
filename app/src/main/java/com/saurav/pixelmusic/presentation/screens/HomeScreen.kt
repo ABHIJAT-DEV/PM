@@ -853,9 +853,41 @@ fun HomeScreen(
                             }
                         }
                         .graphicsLayer {
-                            alpha = if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) 0f else 1f
+                            if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) {
+                                val p = com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress
+                                val handoff = ((p - 0.82f) / 0.14f).coerceIn(0f, 1f)
+                                alpha = handoff
+                                val cushion = if (p >= 0.76f && p <= 0.98f) {
+                                    val t = ((p - 0.76f) / 0.22f).coerceIn(0f, 1f)
+                                    1f + 0.14f * kotlin.math.sin(t * Math.PI).toFloat() * (1f - t * 0.35f)
+                                } else 1f
+                                scaleX = cushion
+                                scaleY = cushion
+                            } else {
+                                alpha = 1f
+                                scaleX = 1f
+                                scaleY = 1f
+                            }
                         }
                 )
+            },
+            pillTextModifier = Modifier.graphicsLayer {
+                if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) {
+                    val p = com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress
+                    val raw = ((p - 0.54f) / 0.38f).coerceIn(0f, 1f)
+                    val inv = 1f - raw
+                    val eased = 1f - inv * inv * inv
+                    alpha = eased
+                    translationX = -16.dp.toPx() * (1f - eased)
+                    val s = 0.92f + 0.08f * eased
+                    scaleX = s
+                    scaleY = s
+                } else {
+                    alpha = 1f
+                    translationX = 0f
+                    scaleX = 1f
+                    scaleY = 1f
+                }
             },
             pillTextSize = 28.sp,
             isLiquidGlass = isLiquidGlassOnHeader,

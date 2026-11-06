@@ -39,6 +39,7 @@ fun LiquidGlassHeaderBar(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
     pillIcon: (@Composable () -> Unit)? = null,
+    pillTextModifier: Modifier = Modifier,
     pillTextSize: androidx.compose.ui.unit.TextUnit = 20.sp,
     isLiquidGlass: Boolean = true,
     backdrop: Backdrop? = null,
@@ -101,7 +102,8 @@ fun LiquidGlassHeaderBar(
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary,
                     fontSize = pillTextSize,
-                    letterSpacing = 0.5.sp
+                    letterSpacing = 0.5.sp,
+                    modifier = pillTextModifier
                 )
             }
         }

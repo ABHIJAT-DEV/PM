@@ -399,24 +399,19 @@ class MainActivity : ComponentActivity() {
                 var showSplashScreen by remember {
                     mutableStateOf(!shouldSkipSplash).also {
                         com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive = it.value
+                        if (it.value) {
+                            com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress = 0f
+                        }
                     }
                 }
-                var contentVisible by remember { mutableStateOf(shouldSkipSplash) }
-                
-                val contentAlpha by animateFloatAsState(
-                    targetValue = if (contentVisible) 1f else 0f,
-                    animationSpec = tween(durationMillis = 760, easing = FastOutSlowInEasing),
-                    label = "AppContentAlpha"
-                )
 
-                // The Box allows us to layer the Splash Screen ON TOP of the app
+                // The Box allows us to layer the Splash Screen ON TOP of the app.
+                // Keep the underlying Surface at full opacity (covered by AnimatedSplashScreen's own
+                // background) so Android HWUI never allocates/destroys a full-screen offscreen alpha
+                // layer mid-flight right before the icon lands.
                 Box(modifier = Modifier.fillMaxSize()) {
                     Surface(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                alpha = contentAlpha
-                            },
+                        modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
                         if (showSetupScreen == null) {
@@ -483,12 +478,10 @@ class MainActivity : ComponentActivity() {
 
                 if (showSplashScreen) {
                     com.saurav.pixelmusic.presentation.screens.AnimatedSplashScreen(
-                        onExitStarted = {
-                            contentVisible = true
-                        },
+                        onExitStarted = {},
                         onSplashFinished = {
                             com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive = false
-                            contentVisible = true
+                            com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress = 1f
                             showSplashScreen = false
                         }
                     )
