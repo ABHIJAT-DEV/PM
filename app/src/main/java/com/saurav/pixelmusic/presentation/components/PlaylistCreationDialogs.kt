@@ -36,6 +36,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -596,6 +602,45 @@ private fun CreateAiPlaylistSheetContent(
     var selectedEnergy by rememberSaveable { mutableStateOf("Auto") }
     var isRefining by rememberSaveable { mutableStateOf(false) }
 
+    // Ambient, prompt-reactive background: soft drifting colour blobs that shift mood per vibe
+    val ambientScheme = MaterialTheme.colorScheme
+    val ambientDark = ambientScheme.surface.luminance() < 0.5f
+    val ambientPick = if (basePrompt.isBlank()) 0 else (basePrompt.trim().lowercase().hashCode() and 0x7fffffff) % 3
+    val ambientBase = listOf(
+        if (ambientDark) ambientScheme.primary else ambientScheme.primaryContainer,
+        if (ambientDark) ambientScheme.tertiary else ambientScheme.tertiaryContainer,
+        if (ambientDark) ambientScheme.secondary else ambientScheme.secondaryContainer
+    )
+    val ambientA by animateColorAsState(targetValue = ambientBase[ambientPick], animationSpec = tween(800), label = "ambient_a")
+    val ambientB by animateColorAsState(targetValue = ambientBase[(ambientPick + 1) % 3], animationSpec = tween(800), label = "ambient_b")
+    val ambientC by animateColorAsState(targetValue = ambientBase[(ambientPick + 2) % 3], animationSpec = tween(800), label = "ambient_c")
+    val ambientTransition = rememberInfiniteTransition(label = "ai_sheet_ambient")
+    val ambientPhase by ambientTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.2831855f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(16000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ambient_phase"
+    )
+    val ambientEnergy by animateFloatAsState(
+        targetValue = if (basePrompt.isBlank()) 0.55f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessVeryLow),
+        label = "ambient_energy"
+    )
+    // Every keystroke / vibe pick kicks the hero + background with a small bouncy pulse
+    val reactionKick = remember { Animatable(0f) }
+    LaunchedEffect(basePrompt) {
+        if (basePrompt.isNotEmpty()) {
+            reactionKick.snapTo(0.85f)
+            reactionKick.animateTo(
+                targetValue = 0f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+            )
+        }
+    }
+
     val triggerGeneration: () -> Unit = {
         if (basePrompt.isNotBlank()) {
             val builtPrompt = buildString {
@@ -644,6 +689,45 @@ private fun CreateAiPlaylistSheetContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .drawBehind {
+                        val t = ambientPhase
+                        val e = ambientEnergy
+                        val k = reactionKick.value.coerceAtLeast(0f)
+                        val w = size.width
+                        val h = size.height
+                        fun blob(color: Color, cx: Float, cy: Float, radius: Float, alpha: Float) {
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(color.copy(alpha = alpha.coerceIn(0f, 1f)), Color.Transparent),
+                                    center = Offset(cx, cy),
+                                    radius = radius
+                                ),
+                                radius = radius,
+                                center = Offset(cx, cy)
+                            )
+                        }
+                        blob(
+                            ambientA,
+                            w * (0.15f + 0.10f * kotlin.math.cos(t)),
+                            h * (0.16f + 0.05f * kotlin.math.sin(t)),
+                            w * (0.75f + 0.18f * k),
+                            0.30f * e + 0.18f * k
+                        )
+                        blob(
+                            ambientB,
+                            w * (0.88f + 0.08f * kotlin.math.sin(t * 1f + 1.7f)),
+                            h * (0.42f + 0.07f * kotlin.math.cos(t + 2.3f)),
+                            w * (0.65f + 0.15f * k),
+                            0.24f * e + 0.14f * k
+                        )
+                        blob(
+                            ambientC,
+                            w * (0.45f + 0.14f * kotlin.math.cos(t + 4.1f)),
+                            h * (0.88f + 0.05f * kotlin.math.sin(t + 0.6f)),
+                            w * (0.80f + 0.12f * k),
+                            0.22f * e + 0.12f * k
+                        )
+                    }
                     .verticalScroll(scrollState)
                     .padding(bottom = 32.dp)
                     .imePadding(),
@@ -671,7 +755,19 @@ private fun CreateAiPlaylistSheetContent(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Persistently mounted library indicators in idle mode
-                AiLibraryIndicatorsAnimation(isGenerating = false, isSuccess = false)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            val kick = reactionKick.value.coerceAtLeast(0f)
+                            val s = 1f + 0.07f * kick
+                            scaleX = s
+                            scaleY = s
+                            translationY = -6.dp.toPx() * kick
+                        }
+                ) {
+                    AiLibraryIndicatorsAnimation(isGenerating = false, isSuccess = false)
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -715,7 +811,7 @@ private fun AiPlaylistMainTuneView(
             ),
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = 20.dp)
+            modifier = Modifier.aiStaggerIn(0).padding(horizontal = 20.dp)
         )
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -725,18 +821,45 @@ private fun AiPlaylistMainTuneView(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 20.dp)
+            modifier = Modifier.aiStaggerIn(1).padding(horizontal = 20.dp)
         )
 
         Spacer(modifier = Modifier.height(22.dp))
 
-        // Prompt input container with dynamic app palette & Material You arrow button
+        // Prompt input: tonal container that warms up, rounds out and glows when focused / filled
+        val fieldInteraction = remember { MutableInteractionSource() }
+        val fieldFocused by fieldInteraction.collectIsFocusedAsState()
+        val fieldActive = fieldFocused || prompt.isNotBlank()
+        val fieldCorner by animateDpAsState(
+            targetValue = if (fieldActive) 34.dp else 28.dp,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+            label = "field_corner"
+        )
+        val fieldGlow by animateFloatAsState(
+            targetValue = if (fieldFocused) 1f else 0f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow),
+            label = "field_glow"
+        )
+        val fieldContainer by animateColorAsState(
+            targetValue = if (fieldActive) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh,
+            animationSpec = tween(250),
+            label = "field_container"
+        )
+        val fieldShape = AbsoluteSmoothCornerShape(fieldCorner, 60)
         Surface(
-            shape = AbsoluteSmoothCornerShape(28.dp, 60),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = fieldShape,
+            color = fieldContainer,
             modifier = Modifier
+                .aiStaggerIn(2)
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
+                .shadow(
+                    elevation = (18f * fieldGlow).dp,
+                    shape = fieldShape,
+                    clip = false,
+                    ambientColor = MaterialTheme.colorScheme.primary,
+                    spotColor = MaterialTheme.colorScheme.primary
+                )
         ) {
             Row(
                 modifier = Modifier
@@ -769,6 +892,7 @@ private fun AiPlaylistMainTuneView(
                             color = MaterialTheme.colorScheme.onSurface
                         ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        interactionSource = fieldInteraction,
                         singleLine = false,
                         maxLines = 3
                     )
@@ -790,6 +914,22 @@ private fun AiPlaylistMainTuneView(
                     label = "arrow_btn_corner"
                 )
 
+                val arrowTilt by animateFloatAsState(
+                    targetValue = if (canSubmit) 0f else -45f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                    label = "arrow_tilt"
+                )
+                val buttonContainer by animateColorAsState(
+                    targetValue = if (canSubmit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    animationSpec = tween(220),
+                    label = "arrow_container"
+                )
+                val buttonContent by animateColorAsState(
+                    targetValue = if (canSubmit) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    animationSpec = tween(220),
+                    label = "arrow_content"
+                )
+
                 Surface(
                     onClick = {
                         if (canSubmit) {
@@ -800,8 +940,8 @@ private fun AiPlaylistMainTuneView(
                     enabled = canSubmit,
                     interactionSource = interactionSource,
                     shape = AbsoluteSmoothCornerShape(buttonCorner, 60),
-                    color = if (canSubmit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
-                    contentColor = if (canSubmit) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    color = buttonContainer,
+                    contentColor = buttonContent,
                     modifier = Modifier
                         .size(width = 64.dp, height = 54.dp)
                         .graphicsLayer {
@@ -813,7 +953,9 @@ private fun AiPlaylistMainTuneView(
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                             contentDescription = "Generate",
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier
+                                .size(24.dp)
+                                .graphicsLayer { rotationZ = arrowTilt }
                         )
                     }
                 }
@@ -842,6 +984,7 @@ private fun AiPlaylistMainTuneView(
 
         // Horizontal scrollable line of thick Material You expressive shortcut pills
         ExpressiveQuickSelectRow(
+            modifier = Modifier.aiStaggerIn(3),
             selectedPrompt = prompt,
             onPillClick = { vibe ->
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -856,6 +999,7 @@ private fun AiPlaylistMainTuneView(
             shape = AbsoluteSmoothCornerShape(22.dp, 60),
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier
+                .aiStaggerIn(4)
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .clip(AbsoluteSmoothCornerShape(22.dp, 60))
@@ -1863,7 +2007,8 @@ private data class VibeItem(
 @Composable
 private fun ExpressiveQuickSelectRow(
     selectedPrompt: String,
-    onPillClick: (String) -> Unit
+    onPillClick: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val vibes = remember {
         listOf(
@@ -1944,7 +2089,7 @@ private fun ExpressiveQuickSelectRow(
 
     LazyHorizontalGrid(
         rows = GridCells.Fixed(3), 
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(174.dp), // Safely fits 3 rows of 48dp pills + spacing
         contentPadding = PaddingValues(horizontal = 20.dp),
@@ -2187,6 +2332,26 @@ private fun ExpressiveChoiceChip(
                 softWrap = false
             )
         }
+    }
+}
+
+@Composable
+private fun Modifier.aiStaggerIn(index: Int): Modifier {
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(50L + index * 70L)
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
+        )
+    }
+    return this.graphicsLayer {
+        val p = progress.value
+        alpha = p.coerceIn(0f, 1f)
+        translationY = (1f - p) * 28.dp.toPx()
+        val s = 0.94f + 0.06f * p
+        scaleX = s
+        scaleY = s
     }
 }
 
