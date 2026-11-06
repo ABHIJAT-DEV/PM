@@ -75,6 +75,7 @@ fun UpdateNotificationSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
+        val smoothDismiss = LocalSmoothDismiss.current
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -172,7 +173,7 @@ fun UpdateNotificationSheet(
                         Button(
                             onClick = {
                                 onMigrateClick()
-                                onDismiss()
+                                smoothDismiss(null)
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isLiquidGlass) Color.Transparent else MaterialTheme.colorScheme.errorContainer,
@@ -217,7 +218,7 @@ fun UpdateNotificationSheet(
                     Button(
                         onClick = {
                             onConfirmClick()
-                            onDismiss()
+                            smoothDismiss(null)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -253,7 +254,7 @@ fun UpdateNotificationSheet(
                         TextButton(
                             onClick = {
                                 onSnoozeClick()
-                                onDismiss()
+                                smoothDismiss(null)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()

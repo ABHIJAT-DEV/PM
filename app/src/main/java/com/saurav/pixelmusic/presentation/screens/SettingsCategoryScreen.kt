@@ -2747,13 +2747,14 @@ fun SettingsCategoryScreen(
                         val success = playerViewModel.forceRegenerateAlbumPaletteForSong(song)
                         isPaletteRegenerateRunning = false
                         if (success) {
-                            showPaletteRegenerateSheet = false
                             paletteSongSearchQuery = ""
                             Toast.makeText(
                                 context,
                                 context.getString(R.string.dialog_palette_regenerated, song.title),
                                 Toast.LENGTH_SHORT
                             ).show()
+                            paletteRegenerateSheetState.hide()
+                            showPaletteRegenerateSheet = false
                         } else {
                             Toast.makeText(
                                 context,

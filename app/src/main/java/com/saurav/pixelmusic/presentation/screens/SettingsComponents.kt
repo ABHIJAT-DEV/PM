@@ -578,6 +578,7 @@ fun ThemeModeSelectorCard(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
+            val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
             Column(modifier = Modifier.padding(bottom = 24.dp)) {
                 Text(
                     text = title,
@@ -602,7 +603,7 @@ fun ThemeModeSelectorCard(
                             onClick = {
                                 themeTransitionController?.lastTouchOffset = optionCenter
                                 onModeSelected(key, optionCenter)
-                                showSheet = false
+                                smoothDismiss(null)
                             },
                             shape = RoundedCornerShape(24.dp),
                             color = containerColor,
@@ -997,6 +998,7 @@ fun ColorPaletteSelectorCard(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
+            val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
             Column(modifier = Modifier.padding(bottom = 24.dp)) {
                 Text(
                     text = title,
@@ -1022,7 +1024,7 @@ fun ColorPaletteSelectorCard(
                             onClick = {
                                 themeTransitionController?.lastTouchOffset = optionCenter
                                 onPaletteSelected(key, optionCenter)
-                                showSheet = false
+                                smoothDismiss(null)
                             },
                             shape = RoundedCornerShape(24.dp),
                             color = containerColor,
@@ -1183,6 +1185,7 @@ fun ThemeSelectorItem(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
+            val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
             Column(modifier = Modifier.padding(bottom = 24.dp)) {
                 Text(
                     text = label,
@@ -1211,7 +1214,7 @@ fun ThemeSelectorItem(
                             onClick = {
                                 themeTransitionController?.lastTouchOffset = optionCenter
                                 onSelectionChanged(key)
-                                showSheet = false
+                                smoothDismiss(null)
                             },
                             shape = RoundedCornerShape(24.dp),
                             color = containerColor,
