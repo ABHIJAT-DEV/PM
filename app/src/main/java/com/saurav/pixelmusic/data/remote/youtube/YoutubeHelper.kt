@@ -318,10 +318,10 @@ object YoutubeHelper {
             )
             val userPreferencesRepository = entryPoint.userPreferencesRepository()
             val connectivityStateHolder = entryPoint.connectivityStateHolder()
-            val isMetered = connectivityStateHolder.isMeteredNetwork.value
-            val forceHigh = userPreferencesRepository.forceHighQualityOnMobileFlow.first()
+            connectivityStateHolder.initialize()
+            val isMetered = connectivityStateHolder.isCurrentlyMobileOrMetered()
 
-            if (isMetered && !forceHigh) {
+            if (isMetered) {
                 userPreferencesRepository.streamingAudioQualityMobileFlow.first()
             } else {
                 userPreferencesRepository.streamingAudioQualityWifiFlow.first()
@@ -344,10 +344,11 @@ object YoutubeHelper {
                 if (targetQuality == StreamingAudioQuality.HIGH) 0 else targetQuality.maxBitrateKbps
             } else {
                 val connectivityStateHolder = entryPoint.connectivityStateHolder()
-                val isMetered = connectivityStateHolder.isMeteredNetwork.value
+                connectivityStateHolder.initialize()
+                val isMetered = connectivityStateHolder.isCurrentlyMobileOrMetered()
                 val forceHigh = userPreferencesRepository.forceHighQualityOnMobileFlow.first()
 
-                val targetQuality = if (isMetered && !forceHigh) {
+                val targetQuality = if (isMetered) {
                     userPreferencesRepository.streamingAudioQualityMobileFlow.first()
                 } else {
                     userPreferencesRepository.streamingAudioQualityWifiFlow.first()

@@ -466,7 +466,9 @@ fun ComplexPlayerLayout(
         val slideOffsetPx = with(density) { 24.dp.toPx() }
 
         val miniSongInfoLeftPx = with(density) { 66.dp.toPx() }
-        val miniSongInfoTopPx = with(density) { 13.dp.toPx() }
+        val miniSongInfoTopPx = with(density) { 13.5.dp.toPx() }
+        val miniReservedWidthPx = with(density) { 210.dp.toPx() }
+        val artistSpacerPx = with(density) { 4.dp.toPx() }
 
         aodSourceBounds?.let { bounds ->
             bounds.artStyle = AodSourceArtStyle.COMPLEX_ARCH
@@ -624,13 +626,44 @@ fun ComplexPlayerLayout(
                     .padding(top = leftColumnTopDp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Song Title & Artist — morphs in-place via GPU graphicsLayer from MiniPlayer slot (66.dp, 13.dp)
+                // Song Title & Artist — morphs in-place via GPU graphicsLayer from MiniPlayer slot (66.dp, 13.5.dp)
                 val fallbackSongInfoLeftPx = with(density) { 26.dp.toPx() }
                 val fallbackSongInfoTopPx = with(density) { (leftColumnTopDp).toPx() }
                 val fallbackTitleMarquee = remember { MarqueeSyncState() }
                 val fallbackArtistMarquee = remember { MarqueeSyncState() }
                 val shouldRunComplexMarquee =
-                    expansionFractionProvider() > 0.99f && aodTransitionProgressProvider() <= 0.001f
+                    expansionFractionProvider() > 0.004f && aodTransitionProgressProvider() <= 0.001f
+                val shouldRunComplexMarqueeProvider = remember(expansionFractionProvider, aodTransitionProgressProvider) {
+                    { expansionFractionProvider() > 0.004f && aodTransitionProgressProvider() <= 0.001f }
+                }
+                val complexMorphFractionProvider = remember(morphTracker, expansionFractionProvider) {
+                    { morphTracker.evaluate(expansionFractionProvider()).sizeT }
+                }
+                val complexMiniAvailableWidthPxProvider = remember(aodSourceBounds, rootCoordsHolder, screenWidthPx, miniReservedWidthPx) {
+                    {
+                        val measuredMiniW = aodSourceBounds?.miniSongInfoWidthPx ?: 0f
+                        if (measuredMiniW > 0f) {
+                            measuredMiniW
+                        } else {
+                            val sheetW = rootCoordsHolder.widthPx.takeIf { it > 0f } ?: screenWidthPx
+                            (sheetW - miniReservedWidthPx).coerceAtLeast(60f)
+                        }
+                    }
+                }
+                val complexFullAvailableWidthPxProvider = remember(songInfoBounds, rootCoordsHolder, screenWidthPx) {
+                    {
+                        val boundW = songInfoBounds.size.width.toFloat()
+                        val curRootW = rootCoordsHolder.widthPx.takeIf { it > 0f } ?: screenWidthPx
+                        val deltaW = (screenWidthPx - curRootW).coerceAtLeast(0f)
+                        if (boundW > 0f) boundW + deltaW else 0f
+                    }
+                }
+                val complexTitleScaleProvider = remember(morphTracker, expansionFractionProvider) {
+                    { androidx.compose.ui.util.lerp(0.625f, 1f, morphTracker.evaluate(expansionFractionProvider()).sizeT) }
+                }
+                val complexArtistScaleProvider = remember(morphTracker, expansionFractionProvider) {
+                    { androidx.compose.ui.util.lerp(13f / 15f, 1f, morphTracker.evaluate(expansionFractionProvider()).sizeT) }
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -660,6 +693,12 @@ fun ComplexPlayerLayout(
                         ),
                         marqueeState = aodSourceBounds?.titleMarquee ?: fallbackTitleMarquee,
                         shouldRunMarquee = shouldRunComplexMarquee,
+                        shouldRunMarqueeProvider = shouldRunComplexMarqueeProvider,
+                        morphFractionProvider = complexMorphFractionProvider,
+                        miniAvailableWidthPxProvider = complexMiniAvailableWidthPxProvider,
+                        fullAvailableWidthPxProvider = complexFullAvailableWidthPxProvider,
+                        localScaleProvider = complexTitleScaleProvider,
+                        baseMiniScale = 0.625f,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -676,15 +715,22 @@ fun ComplexPlayerLayout(
                         ),
                         marqueeState = aodSourceBounds?.artistMarquee ?: fallbackArtistMarquee,
                         shouldRunMarquee = shouldRunComplexMarquee,
+                        shouldRunMarqueeProvider = shouldRunComplexMarqueeProvider,
+                        morphFractionProvider = complexMorphFractionProvider,
+                        miniAvailableWidthPxProvider = complexMiniAvailableWidthPxProvider,
+                        fullAvailableWidthPxProvider = complexFullAvailableWidthPxProvider,
+                        localScaleProvider = complexArtistScaleProvider,
+                        baseMiniScale = 13f / 15f,
                         modifier = Modifier
                             .fillMaxWidth()
                             .graphicsLayer {
-                                // Counter-scale artist text so at t=0 (parent scale 0.625) it renders at ~13.sp matching MiniPlayer
+                                // Counter-scale artist text so at t=0 (parent scale 0.625) it renders at 13.sp matching MiniPlayer
                                 val s = morphTracker.evaluate(expansionFractionProvider())
-                                val artistScale = androidx.compose.ui.util.lerp(1.38f, 1f, s.sizeT)
+                                val artistScale = androidx.compose.ui.util.lerp(1.3866667f, 1f, s.sizeT)
                                 transformOrigin = TransformOrigin(0f, 0f)
                                 scaleX = artistScale
                                 scaleY = artistScale
+                                translationY = -artistSpacerPx * (1f - s.sizeT)
                             }
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },

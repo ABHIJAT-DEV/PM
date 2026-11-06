@@ -549,8 +549,9 @@ class DualPlayerEngine @Inject constructor(
             kotlinx.coroutines.flow.combine(
                 userPreferencesRepository.streamingAudioQualityWifiFlow,
                 userPreferencesRepository.streamingAudioQualityMobileFlow,
-                userPreferencesRepository.forceHighQualityOnMobileFlow
-            ) { wifi, mobile, forceHigh -> Triple(wifi, mobile, forceHigh) }
+                userPreferencesRepository.forceHighQualityOnMobileFlow,
+                connectivityStateHolder.isMeteredNetwork
+            ) { wifi, mobile, forceHigh, isMetered -> listOf(wifi, mobile, forceHigh, isMetered) }
                 .collect {
                     if (isFirstEmission) {
                         isFirstEmission = false
@@ -558,6 +559,11 @@ class DualPlayerEngine @Inject constructor(
                         resolvedUriCache.evictAll()
                         activePlaybackResolvedUris.clear()
                         com.saurav.pixelmusic.data.remote.youtube.YoutubeHelper.clearAllStreamCaches()
+                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            if (!transitionRunning) {
+                                cancelNext()
+                            }
+                        }
                     }
                 }
         }

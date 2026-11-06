@@ -54,6 +54,7 @@ import com.kyant.backdrop.effects.vibrancy
 import androidx.media3.common.util.UnstableApi
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.preferences.FullPlayerLoadingTweaks
+import com.saurav.pixelmusic.presentation.components.player.AodSourceBounds
 import com.saurav.pixelmusic.presentation.components.player.FullPlayerContent
 import com.saurav.pixelmusic.presentation.components.scoped.FullPlayerVisualState
 import com.saurav.pixelmusic.presentation.components.scoped.rememberFullPlayerRuntimePolicy
@@ -97,6 +98,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
     val isLiquidGlassActive = isLiquidGlass && backdrop != null
     val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
     val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
+    val sharedAodSourceBounds = remember { AodSourceBounds() }
 
     currentSong?.let { currentSongNonNull ->
         miniPlayerScheme?.let { readyScheme ->
@@ -185,6 +187,10 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                             isLiquidGlass = isLiquidGlassActive,
                             albumArtAlphaProvider = {
                                 if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
+                            },
+                            aodSourceBounds = sharedAodSourceBounds,
+                            shouldRunMarqueeProvider = {
+                                playerContentExpansionFraction.value <= 0.004f
                             },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -306,7 +312,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         onRepeatToggle = onRepeatToggle,
                         onFavoriteToggle = onFavoriteToggle,
                         isLiquidGlass = isLiquidGlassActive,
-                        backdrop = null
+                        backdrop = null,
+                        sharedAodSourceBounds = sharedAodSourceBounds
                     )
                 }
             }

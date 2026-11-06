@@ -302,7 +302,8 @@ fun FullPlayerContent(
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
     isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null
+    backdrop: com.kyant.backdrop.Backdrop? = null,
+    sharedAodSourceBounds: AodSourceBounds? = null
 ) {
     var retainedSong by remember { mutableStateOf(currentSong) }
     LaunchedEffect(currentSong?.id) {
@@ -368,7 +369,7 @@ fun FullPlayerContent(
     var showFetchLyricsDialog by remember { mutableStateOf(false) }
     var showAodScreen by remember { mutableStateOf(false) }
     val aodMorphAnim = remember { Animatable(0f) }
-    val aodSourceBounds = remember { AodSourceBounds() }
+    val aodSourceBounds = sharedAodSourceBounds ?: remember { AodSourceBounds() }
     val aodTransitionProgressProvider = remember(aodMorphAnim) { { aodMorphAnim.value } }
     val aodVisible by remember {
         androidx.compose.runtime.derivedStateOf { showAodScreen || aodMorphAnim.value > 0.001f }
@@ -2592,11 +2593,18 @@ private fun FullPlayerAlbumCoverSection(
             .fillMaxWidth()
             .padding(vertical = 8.dp)
     ) {
+        val configuration = LocalConfiguration.current
+        val isLandscapeMode = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val effectiveCarouselWidth = if (isLandscapeMode) {
+            maxWidth
+        } else {
+            (configuration.screenWidthDp.dp - 48.dp).coerceAtLeast(maxWidth)
+        }
         val carouselHeight = when (carouselStyle) {
-            CarouselStyle.NO_PEEK -> maxWidth
-            CarouselStyle.ONE_PEEK -> maxWidth * 0.8f
-            CarouselStyle.TWO_PEEK -> maxWidth * 0.6f
-            else -> maxWidth * 0.8f
+            CarouselStyle.NO_PEEK -> effectiveCarouselWidth
+            CarouselStyle.ONE_PEEK -> effectiveCarouselWidth * 0.8f
+            CarouselStyle.TWO_PEEK -> effectiveCarouselWidth * 0.6f
+            else -> effectiveCarouselWidth * 0.8f
         }
 
         DelayedContent(
@@ -3134,8 +3142,17 @@ private fun SongMetadataDisplaySection(
     aodTransitionProgressProvider: () -> Float = { 0f }
 ) {
     val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val fallbackScreenWidthPx = remember(configuration, density) {
+        with(density) { configuration.screenWidthDp.dp.toPx() }
+    }
     val miniSongInfoLeftPx = remember(density) { with(density) { 66.dp.toPx() } }
-    val miniSongInfoTopPx = remember(density) { with(density) { 10.dp.toPx() } }
+    val miniSongInfoTopPx = remember(density) { with(density) { 13.5.dp.toPx() } }
+    val miniReservedWidthPx = remember(density) { with(density) { 210.dp.toPx() } }
+    val fallbackSongInfoLeftPx = remember(density) { with(density) { 24.dp.toPx() } }
+    val fallbackSongInfoTopPx = remember(configuration, density) {
+        with(density) { (configuration.screenHeightDp.dp * 0.56f).toPx() }
+    }
     val songInfoBounds = aodSourceBounds?.songInfoBounds ?: remember { MorphElementBounds() }
     val isDark = LocalPixelMusicDarkTheme.current
     val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
@@ -3161,6 +3178,10 @@ private fun SongMetadataDisplaySection(
                 gradientEdgeColor = gradientEdgeColor,
                 playerViewModel = playerViewModel,
                 onClickArtist = onClickArtist,
+                morphTracker = morphTracker,
+                rootCoordsHolder = rootCoordsHolder,
+                fallbackScreenWidthPx = fallbackScreenWidthPx,
+                miniReservedWidthPx = miniReservedWidthPx,
                 aodSourceBounds = aodSourceBounds,
                 aodTransitionProgressProvider = aodTransitionProgressProvider,
                 modifier = Modifier
@@ -3170,9 +3191,9 @@ private fun SongMetadataDisplaySection(
                     .captureUntransformedBounds(rootCoordsHolder, songInfoBounds)
                     .graphicsLayer {
                         val s = morphTracker.evaluate(expansionFractionProvider())
-                        val destX = songInfoBounds.offset.x
-                        val destY = songInfoBounds.offset.y
-                        val scale = androidx.compose.ui.util.lerp(0.64f, 1f, s.sizeT)
+                        val destX = if (songInfoBounds.hasBounds) songInfoBounds.offset.x else fallbackSongInfoLeftPx
+                        val destY = if (songInfoBounds.hasBounds) songInfoBounds.offset.y else fallbackSongInfoTopPx
+                        val scale = androidx.compose.ui.util.lerp(0.625f, 1f, s.sizeT)
                         transformOrigin = TransformOrigin(0f, 0f)
                         scaleX = scale
                         scaleY = scale
@@ -4092,10 +4113,16 @@ private fun PlayerSongInfo(
     gradientEdgeColor: Color,
     playerViewModel: PlayerViewModel,
     onClickArtist: () -> Unit,
+    morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
+    rootCoordsHolder: LayoutCoordsHolder? = null,
+    fallbackScreenWidthPx: Float = 0f,
+    miniReservedWidthPx: Float = 0f,
     aodSourceBounds: AodSourceBounds? = null,
     aodTransitionProgressProvider: () -> Float = { 0f },
     modifier: Modifier = Modifier
 ) {
+    val density = LocalDensity.current
+    val artistSpacerPx = remember(density) { with(density) { 4.dp.toPx() } }
     val coroutineScope = rememberCoroutineScope()
     var isNavigatingToArtist by remember { mutableStateOf(false) }
     val resolvedArtistId by remember(artists, artistId) {
@@ -4103,7 +4130,38 @@ private fun PlayerSongInfo(
     }
     val fallbackTitleMarquee = remember { MarqueeSyncState() }
     val fallbackArtistMarquee = remember { MarqueeSyncState() }
-    val shouldRunMarquee = expansionFractionProvider() > 0.99f && aodTransitionProgressProvider() <= 0.001f
+    val shouldRunMarquee = expansionFractionProvider() > 0.004f && aodTransitionProgressProvider() <= 0.001f
+    val shouldRunMarqueeProvider = remember(expansionFractionProvider, aodTransitionProgressProvider) {
+        { expansionFractionProvider() > 0.004f && aodTransitionProgressProvider() <= 0.001f }
+    }
+    val morphFractionProvider = remember(morphTracker, expansionFractionProvider) {
+        { morphTracker.evaluate(expansionFractionProvider()).sizeT }
+    }
+    val miniAvailableWidthPxProvider = remember(aodSourceBounds, rootCoordsHolder, fallbackScreenWidthPx, miniReservedWidthPx) {
+        {
+            val measuredMiniW = aodSourceBounds?.miniSongInfoWidthPx ?: 0f
+            if (measuredMiniW > 0f) {
+                measuredMiniW
+            } else {
+                val sheetW = rootCoordsHolder?.widthPx?.takeIf { it > 0f } ?: fallbackScreenWidthPx
+                (sheetW - miniReservedWidthPx).coerceAtLeast(60f)
+            }
+        }
+    }
+    val fullAvailableWidthPxProvider = remember(aodSourceBounds, rootCoordsHolder, fallbackScreenWidthPx) {
+        {
+            val boundW = aodSourceBounds?.songInfoBounds?.size?.width?.toFloat() ?: 0f
+            val curRootW = rootCoordsHolder?.widthPx?.takeIf { it > 0f } ?: fallbackScreenWidthPx
+            val deltaW = (fallbackScreenWidthPx - curRootW).coerceAtLeast(0f)
+            if (boundW > 0f) boundW + deltaW else 0f
+        }
+    }
+    val titleScaleProvider = remember(morphTracker, expansionFractionProvider) {
+        { androidx.compose.ui.util.lerp(0.625f, 1f, morphTracker.evaluate(expansionFractionProvider()).sizeT) }
+    }
+    val artistScaleProvider = remember(morphTracker, expansionFractionProvider) {
+        { androidx.compose.ui.util.lerp(13f / 15f, 1f, morphTracker.evaluate(expansionFractionProvider()).sizeT) }
+    }
 
     val titleStyle = MaterialTheme.typography.headlineSmall.copy(
         fontWeight = FontWeight.ExtraBold,
@@ -4132,6 +4190,12 @@ private fun PlayerSongInfo(
             style = titleStyle,
             marqueeState = aodSourceBounds?.titleMarquee ?: fallbackTitleMarquee,
             shouldRunMarquee = shouldRunMarquee,
+            shouldRunMarqueeProvider = shouldRunMarqueeProvider,
+            morphFractionProvider = morphFractionProvider,
+            miniAvailableWidthPxProvider = miniAvailableWidthPxProvider,
+            fullAvailableWidthPxProvider = fullAvailableWidthPxProvider,
+            localScaleProvider = titleScaleProvider,
+            baseMiniScale = 0.625f,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -4141,8 +4205,22 @@ private fun PlayerSongInfo(
             style = artistStyle,
             marqueeState = aodSourceBounds?.artistMarquee ?: fallbackArtistMarquee,
             shouldRunMarquee = shouldRunMarquee,
+            shouldRunMarqueeProvider = shouldRunMarqueeProvider,
+            morphFractionProvider = morphFractionProvider,
+            miniAvailableWidthPxProvider = miniAvailableWidthPxProvider,
+            fullAvailableWidthPxProvider = fullAvailableWidthPxProvider,
+            localScaleProvider = artistScaleProvider,
+            baseMiniScale = 13f / 15f,
             modifier = Modifier
                 .fillMaxWidth()
+                .graphicsLayer {
+                    val s = morphTracker.evaluate(expansionFractionProvider())
+                    val artistScale = androidx.compose.ui.util.lerp(1.3866667f, 1f, s.sizeT)
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = artistScale
+                    scaleY = artistScale
+                    translationY = -artistSpacerPx * (1f - s.sizeT)
+                }
                 .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

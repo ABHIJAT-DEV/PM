@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -75,6 +76,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -150,12 +153,14 @@ class AodSourceBounds {
     var topShadowMidAlpha: Float = 0f
     var carouselStyle: String = ""
     var currentSeekProgress: Float = -1f
+    var miniSongInfoWidthPx: Float = 0f
     val titleMarquee = MarqueeSyncState()
     val artistMarquee = MarqueeSyncState()
 }
 
 class MarqueeSyncState {
     var text: String = ""
+    var scrollFraction: Float by mutableFloatStateOf(0f)
     var scrollPx: Float by mutableFloatStateOf(0f)
     var frozenEnterScrollPx: Float = 0f
     var pauseRemainingMs: Long = 1600L
@@ -163,6 +168,7 @@ class MarqueeSyncState {
     fun syncText(newText: String) {
         if (text != newText) {
             text = newText
+            scrollFraction = 0f
             scrollPx = 0f
             frozenEnterScrollPx = 0f
             pauseRemainingMs = 1600L
@@ -170,10 +176,18 @@ class MarqueeSyncState {
     }
 
     fun reset() {
+        scrollFraction = 0f
         scrollPx = 0f
         frozenEnterScrollPx = 0f
         pauseRemainingMs = 1600L
     }
+}
+
+private class MarqueeLayoutMetrics {
+    var textWidthPx: Float = 0f
+    var containerWidthPx: Float = 0f
+    var miniLocalWidthPx: Float = 0f
+    var fullLocalWidthPx: Float = 0f
 }
 
 @Composable
@@ -186,51 +200,86 @@ fun SharedPlayerMarqueeText(
     isAodOverlay: Boolean = false,
     enterProgress: Float = 0f,
     srcWidthPx: Float = 0f,
-    destWidthPx: Float = 0f
+    destWidthPx: Float = 0f,
+    shouldRunMarqueeProvider: (() -> Boolean)? = null,
+    morphFractionProvider: (() -> Float)? = null,
+    miniAvailableWidthPxProvider: (() -> Float)? = null,
+    fullAvailableWidthPxProvider: (() -> Float)? = null,
+    localScaleProvider: (() -> Float)? = null,
+    baseMiniScale: Float = 1f,
+    gapDp: Dp = 36.dp,
+    velocityDpPerSec: Dp = 28.dp
 ) {
     val density = LocalDensity.current
-    val gapPx = with(density) { 36.dp.toPx() }
-    val velocityPxPerSec = with(density) { 28.dp.toPx() }
+    val gapPx = with(density) { gapDp.toPx() }
+    val velocityPxPerSec = with(density) { velocityDpPerSec.toPx() }
 
     marqueeState.syncText(text)
 
-    var textWidthPx by remember(text) { mutableFloatStateOf(0f) }
-    var containerWidthPx by remember(text) { mutableFloatStateOf(0f) }
+    val metrics = remember(text) { MarqueeLayoutMetrics() }
 
-    val targetContainerW = if (isAodOverlay && destWidthPx > 0f) destWidthPx else containerWidthPx
-    val overflowsTarget = textWidthPx > targetContainerW + 1f && targetContainerW > 0f
-
-    LaunchedEffect(isAodOverlay, shouldRunMarquee, overflowsTarget, text) {
-        if (isAodOverlay && shouldRunMarquee && !overflowsTarget && textWidthPx > 0f) {
-            // Once settled in AOD, if the text fits on one line without scrolling, reset the
-            // marquee offset so exiting back to Now Playing starts cleanly from 0f.
-            marqueeState.reset()
-        }
-    }
-
-    LaunchedEffect(text, overflowsTarget, shouldRunMarquee) {
-        if (!overflowsTarget || !shouldRunMarquee) return@LaunchedEffect
+    LaunchedEffect(text, isAodOverlay) {
         var lastFrameNanos = 0L
         while (isActive) {
             withFrameNanos { nanos ->
-                if (lastFrameNanos != 0L) {
-                    val dtMs = ((nanos - lastFrameNanos) / 1_000_000L).coerceIn(0L, 100L)
-                    if (marqueeState.pauseRemainingMs > 0L) {
-                        marqueeState.pauseRemainingMs = (marqueeState.pauseRemainingMs - dtMs).coerceAtLeast(0L)
-                    } else {
-                        val cyclePx = (textWidthPx + gapPx).coerceAtLeast(1f)
-                        val nextPx = marqueeState.scrollPx + velocityPxPerSec * (dtMs / 1000f)
-                        if (nextPx >= cyclePx) {
-                            marqueeState.scrollPx = 0f
-                            marqueeState.frozenEnterScrollPx = 0f
-                            marqueeState.pauseRemainingMs = 1400L
-                        } else {
-                            marqueeState.scrollPx = nextPx
-                            marqueeState.frozenEnterScrollPx = nextPx
+                val shouldRun = shouldRunMarqueeProvider?.invoke() ?: shouldRunMarquee
+                val tW = metrics.textWidthPx
+                val cW = metrics.containerWidthPx
+                val t = morphFractionProvider?.invoke()?.coerceIn(0f, 1f) ?: 1f
+                val miniLocalW = metrics.miniLocalWidthPx.takeIf { it > 0f } ?: cW
+                val fullLocalW = metrics.fullLocalWidthPx.takeIf { it > 0f } ?: cW
+                val overflowsMini = tW > miniLocalW + 1f && miniLocalW > 0f
+                val overflowsFull = tW > fullLocalW + 1f && fullLocalW > 0f
+                val overflowsTarget = when {
+                    isAodOverlay -> {
+                        val dW = destWidthPx.takeIf { it > 0f } ?: cW
+                        tW > dW + 1f && dW > 0f
+                    }
+                    morphFractionProvider != null && metrics.miniLocalWidthPx > 0f -> {
+                        when {
+                            t <= 0.01f -> overflowsMini
+                            t >= 0.99f -> overflowsFull
+                            else -> overflowsMini || overflowsFull
                         }
                     }
+                    else -> tW > cW + 1f && cW > 0f
                 }
-                lastFrameNanos = nanos
+
+                if (!shouldRun || !overflowsTarget) {
+                    lastFrameNanos = 0L
+                    if (shouldRun && !overflowsTarget && tW > 0f && cW > 0f) {
+                        val settledNonOverflow = isAodOverlay ||
+                            morphFractionProvider == null ||
+                            (t <= 0.01f && !overflowsMini) ||
+                            (t >= 0.99f && !overflowsFull)
+                        if (settledNonOverflow && marqueeState.scrollFraction != 0f) {
+                            marqueeState.reset()
+                        }
+                    }
+                } else {
+                    if (lastFrameNanos != 0L) {
+                        val dtMs = ((nanos - lastFrameNanos) / 1_000_000L).coerceIn(0L, 100L)
+                        if (marqueeState.pauseRemainingMs > 0L) {
+                            marqueeState.pauseRemainingMs = (marqueeState.pauseRemainingMs - dtMs).coerceAtLeast(0L)
+                        } else {
+                            val cyclePx = (tW + gapPx).coerceAtLeast(1f)
+                            val curScrollPx = marqueeState.scrollFraction.coerceIn(0f, 1f) * cyclePx
+                            val nextPx = curScrollPx + velocityPxPerSec * (dtMs / 1000f)
+                            if (nextPx >= cyclePx) {
+                                marqueeState.scrollFraction = 0f
+                                marqueeState.scrollPx = 0f
+                                marqueeState.frozenEnterScrollPx = 0f
+                                marqueeState.pauseRemainingMs = 1400L
+                            } else {
+                                val nextFrac = (nextPx / cyclePx).coerceIn(0f, 1f)
+                                marqueeState.scrollFraction = nextFrac
+                                marqueeState.scrollPx = nextPx
+                                marqueeState.frozenEnterScrollPx = nextPx
+                            }
+                        }
+                    }
+                    lastFrameNanos = nanos
+                }
             }
         }
     }
@@ -252,7 +301,21 @@ fun SharedPlayerMarqueeText(
                 overflow = TextOverflow.Clip
             )
         },
-        modifier = modifier.clipToBounds()
+        modifier = modifier.drawWithContent {
+            val clipRight = if (!isAodOverlay && morphFractionProvider != null && miniAvailableWidthPxProvider != null) {
+                val t = morphFractionProvider().coerceIn(0f, 1f)
+                val miniW = miniAvailableWidthPxProvider()
+                val fullW = fullAvailableWidthPxProvider?.invoke()?.takeIf { it > 0f } ?: size.width
+                val scale = (localScaleProvider?.invoke() ?: 1f).coerceAtLeast(0.01f)
+                val targetScreenW = if (miniW > 0f && t < 0.999f) lerp(miniW, fullW, t) else size.width
+                (targetScreenW / scale).coerceAtLeast(1f)
+            } else {
+                size.width
+            }
+            clipRect(left = 0f, top = 0f, right = clipRight, bottom = size.height) {
+                this@drawWithContent.drawContent()
+            }
+        }
     ) { measurables, constraints ->
         val cW = constraints.maxWidth.coerceAtLeast(1)
         val cWF = cW.toFloat()
@@ -261,50 +324,83 @@ fun SharedPlayerMarqueeText(
         val tW = primaryPlaceable.width.toFloat()
         val tH = primaryPlaceable.height
 
-        if (textWidthPx != tW) textWidthPx = tW
-        if (containerWidthPx != cWF) containerWidthPx = cWF
+        val miniW = miniAvailableWidthPxProvider?.invoke() ?: 0f
+        val safeBaseScale = baseMiniScale.coerceAtLeast(0.01f)
+        val miniLocalW = if (miniW > 0f) miniW / safeBaseScale else cWF
+        val fullLocalW = fullAvailableWidthPxProvider?.invoke()?.takeIf { it > 0f } ?: cWF
+
+        metrics.textWidthPx = tW
+        metrics.containerWidthPx = cWF
+        metrics.miniLocalWidthPx = miniLocalW
+        metrics.fullLocalWidthPx = fullLocalW
 
         val cyclePx = (tW + gapPx).coerceAtLeast(1f)
-        val primaryX: Float
-        val secondX: Float
-        val needSecondCopy: Boolean
-
-        if (!isAodOverlay) {
-            val overflowsHere = tW > cWF + 1f
-            val curScroll = if (overflowsHere) marqueeState.scrollPx.coerceIn(0f, cyclePx) else 0f
-            primaryX = -curScroll
-            secondX = primaryX + cyclePx
-            needSecondCopy = overflowsHere && curScroll > 0.5f && secondX < cWF
-        } else {
-            val sW = srcWidthPx.takeIf { it > 0f } ?: cWF
-            val dW = destWidthPx.takeIf { it > 0f } ?: cWF
-            val overflowsSrc = tW > sW + 1f
-            val overflowsDest = tW > dW + 1f
-            val rawFrozen = marqueeState.frozenEnterScrollPx.coerceIn(0f, cyclePx)
-            val wrapLeft = overflowsSrc && !overflowsDest && rawFrozen > cyclePx * 0.5f
-
-            val startX = when {
-                !overflowsSrc -> 0f
-                wrapLeft -> -rawFrozen + cyclePx
-                else -> -rawFrozen
-            }
-            val endX = if (overflowsDest) {
-                -marqueeState.scrollPx.coerceIn(0f, cyclePx)
-            } else {
-                (dW - tW) * 0.5f
-            }
-
-            primaryX = lerp(startX, endX, enterProgress.coerceIn(0f, 1f))
-            secondX = if (wrapLeft) primaryX - cyclePx else primaryX + cyclePx
-            needSecondCopy = (overflowsSrc || overflowsDest) &&
-                if (wrapLeft) (secondX + tW > 0f) else (primaryX < -0.5f && secondX < cWF)
-        }
-
-        val secondPlaceable = if (needSecondCopy) measurables[1].measure(unbounded) else null
+        val canEverOverflow = isAodOverlay || tW > minOf(cWF, miniLocalW, fullLocalW) + 1f
+        val secondPlaceable = if (canEverOverflow) measurables[1].measure(unbounded) else null
 
         layout(cW, tH) {
+            val primaryX: Float
+            val secondX: Float
+            val placeSecond: Boolean
+
+            if (!isAodOverlay) {
+                val t = morphFractionProvider?.invoke()?.coerceIn(0f, 1f) ?: 1f
+                val curMiniW = miniAvailableWidthPxProvider?.invoke() ?: 0f
+                val curMiniLocalW = if (curMiniW > 0f) curMiniW / safeBaseScale else cWF
+                val curFullLocalW = fullAvailableWidthPxProvider?.invoke()?.takeIf { it > 0f } ?: cWF
+                val localScale = (localScaleProvider?.invoke() ?: 1f).coerceAtLeast(0.01f)
+                val localVisibleW = if (curMiniW > 0f && morphFractionProvider != null && t < 0.999f) {
+                    (lerp(curMiniW, curFullLocalW, t) / localScale).coerceAtLeast(1f)
+                } else {
+                    cWF
+                }
+
+                val overflowsMini = tW > curMiniLocalW + 1f
+                val overflowsFull = tW > curFullLocalW + 1f
+                val rawScroll = (marqueeState.scrollFraction.coerceIn(0f, 1f) * cyclePx).coerceIn(0f, cyclePx)
+
+                val scrollMultiplier = if (morphFractionProvider != null && curMiniW > 0f) {
+                    lerp(if (overflowsMini) 1f else 0f, if (overflowsFull) 1f else 0f, t)
+                } else {
+                    if (tW > cWF + 1f) 1f else 0f
+                }
+
+                val wrapForward = overflowsMini != overflowsFull && rawScroll > cyclePx * 0.5f
+                val signedScroll = if (wrapForward) rawScroll - cyclePx else rawScroll
+
+                primaryX = -signedScroll * scrollMultiplier
+                secondX = if (wrapForward) primaryX - cyclePx else primaryX + cyclePx
+                placeSecond = secondPlaceable != null && scrollMultiplier > 0.001f &&
+                    if (wrapForward) (secondX + tW > 0f) else (primaryX < -0.5f && secondX < localVisibleW)
+            } else {
+                val sW = srcWidthPx.takeIf { it > 0f } ?: cWF
+                val dW = destWidthPx.takeIf { it > 0f } ?: cWF
+                val overflowsSrc = tW > sW + 1f
+                val overflowsDest = tW > dW + 1f
+                val rawFrozen = (marqueeState.scrollFraction.coerceIn(0f, 1f) * cyclePx).coerceIn(0f, cyclePx)
+                val wrapLeft = overflowsSrc && !overflowsDest && rawFrozen > cyclePx * 0.5f
+
+                val startX = when {
+                    !overflowsSrc -> 0f
+                    wrapLeft -> -rawFrozen + cyclePx
+                    else -> -rawFrozen
+                }
+                val endX = if (overflowsDest) {
+                    -(marqueeState.scrollFraction.coerceIn(0f, 1f) * cyclePx).coerceIn(0f, cyclePx)
+                } else {
+                    (dW - tW) * 0.5f
+                }
+
+                primaryX = lerp(startX, endX, enterProgress.coerceIn(0f, 1f))
+                secondX = if (wrapLeft) primaryX - cyclePx else primaryX + cyclePx
+                placeSecond = secondPlaceable != null && (overflowsSrc || overflowsDest) &&
+                    if (wrapLeft) (secondX + tW > 0f) else (primaryX < -0.5f && secondX < cWF)
+            }
+
             primaryPlaceable.placeRelative(primaryX.roundToInt(), 0)
-            secondPlaceable?.placeRelative(secondX.roundToInt(), 0)
+            if (placeSecond) {
+                secondPlaceable?.placeRelative(secondX.roundToInt(), 0)
+            }
         }
     }
 }

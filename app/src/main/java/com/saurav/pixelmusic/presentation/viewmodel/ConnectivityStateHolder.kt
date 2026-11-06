@@ -133,6 +133,90 @@ class ConnectivityStateHolder @Inject constructor(
     private val discoveredBluetoothAudioDevices = linkedMapOf<String, BluetoothAudioDeviceState>()
 
     /**
+     * Evaluates whether the active connection is mobile data or a metered network.
+     * Cellular connections (including 5G plans where carriers set NET_CAPABILITY_NOT_METERED)
+     * are always treated as mobile data so Mobile Data Streaming Quality settings apply.
+     */
+    fun isCurrentlyMobileOrMetered(): Boolean {
+        return try {
+            val activeNetwork = connectivityManager.activeNetwork
+            val activeCaps = if (activeNetwork != null) {
+                connectivityManager.getNetworkCapabilities(activeNetwork)
+            } else null
+            computeIsMobileOrMetered(activeCaps)
+        } catch (_: Exception) {
+            _isMeteredNetwork.value
+        }
+    }
+
+    private fun computeIsMobileOrMetered(activeCaps: NetworkCapabilities?): Boolean {
+        if (activeCaps == null) return true
+
+        val isVpn = activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        val underlyingCaps = if (isVpn) {
+            runCatching {
+                connectivityManager.allNetworks.mapNotNull { net ->
+                    connectivityManager.getNetworkCapabilities(net)?.takeIf { c ->
+                        !c.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                            c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    }
+                }
+            }.getOrDefault(emptyList())
+        } else {
+            emptyList()
+        }
+
+        val hasWifi = activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            underlyingCaps.any { it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) }
+        val hasEthernet = activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
+            underlyingCaps.any { it.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) }
+        val hasCellular = activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+            underlyingCaps.any { it.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) }
+
+        return when {
+            hasWifi || hasEthernet -> {
+                val wifiCaps = if (activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                ) {
+                    activeCaps
+                } else {
+                    underlyingCaps.firstOrNull {
+                        it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                            it.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                    } ?: activeCaps
+                }
+                !wifiCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+            }
+            hasCellular -> true
+            else -> true
+        }
+    }
+
+    private fun refreshActiveNetworkState() {
+        val currentNetwork = connectivityManager.activeNetwork
+        val caps = if (currentNetwork != null) {
+            connectivityManager.getNetworkCapabilities(currentNetwork)
+        } else null
+        val hasWifi = caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true ||
+            (caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true &&
+                runCatching {
+                    connectivityManager.allNetworks.any { net ->
+                        val c = connectivityManager.getNetworkCapabilities(net)
+                        c != null && !c.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                            c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                            c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    }
+                }.getOrDefault(false))
+        _isWifiEnabled.value = hasWifi
+        if (hasWifi) {
+            updateWifiInfo()
+        } else {
+            _wifiName.value = null
+        }
+        _isMeteredNetwork.value = computeIsMobileOrMetered(caps)
+    }
+
+    /**
      * Initialize connectivity monitoring. Should be called once from ViewModel.
      */
     fun initialize() {
@@ -143,16 +227,10 @@ class ConnectivityStateHolder @Inject constructor(
         val activeNetwork = connectivityManager.activeNetwork
         val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
         updateWifiRadioState()
-        _isWifiEnabled.value = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-        if (_isWifiEnabled.value) {
-            updateWifiInfo()
-        }
+        refreshActiveNetworkState()
         
         _isOnline.value = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
                 capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-        _isMeteredNetwork.value = capabilities?.hasCapability(
-            NetworkCapabilities.NET_CAPABILITY_NOT_METERED
-        ) != true
 
         updateBluetoothEnabledState()
 
@@ -162,7 +240,7 @@ class ConnectivityStateHolder @Inject constructor(
             private val availableNetworks = mutableSetOf<Network>()
 
             override fun onAvailable(network: Network) {
-                // Network is available, but waiting for capability check
+                refreshActiveNetworkState()
             }
 
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
@@ -176,30 +254,13 @@ class ConnectivityStateHolder @Inject constructor(
                 }
                 
                 checkConnectivity()
-                
-                // Update metered state based on current network capabilities
-                _isMeteredNetwork.value = !networkCapabilities.hasCapability(
-                    NetworkCapabilities.NET_CAPABILITY_NOT_METERED
-                )
-                
-                if (networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                    _isWifiEnabled.value = true
-                    updateWifiInfo()
-                }
+                refreshActiveNetworkState()
             }
 
             override fun onLost(network: Network) {
                 availableNetworks.remove(network)
                 checkConnectivity()
-                
-                val currentNetwork = connectivityManager.activeNetwork
-                val caps = connectivityManager.getNetworkCapabilities(currentNetwork)
-                _isWifiEnabled.value = caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-                if (!_isWifiEnabled.value) _wifiName.value = null
-                // Default to metered when network is lost or fallback to cellular
-                _isMeteredNetwork.value = caps?.hasCapability(
-                    NetworkCapabilities.NET_CAPABILITY_NOT_METERED
-                ) != true
+                refreshActiveNetworkState()
             }
             
             private fun checkConnectivity() {

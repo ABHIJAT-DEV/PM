@@ -66,8 +66,12 @@ import androidx.compose.ui.unit.Dp
 import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.onSizeChanged
 import coil.size.Size
 import com.saurav.pixelmusic.data.model.Song
+import com.saurav.pixelmusic.presentation.components.player.AodSourceBounds
+import com.saurav.pixelmusic.presentation.components.player.MarqueeSyncState
+import com.saurav.pixelmusic.presentation.components.player.SharedPlayerMarqueeText
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 
 internal val LocalMaterialTheme = staticCompositionLocalOf<ColorScheme> { error("No ColorScheme provided") }
@@ -95,6 +99,8 @@ internal fun MiniPlayerContentInternal(
     onNext: () -> Unit,
     isLiquidGlass: Boolean = false,
     albumArtAlphaProvider: () -> Float = { 1f },
+    aodSourceBounds: AodSourceBounds? = null,
+    shouldRunMarqueeProvider: () -> Boolean = { true },
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -145,9 +151,16 @@ internal fun MiniPlayerContentInternal(
         val coroutineScope = rememberCoroutineScope()
         val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
+        val fallbackTitleMarquee = remember { MarqueeSyncState() }
+        val fallbackArtistMarquee = remember { MarqueeSyncState() }
         Column(
             modifier = Modifier
                 .weight(1f)
+                .onSizeChanged { size ->
+                    if (size.width > 0) {
+                        aodSourceBounds?.miniSongInfoWidthPx = size.width.toFloat()
+                    }
+                }
                 .graphicsLayer {
                     alpha = albumArtAlphaProvider()
                 },
@@ -155,42 +168,54 @@ internal fun MiniPlayerContentInternal(
         ) {
             val titleColor = if (isLiquidGlass) (if (isDark) Color.White else Color(0xFF1C1C1E)) else LocalMaterialTheme.current.onPrimaryContainer
             val artistColor = if (isLiquidGlass) (if (isDark) Color.White else Color(0xFF1C1C1E)).copy(alpha = 0.75f) else LocalMaterialTheme.current.onPrimaryContainer.copy(alpha = 0.7f)
-            val gradientEdge = LocalMaterialTheme.current.primaryContainer
 
-            val titleStyle = MaterialTheme.typography.titleSmall.copy(
+            val titleStyle = MaterialTheme.typography.headlineSmall.copy(
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = (-0.2).sp,
+                lineHeight = 18.75.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.sp,
                 fontFamily = GoogleSansRounded,
                 color = titleColor
             )
-            val artistStyle = MaterialTheme.typography.bodySmall.copy(
+            val artistStyle = MaterialTheme.typography.titleMedium.copy(
                 fontSize = 13.sp,
+                lineHeight = 17.33.sp,
+                fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.sp,
                 fontFamily = GoogleSansRounded,
                 color = artistColor
             )
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(modifier = Modifier.weight(1f, fill = false)) {
-                    AutoScrollingText(
-                        text = when {
-                            isCastConnecting -> "Connecting to device…"
-                            isPreparingPlayback -> "Preparing playback…"
-                            else -> song.title
-                        },
-                        style = titleStyle,
-                        gradientEdgeColor = gradientEdge
-                    )
-                }
+            val resolvedMiniTitle = when {
+                isCastConnecting -> "Connecting to device…"
+                isPreparingPlayback -> "Preparing playback…"
+                else -> song.title.takeIf { it.isNotBlank() } ?: "Unknown Title"
             }
-            AutoScrollingText(
-                text = if (isPreparingPlayback) "Loading audio…" else song.displayArtist,
+            val resolvedMiniArtist = if (isPreparingPlayback) {
+                "Loading audio…"
+            } else {
+                song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist
+            }
+
+            SharedPlayerMarqueeText(
+                text = resolvedMiniTitle,
+                style = titleStyle,
+                marqueeState = aodSourceBounds?.titleMarquee ?: fallbackTitleMarquee,
+                shouldRunMarquee = true,
+                shouldRunMarqueeProvider = shouldRunMarqueeProvider,
+                gapDp = 22.5.dp,
+                velocityDpPerSec = 17.5.dp,
+                modifier = Modifier.fillMaxWidth()
+            )
+            SharedPlayerMarqueeText(
+                text = resolvedMiniArtist,
                 style = artistStyle,
-                gradientEdgeColor = gradientEdge
+                marqueeState = aodSourceBounds?.artistMarquee ?: fallbackArtistMarquee,
+                shouldRunMarquee = true,
+                shouldRunMarqueeProvider = shouldRunMarqueeProvider,
+                gapDp = 31.2.dp,
+                velocityDpPerSec = 24.27.dp,
+                modifier = Modifier.fillMaxWidth()
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
