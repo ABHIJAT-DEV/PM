@@ -93,7 +93,8 @@ class DualPlayerEngine @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     var hiFiModeEnabled: Boolean = false
         private set
-    private var audioOffloadEnabled = !shouldDisableAudioOffloadByDefault()
+    private var audioOffloadEnabled = false
+    private var sessionOffloadDisabled = false
     private var transitionJob: Job? = null
     private var bufferingFallbackJob: Job? = null
     private var transitionRunning = false
@@ -208,6 +209,18 @@ class DualPlayerEngine @Inject constructor(
             }
         }
 
+        override fun onAudioSinkError(
+            eventTime: AnalyticsListener.EventTime,
+            audioSinkError: Exception
+        ) {
+            Timber.tag("DualPlayerEngine").w(audioSinkError, "AudioSink error detected (audioOffloadEnabled=%b)", audioOffloadEnabled)
+            if (audioOffloadEnabled) {
+                disableAudioOffloadForSession(
+                    reason = "AudioSink error while offload enabled: ${audioSinkError.message}"
+                )
+            }
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val incomingUriStr = mediaItem?.localConfiguration?.uri?.toString()
             activePlaybackResolvedUris.keys
@@ -254,8 +267,7 @@ class DualPlayerEngine @Inject constructor(
                     val isPostSeekBuffering = lastSeekAtMs > 0L && timeSinceSeekMs < 1_500L
                     if (audioOffloadEnabled && !transitionRunning &&
                         lastPlayingAtMs > 0L && timeSincePlayingMs < 500L &&
-                        !isPostSeekBuffering &&
-                        isLikelyLocalMedia(playerA.currentMediaItem)
+                        !isPostSeekBuffering
                     ) {
                         disableAudioOffloadForSession(
                             reason = "HAL offload reset detected: STATE_BUFFERING after ${timeSincePlayingMs}ms of playback"
@@ -520,10 +532,15 @@ class DualPlayerEngine @Inject constructor(
     init {
         initialize()
         scope.launch {
-            userPreferencesRepository.audioOffloadEnabledFlow.collect { enabled ->
-                if (audioOffloadEnabled != enabled) {
-                    audioOffloadEnabled = enabled
-                    rebuildPlayersPreservingMasterState("Audio offload setting changed to $enabled")
+            kotlinx.coroutines.flow.combine(
+                userPreferencesRepository.audioOffloadEnabledFlow,
+                userPreferencesRepository.isCrossfadeEnabledFlow
+            ) { offloadPref, crossfadePref ->
+                offloadPref && !crossfadePref && !sessionOffloadDisabled && !shouldDisableAudioOffloadByDefault()
+            }.collect { effectiveEnabled ->
+                if (audioOffloadEnabled != effectiveEnabled) {
+                    audioOffloadEnabled = effectiveEnabled
+                    rebuildPlayersPreservingMasterState("Effective audio offload changed to $effectiveEnabled")
                 }
             }
         }
@@ -557,8 +574,8 @@ class DualPlayerEngine @Inject constructor(
             try { playerB.release() } catch (e: Exception) { /* Ignore */ }
         }
 
-        playerA = buildPlayer()
-        playerB = buildPlayer()
+        playerA = buildPlayer(enableOffload = audioOffloadEnabled)
+        playerB = buildPlayer(enableOffload = false)
 
         playerA.addListener(masterPlayerListener)
         playerA.addAnalyticsListener(masterPlayerListener)
@@ -613,7 +630,6 @@ class DualPlayerEngine @Inject constructor(
     private fun scheduleAudioOffloadFallbackIfNeeded(player: ExoPlayer) {
         cancelAudioOffloadFallback()
         if (!audioOffloadEnabled || transitionRunning || !player.playWhenReady) return
-        if (!isLikelyLocalMedia(player.currentMediaItem)) return
 
         val watchedMediaId = player.currentMediaItem?.mediaId ?: return
         bufferingFallbackJob = scope.launch {
@@ -683,8 +699,12 @@ class DualPlayerEngine @Inject constructor(
 
     private fun disableAudioOffloadForSession(reason: String) {
         if (!audioOffloadEnabled) return
+        sessionOffloadDisabled = true
         if (transitionRunning) {
-            Timber.tag("DualPlayerEngine").w("Skipping offload fallback during active transition. %s", reason)
+            Timber.tag("DualPlayerEngine").w("Disabling offload via trackSelectionParameters during active transition. %s", reason)
+            audioOffloadEnabled = false
+            if (::playerA.isInitialized) setPlayerAudioOffload(playerA, false)
+            if (::playerB.isInitialized) setPlayerAudioOffload(playerB, false)
             return
         }
 
@@ -692,6 +712,25 @@ class DualPlayerEngine @Inject constructor(
         rebuildPlayersPreservingMasterState(
             logMessage = "Audio offload disabled for current session. $reason"
         )
+    }
+
+    private fun setPlayerAudioOffload(player: ExoPlayer, enabled: Boolean) {
+        try {
+            val offloadPreferences = TrackSelectionParameters.AudioOffloadPreferences.Builder()
+                .setAudioOffloadMode(
+                    if (enabled) {
+                        TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
+                    } else {
+                        TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED
+                    }
+                )
+                .build()
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .setAudioOffloadPreferences(offloadPreferences)
+                .build()
+        } catch (e: Exception) {
+            Timber.tag("DualPlayerEngine").w(e, "Failed to update audio offload mode to %b", enabled)
+        }
     }
 
     private fun rebuildPlayersPreservingMasterState(logMessage: String) {
@@ -713,8 +752,8 @@ class DualPlayerEngine @Inject constructor(
         playerA.release()
         playerB.release()
 
-        playerA = buildPlayer()
-        playerB = buildPlayer()
+        playerA = buildPlayer(enableOffload = audioOffloadEnabled)
+        playerB = buildPlayer(enableOffload = false)
 
         playerA.addListener(masterPlayerListener)
         playerA.addAnalyticsListener(masterPlayerListener)
@@ -737,7 +776,7 @@ class DualPlayerEngine @Inject constructor(
         Timber.tag("DualPlayerEngine").d(logMessage)
     }
 
-    private fun buildPlayer(): ExoPlayer {
+    private fun buildPlayer(enableOffload: Boolean = audioOffloadEnabled): ExoPlayer {
         val mediaCodecSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
             val decoderInfos = MediaCodecSelector.DEFAULT.getDecoderInfos(
                 mimeType,
@@ -843,24 +882,35 @@ class DualPlayerEngine @Inject constructor(
                     return this
                 }
 
+                fun streamCacheKeyFor(resolvedUri: Uri): String {
+                    val rawBase = (effectiveCacheKey ?: resolvedUri.toString()).removeSuffix("_saavn")
+                    val s = resolvedUri.toString()
+                    return if (s.contains("saavncdn.com", ignoreCase = true) || s.contains("jiosaavn.com", ignoreCase = true)) {
+                        "${rawBase}_saavn"
+                    } else {
+                        rawBase
+                    }
+                }
+
                 // 1. Instant Start: Only return early without resolving URI/headers if the ENTIRE remaining stream is cached in ExoCache.
                 // (If only the 128KB preload span is cached, CacheDataSource will hit upstreamDataSource right after 128KB, so it still needs a resolved URI & YT headers!)
                 if (effectiveCacheKey != null) {
+                    val lookupKey = streamCacheKeyFor(uri)
                     val isFullyCached = runCatching {
                         val totalLen = androidx.media3.datasource.cache.ContentMetadata.getContentLength(
-                            exoCache.cache.getContentMetadata(effectiveCacheKey)
+                            exoCache.cache.getContentMetadata(lookupKey)
                         )
                         val remainingLen = when {
                             dataSpec.length > 0 -> dataSpec.length
                             totalLen > dataSpec.position -> totalLen - dataSpec.position
                             else -> -1L
                         }
-                        remainingLen > 0L && exoCache.cache.isCached(effectiveCacheKey, dataSpec.position, remainingLen)
+                        remainingLen > 0L && exoCache.cache.isCached(lookupKey, dataSpec.position, remainingLen)
                     }.getOrDefault(false)
 
                     if (isFullyCached && (scheme != "youtube" && !uriString.startsWith("youtube://"))) {
                         return dataSpec.buildUpon()
-                            .setKey(effectiveCacheKey)
+                            .setKey(lookupKey)
                             .applyYtHeaders(uri)
                             .build()
                     }
@@ -874,16 +924,6 @@ class DualPlayerEngine @Inject constructor(
                             .setUri(Uri.fromFile(File(localPath)))
                             .setKey(effectiveCacheKey ?: uriString)
                             .build()
-                    }
-
-                    fun streamCacheKeyFor(resolvedUri: Uri): String {
-                        val base = effectiveCacheKey ?: resolvedUri.toString()
-                        val s = resolvedUri.toString()
-                        return if (s.contains("saavncdn.com", ignoreCase = true) || s.contains("jiosaavn.com", ignoreCase = true)) {
-                            "${base}_saavn"
-                        } else {
-                            base
-                        }
                     }
 
                     val resolved = resolvedUriCache.get(uriString)
@@ -955,10 +995,17 @@ class DualPlayerEngine @Inject constructor(
                             .applyYtHeaders(uri)
                             .build()
                     }
+                    if (uriString.contains("saavncdn.com", ignoreCase = true) ||
+                        uriString.contains("jiosaavn.com", ignoreCase = true)
+                    ) {
+                        return dataSpec.buildUpon()
+                            .setKey(streamCacheKeyFor(uri))
+                            .build()
+                    }
                 }
 
                 if (effectiveCacheKey != null && dataSpec.key == null) {
-                    return dataSpec.buildUpon().setKey(effectiveCacheKey).build()
+                    return dataSpec.buildUpon().setKey(streamCacheKeyFor(uri)).build()
                 }
 
                 return dataSpec
@@ -1004,7 +1051,7 @@ class DualPlayerEngine @Inject constructor(
             setAudioAttributes(audioAttributes, false)
             val offloadPreferences = TrackSelectionParameters.AudioOffloadPreferences.Builder()
                 .setAudioOffloadMode(
-                    if (audioOffloadEnabled) {
+                    if (enableOffload) {
                         TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
                     } else {
                         TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED
@@ -1265,6 +1312,14 @@ private val inFlightResolutions = java.util.concurrent.ConcurrentHashMap<String,
             }
             val resolvedItem = resolveMediaItem(mediaItem)
 
+            // Hardware compress offload DSP only allows a single active AudioTrack on Android.
+            // Never allow playerA or playerB to use hardware offload when dual-player preparation/crossfade is active.
+            setPlayerAudioOffload(playerB, false)
+            if (audioOffloadEnabled) {
+                audioOffloadEnabled = false
+                setPlayerAudioOffload(playerA, false)
+            }
+
             playerB.stop()
             playerB.clearMediaItems()
 
@@ -1435,6 +1490,7 @@ private val inFlightResolutions = java.util.concurrent.ConcurrentHashMap<String,
         onPlayerSwappedListeners.forEach { it(playerA) }
         _activeAudioSessionId.value = playerA.audioSessionId
 
+        setPlayerAudioOffload(playerB, false)
         playerB.pause()
         playerB.stop()
         playerB.clearMediaItems()
