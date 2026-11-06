@@ -124,20 +124,19 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
 
                 // Keep MiniPlayer composed at all times and move it off-screen when expanded
                 // so crossing 0.42f during a downward drag never triggers a mid-drag composition hitch.
-                val effectiveExpansion = playerContentExpansionFraction.value * (1f - playerViewModel.predictiveBackCollapseFraction.collectAsStateWithLifecycle().value)
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
                         .height(MiniPlayerHeight)
                         .offset {
-                            if (effectiveExpansion >= 0.45f) IntOffset(0, 10000)
+                            if (playerContentExpansionFraction.value >= 0.45f) IntOffset(0, 10000)
                             else IntOffset.Zero
                         }
                         .graphicsLayer {
                             // Compute miniAlpha in the draw phase from the Animatable,
                             // avoiding per-frame recomposition during gestures.
-                            alpha = (1f - effectiveExpansion * 2.5f)
+                            alpha = (1f - playerContentExpansionFraction.value * 2.5f)
                                 .coerceIn(0f, 1f)
                         }
                             .then(
@@ -183,8 +182,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                             onNext = { playerViewModel.nextSong() },
                             isLiquidGlass = isLiquidGlassActive,
                             albumArtAlphaProvider = {
-                                val eff = playerContentExpansionFraction.value * (1f - playerViewModel.predictiveBackCollapseFraction.value)
-                                (1f - eff * 3.5f).coerceIn(0f, 1f)
+                                (1f - playerContentExpansionFraction.value * 3.5f).coerceIn(0f, 1f)
                             },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -198,14 +196,12 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
             ) {
                 val fullPlayerZIndex by remember {
                     derivedStateOf {
-                        val eff = playerContentExpansionFraction.value * (1f - playerViewModel.predictiveBackCollapseFraction.value)
-                        if (eff >= 0.5f) 1f else 0f
+                        if (playerContentExpansionFraction.value >= 0.5f) 1f else 0f
                     }
                 }
                 val fullPlayerOffset by remember {
                     derivedStateOf {
-                        val eff = playerContentExpansionFraction.value * (1f - playerViewModel.predictiveBackCollapseFraction.value)
-                        if (eff <= 0.004f) IntOffset(0, 10000)
+                        if (playerContentExpansionFraction.value <= 0.004f) IntOffset(0, 10000)
                         else IntOffset.Zero
                     }
                 }
@@ -233,7 +229,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                     val latestIsFavorite = rememberUpdatedState(isFavorite)
                     val expansionFractionProvider = remember(playerContentExpansionFraction) {
                         {
-                            (playerContentExpansionFraction.value * (1f - playerViewModel.predictiveBackCollapseFraction.value)).coerceIn(0f, 1f)
+                            playerContentExpansionFraction.value
                         }
                     }
                     val isPlayingProvider = remember {
