@@ -754,7 +754,7 @@ private fun CreateAiPlaylistSheetContent(
     val ambientB by animateColorAsState(targetValue = ambientBase[(ambientPick + 1) % 3], animationSpec = tween(800), label = "ambient_b")
     val ambientC by animateColorAsState(targetValue = ambientBase[(ambientPick + 2) % 3], animationSpec = tween(800), label = "ambient_c")
     val ambientTransition = rememberInfiniteTransition(label = "ai_sheet_ambient")
-    val ambientPhase by ambientTransition.animateFloat(
+    val ambientPhaseState = ambientTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
@@ -853,7 +853,7 @@ private fun CreateAiPlaylistSheetContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .drawBehind {
-                        val t = ambientPhase
+                        val t = ambientPhaseState.value
                         val e = ambientEnergy
                         val k = reactionKick.value.coerceAtLeast(0f)
                         val w = size.width
@@ -892,8 +892,7 @@ private fun CreateAiPlaylistSheetContent(
                         )
                     }
                     .verticalScroll(scrollState)
-                    .padding(bottom = 32.dp)
-                    .imePadding(),
+                    .padding(bottom = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Top Row: Clean close button
@@ -996,26 +995,17 @@ private fun AiPlaylistMainTuneView(
 
         Spacer(modifier = Modifier.height(22.dp))
 
-        // Prompt input: tonal container that warms up, rounds out and glows when focused / filled
+        // Prompt input: tonal container with a permanent ambient primary glow (no per-frame shape/shadow
+        // re-tessellation on keyboard open so focusing the field stays silky smooth with zero jump)
         val fieldInteraction = remember { MutableInteractionSource() }
         val fieldFocused by fieldInteraction.collectIsFocusedAsState()
         val fieldActive = fieldFocused || prompt.isNotBlank()
-        val fieldCorner by animateDpAsState(
-            targetValue = if (fieldActive) 34.dp else 28.dp,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-            label = "field_corner"
-        )
-        val fieldGlow by animateFloatAsState(
-            targetValue = if (fieldFocused) 1f else 0f,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow),
-            label = "field_glow"
-        )
         val fieldContainer by animateColorAsState(
             targetValue = if (fieldActive) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh,
-            animationSpec = tween(250),
+            animationSpec = tween(220),
             label = "field_container"
         )
-        val fieldShape = AbsoluteSmoothCornerShape(fieldCorner, 60)
+        val fieldShape = remember { AbsoluteSmoothCornerShape(30.dp, 60) }
         Surface(
             shape = fieldShape,
             color = fieldContainer,
@@ -1024,7 +1014,7 @@ private fun AiPlaylistMainTuneView(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .shadow(
-                    elevation = (18f * fieldGlow).dp,
+                    elevation = 18.dp,
                     shape = fieldShape,
                     clip = false,
                     ambientColor = MaterialTheme.colorScheme.primary,
@@ -1245,7 +1235,6 @@ private fun AiPlaylistRefineView(
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp)
             .padding(bottom = 32.dp)
-            .imePadding()
     ) {
         // Header
         Row(
@@ -2765,6 +2754,15 @@ private fun ExpressiveQuickSelectRow(
     }
 
     val scrollState = rememberScrollState()
+    val sharedBadgeSpinState = rememberInfiniteTransition(label = "shared_pill_badge_spin").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(24000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shared_pill_badge_spin_value"
+    )
     val rows = remember(vibes) {
         List(3) { rowIdx ->
             vibes.mapIndexedNotNull { idx, item ->
@@ -2791,6 +2789,7 @@ private fun ExpressiveQuickSelectRow(
                         vibe = vibe,
                         index = index,
                         isSelected = isSelected,
+                        badgeSpinProvider = { sharedBadgeSpinState.value },
                         onClick = { onPillClick(vibe.label) }
                     )
                 }
@@ -2804,6 +2803,7 @@ private fun ExpressiveQuickSelectPill(
     vibe: VibeItem,
     index: Int,
     isSelected: Boolean,
+    badgeSpinProvider: () -> Float,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2909,15 +2909,6 @@ private fun ExpressiveQuickSelectPill(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
         label = "pill_tilt"
     )
-    val badgeIdleSpin by rememberInfiniteTransition(label = "pill_badge_spin").animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(22000 + (index % 4) * 3500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "pill_badge_spin_value"
-    )
     val spinDir = if (index % 2 == 0) 1f else -1f
     val pillGradientAlpha = (0.20f + 0.35f * morphFraction).coerceIn(0f, 1f)
     val badgeHighlight = androidx.compose.ui.graphics.lerp(badgeColor, Color.White, 0.30f)
@@ -2956,12 +2947,12 @@ private fun ExpressiveQuickSelectPill(
                 .padding(start = 7.dp, end = 16.dp, top = 5.dp, bottom = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left side 1:1 Material You expressive shape
+            // Left side 1:1 Material You expressive shape (reads spin inside graphicsLayer so zero idle recomposition!)
             Box(
                 modifier = Modifier
                     .size(34.dp)
                     .graphicsLayer {
-                        rotationZ = badgeIdleSpin * spinDir + morphFraction * (if (index % 2 == 0) 25f else -25f)
+                        rotationZ = badgeSpinProvider() * spinDir + morphFraction * (if (index % 2 == 0) 25f else -25f)
                     }
                     .clip(iconExpressiveShape)
                     .background(Brush.linearGradient(listOf(badgeHighlight, badgeColor))),
@@ -2974,7 +2965,7 @@ private fun ExpressiveQuickSelectPill(
                     modifier = Modifier
                         .size(20.dp)
                         .graphicsLayer {
-                            rotationZ = -(badgeIdleSpin * spinDir + morphFraction * (if (index % 2 == 0) 25f else -25f))
+                            rotationZ = -(badgeSpinProvider() * spinDir + morphFraction * (if (index % 2 == 0) 25f else -25f))
                         }
                 )
             }
@@ -3113,19 +3104,43 @@ private fun AiPlaylistCreationAnimationView(
     error: String?,
     onDismiss: () -> Unit
 ) {
-    val phases = listOf(
-        "Tuning to your taste & listening patterns…",
-        "Scanning local & cloud tracks for matching vibes…",
-        "Discovering fresh recommendations & flow…",
-        "Harmonizing energy transitions & playlist order…",
-        "Synthesizing smart titles & final touches…"
-    )
+    val headlines = remember {
+        listOf(
+            "Creating your AI playlist…",
+            "Matching your vibe…",
+            "AI is thinking…",
+            "Scanning your music library…",
+            "Reading the mood & energy…",
+            "Picking the best tracks…",
+            "Curating smooth transitions…",
+            "Sequencing your custom mix…"
+        )
+    }
+    val phases = remember {
+        listOf(
+            "Tuning to your taste & listening patterns…",
+            "Scanning local & cloud tracks for matching vibes…",
+            "Discovering fresh recommendations & flow…",
+            "Balancing familiar favorites & deep cuts…",
+            "Harmonizing energy transitions & playlist order…",
+            "Synthesizing smart titles & final touches…"
+        )
+    }
+    var headlineIndex by remember { mutableIntStateOf(0) }
     var phaseIndex by remember { mutableIntStateOf(0) }
     LaunchedEffect(isSuccess, error) {
         if (!isSuccess && error == null) {
-            while (true) {
-                kotlinx.coroutines.delay(2200)
-                phaseIndex = (phaseIndex + 1) % phases.size
+            launch {
+                while (true) {
+                    kotlinx.coroutines.delay(1750)
+                    headlineIndex = (headlineIndex + 1) % headlines.size
+                }
+            }
+            launch {
+                while (true) {
+                    kotlinx.coroutines.delay(2150)
+                    phaseIndex = (phaseIndex + 1) % phases.size
+                }
             }
         }
     }
@@ -3138,30 +3153,65 @@ private fun AiPlaylistCreationAnimationView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Headline (the 4 floating Material You expressive shapes remain mounted right above this view)
-        Text(
-            text = if (isSuccess) "Mix synthesized!" else "Creating your AI Playlist…",
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = GoogleSansRounded,
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
-        )
+        // Dynamic animated headline cycling smoothly one by one
+        AnimatedContent(
+            targetState = if (isSuccess) {
+                "Mix synthesized!"
+            } else {
+                headlines[headlineIndex]
+            },
+            transitionSpec = {
+                (slideInVertically(
+                    animationSpec = tween(480, easing = AiSmoothMorphEasing),
+                    initialOffsetY = { fullHeight -> (fullHeight * 0.65f).toInt() }
+                ) + fadeIn(
+                    animationSpec = tween(420, easing = FastOutSlowInEasing)
+                ) + scaleIn(
+                    initialScale = 0.92f,
+                    animationSpec = tween(480, easing = AiSmoothMorphEasing)
+                )) togetherWith (slideOutVertically(
+                    animationSpec = tween(380, easing = FastOutSlowInEasing),
+                    targetOffsetY = { fullHeight -> -(fullHeight * 0.65f).toInt() }
+                ) + fadeOut(
+                    animationSpec = tween(280, easing = FastOutSlowInEasing)
+                ) + scaleOut(
+                    targetScale = 0.92f,
+                    animationSpec = tween(380, easing = FastOutSlowInEasing)
+                ))
+            },
+            label = "ai_generation_headline_text"
+        ) { currentHeadline ->
+            Text(
+                text = currentHeadline,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Animated stage subtitle
+        // Animated stage subtitle cycling smoothly through detailed progress lines
         AnimatedContent(
             targetState = if (isSuccess) {
                 "Opening your new playlist now…"
             } else {
-                status ?: phases[phaseIndex]
+                phases[phaseIndex]
             },
             transitionSpec = {
-                (slideInVertically { height -> height / 2 } + fadeIn()) togetherWith
-                        (slideOutVertically { height -> -height / 2 } + fadeOut())
+                (slideInVertically(
+                    animationSpec = tween(440, easing = AiSmoothMorphEasing),
+                    initialOffsetY = { height -> height / 2 }
+                ) + fadeIn(tween(380))) togetherWith
+                        (slideOutVertically(
+                            animationSpec = tween(340, easing = FastOutSlowInEasing),
+                            targetOffsetY = { height -> -height / 2 }
+                        ) + fadeOut(tween(260)))
             },
             label = "ai_generation_phase_text"
         ) { currentText ->

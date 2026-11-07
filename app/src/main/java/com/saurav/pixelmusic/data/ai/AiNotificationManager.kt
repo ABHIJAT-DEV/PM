@@ -18,13 +18,15 @@ class AiNotificationManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    @Volatile
     private var progressStartedAt = 0L
 
     companion object {
         const val CHANNEL_ID = "ai_generation_channel"
         const val RESULT_CHANNEL_ID = "ai_generation_result_channel"
         const val PROGRESS_NOTIFICATION_ID = 1001
-        const val COMPLETION_NOTIFICATION_ID = 1002
+        const val COMPLETION_NOTIFICATION_ID = 1001
+        const val LEGACY_COMPLETION_NOTIFICATION_ID = 1002
 
         private const val REQUEST_PROGRESS = 2001
         private const val REQUEST_RESULT = 2002
@@ -105,11 +107,13 @@ class AiNotificationManager @Inject constructor(
             .setSubText("Pixel Music · AI Playlist")
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
+            .setOngoing(false)
+            .setAutoCancel(false)
             .setOnlyAlertOnce(true)
             .setWhen(progressStartedAt)
             .setTicker("Your AI playlist is being created")
             .setUsesChronometer(true)
+            .setTimeoutAfter(120_000L)
             .setProgress(max, progress, indeterminate || progress == 0)
             .setContentIntent(launchIntent(REQUEST_PROGRESS, reopenSheet = reopenSheet))
 
@@ -123,9 +127,12 @@ class AiNotificationManager @Inject constructor(
         openPlayer: Boolean = false,
         reopenSheet: Boolean = false
     ) {
-        notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
         progressStartedAt = 0L
+        notificationManager.cancel(LEGACY_COMPLETION_NOTIFICATION_ID)
 
+        // Post to the SAME notification ID (PROGRESS_NOTIFICATION_ID) with chronometer & progress
+        // explicitly cleared so Android's NotificationManagerService coalesces it in-place and a
+        // rate-limited earlier progress update can never outlive completion.
         val builder = NotificationCompat.Builder(context, RESULT_CHANNEL_ID)
             .setSmallIcon(R.drawable.monochrome_player)
             .setContentTitle(title)
@@ -134,7 +141,11 @@ class AiNotificationManager @Inject constructor(
             .setSubText("Pixel Music · AI Playlist")
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setOngoing(false)
+            .setUsesChronometer(false)
+            .setProgress(0, 0, false)
             .setAutoCancel(true)
+            .setTimeoutAfter(60_000L)
             .setContentIntent(
                 launchIntent(
                     REQUEST_RESULT,
@@ -148,7 +159,15 @@ class AiNotificationManager @Inject constructor(
     }
 
     fun hideProgress() {
-        notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
         progressStartedAt = 0L
+        notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
+        notificationManager.cancel(LEGACY_COMPLETION_NOTIFICATION_ID)
+    }
+
+    fun clearAll() {
+        progressStartedAt = 0L
+        notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
+        notificationManager.cancel(COMPLETION_NOTIFICATION_ID)
+        notificationManager.cancel(LEGACY_COMPLETION_NOTIFICATION_ID)
     }
 }

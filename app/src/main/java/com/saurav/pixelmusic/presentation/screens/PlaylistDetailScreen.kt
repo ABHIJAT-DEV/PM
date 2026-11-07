@@ -219,6 +219,7 @@ fun PlaylistDetailScreen(
     }
 
     LaunchedEffect(playlistId) {
+        playerViewModel.clearAiNotifications()
         playlistViewModel.loadPlaylistDetails(playlistId)
     }
 

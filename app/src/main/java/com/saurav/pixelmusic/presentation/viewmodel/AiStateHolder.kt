@@ -72,6 +72,13 @@ class AiStateHolder @Inject constructor(
     fun dismissAiGeneratingOverlay() {
         _showAiGeneratingOverlay.value = false
         _aiError.value = null
+        if (!_isGeneratingAiPlaylist.value) {
+            notificationManager.clearAll()
+        }
+    }
+
+    fun clearAiNotifications() {
+        notificationManager.clearAll()
     }
 
     // Set when the user taps the generation notification; the library screen consumes it and
@@ -83,6 +90,7 @@ class AiStateHolder @Inject constructor(
         if (_isGeneratingAiPlaylist.value || _aiSuccess.value) {
             _showAiGeneratingOverlay.value = true
         } else {
+            notificationManager.clearAll()
             _aiSheetReopenRequested.value = true
         }
     }
@@ -196,10 +204,17 @@ class AiStateHolder @Inject constructor(
             _aiSuccess.value = false
             _lastCreatedAiPlaylistId.value = null
 
-            // Step 1: Pre-generation analysis
+            // Step 1: Pre-generation analysis (emit a single progress notification so Android's
+            // per-package notification rate limiter never queues delayed progress updates)
             try {
                 _aiStatus.value = "Analyzing your library stats..."
-                notificationManager.showProgress("Creating your AI mix", "Analyzing your library…", 12, reopenSheet = true)
+                notificationManager.showProgress(
+                    title = "Creating your AI mix",
+                    message = "Curating the perfect tracks for your vibe…",
+                    progress = 0,
+                    indeterminate = true,
+                    reopenSheet = true
+                )
                 val existingPlaylistNames = playlistPreferencesRepository.userPlaylistsFlow.first()
                     .map { it.name.trim() }
                     .filter { it.isNotEmpty() }
@@ -207,7 +222,6 @@ class AiStateHolder @Inject constructor(
 
                 // Generate candidate pool using DailyMixManager logic
                 _aiStatus.value = "Selecting best candidates..."
-                notificationManager.showProgress("Creating your AI mix", "Picking candidate tracks…", 30, reopenSheet = true)
                 val candidatePool = dailyMixManager.generateDailyMix(
                     allSongs = allSongs,
                     favoriteSongIds = favoriteIds,
@@ -216,7 +230,6 @@ class AiStateHolder @Inject constructor(
 
                 // Step 2: Invoke AI Generation Engine
                 _aiStatus.value = "Consulting the Daily Mix guide..."
-                notificationManager.showProgress("Creating your AI mix", "Curating the perfect tracks…", 0, indeterminate = true, reopenSheet = true)
                 
                 val result = aiPlaylistGenerator.generate(
                     userPrompt = prompt,
@@ -244,11 +257,16 @@ class AiStateHolder @Inject constructor(
                             _lastCreatedAiPlaylistId.value = createdPlaylist.id
                             _aiStatus.value = "Success! Your mix is ready."
                             _aiSuccess.value = true
-                            notificationManager.showCompletion(
-                                "Your AI mix is ready",
-                                "$resolvedPlaylistName · ${generatedSongs.size} songs. Tap to open it.",
-                                playlistId = createdPlaylist.id
-                            )
+                            if (_showAiGeneratingOverlay.value) {
+                                // Playlist is already auto-opening right in front of the user: clear progress notification immediately!
+                                notificationManager.clearAll()
+                            } else {
+                                notificationManager.showCompletion(
+                                    "Your AI mix is ready",
+                                    "$resolvedPlaylistName · ${generatedSongs.size} songs. Tap to open it.",
+                                    playlistId = createdPlaylist.id
+                                )
+                            }
                             kotlinx.coroutines.delay(1480) // Allow full 3-into-1 merge, 1-component zoom, and dissolve reveal to complete
                             dismissAiPlaylistSheet()
                             _lastCreatedAiPlaylistId.value = null
@@ -282,6 +300,7 @@ class AiStateHolder @Inject constructor(
                 _aiError.value = resolveAiErrorMessage(e)
                 notificationManager.showCompletion("Couldn't create your mix", extractAiErrorDetail(e).take(140), reopenSheet = true)
             } finally {
+                notificationManager.hideProgress()
                 _isGeneratingAiPlaylist.value = false
                 _aiStatus.value = null
             }

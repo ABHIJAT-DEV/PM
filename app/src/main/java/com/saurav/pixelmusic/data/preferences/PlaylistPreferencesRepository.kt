@@ -197,6 +197,11 @@ class PlaylistPreferencesRepository @Inject constructor(
 
     suspend fun deletePlaylist(playlistId: String) {
         ensureMigratedIfNeeded()
+        runCatching {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+            nm?.cancel(com.saurav.pixelmusic.data.ai.AiNotificationManager.PROGRESS_NOTIFICATION_ID)
+            nm?.cancel(com.saurav.pixelmusic.data.ai.AiNotificationManager.LEGACY_COMPLETION_NOTIFICATION_ID)
+        }
         localPlaylistDao.deletePlaylistCompletely(playlistId)
         try {
             val ytPlaylistRepo = AppDatabase.getInstance(context).playlistRepository()

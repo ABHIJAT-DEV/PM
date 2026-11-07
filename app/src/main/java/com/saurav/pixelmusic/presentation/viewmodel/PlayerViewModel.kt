@@ -585,6 +585,10 @@ class PlayerViewModel @Inject constructor(
         aiStateHolder.dismissAiGeneratingOverlay()
     }
 
+    fun clearAiNotifications() {
+        aiStateHolder.clearAiNotifications()
+    }
+
     fun clearLastCreatedAiPlaylistId() {
         aiStateHolder.clearLastCreatedAiPlaylistId()
     }
