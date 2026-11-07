@@ -78,6 +78,7 @@ import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -236,10 +237,16 @@ interface AiHeroArtworkEntryPoint {
     fun musicDao(): com.saurav.pixelmusic.data.database.MusicDao
 }
 
+/** Process-wide memo of the last loaded hero artwork so reopening the sheet never starts from an empty stage. */
+private object AiHeroArtworkMemo {
+    @Volatile
+    var uris: List<String> = emptyList()
+}
+
 @Composable
 private fun rememberAiHeroArtworkUris(): List<String> {
     val context = LocalContext.current
-    var artworkUris by remember { mutableStateOf<List<String>>(emptyList()) }
+    var artworkUris by remember { mutableStateOf(AiHeroArtworkMemo.uris) }
     LaunchedEffect(context) {
         val loaded = withContext(Dispatchers.IO) {
             runCatching {
@@ -275,8 +282,13 @@ private fun rememberAiHeroArtworkUris(): List<String> {
                 collected.toList()
             }.getOrDefault(emptyList())
         }
-        if (loaded.isNotEmpty()) {
-            artworkUris = loaded
+        if (loaded.isNotEmpty() && loaded != AiHeroArtworkMemo.uris) {
+            if (artworkUris.isEmpty()) {
+                // First ever open: let the sheet finish lifting before artwork is composed and decoded
+                delay(450L)
+                artworkUris = loaded
+            }
+            AiHeroArtworkMemo.uris = loaded
         }
     }
     return artworkUris
@@ -882,50 +894,65 @@ private fun CreateAiPlaylistSheetContent(
     val showMainPage = !isRefining || refineProgress < 0.999f
     val showRefinePage = isRefining || refineProgress > 0.001f
     val mainScrollState = rememberScrollState()
+    // The Refine page is composed after the sheet has finished lifting so its fields and chips never add to the open frame
+    var refineReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(650L)
+        refineReady = true
+    }
 
     // Keep both Main Tune and Refine views persistently composed & measured inside a shared ambient canvas
     // so that all glows and shadows are already present before opening the sheet AND when returning from Refine.
     Layout(
         modifier = Modifier
             .fillMaxWidth()
-            .drawBehind {
-                val t = ambientPhaseState.value
-                val e = ambientEnergy
-                val k = reactionKick.value.coerceAtLeast(0f)
-                val w = size.width
-                val h = size.height
-                fun blob(color: Color, cx: Float, cy: Float, radius: Float, alpha: Float) {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(color.copy(alpha = alpha.coerceIn(0f, 1f)), Color.Transparent),
-                            center = Offset(cx, cy),
-                            radius = radius
-                        ),
-                        radius = radius,
-                        center = Offset(cx, cy)
+            .drawWithCache {
+                // Unit-radius gradients are built once per colour and only translated/scaled per frame,
+                // so the drifting glow never allocates shaders while the sheet is moving
+                val brushA = Brush.radialGradient(listOf(ambientA.copy(alpha = 1f), Color.Transparent), Offset.Zero, 1f)
+                val brushB = Brush.radialGradient(listOf(ambientB.copy(alpha = 1f), Color.Transparent), Offset.Zero, 1f)
+                val brushC = Brush.radialGradient(listOf(ambientC.copy(alpha = 1f), Color.Transparent), Offset.Zero, 1f)
+                onDrawBehind {
+                    val t = ambientPhaseState.value
+                    val e = ambientEnergy
+                    val k = reactionKick.value.coerceAtLeast(0f)
+                    val w = size.width
+                    val h = size.height
+                    fun blob(brush: Brush, cx: Float, cy: Float, radius: Float, alpha: Float) {
+                        withTransform({
+                            translate(cx, cy)
+                            scale(radius, radius, Offset.Zero)
+                        }) {
+                            drawCircle(
+                                brush = brush,
+                                radius = 1f,
+                                center = Offset.Zero,
+                                alpha = alpha.coerceIn(0f, 1f)
+                            )
+                        }
+                    }
+                    blob(
+                        brushA,
+                        w * (0.15f + 0.10f * kotlin.math.cos(t)),
+                        h * (0.16f + 0.05f * kotlin.math.sin(t)),
+                        w * (0.75f + 0.18f * k),
+                        0.30f * e + 0.18f * k
+                    )
+                    blob(
+                        brushB,
+                        w * (0.88f + 0.08f * kotlin.math.sin(t * 1f + 1.7f)),
+                        h * (0.42f + 0.07f * kotlin.math.cos(t + 2.3f)),
+                        w * (0.65f + 0.15f * k),
+                        0.24f * e + 0.14f * k
+                    )
+                    blob(
+                        brushC,
+                        w * (0.45f + 0.14f * kotlin.math.cos(t + 4.1f)),
+                        h * (0.88f + 0.05f * kotlin.math.sin(t + 0.6f)),
+                        w * (0.80f + 0.12f * k),
+                        0.22f * e + 0.12f * k
                     )
                 }
-                blob(
-                    ambientA,
-                    w * (0.15f + 0.10f * kotlin.math.cos(t)),
-                    h * (0.16f + 0.05f * kotlin.math.sin(t)),
-                    w * (0.75f + 0.18f * k),
-                    0.30f * e + 0.18f * k
-                )
-                blob(
-                    ambientB,
-                    w * (0.88f + 0.08f * kotlin.math.sin(t * 1f + 1.7f)),
-                    h * (0.42f + 0.07f * kotlin.math.cos(t + 2.3f)),
-                    w * (0.65f + 0.15f * k),
-                    0.24f * e + 0.14f * k
-                )
-                blob(
-                    ambientC,
-                    w * (0.45f + 0.14f * kotlin.math.cos(t + 4.1f)),
-                    h * (0.88f + 0.05f * kotlin.math.sin(t + 0.6f)),
-                    w * (0.80f + 0.12f * k),
-                    0.22f * e + 0.12f * k
-                )
             },
         content = {
             Column(
@@ -1011,7 +1038,7 @@ private fun CreateAiPlaylistSheetContent(
                         translationX = 18.dp.toPx() * (1f - p)
                     }
             ) {
-                AiPlaylistRefineView(
+                if (refineReady || isRefining) AiPlaylistRefineView(
                     prompt = basePrompt,
                     playlistName = playlistName,
                     onPlaylistNameChange = { playlistName = it },
@@ -1772,29 +1799,102 @@ private class AiMorphingExpressiveShape(
     }
 }
 
-private class AiExpressiveShape(
-    private val shapeType: AiExpressiveShapeType
-) : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
-        val radii = shapeType.radii
-        val baseRadius = min(size.width, size.height) * 0.485f
-        val centerX = size.width * 0.5f
-        val centerY = size.height * 0.5f
-
-        val path = Path().apply {
-            for (i in 0 until SHAPE_STEP_COUNT) {
-                val radiusPx = baseRadius * radii[i]
-                val x = centerX + radiusPx * COS_TABLE[i]
-                val y = centerY + radiusPx * SIN_TABLE[i]
-                if (i == 0) moveTo(x, y) else lineTo(x, y)
-            }
-            close()
+/**
+ * Fills an expressive morphing shape with a plain drawPath instead of clip + background, so no
+ * stencil/path-clip mask is needed per frame. The morph progress is read in the draw phase only.
+ */
+private fun Modifier.drawAiMorphShape(
+    from: AiExpressiveShapeType,
+    to: AiExpressiveShapeType,
+    morphProgress: () -> Float,
+    brush: Brush,
+    alpha: Float = 1f
+): Modifier = this.drawWithCache {
+    val settledPath = (AiMorphingExpressiveShape(to, to, 1f)
+        .createOutline(size, LayoutDirection.Ltr, this) as Outline.Generic).path
+    onDrawBehind {
+        val t = morphProgress().coerceIn(0f, 1f)
+        val path = if (from == to || t >= 1f) {
+            settledPath
+        } else {
+            (AiMorphingExpressiveShape(from, to, t)
+                .createOutline(size, LayoutDirection.Ltr, this) as Outline.Generic).path
         }
-        return Outline.Generic(path)
+        drawPath(path = path, brush = brush, alpha = alpha)
+    }
+}
+
+/**
+ * One floating accent blob of the hero stage. Every per-frame value arrives as a lambda and is read
+ * inside graphicsLayer / draw blocks, so the continuous float, spin and breathing never recompose.
+ */
+@Composable
+private fun AiFloatingAccentShape(
+    spec: AiFloatingShapeSpec,
+    index: Int,
+    isGenerating: Boolean,
+    isDark: Boolean,
+    isSuccessActive: Boolean,
+    convergeEase: Float,
+    baseColor: Color,
+    morphFrom: Int,
+    morphTo: Int,
+    morphProgress: () -> Float,
+    floatPhase: () -> Float,
+    scalePhase: () -> Float,
+    spinDeg: () -> Float
+) {
+    val scheme = MaterialTheme.colorScheme
+    val haloColor = if (isDark) {
+        lerp(Color(0xFF09090B), baseColor, 0.38f)
+    } else {
+        lerp(scheme.surfaceContainerHigh, baseColor, 0.42f)
+    }
+    val topTone = lerp(baseColor, if (isDark) scheme.primaryContainer else Color.White, 0.22f)
+    val fromType = aiHeroShapeFor(spec, index, morphFrom)
+    val toType = aiHeroShapeFor(spec, index, morphTo)
+    val bodyBrush = remember(topTone, baseColor) { Brush.linearGradient(listOf(topTone, baseColor)) }
+    val haloBrush = remember(haloColor) { SolidColor(haloColor) }
+    val fade = if (isSuccessActive) (1f - convergeEase).coerceIn(0f, 1f) else 1f
+    // Alpha is baked into the fills (no group alpha), so no offscreen layer is needed per accent
+    val bodyAlpha = (if (isDark) 0.85f else 0.75f) * fade
+    val haloAlpha = bodyAlpha * (if (isDark) 0.44f else 0.34f)
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(spec.sizeDp.dp)
+            .graphicsLayer {
+                val phase = floatPhase() * spec.harmonic + spec.phaseOffset
+                val amp = if (isGenerating) 1.5f else 1.0f
+                translationX = (spec.initialX.dp.toPx() + (spec.floatRadiusX * amp).dp.toPx() * kotlin.math.cos(phase)) * fade
+                translationY = (spec.initialY.dp.toPx() + (spec.floatRadiusY * amp).dp.toPx() * kotlin.math.sin(phase)) * fade
+                val s = if (isSuccessActive) {
+                    fade
+                } else {
+                    1.0f + (if (isGenerating) 0.10f else 0.04f) * kotlin.math.sin(scalePhase() + spec.phaseOffset)
+                }
+                scaleX = s
+                scaleY = s
+            }
+    ) {
+        // Subtle +18 degree rotated AOD-style backing halo
+        Box(
+            modifier = Modifier
+                .requiredSize((spec.sizeDp * 1.14f).dp)
+                .graphicsLayer {
+                    rotationZ = spec.initialRotation + spinDeg() * spec.spinDirection + 18f * spec.spinDirection
+                }
+                .drawAiMorphShape(fromType, toType, morphProgress, haloBrush, haloAlpha)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    rotationZ = spec.initialRotation + spinDeg() * spec.spinDirection
+                }
+                .drawAiMorphShape(fromType, toType, morphProgress, bodyBrush, bodyAlpha)
+        )
     }
 }
 
@@ -1873,9 +1973,9 @@ private fun AiAodExpressiveHeroComponent(
     artAlpha: Float = 1f,
     glowExpansion: Float,
     morphTrigger: Int,
-    continuousSpinDeg: Float,
-    ambientGlowScale: Float,
-    ambientGlowAlpha: Float,
+    continuousSpinDeg: () -> Float,
+    ambientGlowScale: () -> Float,
+    ambientGlowAlpha: () -> Float,
     blobSize: Dp,
     onTapMorph: () -> Unit,
     modifier: Modifier = Modifier
@@ -1956,7 +2056,8 @@ private fun AiAodExpressiveHeroComponent(
         }
     }
 
-    val effectiveRotationDeg = spinRotationDeg.value + continuousSpinDeg * spinDir
+    // Read lazily from graphicsLayer blocks only, so the continuous spin never recomposes the hero
+    val effectiveRotationDeg: () -> Float = { spinRotationDeg.value + continuousSpinDeg() * spinDir }
     val quantizedMorph = (shapeMorphAnim.value * 60f).roundToInt() / 60f
 
     // Single cached morphing Shape shared across mainShape, outerHalo, and midHalo (zero per-frame Path churn)
@@ -2018,6 +2119,13 @@ private fun AiAodExpressiveHeroComponent(
         }
     }
 
+    // Artwork eases in once it is available so late-arriving covers never pop in during the sheet motion
+    val artReveal = animateFloatAsState(
+        targetValue = if (currentArtUri != null) 1f else 0f,
+        animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
+        label = "ai_hero_art_reveal"
+    )
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -2037,9 +2145,10 @@ private fun AiAodExpressiveHeroComponent(
                 modifier = Modifier
                     .requiredSize(blobSize * (if (isGenerating) 1.92f else 1.65f) * glowExpansion)
                     .graphicsLayer {
-                        scaleX = ambientGlowScale
-                        scaleY = ambientGlowScale
-                        alpha = ambientGlowAlpha * convergeFade * haloFade
+                        val glowScale = ambientGlowScale()
+                        scaleX = glowScale
+                        scaleY = glowScale
+                        alpha = ambientGlowAlpha() * convergeFade * haloFade
                     }
                     .background(
                         brush = Brush.radialGradient(
@@ -2057,7 +2166,7 @@ private fun AiAodExpressiveHeroComponent(
                 modifier = Modifier
                     .requiredSize(blobSize * 1.13f)
                     .graphicsLayer {
-                        rotationZ = effectiveRotationDeg + 18f * spinDir
+                        rotationZ = effectiveRotationDeg() + 18f * spinDir
                         alpha = (if (isDark) 0.56f else 0.44f) * convergeFade * haloFade
                     }
                     .drawWithCache {
@@ -2073,7 +2182,7 @@ private fun AiAodExpressiveHeroComponent(
                 modifier = Modifier
                     .requiredSize(blobSize * 1.055f)
                     .graphicsLayer {
-                        rotationZ = effectiveRotationDeg - 14f * spinDir
+                        rotationZ = effectiveRotationDeg() - 14f * spinDir
                         alpha = (if (isDark) 0.48f else 0.38f) * convergeFade * haloFade
                     }
                     .drawWithCache {
@@ -2093,7 +2202,7 @@ private fun AiAodExpressiveHeroComponent(
             modifier = Modifier
                 .size(blobSize)
                 .graphicsLayer {
-                    rotationZ = effectiveRotationDeg
+                    rotationZ = effectiveRotationDeg()
                     alpha = convergeFade
                 }
                 .drawWithCache {
@@ -2141,7 +2250,8 @@ private fun AiAodExpressiveHeroComponent(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
-                                    rotationZ = -effectiveRotationDeg
+                                    rotationZ = -effectiveRotationDeg()
+                                    alpha = artReveal.value
                                     // 1.15x scale ensures the square artwork completely covers the rotating polar lobes
                                     scaleX = 1.15f
                                     scaleY = 1.15f
@@ -2168,6 +2278,7 @@ private fun AiAodExpressiveHeroComponent(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .graphicsLayer { alpha = artReveal.value }
                                 .background(
                                     Brush.radialGradient(
                                         colors = listOf(
@@ -2362,7 +2473,7 @@ private fun AiLibraryIndicatorsAnimation(
     val infiniteTransition = rememberInfiniteTransition(label = "lib_indicators")
 
     // Slow floating translation phase when idle (cycle 7200ms)
-    val idleFloatPhase by infiniteTransition.animateFloat(
+    val idleFloatPhase = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f, // 2 * PI
         animationSpec = infiniteRepeatable(
@@ -2373,7 +2484,7 @@ private fun AiLibraryIndicatorsAnimation(
     )
 
     // Smooth dynamic movement when generating (cycle 2400ms)
-    val genFloatPhase by infiniteTransition.animateFloat(
+    val genFloatPhase = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
@@ -2384,7 +2495,7 @@ private fun AiLibraryIndicatorsAnimation(
     )
 
     // AOD-style ambient glow breathing scale & alpha
-    val aodGlowScale by infiniteTransition.animateFloat(
+    val aodGlowScale = infiniteTransition.animateFloat(
         initialValue = 0.95f,
         targetValue = 1.10f,
         animationSpec = infiniteRepeatable(
@@ -2393,7 +2504,7 @@ private fun AiLibraryIndicatorsAnimation(
         ),
         label = "aod_glow_scale"
     )
-    val aodGlowAlpha by infiniteTransition.animateFloat(
+    val aodGlowAlpha = infiniteTransition.animateFloat(
         initialValue = 0.72f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
@@ -2404,7 +2515,7 @@ private fun AiLibraryIndicatorsAnimation(
     )
 
     // Continuous slow rotation when idle (32s cycle) vs energetic fast spin when generating (2.0s cycle)
-    val idleShapeSpin by infiniteTransition.animateFloat(
+    val idleShapeSpin = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
@@ -2414,7 +2525,7 @@ private fun AiLibraryIndicatorsAnimation(
         label = "idle_shape_spin"
     )
 
-    val genShapeSpin by infiniteTransition.animateFloat(
+    val genShapeSpin = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
@@ -2424,7 +2535,7 @@ private fun AiLibraryIndicatorsAnimation(
         label = "gen_shape_spin"
     )
 
-    val genFloaterSpin by infiniteTransition.animateFloat(
+    val genFloaterSpin = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
@@ -2435,7 +2546,7 @@ private fun AiLibraryIndicatorsAnimation(
     )
 
     // Zooming in/out pulse phase when generating (cycle 1400ms)
-    val genScalePhase by infiniteTransition.animateFloat(
+    val genScalePhase = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
@@ -2446,7 +2557,7 @@ private fun AiLibraryIndicatorsAnimation(
     )
 
     // Subtle gentle breathing pulse phase when idle (cycle 4200ms)
-    val idleScalePhase by infiniteTransition.animateFloat(
+    val idleScalePhase = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
@@ -2511,10 +2622,6 @@ private fun AiLibraryIndicatorsAnimation(
         if (isDark) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.secondaryContainer
     )
 
-    val shapeCache = remember {
-        AiExpressiveShapeType.entries.associateWith { AiExpressiveShape(it) }
-    }
-
     val scheme = MaterialTheme.colorScheme
     val shapeColorPalette = remember(
         scheme.primary,
@@ -2550,89 +2657,26 @@ private fun AiLibraryIndicatorsAnimation(
         val revealT = ((p - 0.70f) / 0.30f).coerceIn(0f, 1f)
         val portalAlpha = (1f - FastOutSlowInEasing.transform(revealT)).coerceIn(0f, 1f)
 
-        // Floating Expressive Material You shapes around the 3 main components
+        // Floating Expressive Material You shapes around the 3 main components.
+        // Per-frame phases are passed as lambdas and read in graphicsLayer / draw blocks only,
+        // so the idle float, spin and breathing never recompose anything.
         for ((index, spec) in FLOATING_EXPRESSIVE_SHAPES.withIndex()) {
-            val currentRot = spec.initialRotation + (if (isGenerating) genFloaterSpin else idleShapeSpin) * spec.spinDirection
-
-            val basePhase = if (isGenerating) genFloatPhase else idleFloatPhase
-            val phase = basePhase * spec.harmonic + spec.phaseOffset
-            val ampMult = if (isGenerating) 1.5f else 1.0f
-
-            val floatX = with(density) { (spec.floatRadiusX * ampMult).dp.toPx() } * kotlin.math.cos(phase.toDouble()).toFloat()
-            val floatY = with(density) { (spec.floatRadiusY * ampMult).dp.toPx() } * kotlin.math.sin(phase.toDouble()).toFloat()
-
-            val basePosX = with(density) { spec.initialX.dp.toPx() }
-            val basePosY = with(density) { spec.initialY.dp.toPx() }
-
-            val posX = if (isSuccessActive) (basePosX + floatX) * (1f - convergeEase) else (basePosX + floatX)
-            val posY = if (isSuccessActive) (basePosY + floatY) * (1f - convergeEase) else (basePosY + floatY)
-
-            val shapeAlpha = ((if (isDark) 0.85f else 0.75f) * (if (isSuccessActive) (1f - convergeEase) else 1f)).coerceIn(0f, 1f)
-
-            val scalePhase = (if (isGenerating) genScalePhase else idleScalePhase) + spec.phaseOffset
-            val scaleAmp = if (isGenerating) 0.10f else 0.04f
-            val shapeScale = when {
-                isSuccessActive -> (1f - convergeEase).coerceAtLeast(0f)
-                else -> 1.0f + scaleAmp * kotlin.math.sin(scalePhase.toDouble()).toFloat()
-            }
-
-            val fromType = aiHeroShapeFor(spec, index, morphFrom)
-            val toType = aiHeroShapeFor(spec, index, morphTo)
-            val morphT = morphProgress()
-            val floatShape: Shape = when {
-                fromType == toType -> shapeCache[fromType] ?: CircleShape
-                morphT >= 1f -> shapeCache[toType] ?: CircleShape
-                else -> AiMorphingExpressiveShape(fromType, toType, morphT)
-            }
-
-            if (shapeAlpha > 0.01f && shapeScale > 0.01f) {
-                val baseFloatColor = shapeColorPalette[spec.colorIndex % shapeColorPalette.size]
-                val floatHaloColor = if (isDark) {
-                    lerp(Color(0xFF09090B), baseFloatColor, 0.38f)
-                } else {
-                    lerp(scheme.surfaceContainerHigh, baseFloatColor, 0.42f)
-                }
-                val floatTopTone = lerp(baseFloatColor, if (isDark) scheme.primaryContainer else Color.White, 0.22f)
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(spec.sizeDp.dp)
-                        .graphicsLayer {
-                            this.translationX = posX
-                            this.translationY = posY
-                            this.scaleX = shapeScale
-                            this.scaleY = shapeScale
-                            this.alpha = shapeAlpha
-                        }
-                ) {
-                    // Subtle +18° rotated AOD-style backing halo on floating accent shapes
-                    Box(
-                        modifier = Modifier
-                            .requiredSize((spec.sizeDp * 1.14f).dp)
-                            .graphicsLayer {
-                                rotationZ = currentRot + 18f * spec.spinDirection
-                                alpha = if (isDark) 0.44f else 0.34f
-                            }
-                            .clip(floatShape)
-                            .background(floatHaloColor)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                rotationZ = currentRot
-                            }
-                            .clip(floatShape)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        floatTopTone,
-                                        baseFloatColor
-                                    )
-                                )
-                            )
-                    )
-                }
+            if (!isSuccessActive || convergeEase < 0.98f) {
+                AiFloatingAccentShape(
+                    spec = spec,
+                    index = index,
+                    isGenerating = isGenerating,
+                    isDark = isDark,
+                    isSuccessActive = isSuccessActive,
+                    convergeEase = convergeEase,
+                    baseColor = shapeColorPalette[spec.colorIndex % shapeColorPalette.size],
+                    morphFrom = morphFrom,
+                    morphTo = morphTo,
+                    morphProgress = morphProgress,
+                    floatPhase = { if (isGenerating) genFloatPhase.value else idleFloatPhase.value },
+                    scalePhase = { if (isGenerating) genScalePhase.value else idleScalePhase.value },
+                    spinDeg = { if (isGenerating) genFloaterSpin.value else idleShapeSpin.value }
+                )
             }
         }
 
@@ -2665,7 +2709,7 @@ private fun AiLibraryIndicatorsAnimation(
 
             // Dynamic scale: side components glide into the center component and fuse into it,
             // then that single unified centerpiece component zooms in (up to 16x) to cover the screen!
-            val scale = when {
+            val successScale = when {
                 isSuccessActive -> {
                     if (i == 1) {
                         val convergeSwell = hierarchyScale + (convergeEase * 0.22f)
@@ -2677,8 +2721,7 @@ private fun AiLibraryIndicatorsAnimation(
                         (hierarchyScale * sideShrink * finalMergeCollapse).coerceAtLeast(0f)
                     }
                 }
-                isGenerating -> hierarchyScale * (1.03f + 0.08f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat())
-                else -> hierarchyScale * (1.0f + 0.028f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat())
+                else -> 0f
             }
 
             // Side pieces stay opaque while sliding inward, fading only as they overlap the center piece;
@@ -2692,20 +2735,8 @@ private fun AiLibraryIndicatorsAnimation(
             val haloFade = if (isSuccessActive && i == 1) (1f - expandEase).coerceIn(0f, 1f) else 1f
             val artAlpha = if (isSuccessActive) (1f - convergeEase).coerceIn(0f, 1f) else 1f
 
-            // Smooth orbital floating translations
-            val idleFloatY = with(density) { 10.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
-            val idleFloatX = with(density) { 8.dp.toPx() } * kotlin.math.cos((idleFloatPhase + offset).toDouble()).toFloat()
-
-            val genFloatY = with(density) { 16.dp.toPx() } * kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat()
-            val genFloatX = with(density) { 12.dp.toPx() } * kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat()
-
             val currentBaseX = if (isSuccessActive) baseX * (1f - convergeEase) else baseX
             val currentBaseY = if (isSuccessActive) baseY * (1f - convergeEase) else baseY
-            val floatX = if (isSuccessActive) genFloatX * (1f - convergeEase) else (if (isGenerating) genFloatX else idleFloatX)
-            val floatY = if (isSuccessActive) genFloatY * (1f - convergeEase) else (if (isGenerating) genFloatY else idleFloatY)
-
-            val transX = currentBaseX + floatX
-            val transY = currentBaseY + floatY
 
             val glowExpansion = if (isSuccessActive && i == 1) {
                 1f + (convergeEase * 0.35f)
@@ -2713,15 +2744,27 @@ private fun AiLibraryIndicatorsAnimation(
                 1f
             }
 
-            if (scale > 0.001f && convergeFade > 0.001f) {
+            if ((!isSuccessActive || successScale > 0.001f) && convergeFade > 0.001f) {
                 Box(
                     modifier = Modifier
                         .size(baseIndicatorSize)
                         .graphicsLayer {
-                            this.scaleX = scale
-                            this.scaleY = scale
-                            this.translationX = transX
-                            this.translationY = transY
+                            // Orbit + breathing are evaluated in the layer phase, so the idle loop never recomposes the heroes
+                            val orbitPhase = if (isGenerating) genFloatPhase.value else idleFloatPhase.value
+                            val orbitFade = if (isSuccessActive) 1f - convergeEase else 1f
+                            val breathe = if (isSuccessActive) {
+                                successScale
+                            } else if (isGenerating) {
+                                hierarchyScale * (1.03f + 0.08f * kotlin.math.sin(genScalePhase.value + offset))
+                            } else {
+                                hierarchyScale * (1.0f + 0.028f * kotlin.math.sin(idleScalePhase.value + offset))
+                            }
+                            scaleX = breathe
+                            scaleY = breathe
+                            translationX = currentBaseX +
+                                (if (isGenerating) 12.dp.toPx() else 8.dp.toPx()) * kotlin.math.cos(orbitPhase + offset) * orbitFade
+                            translationY = currentBaseY +
+                                (if (isGenerating) 16.dp.toPx() else 10.dp.toPx()) * kotlin.math.sin(orbitPhase + offset) * orbitFade
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -2739,9 +2782,9 @@ private fun AiLibraryIndicatorsAnimation(
                         artAlpha = artAlpha,
                         glowExpansion = glowExpansion,
                         morphTrigger = morphTo + tapMorphCount,
-                        continuousSpinDeg = if (isGenerating) genShapeSpin else idleShapeSpin,
-                        ambientGlowScale = aodGlowScale,
-                        ambientGlowAlpha = aodGlowAlpha,
+                        continuousSpinDeg = { if (isGenerating) genShapeSpin.value else idleShapeSpin.value },
+                        ambientGlowScale = { aodGlowScale.value },
+                        ambientGlowAlpha = { aodGlowAlpha.value },
                         blobSize = baseIndicatorSize,
                         onTapMorph = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -2958,14 +3001,6 @@ private fun ExpressiveQuickSelectPill(
         label = "icon_morph"
     )
 
-    val iconExpressiveShape = remember(vibe.baseShape, vibe.morphedShape, morphFraction) {
-        AiMorphingExpressiveShape(
-            from = vibe.baseShape,
-            to = vibe.morphedShape,
-            progress = morphFraction
-        )
-    }
-
     val isHighlighted = isPressed || isSelected
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -3066,8 +3101,12 @@ private fun ExpressiveQuickSelectPill(
                     .graphicsLayer {
                         rotationZ = badgeSpinProvider() * spinDir + morphFraction * (if (index % 2 == 0) 25f else -25f)
                     }
-                    .clip(iconExpressiveShape)
-                    .background(Brush.linearGradient(listOf(badgeHighlight, badgeColor))),
+                    .drawAiMorphShape(
+                        from = vibe.baseShape,
+                        to = vibe.morphedShape,
+                        morphProgress = { morphFraction },
+                        brush = Brush.linearGradient(listOf(badgeHighlight, badgeColor))
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -3212,7 +3251,7 @@ private fun Modifier.aiSoftSurfaceGlow(
     val spreadPx = spread.toPx()
     val maxOffsetYPx = offsetY.toPx()
     val baseCornerPx = cornerRadius.toPx()
-    val steps = 14
+    val steps = 8
     val layerWeightSum = (steps * (steps + 1)) / 2f
     for (i in steps downTo 1) {
         val fraction = i.toFloat() / steps.toFloat()
