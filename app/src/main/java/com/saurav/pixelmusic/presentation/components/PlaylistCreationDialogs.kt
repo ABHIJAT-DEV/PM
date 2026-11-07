@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -62,6 +63,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -147,6 +149,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -173,7 +176,11 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -641,30 +648,38 @@ private fun CreateAiPlaylistSheetContent(
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessVeryLow),
         label = "ambient_energy"
     )
-    // Hero blobs morph into a different expressive shape whenever the vibe changes
-    var heroFrom by remember { mutableStateOf(0) }
-    var heroTo by remember { mutableStateOf(0) }
+    // Hero shapes morph & spin smoothly (AOD style) whenever the vibe, prompt, or refine options change
+    var heroFrom by remember { mutableIntStateOf(0) }
+    var heroTo by remember { mutableIntStateOf(0) }
     val heroMorph = remember { Animatable(1f) }
-    val heroTarget = if (basePrompt.isBlank()) 0 else ambientPick + 1
-    LaunchedEffect(heroTarget) {
-        if (heroTarget != heroTo) {
+    val promptSignature = remember(basePrompt, selectedEnergy, selectedLength) {
+        val trimmed = basePrompt.trim().lowercase()
+        if (trimmed.isEmpty()) 0 else ((trimmed.hashCode() * 31 + selectedEnergy.hashCode() * 7 + selectedLength.hashCode()) and 0x7fffffff) % 11 + 1
+    }
+    LaunchedEffect(promptSignature) {
+        if (promptSignature != heroTo) {
+            // Brief debounce while typing so rapid keystrokes coalesce into one silky morph
+            if (basePrompt.isNotBlank()) delay(90L)
             heroFrom = heroTo
-            heroTo = heroTarget
+            heroTo = promptSignature
             heroMorph.snapTo(0f)
             heroMorph.animateTo(
                 targetValue = 1f,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
+                animationSpec = tween(durationMillis = 820, easing = AiSmoothMorphEasing)
             )
         }
     }
-    // Every keystroke / vibe pick kicks the hero + background with a small bouncy pulse
+    // Smooth, non-snapping breathing swell when prompt or vibe changes (zero 1-frame snap)
     val reactionKick = remember { Animatable(0f) }
-    LaunchedEffect(basePrompt) {
+    LaunchedEffect(promptSignature) {
         if (basePrompt.isNotEmpty()) {
-            reactionKick.snapTo(0.85f)
+            reactionKick.animateTo(
+                targetValue = 0.45f,
+                animationSpec = tween(durationMillis = 200, easing = AiSmoothMorphEasing)
+            )
             reactionKick.animateTo(
                 targetValue = 0f,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                animationSpec = tween(durationMillis = 620, easing = AiSmoothMorphEasing)
             )
         }
     }
@@ -782,16 +797,16 @@ private fun CreateAiPlaylistSheetContent(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Persistently mounted library indicators in idle mode
+                // Persistently mounted AOD-style expressive hero stage in idle mode
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .graphicsLayer {
                             val kick = reactionKick.value.coerceAtLeast(0f)
-                            val s = 1f + 0.07f * kick
+                            val s = 1f + 0.035f * kick
                             scaleX = s
                             scaleY = s
-                            translationY = -6.dp.toPx() * kick
+                            translationY = -3.dp.toPx() * kick
                         }
                 ) {
                     AiLibraryIndicatorsAnimation(
@@ -1302,7 +1317,9 @@ private fun AiPlaylistRefineView(
     }
 }
 
-internal const val SHAPE_STEP_COUNT = 60
+private val AiSmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
+internal const val SHAPE_STEP_COUNT = 240
 internal val COS_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
     cos((2.0 * PI * i) / SHAPE_STEP_COUNT).toFloat()
 }
@@ -1311,61 +1328,198 @@ internal val SIN_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
 }
 
 /**
- * Material You Expressive polar shapes with precomputed lookup tables.
- * Used for both the 4 large floating hero shapes and the 1:1 icon containers inside the shortcut pills.
+ * Curated Material You Expressive shapes ported directly from the AOD screen component:
+ * - Soft cookies with gentle, shallow curves (never deeply pinched or jagged)
+ * - Clean geometric expressive shapes: Pill, Oval, Rounded Rectangle, Rounded Diamond,
+ *   Rounded Triangle, Squircle, and Soft Pentagon.
+ */
+internal enum class AiAodExpressiveShapeKind {
+    // 0: 8-Sided Soft Cookie (subtle 3.6% wave)
+    COOKIE_8 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.036 * cos(8.0 * th)
+    },
+    // 1: Material You Stadium Pill (tilted 28 deg for expressive balance)
+    PILL {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th - (28.0 * PI / 180.0)
+            val c = abs(cos(a)) / 0.78
+            val s = abs(sin(a)) / 1.00
+            return 1.0 / (c.pow(4.6) + s.pow(4.6)).pow(1.0 / 4.6)
+        }
+    },
+    // 2: 6-Sided Soft Cookie (gentle 4.2% wave)
+    COOKIE_6 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.042 * cos(6.0 * th)
+    },
+    // 3: Material You Rounded Diamond (45-deg rotated superellipse, convex sides + soft corners)
+    ROUNDED_DIAMOND {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th - PI / 4.0
+            val c = abs(cos(a))
+            val s = abs(sin(a))
+            return 1.0 / (c.pow(3.5) + s.pow(3.5)).pow(1.0 / 3.5)
+        }
+    },
+    // 4: Material You Smooth Oval (tilted -22 deg)
+    OVAL {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th + (22.0 * PI / 180.0)
+            val c = cos(a) / 0.82
+            val s = sin(a) / 1.00
+            return 1.0 / sqrt(c * c + s * s)
+        }
+    },
+    // 5: 4-Sided Soft Clover Cookie (gentle 4.6% cushion curve)
+    COOKIE_4 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.046 * cos(4.0 * th + PI / 4.0)
+    },
+    // 6: Material You Soft Rounded Triangle (strictly convex with rounded vertices)
+    ROUNDED_TRIANGLE {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th - PI / 2.0
+            return 1.0 + 0.064 * cos(3.0 * a) - 0.011 * cos(6.0 * a)
+        }
+    },
+    // 7: Material You Rounded Rectangle / Soft Squircle
+    ROUNDED_RECTANGLE {
+        override fun rawRadiusAt(th: Double): Double {
+            val c = abs(cos(th)) / 0.88
+            val s = abs(sin(th)) / 1.00
+            return 1.0 / (c.pow(4.2) + s.pow(4.2)).pow(1.0 / 4.2)
+        }
+    },
+    // 8: 12-Sided Sunny Cookie (refined 2.5% scallop)
+    COOKIE_12 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.025 * cos(12.0 * th)
+    },
+    // 9: Material You Soft Pentagon
+    ROUNDED_PENTAGON {
+        override fun rawRadiusAt(th: Double): Double {
+            val a = th - PI / 2.0
+            return 1.0 + 0.034 * cos(5.0 * a) - 0.005 * cos(10.0 * a)
+        }
+    },
+    // 10: 7-Sided Soft Cookie (gentle 3.6% wave)
+    COOKIE_7 {
+        override fun rawRadiusAt(th: Double): Double = 1.0 + 0.036 * cos(7.0 * th - PI / 2.0)
+    },
+    // 11: Material You 1:1 Squircle Cushion
+    ROUNDED_SQUIRCLE {
+        override fun rawRadiusAt(th: Double): Double {
+            val c = abs(cos(th))
+            val s = abs(sin(th))
+            return 1.0 / (c.pow(4.0) + s.pow(4.0)).pow(0.25)
+        }
+    };
+
+    abstract fun rawRadiusAt(th: Double): Double
+
+    private val normScale: Double by lazy {
+        val samples = 180
+        var maxR = 0.001
+        var sumR = 0.0
+        for (i in 0 until samples) {
+            val r = rawRadiusAt((2.0 * PI * i) / samples)
+            if (r > maxR) maxR = r
+            sumR += r
+        }
+        val meanR = sumR / samples
+        (0.62 * maxR + 0.38 * meanR).coerceAtLeast(maxR * 0.94)
+    }
+
+    fun normalizedRadiusAt(th: Double): Float {
+        return (rawRadiusAt(th) / normScale).toFloat().coerceAtMost(1.04f)
+    }
+}
+
+private val AI_AOD_EXPRESSIVE_SHAPES = AiAodExpressiveShapeKind.entries
+
+/**
+ * 240-step polar morphing & rotating shape matching `AodMorphingAlbumShape` on the AOD screen.
+ * Evaluates `fromShape` and `toShape` at `theta - shapeRotationRad` so rotating and morphing
+ * happen seamlessly in polar space without bounding-box clipping.
+ */
+private class AiAodMorphingShape(
+    private val fromShape: AiAodExpressiveShapeKind,
+    private val toShape: AiAodExpressiveShapeKind,
+    private val shapeMorphProgress: Float,
+    private val shapeRotationRad: Double
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val w = size.width.coerceAtLeast(1f)
+        val h = size.height.coerceAtLeast(1f)
+        val cx = w * 0.5f
+        val cy = h * 0.5f
+        val baseRadius = min(w, h) * 0.476f
+        val clampedMorph = shapeMorphProgress.coerceIn(0f, 1f)
+        val twoPi = 2.0 * PI
+
+        val path = Path().apply {
+            for (i in 0 until SHAPE_STEP_COUNT) {
+                val theta = (twoPi * i) / SHAPE_STEP_COUNT
+                val rotatedTheta = theta - shapeRotationRad
+                val rFrom = fromShape.normalizedRadiusAt(rotatedTheta)
+                val rTo = toShape.normalizedRadiusAt(rotatedTheta)
+                val r = baseRadius * ((1f - clampedMorph) * rFrom + clampedMorph * rTo)
+                val x = cx + r * COS_TABLE[i]
+                val y = cy + r * SIN_TABLE[i]
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
+/**
+ * Material You Expressive polar shapes with 240-step precomputed lookup tables and refined,
+ * smooth curves for floating accent shapes and 1:1 shortcut pill badges.
  */
 internal enum class AiExpressiveShapeType {
     PILL {
-        override fun radiusAt(th: Double): Float {
-            val c = abs(cos(th)) / 0.65
-            val s = abs(sin(th))
-            return (0.95 / (c.pow(4.0) + s.pow(4.0)).pow(0.25)).toFloat()
-        }
+        override fun radiusAt(th: Double): Float =
+            AiAodExpressiveShapeKind.PILL.normalizedRadiusAt(th) * 0.94f
     },
     COOKIE {
-        override fun radiusAt(th: Double): Float = (0.85 + 0.15 * cos(8.0 * th)).toFloat()
+        override fun radiusAt(th: Double): Float = (0.91 + 0.055 * cos(8.0 * th)).toFloat()
     },
     FOUR_HEAD_COOKIE {
-        override fun radiusAt(th: Double): Float = (0.82 + 0.18 * cos(4.0 * th)).toFloat()
+        override fun radiusAt(th: Double): Float = (0.90 + 0.068 * cos(4.0 * th + PI / 4.0)).toFloat()
     },
     ROUNDED_TRIANGLE {
-        override fun radiusAt(th: Double): Float = (0.82 + 0.18 * cos(3.0 * th + PI / 2.0)).toFloat()
+        override fun radiusAt(th: Double): Float =
+            AiAodExpressiveShapeKind.ROUNDED_TRIANGLE.normalizedRadiusAt(th) * 0.94f
     },
     ROUNDED_SQUARE {
-        override fun radiusAt(th: Double): Float {
-            val c = abs(cos(th))
-            val s = abs(sin(th))
-            return (0.88 / (c.pow(4.0) + s.pow(4.0)).pow(0.25)).toFloat()
-        }
+        override fun radiusAt(th: Double): Float =
+            AiAodExpressiveShapeKind.ROUNDED_SQUIRCLE.normalizedRadiusAt(th) * 0.94f
     },
     CIRCLE {
-        override fun radiusAt(th: Double): Float = 0.90f
+        override fun radiusAt(th: Double): Float = 0.92f
     },
     SIX_COOKIE {
-        override fun radiusAt(th: Double): Float = (0.84 + 0.16 * cos(6.0 * th)).toFloat()
+        override fun radiusAt(th: Double): Float = (0.91 + 0.060 * cos(6.0 * th)).toFloat()
     },
     SUNNY_COOKIE {
-        override fun radiusAt(th: Double): Float = (0.86 + 0.14 * cos(12.0 * th)).toFloat()
+        override fun radiusAt(th: Double): Float = (0.92 + 0.040 * cos(12.0 * th)).toFloat()
     },
     FIVE_COOKIE {
-        override fun radiusAt(th: Double): Float = (0.84 + 0.16 * cos(5.0 * th)).toFloat()
+        override fun radiusAt(th: Double): Float = (0.91 + 0.058 * cos(5.0 * th - PI / 2.0)).toFloat()
     },
     OVAL {
-        override fun radiusAt(th: Double): Float {
-            val c = abs(cos(th))
-            val s = abs(sin(th))
-            return (0.92 / (c * c + 0.55 * s * s).pow(0.5)).toFloat()
-        }
+        override fun radiusAt(th: Double): Float =
+            AiAodExpressiveShapeKind.OVAL.normalizedRadiusAt(th) * 0.94f
     },
     STAR {
-        override fun radiusAt(th: Double): Float = (0.70 + 0.30 * cos(5.0 * th - PI / 2.0)).toFloat()
+        override fun radiusAt(th: Double): Float = (0.89 + 0.072 * cos(5.0 * th - PI / 2.0)).toFloat()
     },
     DIAMOND {
-        override fun radiusAt(th: Double): Float {
-            val c = abs(cos(th))
-            val s = abs(sin(th))
-            return (0.84 / (c.pow(1.3) + s.pow(1.3)).pow(1.0 / 1.3)).toFloat()
-        }
+        override fun radiusAt(th: Double): Float =
+            AiAodExpressiveShapeKind.ROUNDED_DIAMOND.normalizedRadiusAt(th) * 0.94f
     };
 
     abstract fun radiusAt(th: Double): Float
@@ -1485,64 +1639,277 @@ private fun aiHeroShapeFor(spec: AiFloatingShapeSpec, index: Int, variant: Int):
 }
 
 /**
- * Idle hero blob: a continuously morphing scalloped shape with a lit, dimensional fill
- * (diagonal gradient, soft specular highlight and edge falloff) instead of a flat colour.
+ * AOD-Screen Expressive Morphing Hero Component adapted for the AI Playlist page.
+ * Features:
+ * 1. Unclipped `.requiredSize(...)` ambient radial palette glow that breathes smoothly.
+ * 2. Signature AOD `+18°` phase-rotated tonal backing halo (`haloShape`, solid fill, no wireframe)
+ *    plus a `-14°` intermediate cushion halo for deep Material You Expressive layering.
+ * 3. 240-step normalized `AiAodExpressiveShapeKind` main morphing shape with smooth
+ *    `AiSmoothMorphEasing` shape morph + rotational spin on tap, vibe/prompt changes, and
+ *    autonomous idle/generating cycles.
  */
 @Composable
-private fun AiIdleHeroBlob(
+private fun AiAodExpressiveHeroComponent(
     index: Int,
     color: Color,
-    blobSize: androidx.compose.ui.unit.Dp,
+    containerTone: Color,
+    glowColor: Color,
+    isDark: Boolean,
+    isGenerating: Boolean,
+    convergeFade: Float,
+    glowExpansion: Float,
+    morphTrigger: Int,
+    continuousSpinDeg: Float,
+    ambientGlowScale: Float,
+    ambientGlowAlpha: Float,
+    blobSize: Dp,
+    onTapMorph: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val fromType: AiExpressiveShapeType
-    val toType: AiExpressiveShapeType
-    when (index) {
-        0 -> { fromType = AiExpressiveShapeType.COOKIE; toType = AiExpressiveShapeType.FIVE_COOKIE }
-        1 -> { fromType = AiExpressiveShapeType.SIX_COOKIE; toType = AiExpressiveShapeType.FOUR_HEAD_COOKIE }
-        else -> { fromType = AiExpressiveShapeType.FIVE_COOKIE; toType = AiExpressiveShapeType.SUNNY_COOKIE }
+    val initialIdx = remember(index) {
+        when (index) {
+            0 -> 5 // COOKIE_4 (Soft Clover Cookie)
+            1 -> 0 // COOKIE_8 (8-Sided Soft Cookie centerpiece)
+            else -> 2 // COOKIE_6 (6-Sided Soft Cookie)
+        }
     }
-    val morph by rememberInfiniteTransition(label = "idle_hero_morph").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3200 + index * 700, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "idle_hero_morph_value"
-    )
-    val blobShape = AiMorphingExpressiveShape(fromType, toType, morph)
-    val highlight = androidx.compose.ui.graphics.lerp(color, Color.White, 0.38f)
-    val lowlight = androidx.compose.ui.graphics.lerp(color, Color.Black, 0.18f)
+    var previousShapeIndex by remember { mutableIntStateOf(initialIdx) }
+    var targetShapeIndex by remember { mutableIntStateOf(initialIdx) }
+    val shapeMorphAnim = remember { Animatable(1f) }
+    val spinRotationDeg = remember { Animatable(index * 32f) }
+    val spinDir = if (index % 2 == 0) 1f else -1f
 
-    Box(
-        modifier = modifier
-            .size(blobSize)
-            .clip(blobShape)
-            .drawBehind {
-                drawRect(
-                    brush = Brush.linearGradient(
-                        colors = listOf(highlight, color, lowlight),
-                        start = Offset(0f, 0f),
-                        end = Offset(size.width, size.height)
-                    )
-                )
-                drawRect(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color.White.copy(alpha = 0.40f), Color.Transparent),
-                        center = Offset(size.width * 0.32f, size.height * 0.26f),
-                        radius = size.width * 0.42f
-                    )
-                )
-                drawRect(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.18f)),
-                        center = Offset(size.width * 0.5f, size.height * 0.5f),
-                        radius = size.width * 0.62f
-                    )
+    // Autonomous smooth morph + spin loop (calm staggered cadence when idle, lively when generating)
+    LaunchedEffect(isGenerating) {
+        delay(650L + index * 850L)
+        while (true) {
+            val step = if (index == 1) 1 else 2
+            val nextIdx = (targetShapeIndex + step) % AI_AOD_EXPRESSIVE_SHAPES.size
+            previousShapeIndex = targetShapeIndex
+            targetShapeIndex = nextIdx
+            val durationMs = if (isGenerating) 720 else 920
+            val spinDelta = (if (isGenerating) 115f else 90f) * spinDir
+            shapeMorphAnim.snapTo(0f)
+            launch {
+                shapeMorphAnim.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = durationMs, easing = AiSmoothMorphEasing)
                 )
             }
-    )
+            launch {
+                spinRotationDeg.animateTo(
+                    targetValue = spinRotationDeg.value + spinDelta,
+                    animationSpec = tween(durationMillis = durationMs, easing = AiSmoothMorphEasing)
+                )
+            }
+            delay(if (isGenerating) 900L + index * 140L else 3400L + index * 650L)
+        }
+    }
+
+    // Immediate AOD-style morph + spin when the user selects a vibe, edits prompt, or taps the hero shape
+    var firstTriggerRun by remember { mutableStateOf(true) }
+    LaunchedEffect(morphTrigger) {
+        if (firstTriggerRun) {
+            firstTriggerRun = false
+            return@LaunchedEffect
+        }
+        val jump = ((morphTrigger + index) % 3) + 1
+        val nextIdx = (targetShapeIndex + jump) % AI_AOD_EXPRESSIVE_SHAPES.size
+        previousShapeIndex = targetShapeIndex
+        targetShapeIndex = nextIdx
+        shapeMorphAnim.snapTo(0f)
+        launch {
+            shapeMorphAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 820, easing = AiSmoothMorphEasing)
+            )
+        }
+        launch {
+            spinRotationDeg.animateTo(
+                targetValue = spinRotationDeg.value + 115f * spinDir,
+                animationSpec = tween(durationMillis = 820, easing = AiSmoothMorphEasing)
+            )
+        }
+    }
+
+    val effectiveRotationDeg = spinRotationDeg.value + continuousSpinDeg * spinDir
+    val quantizedRotationDeg = (effectiveRotationDeg * 4f).roundToInt() / 4f
+    val quantizedMorph = (shapeMorphAnim.value * 90f).roundToInt() / 90f
+
+    val mainShape = remember(
+        previousShapeIndex,
+        targetShapeIndex,
+        quantizedMorph,
+        quantizedRotationDeg
+    ) {
+        AiAodMorphingShape(
+            fromShape = AI_AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
+            toShape = AI_AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
+            shapeMorphProgress = quantizedMorph,
+            shapeRotationRad = Math.toRadians(quantizedRotationDeg.toDouble())
+        )
+    }
+
+    // Signature AOD backing halo shape (+18 deg phase offset)
+    val outerHaloShape = remember(
+        previousShapeIndex,
+        targetShapeIndex,
+        quantizedMorph,
+        quantizedRotationDeg
+    ) {
+        AiAodMorphingShape(
+            fromShape = AI_AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
+            toShape = AI_AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
+            shapeMorphProgress = quantizedMorph,
+            shapeRotationRad = Math.toRadians((quantizedRotationDeg + 18f * spinDir).toDouble())
+        )
+    }
+
+    // Secondary counter-rotated cushion halo (-14 deg phase offset)
+    val midHaloShape = remember(
+        previousShapeIndex,
+        targetShapeIndex,
+        quantizedMorph,
+        quantizedRotationDeg
+    ) {
+        AiAodMorphingShape(
+            fromShape = AI_AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
+            toShape = AI_AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
+            shapeMorphProgress = quantizedMorph,
+            shapeRotationRad = Math.toRadians((quantizedRotationDeg - 14f * spinDir).toDouble())
+        )
+    }
+
+    // Inner nested harmonic petal (+24 deg phase offset)
+    val innerPetalShape = remember(
+        previousShapeIndex,
+        targetShapeIndex,
+        quantizedMorph,
+        quantizedRotationDeg
+    ) {
+        AiAodMorphingShape(
+            fromShape = AI_AOD_EXPRESSIVE_SHAPES[(previousShapeIndex + 2) % AI_AOD_EXPRESSIVE_SHAPES.size],
+            toShape = AI_AOD_EXPRESSIVE_SHAPES[(targetShapeIndex + 2) % AI_AOD_EXPRESSIVE_SHAPES.size],
+            shapeMorphProgress = quantizedMorph,
+            shapeRotationRad = Math.toRadians((quantizedRotationDeg + 24f * spinDir).toDouble())
+        )
+    }
+
+    // Derive rich AOD-style tonal palette colors (zero chalky white spot)
+    val outerHaloColor = remember(color, containerTone, isDark) {
+        if (isDark) {
+            lerp(Color(0xFF09090B), color, 0.34f)
+        } else {
+            lerp(containerTone, color, 0.36f)
+        }
+    }
+    val midHaloColor = remember(outerHaloColor, color) {
+        lerp(outerHaloColor, color, 0.44f)
+    }
+    val topVelvetTone = remember(color, containerTone, isDark) {
+        if (isDark) {
+            lerp(color, containerTone, 0.24f)
+        } else {
+            lerp(color, Color.White, 0.22f)
+        }
+    }
+    val bottomVelvetTone = remember(color, outerHaloColor, isDark) {
+        lerp(color, outerHaloColor, if (isDark) 0.36f else 0.22f)
+    }
+    val innerPetalTone = remember(color, topVelvetTone) {
+        lerp(color, topVelvetTone, 0.55f)
+    }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(blobSize)
+            .then(
+                if (isGenerating) Modifier.testTag("loading_indicator") else Modifier
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onTapMorph
+            )
+    ) {
+        // Layer 1: Unclipped ambient radial palette glow (requiredSize prevents parent Box clamping!)
+        Box(
+            modifier = Modifier
+                .requiredSize(blobSize * (if (isGenerating) 1.92f else 1.65f) * glowExpansion)
+                .graphicsLayer {
+                    scaleX = ambientGlowScale
+                    scaleY = ambientGlowScale
+                    alpha = ambientGlowAlpha * convergeFade
+                }
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor.copy(alpha = if (isDark) 0.46f else 0.36f),
+                            glowColor.copy(alpha = if (isDark) 0.15f else 0.12f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        // Layer 2: Signature AOD +18° rotated tonal expressive backing halo (solid fill, no wireframe)
+        Box(
+            modifier = Modifier
+                .requiredSize(blobSize * 1.13f)
+                .graphicsLayer {
+                    alpha = (if (isDark) 0.56f else 0.44f) * convergeFade
+                }
+                .clip(outerHaloShape)
+                .background(outerHaloColor)
+        )
+
+        // Layer 3: Counter-rotated -14° expressive cushion halo
+        Box(
+            modifier = Modifier
+                .requiredSize(blobSize * 1.055f)
+                .graphicsLayer {
+                    alpha = (if (isDark) 0.48f else 0.38f) * convergeFade
+                }
+                .clip(midHaloShape)
+                .background(midHaloColor)
+        )
+
+        // Layer 4: Main 240-step AOD Expressive Morphing Shape with velvety Material You tonal fill
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(blobSize)
+                .graphicsLayer {
+                    alpha = convergeFade
+                }
+                .clip(mainShape)
+                .drawBehind {
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(topVelvetTone, color, bottomVelvetTone),
+                            start = Offset(0f, 0f),
+                            end = Offset(size.width, size.height)
+                        )
+                    )
+                }
+        ) {
+            // Subtle inner counter-morphing harmonic petal for rich sculptural depth
+            Box(
+                modifier = Modifier
+                    .size(blobSize * 0.64f)
+                    .graphicsLayer {
+                        alpha = (if (isDark) 0.24f else 0.28f) * convergeFade
+                    }
+                    .clip(innerPetalShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(innerPetalTone, color.copy(alpha = 0.6f))
+                        )
+                    )
+            )
+        }
+    }
 }
 
 private data class AiFloatingShapeSpec(
@@ -1715,119 +2082,112 @@ private fun AiLibraryIndicatorsAnimation(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
+    var tapMorphCount by remember { mutableIntStateOf(0) }
     val infiniteTransition = rememberInfiniteTransition(label = "lib_indicators")
 
-    // Slow floating translation phase when idle (cycle 6500ms)
+    // Slow floating translation phase when idle (cycle 7200ms)
     val idleFloatPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f, // 2 * PI
         animationSpec = infiniteRepeatable(
-            animation = tween(6500, easing = LinearEasing),
+            animation = tween(7200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "idle_float_phase"
     )
 
-    // Smooth dynamic movement when generating (cycle 2200ms)
+    // Smooth dynamic movement when generating (cycle 2400ms)
     val genFloatPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 6.2831855f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2200, easing = LinearEasing),
+            animation = tween(2400, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gen_float_phase"
     )
 
-    // Gentle swaying tilt when idle (cycle 5000ms) - rocks smoothly, no fast spinning
-    val idleSwayTilt by infiniteTransition.animateFloat(
-        initialValue = -12f,
-        targetValue = 12f,
+    // AOD-style ambient glow breathing scale & alpha
+    val aodGlowScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.10f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+            tween(4600, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
         ),
-        label = "idle_sway_tilt"
+        label = "aod_glow_scale"
+    )
+    val aodGlowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.72f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            tween(3400, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
+        label = "aod_glow_alpha"
     )
 
-    // Measured, smooth spinning when generating (cycle 4200ms)
-    val genSpinRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "gen_spin_rotation"
-    )
-
-    // Zooming in/out pulse phase when generating (cycle 1100ms)
-    val genScalePhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6.2831855f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1100, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "gen_scale_phase"
-    )
-
-    // Subtle gentle breathing pulse phase when idle (cycle 3600ms)
-    val idleScalePhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6.2831855f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3600, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "idle_scale_phase"
-    )
-
-    // Gentle continuous smooth rotation for shapes when idle (28s cycle, completely continuous, no stopping)
+    // Continuous slow rotation matching AodScreen (36s cycle when idle, 12s when generating)
     val idleShapeSpin by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(28000, easing = LinearEasing),
+            animation = tween(36000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "idle_shape_spin"
     )
 
-    // Smooth continuous spinning for shapes when generating (6s cycle)
     val genShapeSpin by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(6000, easing = LinearEasing),
+            animation = tween(10000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gen_shape_spin"
     )
 
-    // Base indicator size: 162dp when idle -> 186dp when generating (1.5x of previous 108dp / 124dp)
-    val baseIndicatorSize by animateDpAsState(
-        targetValue = if (isGenerating) 186.dp else 162.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+    // Zooming in/out pulse phase when generating (cycle 1400ms)
+    val genScalePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.2831855f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
         ),
+        label = "gen_scale_phase"
+    )
+
+    // Subtle gentle breathing pulse phase when idle (cycle 4200ms)
+    val idleScalePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.2831855f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "idle_scale_phase"
+    )
+
+    // Base indicator size: 158dp when idle -> 182dp when generating (smooth non-bouncy transition)
+    val baseIndicatorSize by animateDpAsState(
+        targetValue = if (isGenerating) 182.dp else 158.dp,
+        animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing),
         label = "base_indicator_size"
     )
 
     // Animate container height: 280dp when idle -> 350dp when generating
     val containerHeight by animateDpAsState(
         targetValue = if (isGenerating) 350.dp else 280.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing),
         label = "container_height"
     )
 
-    // Horizontal spacing between indicators relative to the center (1.5x scale)
+    // Horizontal spacing between indicators relative to the center
     val spacingPx = with(density) {
-        if (isGenerating) 144.dp.toPx() else 126.dp.toPx()
+        if (isGenerating) 138.dp.toPx() else 118.dp.toPx()
     }
 
     // Success animation driver: handles convergence, edge-to-edge supernova expansion, and dissolve reveal
@@ -1849,6 +2209,12 @@ private fun AiLibraryIndicatorsAnimation(
         MaterialTheme.colorScheme.primary,
         MaterialTheme.colorScheme.tertiary,
         MaterialTheme.colorScheme.secondary
+    )
+
+    val containerTones = listOf(
+        MaterialTheme.colorScheme.primaryContainer,
+        MaterialTheme.colorScheme.tertiaryContainer,
+        MaterialTheme.colorScheme.secondaryContainer
     )
 
     // For glows: in dark mode, vibrant bright tones; in light mode, luminous pastel container tones
@@ -1929,38 +2295,62 @@ private fun AiLibraryIndicatorsAnimation(
             }
 
             if (shapeAlpha > 0.01f && shapeScale > 0.01f) {
+                val baseFloatColor = shapeColorPalette[spec.colorIndex % shapeColorPalette.size]
+                val floatHaloColor = if (isDark) {
+                    lerp(Color(0xFF09090B), baseFloatColor, 0.38f)
+                } else {
+                    lerp(scheme.surfaceContainerHigh, baseFloatColor, 0.42f)
+                }
+                val floatTopTone = lerp(baseFloatColor, if (isDark) scheme.primaryContainer else Color.White, 0.22f)
                 Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(spec.sizeDp.dp)
                         .graphicsLayer {
                             this.translationX = posX
                             this.translationY = posY
-                            this.rotationZ = currentRot
                             this.scaleX = shapeScale
                             this.scaleY = shapeScale
                             this.alpha = shapeAlpha
                         }
-                        .then(if (index % 3 == 0) Modifier.blur(3.dp, BlurredEdgeTreatment.Unbounded) else Modifier)
-                        .clip(floatShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    androidx.compose.ui.graphics.lerp(
-                                        shapeColorPalette[spec.colorIndex % shapeColorPalette.size],
-                                        Color.White,
-                                        0.30f
-                                    ),
-                                    shapeColorPalette[spec.colorIndex % shapeColorPalette.size]
+                ) {
+                    // Subtle +18° rotated AOD-style backing halo on floating accent shapes
+                    Box(
+                        modifier = Modifier
+                            .requiredSize((spec.sizeDp * 1.14f).dp)
+                            .graphicsLayer {
+                                rotationZ = currentRot + 18f * spec.spinDirection
+                                alpha = if (isDark) 0.44f else 0.34f
+                            }
+                            .clip(floatShape)
+                            .background(floatHaloColor)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                rotationZ = currentRot
+                            }
+                            .clip(floatShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        floatTopTone,
+                                        baseFloatColor
+                                    )
                                 )
                             )
-                        )
-                )
+                    )
+                }
             }
         }
 
-        for (i in 0 until 3) {
+        // Render flanking companions (0 = Left, 2 = Right) first and Centerpiece Hero (1 = Center) on top
+        // so the focal AOD hero shape sits cleanly in the foreground without awkward side overlap.
+        for (i in listOf(0, 2, 1)) {
             val offset = i * (6.2831855f / 3f)
             val color = indicatorColors[i % indicatorColors.size]
+            val containerTone = containerTones[i % containerTones.size]
             val glowColor = glowColors[i % glowColors.size]
 
             // Base position relative to exact center of screen
@@ -1968,6 +2358,10 @@ private fun AiLibraryIndicatorsAnimation(
                 0 -> -spacingPx
                 2 -> spacingPx
                 else -> 0f
+            }
+            val baseY = when (i) {
+                1 -> with(density) { (-4).dp.toPx() }
+                else -> with(density) { 8.dp.toPx() }
             }
 
             // Phase 2 (0.42f..0.72f): Merged center component expands dramatically (up to 45x) covering the entire screen edge to edge
@@ -1978,33 +2372,33 @@ private fun AiLibraryIndicatorsAnimation(
             val revealT = ((p - 0.72f) / 0.28f).coerceIn(0f, 1f)
             val portalAlpha = (1f - FastOutSlowInEasing.transform(revealT)).coerceIn(0f, 1f)
 
+            // Focal hierarchy: Centerpiece (i == 1) is larger (1.06x), companions (0, 2) are 0.86x
+            val hierarchyScale = if (i == 1) 1.06f else 0.86f
+
             // Dynamic scale: side components shrink smoothly into center as they converge
             val scale = when {
                 isSuccessActive -> {
                     if (i == 1) {
-                        // Center component swells smoothly as it absorbs side pieces (1.0x -> 1.4x),
-                        // and then expands dramatically into the full edge-to-edge screen portal (up to 45x)
                         val convergeSwell = 1.0f + (convergeEase * 0.40f)
                         val portalExpansion = expandCurve * expandCurve * 45.0f
                         convergeSwell + portalExpansion
                     } else {
-                        // Side components contract and dissolve seamlessly into the center (no clipping)
-                        (1f - convergeEase).coerceAtLeast(0f)
+                        (hierarchyScale * (1f - convergeEase)).coerceAtLeast(0f)
                     }
                 }
-                isGenerating -> 1.06f + 0.14f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat()
-                else -> 1.0f + 0.035f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat()
+                isGenerating -> hierarchyScale * (1.03f + 0.08f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat())
+                else -> hierarchyScale * (1.0f + 0.028f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat())
             }
 
             // Fade multiplier for converging side pieces (applied directly to colors, avoiding layer clipping)
             val convergeFade = if (isSuccessActive && i != 1) (1f - convergeEase).coerceIn(0f, 1f) else 1f
 
-            // Floating translations (scaled 1.5x)
-            val idleFloatY = with(density) { 16.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
-            val idleFloatX = with(density) { 12.dp.toPx() } * kotlin.math.cos((idleFloatPhase + offset).toDouble()).toFloat()
+            // Smooth orbital floating translations
+            val idleFloatY = with(density) { 10.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
+            val idleFloatX = with(density) { 8.dp.toPx() } * kotlin.math.cos((idleFloatPhase + offset).toDouble()).toFloat()
 
-            val genFloatY = with(density) { 20.dp.toPx() } * kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat()
-            val genFloatX = with(density) { 14.dp.toPx() } * kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat()
+            val genFloatY = with(density) { 16.dp.toPx() } * kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat()
+            val genFloatX = with(density) { 12.dp.toPx() } * kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat()
 
             // Swirl / orbit offset during convergence
             val swirlAngle = convergeEase * 3.14159f * 1.5f
@@ -2015,23 +2409,13 @@ private fun AiLibraryIndicatorsAnimation(
                 else -> kotlin.math.cos(swirlAngle) * (swirlRadius * 0.4f)
             }
 
-            // Total translation X & Y:
-            // When success is active, baseX gracefully interpolates to 0 (converging to center)
             val currentBaseX = if (isSuccessActive) baseX * (1f - convergeEase) else baseX
+            val currentBaseY = if (isSuccessActive) baseY * (1f - convergeEase) else baseY
             val floatX = if (isSuccessActive) genFloatX * (1f - convergeEase) else (if (isGenerating) genFloatX else idleFloatX)
             val floatY = if (isSuccessActive) swirlOffsetY + (genFloatY * (1f - convergeEase)) else (if (isGenerating) genFloatY else idleFloatY)
 
             val transX = currentBaseX + floatX
-            val transY = floatY
-
-            // Rotation
-            val rotZ = when {
-                isSuccessActive -> {
-                    (genSpinRotation * (if (i % 2 == 0) 1f else -1f)) + (convergeEase * 180f)
-                }
-                isGenerating -> genSpinRotation * (if (i % 2 == 0) 1f else -1f)
-                else -> idleSwayTilt * (if (i % 2 == 0) 1f else -0.8f)
-            }
+            val transY = currentBaseY + floatY
 
             // Glow expansion scale for the merged component
             val glowExpansion = if (isSuccessActive && i == 1) {
@@ -2049,75 +2433,29 @@ private fun AiLibraryIndicatorsAnimation(
                             this.scaleY = scale
                             this.translationX = transX
                             this.translationY = transY
-                            this.rotationZ = rotZ
-                            // In Phase 3, smoothly dissolve the expanded portal so the playlist page underneath is revealed
                             this.alpha = if (isSuccessActive && i == 1) portalAlpha else 1f
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Soft depth shadow on the surface
-                    val shadowAlpha = (if (isDark) 0.35f else 0.08f) * convergeFade
-                    Box(
-                        modifier = Modifier
-                            .size(baseIndicatorSize * 0.95f)
-                            .offset(y = if (isGenerating) 12.dp else 8.dp)
-                            .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        if (isDark) Color.Black.copy(alpha = shadowAlpha) else MaterialTheme.colorScheme.onSurface.copy(alpha = shadowAlpha),
-                                        Color.Transparent
-                                    )
-                                ),
-                                shape = CircleShape
-                            )
+                    AiAodExpressiveHeroComponent(
+                        index = i,
+                        color = color,
+                        containerTone = containerTone,
+                        glowColor = glowColor,
+                        isDark = isDark,
+                        isGenerating = isGenerating || isSuccess,
+                        convergeFade = convergeFade,
+                        glowExpansion = glowExpansion,
+                        morphTrigger = morphTo + tapMorphCount,
+                        continuousSpinDeg = if (isGenerating) genShapeSpin else idleShapeSpin,
+                        ambientGlowScale = aodGlowScale,
+                        ambientGlowAlpha = aodGlowAlpha,
+                        blobSize = baseIndicatorSize,
+                        onTapMorph = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            tapMorphCount++
+                        }
                     )
-
-                    // Layer 1: Ambient wide glow aura
-                    Box(
-                        modifier = Modifier
-                            .size(baseIndicatorSize * (if (isGenerating) 2.20f else 1.80f) * glowExpansion)
-                            .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        glowColor.copy(alpha = (if (isDark) 0.60f else 0.45f) * convergeFade),
-                                        glowColor.copy(alpha = (if (isDark) 0.25f else 0.18f) * convergeFade),
-                                        Color.Transparent
-                                    )
-                                ),
-                                shape = CircleShape
-                            )
-                    )
-
-                    // Layer 2: Radiant core glow
-                    Box(
-                        modifier = Modifier
-                            .size(baseIndicatorSize * (if (isGenerating) 1.45f else 1.25f) * glowExpansion)
-                            .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        glowColor.copy(alpha = (if (isDark) 0.85f else 0.65f) * convergeFade),
-                                        glowColor.copy(alpha = (if (isDark) 0.35f else 0.25f) * convergeFade),
-                                        Color.Transparent
-                                    )
-                                ),
-                                shape = CircleShape
-                            )
-                    )
-
-                    if (isGenerating || isSuccess) {
-                        LoadingIndicator(
-                            color = color.copy(alpha = convergeFade),
-                            modifier = Modifier
-                                .size(baseIndicatorSize)
-                                .testTag("loading_indicator")
-                        )
-                    } else {
-                        AiIdleHeroBlob(
-                            index = i,
-                            color = color,
-                            blobSize = baseIndicatorSize
-                        )
-                    }
                 }
             }
         }
