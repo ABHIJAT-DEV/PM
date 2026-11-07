@@ -6,14 +6,23 @@ import android.annotation.SuppressLint
 import androidx.annotation.OptIn
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -90,7 +99,29 @@ fun AppNavigation(
             .toRoute()
     }
 
+    val aiSuccess by playerViewModel.aiSuccess.collectAsStateWithLifecycle()
+    val lastCreatedAiPlaylistId by playerViewModel.lastCreatedAiPlaylistId.collectAsStateWithLifecycle()
+    val portalVeilAlpha = remember { Animatable(0f) }
+
+    LaunchedEffect(lastCreatedAiPlaylistId, aiSuccess) {
+        if (lastCreatedAiPlaylistId != null && aiSuccess) {
+            portalVeilAlpha.snapTo(0f)
+            // Wait until the Dialog's GPU Canvas portal circle has expanded to cover 100% of the screen
+            delay(820L)
+            portalVeilAlpha.snapTo(1f)
+            // Hold solid for 110ms while Dialog closes and PlaylistDetailScreen composes its first frame behind the veil
+            delay(110L)
+            portalVeilAlpha.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing)
+            )
+        } else {
+            portalVeilAlpha.snapTo(0f)
+        }
+    }
+
     startDestination?.let { initialRoute ->
+        Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = initialRoute
@@ -807,6 +838,17 @@ fun AppNavigation(
                     com.saurav.pixelmusic.presentation.screens.UpdateDownloadScreen(navController = navController)
                 }
             }
+        }
+
+        if (portalVeilAlpha.value > 0.001f) {
+            val portalColor = MaterialTheme.colorScheme.tertiary
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = portalVeilAlpha.value }
+                    .background(portalColor)
+            )
+        }
         }
     }
 }

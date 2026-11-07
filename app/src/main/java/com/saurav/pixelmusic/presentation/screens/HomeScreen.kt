@@ -419,12 +419,16 @@ fun HomeScreen(
             val sheetWasOpen = showCreateAiPlaylistDialog || aiGenerationRequestedFromDialog
             withContext(NonCancellable) {
                 if (sheetWasOpen) {
-                    kotlinx.coroutines.delay(1350)
+                    // Wait until the Canvas portal circle reaches 100% screen coverage and AppNavigation veil is opaque
+                    kotlinx.coroutines.delay(850)
+                    showCreateAiPlaylistDialog = false
+                    aiGenerationRequestedFromDialog = false
                     navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
-                    kotlinx.coroutines.delay(600)
+                    kotlinx.coroutines.delay(620)
+                } else {
+                    showCreateAiPlaylistDialog = false
+                    aiGenerationRequestedFromDialog = false
                 }
-                showCreateAiPlaylistDialog = false
-                aiGenerationRequestedFromDialog = false
                 playerViewModel.clearAiPlaylistError()
                 playerViewModel.clearLastCreatedAiPlaylistId()
             }

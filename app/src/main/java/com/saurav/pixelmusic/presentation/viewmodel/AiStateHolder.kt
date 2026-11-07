@@ -233,7 +233,7 @@ class AiStateHolder @Inject constructor(
                                 "$resolvedPlaylistName · ${generatedSongs.size} songs. Tap to open it.",
                                 playlistId = createdPlaylist.id
                             )
-                            kotlinx.coroutines.delay(2300) // Allow full merge, 45x expansion, and dissolve reveal animation to complete
+                            kotlinx.coroutines.delay(1600) // Allow full merge, Canvas portal zoom, and root dissolve reveal to complete
                             dismissAiPlaylistSheet()
                         } else {
                             // Play immediately logic

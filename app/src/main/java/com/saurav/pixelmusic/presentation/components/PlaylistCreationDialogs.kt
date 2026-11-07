@@ -9,6 +9,7 @@ package com.saurav.pixelmusic.presentation.components
 import android.content.res.Resources
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -36,6 +37,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.draw.drawBehind
@@ -182,10 +184,12 @@ import kotlin.math.sqrt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -198,13 +202,74 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import com.saurav.pixelmusic.utils.shapes.RoundedStarShape
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface AiHeroArtworkEntryPoint {
+    fun playbackStatsRepository(): com.saurav.pixelmusic.data.stats.PlaybackStatsRepository
+    fun musicDao(): com.saurav.pixelmusic.data.database.MusicDao
+}
+
+@Composable
+private fun rememberAiHeroArtworkUris(): List<String> {
+    val context = LocalContext.current
+    var artworkUris by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(context) {
+        val loaded = withContext(Dispatchers.IO) {
+            runCatching {
+                val appContext = context.applicationContext
+                val entryPoint = EntryPointAccessors.fromApplication(appContext, AiHeroArtworkEntryPoint::class.java)
+                val history = entryPoint.playbackStatsRepository().loadPlaybackHistory(limit = 36)
+                val recentIds = history.mapNotNull { it.songId.toLongOrNull() }.distinct()
+                val dbSongsById = if (recentIds.isNotEmpty()) {
+                    entryPoint.musicDao().getSongsByIdsListSimple(recentIds).associateBy { it.id }
+                } else {
+                    emptyMap()
+                }
+                val collected = LinkedHashSet<String>(24)
+                for (entry in history) {
+                    val songIdLong = entry.songId.toLongOrNull()
+                    val dbArt = songIdLong?.let { dbSongsById[it]?.albumArtUriString }
+                    val candidate = dbArt?.takeIf { it.isNotBlank() } ?: entry.thumbnail?.takeIf { it.isNotBlank() }
+                    if (candidate != null) {
+                        collected.add(candidate)
+                        if (collected.size >= 18) break
+                    }
+                }
+                if (collected.size < 9) {
+                    val randomSongs = entryPoint.musicDao().getRandomSongs(limit = 24)
+                    for (song in randomSongs) {
+                        val art = song.albumArtUriString?.takeIf { it.isNotBlank() }
+                        if (art != null) {
+                            collected.add(art)
+                            if (collected.size >= 18) break
+                        }
+                    }
+                }
+                collected.toList()
+            }.getOrDefault(emptyList())
+        }
+        if (loaded.isNotEmpty()) {
+            artworkUris = loaded
+        }
+    }
+    return artworkUris
+}
 
 @Composable
 fun PlaylistCreationTypeDialog(
@@ -480,12 +545,14 @@ fun CreateAiPlaylistDialog(
     onGenerate: (playlistName: String?, prompt: String, minLength: Int, maxLength: Int) -> Unit
 ) {
     if (visible) {
+        val heroArtworkUris = rememberAiHeroArtworkUris()
         if (isGenerating || isSuccess) {
             // Full Screen Edge-to-Edge Generating Page
             AiPlaylistGeneratingFullScreenPage(
                 isSuccess = isSuccess,
                 status = status,
                 error = error,
+                heroArtworkUris = heroArtworkUris,
                 onDismiss = onDismiss
             )
         } else {
@@ -513,6 +580,7 @@ fun CreateAiPlaylistDialog(
             ) {
                 CreateAiPlaylistSheetContent(
                     error = error,
+                    heroArtworkUris = heroArtworkUris,
                     onDismiss = onDismiss,
                     onGenerate = onGenerate
                 )
@@ -526,6 +594,7 @@ private fun AiPlaylistGeneratingFullScreenPage(
     isSuccess: Boolean,
     status: String?,
     error: String?,
+    heroArtworkUris: List<String>,
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -535,9 +604,46 @@ private fun AiPlaylistGeneratingFullScreenPage(
             decorFitsSystemWindows = false
         )
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+        val view = LocalView.current
+        LaunchedEffect(view) {
+            (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+        }
+
+        // Unified success progress driving convergence (0..0.40), hardware Canvas portal zoom (0.30..0.64),
+        // and smooth dissolve reveal (0.64..1.0) without ever scaling generic path clips 45x.
+        val successProgress = remember { Animatable(0f) }
+        LaunchedEffect(isSuccess) {
+            if (isSuccess) {
+                successProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 1400, easing = LinearEasing)
+                )
+            } else {
+                successProgress.snapTo(0f)
+            }
+        }
+
+        val p = successProgress.value
+        val bgColor = MaterialTheme.colorScheme.background
+        val portalCoreColor = MaterialTheme.colorScheme.tertiary
+        val portalEdgeColor = MaterialTheme.colorScheme.primary
+        val density = LocalDensity.current
+
+        // Fade out the dialog background once the portal circle covers the screen so Phase 3 reveals beneath
+        val bgAlpha = if (isSuccess && p > 0.48f) {
+            (1f - ((p - 0.48f) / 0.14f)).coerceIn(0f, 1f)
+        } else {
+            1f
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    if (bgAlpha > 0.001f) {
+                        drawRect(bgColor.copy(alpha = bgAlpha))
+                    }
+                }
         ) {
             // Focus-in entrance: content zooms down from 1.35x while the blur resolves
             val enter = remember { Animatable(0f) }
@@ -545,62 +651,106 @@ private fun AiPlaylistGeneratingFullScreenPage(
                 enter.animateTo(1f, tween(750, easing = FastOutSlowInEasing))
             }
             val enterBlur = (28f * (1f - enter.value)).dp
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .graphicsLayer {
-                        val s = 1.35f - 0.35f * enter.value
-                        scaleX = s
-                        scaleY = s
-                        alpha = (enter.value * 2.2f).coerceIn(0f, 1f)
-                    }
-                    .then(if (enterBlur > 0.5.dp) Modifier.blur(enterBlur) else Modifier)
-            ) {
-                // Minimize/Close button at top right
-                AnimatedVisibility(
-                    visible = !isSuccess,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp)
-                ) {
-                    FilledTonalIconButton(
-                        onClick = onDismiss,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    ) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Close")
-                    }
-                }
 
-                // Centered content
-                Column(
+            // Stop rendering the inner content as soon as the expanding Canvas portal covers the centerpiece
+            if (!isSuccess || p < 0.48f) {
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                        .graphicsLayer {
+                            val s = 1.35f - 0.35f * enter.value
+                            scaleX = s
+                            scaleY = s
+                            alpha = (enter.value * 2.2f).coerceIn(0f, 1f)
+                        }
+                        .then(if (enterBlur > 0.5.dp) Modifier.blur(enterBlur) else Modifier)
                 ) {
-                    AiLibraryIndicatorsAnimation(
-                        isGenerating = true,
-                        isSuccess = isSuccess
-                    )
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
+                    // Minimize/Close button at top right
                     AnimatedVisibility(
                         visible = !isSuccess,
-                        enter = fadeIn(),
-                        exit = fadeOut(tween(250))
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
                     ) {
-                        AiPlaylistCreationAnimationView(
-                            status = status,
+                        FilledTonalIconButton(
+                            onClick = onDismiss,
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(Icons.Rounded.Close, contentDescription = "Close")
+                        }
+                    }
+
+                    // Centered content
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        AiLibraryIndicatorsAnimation(
+                            isGenerating = true,
                             isSuccess = isSuccess,
-                            error = error,
-                            onDismiss = onDismiss
+                            heroArtworkUris = heroArtworkUris,
+                            externalSuccessProgress = { successProgress.value }
+                        )
+
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        AnimatedVisibility(
+                            visible = !isSuccess,
+                            enter = fadeIn(),
+                            exit = fadeOut(tween(250))
+                        ) {
+                            AiPlaylistCreationAnimationView(
+                                status = status,
+                                isSuccess = isSuccess,
+                                error = error,
+                                onDismiss = onDismiss
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Hardware-accelerated GPU Canvas Portal Zoom & Dissolve (zero generic Path clip scaling!)
+            if (isSuccess && p >= 0.28f) {
+                val expandT = ((p - 0.28f) / 0.34f).coerceIn(0f, 1f)
+                val expandCurve = FastOutSlowInEasing.transform(expandT)
+                val revealT = ((p - 0.66f) / 0.34f).coerceIn(0f, 1f)
+                val portalAlpha = (1f - FastOutSlowInEasing.transform(revealT)).coerceIn(0f, 1f)
+                val startRadiusPx = with(density) { 86.dp.toPx() }
+
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val center = Offset(size.width * 0.5f, size.height * 0.42f)
+                    val maxRadius = hypot(size.width, size.height) * 0.72f
+                    val currentRadius = startRadiusPx + (maxRadius - startRadiusPx) * expandCurve
+                    if (expandT >= 0.98f) {
+                        drawRect(color = portalCoreColor.copy(alpha = portalAlpha))
+                    } else {
+                        val fadeInT = ((p - 0.28f) / 0.12f).coerceIn(0f, 1f) * portalAlpha
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    portalCoreColor.copy(alpha = fadeInT),
+                                    portalEdgeColor.copy(alpha = fadeInT * 0.55f),
+                                    Color.Transparent
+                                ),
+                                center = center,
+                                radius = (currentRadius * 1.28f).coerceAtLeast(1f)
+                            ),
+                            radius = currentRadius * 1.28f,
+                            center = center
+                        )
+                        drawCircle(
+                            color = portalCoreColor.copy(alpha = fadeInT),
+                            radius = currentRadius,
+                            center = center
                         )
                     }
                 }
@@ -612,6 +762,7 @@ private fun AiPlaylistGeneratingFullScreenPage(
 @Composable
 private fun CreateAiPlaylistSheetContent(
     error: String?,
+    heroArtworkUris: List<String>,
     onDismiss: () -> Unit,
     onGenerate: (playlistName: String?, prompt: String, minLength: Int, maxLength: Int) -> Unit
 ) {
@@ -812,6 +963,7 @@ private fun CreateAiPlaylistSheetContent(
                     AiLibraryIndicatorsAnimation(
                         isGenerating = false,
                         isSuccess = false,
+                        heroArtworkUris = heroArtworkUris,
                         morphFrom = heroFrom,
                         morphTo = heroTo,
                         morphProgress = { heroMorph.value }
@@ -1435,15 +1587,15 @@ internal enum class AiAodExpressiveShapeKind {
 private val AI_AOD_EXPRESSIVE_SHAPES = AiAodExpressiveShapeKind.entries
 
 /**
- * 240-step polar morphing & rotating shape matching `AodMorphingAlbumShape` on the AOD screen.
- * Evaluates `fromShape` and `toShape` at `theta - shapeRotationRad` so rotating and morphing
- * happen seamlessly in polar space without bounding-box clipping.
+ * 240-step polar morphing shape matching `AodMorphingAlbumShape` on the AOD screen.
+ * Rotation is applied via GPU `graphicsLayer { rotationZ = ... }` (with counter-rotation on
+ * the inner upright album art) so that `mainShape`, `outerHalo`, and `midHalo` share a single
+ * cached `Shape` instance and spin at 120fps with zero per-frame `Path` allocations.
  */
 private class AiAodMorphingShape(
     private val fromShape: AiAodExpressiveShapeKind,
     private val toShape: AiAodExpressiveShapeKind,
-    private val shapeMorphProgress: Float,
-    private val shapeRotationRad: Double
+    private val shapeMorphProgress: Float
 ) : Shape {
     override fun createOutline(
         size: Size,
@@ -1461,9 +1613,8 @@ private class AiAodMorphingShape(
         val path = Path().apply {
             for (i in 0 until SHAPE_STEP_COUNT) {
                 val theta = (twoPi * i) / SHAPE_STEP_COUNT
-                val rotatedTheta = theta - shapeRotationRad
-                val rFrom = fromShape.normalizedRadiusAt(rotatedTheta)
-                val rTo = toShape.normalizedRadiusAt(rotatedTheta)
+                val rFrom = fromShape.normalizedRadiusAt(theta)
+                val rTo = toShape.normalizedRadiusAt(theta)
                 val r = baseRadius * ((1f - clampedMorph) * rFrom + clampedMorph * rTo)
                 val x = cx + r * COS_TABLE[i]
                 val y = cy + r * SIN_TABLE[i]
@@ -1656,6 +1807,8 @@ private fun AiAodExpressiveHeroComponent(
     glowColor: Color,
     isDark: Boolean,
     isGenerating: Boolean,
+    isSuccess: Boolean,
+    heroArtworkUris: List<String>,
     convergeFade: Float,
     glowExpansion: Float,
     morphTrigger: Int,
@@ -1675,20 +1828,28 @@ private fun AiAodExpressiveHeroComponent(
     }
     var previousShapeIndex by remember { mutableIntStateOf(initialIdx) }
     var targetShapeIndex by remember { mutableIntStateOf(initialIdx) }
+    var artCycleStep by remember { mutableIntStateOf(index) }
     val shapeMorphAnim = remember { Animatable(1f) }
     val spinRotationDeg = remember { Animatable(index * 32f) }
     val spinDir = if (index % 2 == 0) 1f else -1f
 
-    // Autonomous smooth morph + spin loop (calm staggered cadence when idle, lively when generating)
-    LaunchedEffect(isGenerating) {
-        delay(650L + index * 850L)
+    // Autonomous smooth morph + spin + artwork crossfade loop
+    // Calm staggered cadence when idle; rapid, high-energy spinning & morphing when generating
+    LaunchedEffect(isGenerating, isSuccess) {
+        if (isSuccess) return@LaunchedEffect
+        delay(if (isGenerating) 120L + index * 160L else 650L + index * 850L)
+        var loopCount = 0
         while (true) {
+            loopCount++
             val step = if (index == 1) 1 else 2
             val nextIdx = (targetShapeIndex + step) % AI_AOD_EXPRESSIVE_SHAPES.size
             previousShapeIndex = targetShapeIndex
             targetShapeIndex = nextIdx
-            val durationMs = if (isGenerating) 720 else 920
-            val spinDelta = (if (isGenerating) 115f else 90f) * spinDir
+            if (!isGenerating || loopCount % 2 == 0) {
+                artCycleStep++
+            }
+            val durationMs = if (isGenerating) 520 else 920
+            val spinDelta = (if (isGenerating) 145f else 90f) * spinDir
             shapeMorphAnim.snapTo(0f)
             launch {
                 shapeMorphAnim.animateTo(
@@ -1702,21 +1863,23 @@ private fun AiAodExpressiveHeroComponent(
                     animationSpec = tween(durationMillis = durationMs, easing = AiSmoothMorphEasing)
                 )
             }
-            delay(if (isGenerating) 900L + index * 140L else 3400L + index * 650L)
+            delay(if (isGenerating) 580L + index * 90L else 3400L + index * 650L)
         }
     }
 
-    // Immediate AOD-style morph + spin when the user selects a vibe, edits prompt, or taps the hero shape
+    // Immediate AOD-style morph + spin + artwork crossfade when user selects a vibe, edits prompt, or taps
     var firstTriggerRun by remember { mutableStateOf(true) }
     LaunchedEffect(morphTrigger) {
         if (firstTriggerRun) {
             firstTriggerRun = false
             return@LaunchedEffect
         }
+        if (isSuccess) return@LaunchedEffect
         val jump = ((morphTrigger + index) % 3) + 1
         val nextIdx = (targetShapeIndex + jump) % AI_AOD_EXPRESSIVE_SHAPES.size
         previousShapeIndex = targetShapeIndex
         targetShapeIndex = nextIdx
+        artCycleStep++
         shapeMorphAnim.snapTo(0f)
         launch {
             shapeMorphAnim.animateTo(
@@ -1733,69 +1896,34 @@ private fun AiAodExpressiveHeroComponent(
     }
 
     val effectiveRotationDeg = spinRotationDeg.value + continuousSpinDeg * spinDir
-    val quantizedRotationDeg = (effectiveRotationDeg * 4f).roundToInt() / 4f
-    val quantizedMorph = (shapeMorphAnim.value * 90f).roundToInt() / 90f
+    val quantizedMorph = (shapeMorphAnim.value * 60f).roundToInt() / 60f
 
-    val mainShape = remember(
+    // Single cached morphing Shape shared across mainShape, outerHalo, and midHalo (zero per-frame Path churn)
+    val morphShape = remember(
         previousShapeIndex,
         targetShapeIndex,
-        quantizedMorph,
-        quantizedRotationDeg
+        quantizedMorph
     ) {
         AiAodMorphingShape(
             fromShape = AI_AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
             toShape = AI_AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
-            shapeMorphProgress = quantizedMorph,
-            shapeRotationRad = Math.toRadians(quantizedRotationDeg.toDouble())
+            shapeMorphProgress = quantizedMorph
         )
     }
 
-    // Signature AOD backing halo shape (+18 deg phase offset)
-    val outerHaloShape = remember(
-        previousShapeIndex,
-        targetShapeIndex,
-        quantizedMorph,
-        quantizedRotationDeg
-    ) {
-        AiAodMorphingShape(
-            fromShape = AI_AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
-            toShape = AI_AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
-            shapeMorphProgress = quantizedMorph,
-            shapeRotationRad = Math.toRadians((quantizedRotationDeg + 18f * spinDir).toDouble())
-        )
-    }
-
-    // Secondary counter-rotated cushion halo (-14 deg phase offset)
-    val midHaloShape = remember(
-        previousShapeIndex,
-        targetShapeIndex,
-        quantizedMorph,
-        quantizedRotationDeg
-    ) {
-        AiAodMorphingShape(
-            fromShape = AI_AOD_EXPRESSIVE_SHAPES[previousShapeIndex],
-            toShape = AI_AOD_EXPRESSIVE_SHAPES[targetShapeIndex],
-            shapeMorphProgress = quantizedMorph,
-            shapeRotationRad = Math.toRadians((quantizedRotationDeg - 14f * spinDir).toDouble())
-        )
-    }
-
-    // Inner nested harmonic petal (+24 deg phase offset)
     val innerPetalShape = remember(
         previousShapeIndex,
         targetShapeIndex,
-        quantizedMorph,
-        quantizedRotationDeg
+        quantizedMorph
     ) {
         AiAodMorphingShape(
             fromShape = AI_AOD_EXPRESSIVE_SHAPES[(previousShapeIndex + 2) % AI_AOD_EXPRESSIVE_SHAPES.size],
             toShape = AI_AOD_EXPRESSIVE_SHAPES[(targetShapeIndex + 2) % AI_AOD_EXPRESSIVE_SHAPES.size],
-            shapeMorphProgress = quantizedMorph,
-            shapeRotationRad = Math.toRadians((quantizedRotationDeg + 24f * spinDir).toDouble())
+            shapeMorphProgress = quantizedMorph
         )
     }
 
-    // Derive rich AOD-style tonal palette colors (zero chalky white spot)
+    // Derive rich AOD-style tonal palette colors
     val outerHaloColor = remember(color, containerTone, isDark) {
         if (isDark) {
             lerp(Color(0xFF09090B), color, 0.34f)
@@ -1818,6 +1946,15 @@ private fun AiAodExpressiveHeroComponent(
     }
     val innerPetalTone = remember(color, topVelvetTone) {
         lerp(color, topVelvetTone, 0.55f)
+    }
+
+    // Pick a distinct recently played album art URI for this hero piece (index 0, 1, 2 never collide)
+    val currentArtUri = remember(heroArtworkUris, artCycleStep, index) {
+        if (heroArtworkUris.isEmpty()) {
+            null
+        } else {
+            heroArtworkUris[(artCycleStep * 3 + index).coerceAtLeast(0) % heroArtworkUris.size]
+        }
     }
 
     Box(
@@ -1853,37 +1990,40 @@ private fun AiAodExpressiveHeroComponent(
                 )
         )
 
-        // Layer 2: Signature AOD +18° rotated tonal expressive backing halo (solid fill, no wireframe)
+        // Layer 2: Signature AOD +18° rotated tonal expressive backing halo (GPU rotated, solid fill)
         Box(
             modifier = Modifier
                 .requiredSize(blobSize * 1.13f)
                 .graphicsLayer {
+                    rotationZ = effectiveRotationDeg + 18f * spinDir
                     alpha = (if (isDark) 0.56f else 0.44f) * convergeFade
                 }
-                .clip(outerHaloShape)
+                .clip(morphShape)
                 .background(outerHaloColor)
         )
 
-        // Layer 3: Counter-rotated -14° expressive cushion halo
+        // Layer 3: Counter-rotated -14° expressive cushion halo (GPU rotated)
         Box(
             modifier = Modifier
                 .requiredSize(blobSize * 1.055f)
                 .graphicsLayer {
+                    rotationZ = effectiveRotationDeg - 14f * spinDir
                     alpha = (if (isDark) 0.48f else 0.38f) * convergeFade
                 }
-                .clip(midHaloShape)
+                .clip(morphShape)
                 .background(midHaloColor)
         )
 
-        // Layer 4: Main 240-step AOD Expressive Morphing Shape with velvety Material You tonal fill
+        // Layer 4: Main 240-step AOD Expressive Morphing Shape framing crossfading recently played album art
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(blobSize)
                 .graphicsLayer {
+                    rotationZ = effectiveRotationDeg
                     alpha = convergeFade
                 }
-                .clip(mainShape)
+                .clip(morphShape)
                 .drawBehind {
                     drawRect(
                         brush = Brush.linearGradient(
@@ -1894,12 +2034,13 @@ private fun AiAodExpressiveHeroComponent(
                     )
                 }
         ) {
-            // Subtle inner counter-morphing harmonic petal for rich sculptural depth
+            // Fallback sculptural inner petal (also visible while first cached artwork crossfades in)
             Box(
                 modifier = Modifier
                     .size(blobSize * 0.64f)
                     .graphicsLayer {
-                        alpha = (if (isDark) 0.24f else 0.28f) * convergeFade
+                        rotationZ = 24f * spinDir
+                        alpha = (if (isDark) 0.28f else 0.32f) * convergeFade
                     }
                     .clip(innerPetalShape)
                     .background(
@@ -1908,6 +2049,52 @@ private fun AiAodExpressiveHeroComponent(
                         )
                     )
             )
+
+            // Upright crossfading recently played album art from cache (counter-rotated against shape spin,
+            // matching the AOD screen's upright album art inside the spinning expressive shape)
+            if (currentArtUri != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            rotationZ = -effectiveRotationDeg
+                            // 1.15x scale ensures the square artwork completely covers the rotating polar lobes
+                            scaleX = 1.15f
+                            scaleY = 1.15f
+                        }
+                ) {
+                    Crossfade(
+                        targetState = currentArtUri,
+                        animationSpec = tween(durationMillis = 680, easing = FastOutSlowInEasing),
+                        label = "ai_hero_art_crossfade"
+                    ) { artUri ->
+                        SmartImage(
+                            model = artUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            targetSize = SmartImageListTargetSize,
+                            useDiskCache = true,
+                            useMemoryCache = true,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+
+                // Subtle Material You tonal glaze & edge vignette so the artwork harmonizes with each hero color
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    color.copy(alpha = if (isDark) 0.14f else 0.10f),
+                                    color.copy(alpha = if (isDark) 0.24f else 0.18f),
+                                    outerHaloColor.copy(alpha = if (isDark) 0.48f else 0.34f)
+                                )
+                            )
+                        )
+                )
+            }
         }
     }
 }
@@ -2076,9 +2263,11 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
 private fun AiLibraryIndicatorsAnimation(
     isGenerating: Boolean,
     isSuccess: Boolean = false,
+    heroArtworkUris: List<String> = emptyList(),
     morphFrom: Int = 0,
     morphTo: Int = 0,
     morphProgress: () -> Float = { 1f },
+    externalSuccessProgress: (() -> Float)? = null,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -2128,12 +2317,12 @@ private fun AiLibraryIndicatorsAnimation(
         label = "aod_glow_alpha"
     )
 
-    // Continuous slow rotation matching AodScreen (36s cycle when idle, 12s when generating)
+    // Continuous slow rotation when idle (32s cycle) vs energetic fast spin when generating (2.0s cycle)
     val idleShapeSpin by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(36000, easing = LinearEasing),
+            animation = tween(32000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "idle_shape_spin"
@@ -2143,10 +2332,20 @@ private fun AiLibraryIndicatorsAnimation(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
+            animation = tween(2000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gen_shape_spin"
+    )
+
+    val genFloaterSpin by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gen_floater_spin"
     )
 
     // Zooming in/out pulse phase when generating (cycle 1400ms)
@@ -2190,16 +2389,18 @@ private fun AiLibraryIndicatorsAnimation(
         if (isGenerating) 138.dp.toPx() else 118.dp.toPx()
     }
 
-    // Success animation driver: handles convergence, edge-to-edge supernova expansion, and dissolve reveal
-    val successProgress = remember { Animatable(0f) }
-    LaunchedEffect(isSuccess) {
-        if (isSuccess) {
-            successProgress.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(1900, easing = LinearEasing)
-            )
-        } else {
-            successProgress.snapTo(0f)
+    // Fallback local success progress if not driven by parent AiPlaylistGeneratingFullScreenPage
+    val internalSuccessProgress = remember { Animatable(0f) }
+    LaunchedEffect(isSuccess, externalSuccessProgress == null) {
+        if (externalSuccessProgress == null) {
+            if (isSuccess) {
+                internalSuccessProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(1400, easing = LinearEasing)
+                )
+            } else {
+                internalSuccessProgress.snapTo(0f)
+            }
         }
     }
 
@@ -2254,14 +2455,14 @@ private fun AiLibraryIndicatorsAnimation(
             .height(containerHeight),
         contentAlignment = Alignment.Center
     ) {
-        val p = successProgress.value
+        val p = externalSuccessProgress?.invoke() ?: internalSuccessProgress.value
         val isSuccessActive = isSuccess && p > 0f
-        val convergeT = (p / 0.42f).coerceIn(0f, 1f)
+        val convergeT = (p / 0.38f).coerceIn(0f, 1f)
         val convergeEase = FastOutSlowInEasing.transform(convergeT)
 
         // Floating Expressive Material You shapes around the 3 main components
         for ((index, spec) in FLOATING_EXPRESSIVE_SHAPES.withIndex()) {
-            val currentRot = spec.initialRotation + (if (isGenerating) genShapeSpin else idleShapeSpin) * spec.spinDirection
+            val currentRot = spec.initialRotation + (if (isGenerating) genFloaterSpin else idleShapeSpin) * spec.spinDirection
 
             val basePhase = if (isGenerating) genFloatPhase else idleFloatPhase
             val phase = basePhase * spec.harmonic + spec.phaseOffset
@@ -2364,24 +2565,15 @@ private fun AiLibraryIndicatorsAnimation(
                 else -> with(density) { 8.dp.toPx() }
             }
 
-            // Phase 2 (0.42f..0.72f): Merged center component expands dramatically (up to 45x) covering the entire screen edge to edge
-            val expandT = ((p - 0.42f) / 0.30f).coerceIn(0f, 1f)
-            val expandCurve = FastOutLinearInEasing.transform(expandT)
-
-            // Phase 3 (0.72f..1.0f): Portal smoothly dissolves/fades away, revealing the newly created playlist page
-            val revealT = ((p - 0.72f) / 0.28f).coerceIn(0f, 1f)
-            val portalAlpha = (1f - FastOutSlowInEasing.transform(revealT)).coerceIn(0f, 1f)
-
             // Focal hierarchy: Centerpiece (i == 1) is larger (1.06x), companions (0, 2) are 0.86x
             val hierarchyScale = if (i == 1) 1.06f else 0.86f
 
-            // Dynamic scale: side components shrink smoothly into center as they converge
+            // Dynamic scale: side components shrink smoothly into center as they converge;
+            // centerpiece swells gently to 1.28x while handing off to the GPU Canvas portal (zero 45x Path scale!)
             val scale = when {
                 isSuccessActive -> {
                     if (i == 1) {
-                        val convergeSwell = 1.0f + (convergeEase * 0.40f)
-                        val portalExpansion = expandCurve * expandCurve * 45.0f
-                        convergeSwell + portalExpansion
+                        hierarchyScale + (convergeEase * 0.22f)
                     } else {
                         (hierarchyScale * (1f - convergeEase)).coerceAtLeast(0f)
                     }
@@ -2390,8 +2582,12 @@ private fun AiLibraryIndicatorsAnimation(
                 else -> hierarchyScale * (1.0f + 0.028f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat())
             }
 
-            // Fade multiplier for converging side pieces (applied directly to colors, avoiding layer clipping)
-            val convergeFade = if (isSuccessActive && i != 1) (1f - convergeEase).coerceIn(0f, 1f) else 1f
+            // Fade multiplier for converging pieces
+            val convergeFade = when {
+                !isSuccessActive -> 1f
+                i != 1 -> (1f - convergeEase).coerceIn(0f, 1f)
+                else -> (1f - ((p - 0.36f) / 0.10f)).coerceIn(0f, 1f)
+            }
 
             // Smooth orbital floating translations
             val idleFloatY = with(density) { 10.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
@@ -2417,14 +2613,13 @@ private fun AiLibraryIndicatorsAnimation(
             val transX = currentBaseX + floatX
             val transY = currentBaseY + floatY
 
-            // Glow expansion scale for the merged component
             val glowExpansion = if (isSuccessActive && i == 1) {
-                1f + (convergeEase * 0.5f) + (expandCurve * 12f)
+                1f + (convergeEase * 0.35f)
             } else {
                 1f
             }
 
-            if (scale > 0.001f) {
+            if (scale > 0.001f && convergeFade > 0.001f) {
                 Box(
                     modifier = Modifier
                         .size(baseIndicatorSize)
@@ -2433,7 +2628,6 @@ private fun AiLibraryIndicatorsAnimation(
                             this.scaleY = scale
                             this.translationX = transX
                             this.translationY = transY
-                            this.alpha = if (isSuccessActive && i == 1) portalAlpha else 1f
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -2443,7 +2637,9 @@ private fun AiLibraryIndicatorsAnimation(
                         containerTone = containerTone,
                         glowColor = glowColor,
                         isDark = isDark,
-                        isGenerating = isGenerating || isSuccess,
+                        isGenerating = isGenerating,
+                        isSuccess = isSuccess,
+                        heroArtworkUris = heroArtworkUris,
                         convergeFade = convergeFade,
                         glowExpansion = glowExpansion,
                         morphTrigger = morphTo + tapMorphCount,
