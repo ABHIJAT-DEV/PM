@@ -154,6 +154,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
@@ -1483,6 +1484,67 @@ private fun aiHeroShapeFor(spec: AiFloatingShapeSpec, index: Int, variant: Int):
     return all[(spec.shapeType.ordinal + variant * 3 + index % 2) % all.size]
 }
 
+/**
+ * Idle hero blob: a continuously morphing scalloped shape with a lit, dimensional fill
+ * (diagonal gradient, soft specular highlight and edge falloff) instead of a flat colour.
+ */
+@Composable
+private fun AiIdleHeroBlob(
+    index: Int,
+    color: Color,
+    blobSize: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    val fromType: AiExpressiveShapeType
+    val toType: AiExpressiveShapeType
+    when (index) {
+        0 -> { fromType = AiExpressiveShapeType.COOKIE; toType = AiExpressiveShapeType.FIVE_COOKIE }
+        1 -> { fromType = AiExpressiveShapeType.SIX_COOKIE; toType = AiExpressiveShapeType.FOUR_HEAD_COOKIE }
+        else -> { fromType = AiExpressiveShapeType.FIVE_COOKIE; toType = AiExpressiveShapeType.SUNNY_COOKIE }
+    }
+    val morph by rememberInfiniteTransition(label = "idle_hero_morph").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3200 + index * 700, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "idle_hero_morph_value"
+    )
+    val blobShape = AiMorphingExpressiveShape(fromType, toType, morph)
+    val highlight = androidx.compose.ui.graphics.lerp(color, Color.White, 0.38f)
+    val lowlight = androidx.compose.ui.graphics.lerp(color, Color.Black, 0.18f)
+
+    Box(
+        modifier = modifier
+            .size(blobSize)
+            .clip(blobShape)
+            .drawBehind {
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(highlight, color, lowlight),
+                        start = Offset(0f, 0f),
+                        end = Offset(size.width, size.height)
+                    )
+                )
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.40f), Color.Transparent),
+                        center = Offset(size.width * 0.32f, size.height * 0.26f),
+                        radius = size.width * 0.42f
+                    )
+                )
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.18f)),
+                        center = Offset(size.width * 0.5f, size.height * 0.5f),
+                        radius = size.width * 0.62f
+                    )
+                )
+            }
+    )
+}
+
 private data class AiFloatingShapeSpec(
     val shapeType: AiExpressiveShapeType,
     val sizeDp: Float,
@@ -1878,8 +1940,20 @@ private fun AiLibraryIndicatorsAnimation(
                             this.scaleY = shapeScale
                             this.alpha = shapeAlpha
                         }
+                        .then(if (index % 3 == 0) Modifier.blur(3.dp, BlurredEdgeTreatment.Unbounded) else Modifier)
                         .clip(floatShape)
-                        .background(shapeColorPalette[spec.colorIndex % shapeColorPalette.size])
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    androidx.compose.ui.graphics.lerp(
+                                        shapeColorPalette[spec.colorIndex % shapeColorPalette.size],
+                                        Color.White,
+                                        0.30f
+                                    ),
+                                    shapeColorPalette[spec.colorIndex % shapeColorPalette.size]
+                                )
+                            )
+                        )
                 )
             }
         }
@@ -2030,12 +2104,20 @@ private fun AiLibraryIndicatorsAnimation(
                             )
                     )
 
-                    LoadingIndicator(
-                        color = color.copy(alpha = convergeFade),
-                        modifier = Modifier
-                            .size(baseIndicatorSize)
-                            .testTag("loading_indicator")
-                    )
+                    if (isGenerating || isSuccess) {
+                        LoadingIndicator(
+                            color = color.copy(alpha = convergeFade),
+                            modifier = Modifier
+                                .size(baseIndicatorSize)
+                                .testTag("loading_indicator")
+                        )
+                    } else {
+                        AiIdleHeroBlob(
+                            index = i,
+                            color = color,
+                            blobSize = baseIndicatorSize
+                        )
+                    }
                 }
             }
         }
@@ -2243,7 +2325,11 @@ private fun ExpressiveQuickSelectPill(
         targetValue = if (isHighlighted) {
             MaterialTheme.colorScheme.primary
         } else {
-            MaterialTheme.colorScheme.secondaryContainer
+            when (index % 3) {
+                0 -> MaterialTheme.colorScheme.primaryContainer
+                1 -> MaterialTheme.colorScheme.tertiaryContainer
+                else -> MaterialTheme.colorScheme.secondaryContainer
+            }
         },
         animationSpec = tween(150),
         label = "badge_color"
@@ -2252,11 +2338,33 @@ private fun ExpressiveQuickSelectPill(
         targetValue = if (isHighlighted) {
             MaterialTheme.colorScheme.onPrimary
         } else {
-            MaterialTheme.colorScheme.onSecondaryContainer
+            when (index % 3) {
+                0 -> MaterialTheme.colorScheme.onPrimaryContainer
+                1 -> MaterialTheme.colorScheme.onTertiaryContainer
+                else -> MaterialTheme.colorScheme.onSecondaryContainer
+            }
         },
         animationSpec = tween(150),
         label = "icon_tint"
     )
+
+    val pillTilt by animateFloatAsState(
+        targetValue = if (isPressed) (if (index % 2 == 0) -2.5f else 2.5f) else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "pill_tilt"
+    )
+    val badgeIdleSpin by rememberInfiniteTransition(label = "pill_badge_spin").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(22000 + (index % 4) * 3500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pill_badge_spin_value"
+    )
+    val spinDir = if (index % 2 == 0) 1f else -1f
+    val pillGradientAlpha = (0.20f + 0.35f * morphFraction).coerceIn(0f, 1f)
+    val badgeHighlight = androidx.compose.ui.graphics.lerp(badgeColor, Color.White, 0.30f)
 
     Surface(
         onClick = onClick,
@@ -2266,31 +2374,50 @@ private fun ExpressiveQuickSelectPill(
         shadowElevation = if (isHighlighted) 3.dp else 1.dp,
         modifier = modifier
             .height(48.dp)
+            .shadow(
+                elevation = (14f * morphFraction.coerceIn(0f, 1f)).dp,
+                shape = pillShape,
+                clip = false,
+                ambientColor = MaterialTheme.colorScheme.primary,
+                spotColor = MaterialTheme.colorScheme.primary
+            )
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                rotationZ = pillTilt
             }
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(badgeColor.copy(alpha = pillGradientAlpha), Color.Transparent)
+                    )
+                )
+                .padding(horizontal = 7.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left side 1:1 Material You expressive shape
             Box(
                 modifier = Modifier
-                    .size(30.dp)
+                    .size(34.dp)
                     .graphicsLayer {
-                        rotationZ = morphFraction * (if (index % 2 == 0) 25f else -25f)
+                        rotationZ = badgeIdleSpin * spinDir + morphFraction * (if (index % 2 == 0) 25f else -25f)
                     }
                     .clip(iconExpressiveShape)
-                    .background(badgeColor),
+                    .background(Brush.linearGradient(listOf(badgeHighlight, badgeColor))),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = vibe.icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier
+                        .size(20.dp)
+                        .graphicsLayer {
+                            rotationZ = -(badgeIdleSpin * spinDir + morphFraction * (if (index % 2 == 0) 25f else -25f))
+                        }
                 )
             }
 
