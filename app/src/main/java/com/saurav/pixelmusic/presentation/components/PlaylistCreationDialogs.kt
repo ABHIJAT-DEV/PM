@@ -148,7 +148,9 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetState
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -165,7 +167,13 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.Layout
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsAnimationCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
@@ -569,6 +577,7 @@ fun CreateAiPlaylistDialog(
                 onDismissRequest = onDismiss,
                 sheetState = sheetState,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                contentWindowInsets = { WindowInsets.navigationBars },
                 dragHandle = {
                     BottomSheetDefaults.DragHandle(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
@@ -825,74 +834,113 @@ private fun CreateAiPlaylistSheetContent(
         }
     }
 
-    AnimatedContent(
-        targetState = isRefining,
-        transitionSpec = {
-            (fadeIn(tween(240, easing = FastOutSlowInEasing)) +
-                    scaleIn(initialScale = 0.96f, animationSpec = tween(240, easing = FastOutSlowInEasing))) togetherWith
-                    (fadeOut(tween(180, easing = FastOutSlowInEasing)) +
-                            scaleOut(targetScale = 0.96f, animationSpec = tween(180, easing = FastOutSlowInEasing)))
-        },
-        label = "ai_playlist_sheet_refine_state"
-    ) { showRefine ->
-        if (showRefine) {
-            AiPlaylistRefineView(
-                prompt = basePrompt,
-                playlistName = playlistName,
-                onPlaylistNameChange = { playlistName = it },
-                selectedLength = selectedLength,
-                onLengthChange = { selectedLength = it },
-                selectedEnergy = selectedEnergy,
-                onEnergyChange = { selectedEnergy = it },
-                onBack = { isRefining = false },
-                onDismiss = onDismiss
+    // Lock the bottom sheet dialog window against IME resize/pan jumps when selecting the text input field
+    val view = LocalView.current
+    DisposableEffect(view) {
+        var p = view.parent
+        while (p != null) {
+            if (p is DialogWindowProvider) {
+                p.window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+                break
+            }
+            p = p.parent
+        }
+        val parentView = view.parent as? android.view.View
+        if (parentView != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(parentView) { _, insets ->
+                WindowInsetsCompat.Builder(insets)
+                    .setInsets(WindowInsetsCompat.Type.ime(), Insets.NONE)
+                    .build()
+            }
+            ViewCompat.setWindowInsetsAnimationCallback(
+                parentView,
+                object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP) {
+                    override fun onProgress(
+                        insets: WindowInsetsCompat,
+                        runningAnimations: MutableList<WindowInsetsAnimationCompat>
+                    ): WindowInsetsCompat = insets
+                }
             )
-        } else {
-            val scrollState = rememberScrollState()
+        }
+        onDispose {
+            if (parentView != null) {
+                ViewCompat.setOnApplyWindowInsetsListener(parentView, null)
+                ViewCompat.setWindowInsetsAnimationCallback(parentView, null)
+            }
+        }
+    }
+
+    BackHandler(enabled = isRefining) {
+        isRefining = false
+    }
+
+    val refineProgress by animateFloatAsState(
+        targetValue = if (isRefining) 1f else 0f,
+        animationSpec = tween(durationMillis = 250, easing = AiSmoothMorphEasing),
+        label = "ai_playlist_sheet_refine_progress"
+    )
+    val showMainPage = !isRefining || refineProgress < 0.999f
+    val showRefinePage = isRefining || refineProgress > 0.001f
+    val mainScrollState = rememberScrollState()
+
+    // Keep both Main Tune and Refine views persistently composed & measured inside a shared ambient canvas
+    // so that all glows and shadows are already present before opening the sheet AND when returning from Refine.
+    Layout(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val t = ambientPhaseState.value
+                val e = ambientEnergy
+                val k = reactionKick.value.coerceAtLeast(0f)
+                val w = size.width
+                val h = size.height
+                fun blob(color: Color, cx: Float, cy: Float, radius: Float, alpha: Float) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(color.copy(alpha = alpha.coerceIn(0f, 1f)), Color.Transparent),
+                            center = Offset(cx, cy),
+                            radius = radius
+                        ),
+                        radius = radius,
+                        center = Offset(cx, cy)
+                    )
+                }
+                blob(
+                    ambientA,
+                    w * (0.15f + 0.10f * kotlin.math.cos(t)),
+                    h * (0.16f + 0.05f * kotlin.math.sin(t)),
+                    w * (0.75f + 0.18f * k),
+                    0.30f * e + 0.18f * k
+                )
+                blob(
+                    ambientB,
+                    w * (0.88f + 0.08f * kotlin.math.sin(t * 1f + 1.7f)),
+                    h * (0.42f + 0.07f * kotlin.math.cos(t + 2.3f)),
+                    w * (0.65f + 0.15f * k),
+                    0.24f * e + 0.14f * k
+                )
+                blob(
+                    ambientC,
+                    w * (0.45f + 0.14f * kotlin.math.cos(t + 4.1f)),
+                    h * (0.88f + 0.05f * kotlin.math.sin(t + 0.6f)),
+                    w * (0.80f + 0.12f * k),
+                    0.22f * e + 0.12f * k
+                )
+            },
+        content = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .drawBehind {
-                        val t = ambientPhaseState.value
-                        val e = ambientEnergy
-                        val k = reactionKick.value.coerceAtLeast(0f)
-                        val w = size.width
-                        val h = size.height
-                        fun blob(color: Color, cx: Float, cy: Float, radius: Float, alpha: Float) {
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(color.copy(alpha = alpha.coerceIn(0f, 1f)), Color.Transparent),
-                                    center = Offset(cx, cy),
-                                    radius = radius
-                                ),
-                                radius = radius,
-                                center = Offset(cx, cy)
-                            )
-                        }
-                        blob(
-                            ambientA,
-                            w * (0.15f + 0.10f * kotlin.math.cos(t)),
-                            h * (0.16f + 0.05f * kotlin.math.sin(t)),
-                            w * (0.75f + 0.18f * k),
-                            0.30f * e + 0.18f * k
-                        )
-                        blob(
-                            ambientB,
-                            w * (0.88f + 0.08f * kotlin.math.sin(t * 1f + 1.7f)),
-                            h * (0.42f + 0.07f * kotlin.math.cos(t + 2.3f)),
-                            w * (0.65f + 0.15f * k),
-                            0.24f * e + 0.14f * k
-                        )
-                        blob(
-                            ambientC,
-                            w * (0.45f + 0.14f * kotlin.math.cos(t + 4.1f)),
-                            h * (0.88f + 0.05f * kotlin.math.sin(t + 0.6f)),
-                            w * (0.80f + 0.12f * k),
-                            0.22f * e + 0.12f * k
-                        )
+                    .graphicsLayer {
+                        val p = refineProgress.coerceIn(0f, 1f)
+                        alpha = 1f - p
+                        val s = 1f - 0.035f * p
+                        scaleX = s
+                        scaleY = s
+                        translationX = -18.dp.toPx() * p
                     }
-                    .verticalScroll(scrollState)
-                    .padding(bottom = 32.dp),
+                    .verticalScroll(mainScrollState)
+                    .padding(bottom = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Top Row: Clean close button
@@ -914,7 +962,7 @@ private fun CreateAiPlaylistSheetContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Persistently mounted AOD-style expressive hero stage in idle mode
                 Box(
@@ -938,7 +986,7 @@ private fun CreateAiPlaylistSheetContent(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 AiPlaylistMainTuneView(
                     prompt = basePrompt,
@@ -949,6 +997,49 @@ private fun CreateAiPlaylistSheetContent(
                     onOpenRefine = { isRefining = true },
                     onGenerate = triggerGeneration
                 )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        val p = refineProgress.coerceIn(0f, 1f)
+                        alpha = p
+                        val s = 0.965f + 0.035f * p
+                        scaleX = s
+                        scaleY = s
+                        translationX = 18.dp.toPx() * (1f - p)
+                    }
+            ) {
+                AiPlaylistRefineView(
+                    prompt = basePrompt,
+                    playlistName = playlistName,
+                    onPlaylistNameChange = { playlistName = it },
+                    selectedLength = selectedLength,
+                    onLengthChange = { selectedLength = it },
+                    selectedEnergy = selectedEnergy,
+                    onEnergyChange = { selectedEnergy = it },
+                    onBack = { isRefining = false },
+                    onDismiss = onDismiss
+                )
+            }
+        }
+    ) { measurables, constraints ->
+        val looseConstraints = constraints.copy(minHeight = 0)
+        val mainPlaceable = measurables[0].measure(looseConstraints)
+        val refinePlaceable = measurables[1].measure(
+            looseConstraints.copy(
+                minWidth = mainPlaceable.width,
+                maxWidth = mainPlaceable.width,
+                maxHeight = mainPlaceable.height.coerceAtLeast(1)
+            )
+        )
+        layout(mainPlaceable.width, mainPlaceable.height) {
+            if (showMainPage) {
+                mainPlaceable.placeRelative(0, 0)
+            }
+            if (showRefinePage) {
+                refinePlaceable.placeRelative(0, 0)
             }
         }
     }
@@ -965,6 +1056,8 @@ private fun AiPlaylistMainTuneView(
     onGenerate: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val primaryGlowColor = MaterialTheme.colorScheme.primary
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -980,7 +1073,7 @@ private fun AiPlaylistMainTuneView(
             ),
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.aiStaggerIn(0).padding(horizontal = 20.dp)
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -990,13 +1083,13 @@ private fun AiPlaylistMainTuneView(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.aiStaggerIn(1).padding(horizontal = 20.dp)
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Prompt input: tonal container with a permanent ambient primary glow (no per-frame shape/shadow
-        // re-tessellation on keyboard open so focusing the field stays silky smooth with zero jump)
+        // Prompt input: tonal container with a pre-rendered Canvas glow that is already present on
+        // Frame 0 before opening the sheet and during all Refine transitions (zero RenderNode pop-in)
         val fieldInteraction = remember { MutableInteractionSource() }
         val fieldFocused by fieldInteraction.collectIsFocusedAsState()
         val fieldActive = fieldFocused || prompt.isNotBlank()
@@ -1009,16 +1102,16 @@ private fun AiPlaylistMainTuneView(
         Surface(
             shape = fieldShape,
             color = fieldContainer,
+            shadowElevation = 0.dp,
             modifier = Modifier
-                .aiStaggerIn(2)
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .shadow(
-                    elevation = 18.dp,
-                    shape = fieldShape,
-                    clip = false,
-                    ambientColor = MaterialTheme.colorScheme.primary,
-                    spotColor = MaterialTheme.colorScheme.primary
+                .aiSoftSurfaceGlow(
+                    color = primaryGlowColor,
+                    cornerRadius = 30.dp,
+                    spread = 18.dp,
+                    offsetY = 5.dp,
+                    maxAlpha = if (isDark) 0.34f else 0.22f
                 )
         ) {
             Row(
@@ -1089,6 +1182,7 @@ private fun AiPlaylistMainTuneView(
                     animationSpec = tween(220),
                     label = "arrow_content"
                 )
+                val buttonShape = remember(buttonCorner) { AbsoluteSmoothCornerShape(buttonCorner, 60) }
 
                 Surface(
                     onClick = {
@@ -1099,9 +1193,10 @@ private fun AiPlaylistMainTuneView(
                     },
                     enabled = canSubmit,
                     interactionSource = interactionSource,
-                    shape = AbsoluteSmoothCornerShape(buttonCorner, 60),
+                    shape = buttonShape,
                     color = buttonContainer,
                     contentColor = buttonContent,
+                    shadowElevation = 0.dp,
                     modifier = Modifier
                         .size(width = 64.dp, height = 54.dp)
                         .graphicsLayer {
@@ -1140,11 +1235,10 @@ private fun AiPlaylistMainTuneView(
             }
         }
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Horizontal scrollable line of thick Material You expressive shortcut pills
         ExpressiveQuickSelectRow(
-            modifier = Modifier.aiStaggerIn(3),
             selectedPrompt = prompt,
             onPillClick = { vibe ->
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -1152,17 +1246,18 @@ private fun AiPlaylistMainTuneView(
             }
         )
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Refine Section Card following app theme palette
+        val refineCardShape = remember { AbsoluteSmoothCornerShape(22.dp, 60) }
         Surface(
-            shape = AbsoluteSmoothCornerShape(22.dp, 60),
+            shape = refineCardShape,
             color = MaterialTheme.colorScheme.surfaceContainer,
+            shadowElevation = 0.dp,
             modifier = Modifier
-                .aiStaggerIn(4)
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .clip(AbsoluteSmoothCornerShape(22.dp, 60))
+                .clip(refineCardShape)
                 .clickable(onClick = onOpenRefine)
         ) {
             Row(
@@ -1285,10 +1380,39 @@ private fun AiPlaylistRefineView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Optional custom playlist name placed at the top so the keyboard never overlaps it
+        Surface(
+            shape = remember { AbsoluteSmoothCornerShape(22.dp, 60) },
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shadowElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Custom playlist title (optional)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = playlistName,
+                    onValueChange = onPlaylistNameChange,
+                    placeholder = { Text("Auto-generated by AI if left blank") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = remember { AbsoluteSmoothCornerShape(14.dp, 60) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         // Playlist length card (Full-filled chips, no borders)
         Surface(
-            shape = AbsoluteSmoothCornerShape(22.dp, 60),
+            shape = remember { AbsoluteSmoothCornerShape(22.dp, 60) },
             color = MaterialTheme.colorScheme.surfaceContainer,
+            shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -1321,8 +1445,9 @@ private fun AiPlaylistRefineView(
 
         // Energy card (Full-filled chips, no borders)
         Surface(
-            shape = AbsoluteSmoothCornerShape(22.dp, 60),
+            shape = remember { AbsoluteSmoothCornerShape(22.dp, 60) },
             color = MaterialTheme.colorScheme.surfaceContainer,
+            shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -1348,33 +1473,6 @@ private fun AiPlaylistRefineView(
                         )
                     }
                 }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Optional custom playlist name
-        Surface(
-            shape = AbsoluteSmoothCornerShape(22.dp, 60),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Custom playlist title (optional)",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = playlistName,
-                    onValueChange = onPlaylistNameChange,
-                    placeholder = { Text("Auto-generated by AI if left blank") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = AbsoluteSmoothCornerShape(14.dp, 60)
-                )
             }
         }
 
@@ -2365,9 +2463,9 @@ private fun AiLibraryIndicatorsAnimation(
         label = "base_indicator_size"
     )
 
-    // Animate container height: 280dp when idle -> 350dp when generating
+    // Animate container height: 248dp when idle -> 350dp when generating
     val containerHeight by animateDpAsState(
-        targetValue = if (isGenerating) 350.dp else 280.dp,
+        targetValue = if (isGenerating) 350.dp else 248.dp,
         animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing),
         label = "container_height"
     )
@@ -2775,7 +2873,7 @@ private fun ExpressiveQuickSelectRow(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(scrollState)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         rows.forEach { rowItems ->
@@ -2841,16 +2939,18 @@ private fun ExpressiveQuickSelectPill(
         label = "pill_cbl"
     )
 
-    val pillShape = AbsoluteSmoothCornerShape(
-        cornerRadiusTL = cornerTL,
-        smoothnessAsPercentTL = 60,
-        cornerRadiusTR = cornerTR,
-        smoothnessAsPercentTR = 60,
-        cornerRadiusBL = cornerBL,
-        smoothnessAsPercentBL = 60,
-        cornerRadiusBR = cornerBR,
-        smoothnessAsPercentBR = 60
-    )
+    val pillShape = remember(cornerTL, cornerTR, cornerBL, cornerBR) {
+        AbsoluteSmoothCornerShape(
+            cornerRadiusTL = cornerTL,
+            smoothnessAsPercentTL = 60,
+            cornerRadiusTR = cornerTR,
+            smoothnessAsPercentTR = 60,
+            cornerRadiusBL = cornerBL,
+            smoothnessAsPercentBL = 60,
+            cornerRadiusBR = cornerBR,
+            smoothnessAsPercentBR = 60
+        )
+    }
 
     val morphFraction by animateFloatAsState(
         targetValue = if (isPressed || isSelected) 1f else 0f,
@@ -2867,6 +2967,18 @@ private fun ExpressiveQuickSelectPill(
     }
 
     val isHighlighted = isPressed || isSelected
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val restingPillShadowColor = remember(primaryColor, isDark) {
+        if (isDark) lerp(Color.Black, primaryColor, 0.42f) else lerp(Color.Black, primaryColor, 0.58f)
+    }
+    val clampedMorph = morphFraction.coerceIn(0f, 1f)
+    val pillGlowColor = lerp(restingPillShadowColor, primaryColor, clampedMorph)
+    val pillGlowSpread = 5.dp + 9.dp * clampedMorph
+    val pillGlowOffsetY = 2.dp + 2.5.dp * clampedMorph
+    val basePillGlowAlpha = if (isDark) 0.20f else 0.11f
+    val activePillGlowAlpha = if (isDark) 0.36f else 0.25f
+    val pillGlowMaxAlpha = basePillGlowAlpha + (activePillGlowAlpha - basePillGlowAlpha) * clampedMorph
 
     val containerColor by animateColorAsState(
         targetValue = if (isHighlighted) {
@@ -2918,22 +3030,22 @@ private fun ExpressiveQuickSelectPill(
         interactionSource = interactionSource,
         shape = pillShape,
         color = containerColor,
-        shadowElevation = if (isHighlighted) 3.dp else 1.dp,
+        shadowElevation = 0.dp,
         modifier = modifier
             .height(48.dp)
             .wrapContentWidth()
-            .shadow(
-                elevation = (14f * morphFraction.coerceIn(0f, 1f)).dp,
-                shape = pillShape,
-                clip = false,
-                ambientColor = MaterialTheme.colorScheme.primary,
-                spotColor = MaterialTheme.colorScheme.primary
-            )
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 rotationZ = pillTilt
             }
+            .aiSoftSurfaceGlow(
+                color = pillGlowColor,
+                cornerRadius = 24.dp,
+                spread = pillGlowSpread,
+                offsetY = pillGlowOffsetY,
+                maxAlpha = pillGlowMaxAlpha
+            )
     ) {
         Row(
             modifier = Modifier
@@ -3032,7 +3144,21 @@ private fun ExpressiveChoiceChip(
         MaterialTheme.colorScheme.onSurface
     }
 
-    val chipShape = AbsoluteSmoothCornerShape(cornerRadius, 60)
+    val chipShape = remember(cornerRadius) { AbsoluteSmoothCornerShape(cornerRadius, 60) }
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val restingChipShadow = remember(primaryColor, isDark) {
+        if (isDark) lerp(Color.Black, primaryColor, 0.40f) else lerp(Color.Black, primaryColor, 0.55f)
+    }
+    val selectedFraction by animateFloatAsState(
+        targetValue = if (selected || isPressed) 1f else 0f,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "chip_glow_fraction"
+    )
+    val chipGlowColor = lerp(restingChipShadow, primaryColor, selectedFraction)
+    val chipSpread = 4.dp + 7.dp * selectedFraction
+    val chipOffsetY = 1.5.dp + 2.dp * selectedFraction
+    val chipMaxAlpha = (if (isDark) 0.14f else 0.08f) + (if (isDark) 0.22f else 0.16f) * selectedFraction
 
     Surface(
         onClick = onClick,
@@ -3040,12 +3166,19 @@ private fun ExpressiveChoiceChip(
         shape = chipShape,
         color = containerColor,
         contentColor = contentColor,
-        shadowElevation = if (selected) 3.dp else 0.dp,
+        shadowElevation = 0.dp,
         modifier = Modifier
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
+            .aiSoftSurfaceGlow(
+                color = chipGlowColor,
+                cornerRadius = cornerRadius,
+                spread = chipSpread,
+                offsetY = chipOffsetY,
+                maxAlpha = chipMaxAlpha
+            )
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
@@ -3062,23 +3195,38 @@ private fun ExpressiveChoiceChip(
     }
 }
 
-@Composable
-private fun Modifier.aiStaggerIn(index: Int): Modifier {
-    val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(50L + index * 70L)
-        progress.animateTo(
-            targetValue = 1f,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
+/**
+ * Draws a pre-computed, zero-allocation soft ambient + spot glow directly onto the Canvas.
+ * Unlike hardware RenderNode elevation shadows (`Modifier.shadow` / `shadowElevation`), this is
+ * never suppressed or delayed by ancestor `graphicsLayer` alpha transitions (sheet opening or
+ * Refine page crossfades) and avoids CPU `Outline.Generic` path shadow tessellation.
+ */
+private fun Modifier.aiSoftSurfaceGlow(
+    color: Color,
+    cornerRadius: Dp,
+    spread: Dp,
+    offsetY: Dp = 4.dp,
+    maxAlpha: Float = 0.22f
+): Modifier = this.drawBehind {
+    if (maxAlpha <= 0.001f || spread <= 0.dp) return@drawBehind
+    val spreadPx = spread.toPx()
+    val maxOffsetYPx = offsetY.toPx()
+    val baseCornerPx = cornerRadius.toPx()
+    val steps = 14
+    val layerWeightSum = (steps * (steps + 1)) / 2f
+    for (i in steps downTo 1) {
+        val fraction = i.toFloat() / steps.toFloat()
+        val expand = spreadPx * fraction
+        val dy = maxOffsetYPx * (0.25f + 0.75f * fraction)
+        val weight = (steps - i + 1).toFloat() / layerWeightSum
+        val layerAlpha = (maxAlpha * weight * 1.35f).coerceIn(0f, 1f)
+        val r = (baseCornerPx + expand * 0.85f).coerceAtLeast(0f)
+        drawRoundRect(
+            color = color.copy(alpha = layerAlpha),
+            topLeft = Offset(-expand, -expand * 0.55f + dy),
+            size = Size(size.width + expand * 2f, size.height + expand * 1.55f),
+            cornerRadius = CornerRadius(r, r)
         )
-    }
-    return this.graphicsLayer {
-        val p = progress.value
-        alpha = p.coerceIn(0f, 1f)
-        translationY = (1f - p) * 28.dp.toPx()
-        val s = 0.94f + 0.06f * p
-        scaleX = s
-        scaleY = s
     }
 }
 
