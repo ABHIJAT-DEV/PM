@@ -414,24 +414,9 @@ fun HomeScreen(
     }
 
     LaunchedEffect(lastCreatedAiPlaylistId, aiSuccess) {
-        val playlistId = lastCreatedAiPlaylistId
-        if (playlistId != null && aiSuccess) {
-            val sheetWasOpen = showCreateAiPlaylistDialog || aiGenerationRequestedFromDialog
-            withContext(NonCancellable) {
-                if (sheetWasOpen) {
-                    // Wait until the Canvas portal circle reaches 100% screen coverage and AppNavigation veil is opaque
-                    kotlinx.coroutines.delay(850)
-                    showCreateAiPlaylistDialog = false
-                    aiGenerationRequestedFromDialog = false
-                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
-                    kotlinx.coroutines.delay(620)
-                } else {
-                    showCreateAiPlaylistDialog = false
-                    aiGenerationRequestedFromDialog = false
-                }
-                playerViewModel.clearAiPlaylistError()
-                playerViewModel.clearLastCreatedAiPlaylistId()
-            }
+        if (lastCreatedAiPlaylistId != null && aiSuccess) {
+            showCreateAiPlaylistDialog = false
+            aiGenerationRequestedFromDialog = false
         }
     }
 
@@ -1071,6 +1056,7 @@ fun HomeScreen(
             playerViewModel.clearLastCreatedAiPlaylistId()
         },
         onGenerate = { playlistName, prompt, minLength, maxLength ->
+            showCreateAiPlaylistDialog = false
             aiGenerationRequestedFromDialog = true
             playerViewModel.generateAiPlaylist(
                 prompt = prompt,

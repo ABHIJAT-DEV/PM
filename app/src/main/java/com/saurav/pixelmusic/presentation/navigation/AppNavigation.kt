@@ -78,6 +78,7 @@ import com.saurav.pixelmusic.presentation.screens.SettingsCategoryScreen
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.PlaylistViewModel
 import kotlinx.coroutines.flow.first
+import com.saurav.pixelmusic.presentation.components.AiPlaylistGeneratingFullScreenPage
 import com.saurav.pixelmusic.presentation.components.ScreenWrapper
 
 @OptIn(UnstableApi::class)
@@ -99,24 +100,19 @@ fun AppNavigation(
             .toRoute()
     }
 
+    val isGeneratingAiPlaylist by playerViewModel.isGeneratingAiPlaylist.collectAsStateWithLifecycle()
     val aiSuccess by playerViewModel.aiSuccess.collectAsStateWithLifecycle()
+    val aiStatus by playerViewModel.aiStatus.collectAsStateWithLifecycle()
+    val aiError by playerViewModel.aiError.collectAsStateWithLifecycle()
     val lastCreatedAiPlaylistId by playerViewModel.lastCreatedAiPlaylistId.collectAsStateWithLifecycle()
-    val portalVeilAlpha = remember { Animatable(0f) }
+    val showAiGeneratingOverlay by playerViewModel.showAiGeneratingOverlay.collectAsStateWithLifecycle()
 
     LaunchedEffect(lastCreatedAiPlaylistId, aiSuccess) {
-        if (lastCreatedAiPlaylistId != null && aiSuccess) {
-            portalVeilAlpha.snapTo(0f)
-            // Wait until the Dialog's GPU Canvas portal circle has expanded to cover 100% of the screen
-            delay(820L)
-            portalVeilAlpha.snapTo(1f)
-            // Hold solid for 110ms while Dialog closes and PlaylistDetailScreen composes its first frame behind the veil
-            delay(110L)
-            portalVeilAlpha.animateTo(
-                targetValue = 0f,
-                animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing)
-            )
-        } else {
-            portalVeilAlpha.snapTo(0f)
+        val playlistId = lastCreatedAiPlaylistId
+        if (playlistId != null && aiSuccess && showAiGeneratingOverlay) {
+            // Immediately navigate to the created playlist in the background at t = 0ms
+            // while the 3-into-1 morph and 1-component zoom-in animation plays on top!
+            navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
         }
     }
 
@@ -136,11 +132,15 @@ fun AppNavigation(
                     )
                 },
                 exitTransition = {
-                    mainRootExitTransition(
-                        fromRoute = initialState.destination.route,
-                        toRoute = targetState.destination.route,
-                        fallback = exitTransition()
-                    )
+                    if (playerViewModel.aiSuccess.value) {
+                        ExitTransition.None
+                    } else {
+                        mainRootExitTransition(
+                            fromRoute = initialState.destination.route,
+                            toRoute = targetState.destination.route,
+                            fallback = exitTransition()
+                        )
+                    }
                 },
                 popEnterTransition = {
                     mainRootEnterTransition(
@@ -255,11 +255,15 @@ fun AppNavigation(
                     )
                 },
                 exitTransition = {
-                    mainRootExitTransition(
-                        fromRoute = initialState.destination.route,
-                        toRoute = targetState.destination.route,
-                        fallback = exitTransition()
-                    )
+                    if (playerViewModel.aiSuccess.value) {
+                        ExitTransition.None
+                    } else {
+                        mainRootExitTransition(
+                            fromRoute = initialState.destination.route,
+                            toRoute = targetState.destination.route,
+                            fallback = exitTransition()
+                        )
+                    }
                 },
                 popEnterTransition = {
                     mainRootEnterTransition(
@@ -485,7 +489,9 @@ fun AppNavigation(
             composable(
                 route = Screen.PlaylistDetail.route,
                 arguments = listOf(navArgument("playlistId") { type = NavType.StringType }),
-                enterTransition = { enterTransition() },
+                enterTransition = {
+                    if (playerViewModel.aiSuccess.value) EnterTransition.None else enterTransition()
+                },
                 exitTransition = { exitTransition() },
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
@@ -840,13 +846,14 @@ fun AppNavigation(
             }
         }
 
-        if (portalVeilAlpha.value > 0.001f) {
-            val portalColor = MaterialTheme.colorScheme.tertiary
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = portalVeilAlpha.value }
-                    .background(portalColor)
+        if (showAiGeneratingOverlay && (isGeneratingAiPlaylist || aiSuccess || !aiError.isNullOrBlank())) {
+            AiPlaylistGeneratingFullScreenPage(
+                isSuccess = aiSuccess,
+                status = aiStatus,
+                error = aiError,
+                onDismiss = {
+                    playerViewModel.dismissAiGeneratingOverlay()
+                }
             )
         }
         }

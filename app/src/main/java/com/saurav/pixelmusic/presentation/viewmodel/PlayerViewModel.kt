@@ -579,6 +579,11 @@ class PlayerViewModel @Inject constructor(
     val aiError: StateFlow<String?> = aiStateHolder.aiError
     val lastCreatedAiPlaylistId: StateFlow<String?> = aiStateHolder.lastCreatedAiPlaylistId
     val aiSheetReopenRequested: StateFlow<Boolean> get() = aiStateHolder.aiSheetReopenRequested
+    val showAiGeneratingOverlay: StateFlow<Boolean> get() = aiStateHolder.showAiGeneratingOverlay
+
+    fun dismissAiGeneratingOverlay() {
+        aiStateHolder.dismissAiGeneratingOverlay()
+    }
 
     fun clearLastCreatedAiPlaylistId() {
         aiStateHolder.clearLastCreatedAiPlaylistId()

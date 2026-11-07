@@ -71,10 +71,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -590,11 +593,11 @@ fun CreateAiPlaylistDialog(
 }
 
 @Composable
-private fun AiPlaylistGeneratingFullScreenPage(
+fun AiPlaylistGeneratingFullScreenPage(
     isSuccess: Boolean,
     status: String?,
     error: String?,
-    heroArtworkUris: List<String>,
+    heroArtworkUris: List<String> = rememberAiHeroArtworkUris(),
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -606,17 +609,23 @@ private fun AiPlaylistGeneratingFullScreenPage(
     ) {
         val view = LocalView.current
         LaunchedEffect(view) {
-            (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+            (view.parent as? DialogWindowProvider)?.window?.apply {
+                setDimAmount(0f)
+                setBackgroundDrawableResource(android.R.color.transparent)
+                setWindowAnimations(0)
+            }
         }
 
-        // Unified success progress driving convergence (0..0.40), hardware Canvas portal zoom (0.30..0.64),
-        // and smooth dissolve reveal (0.64..1.0) without ever scaling generic path clips 45x.
+        // Unified success progress driving:
+        // 1) 0.00..0.36: Three components glide to center and morph into ONE unified component
+        // 2) 0.32..0.72: That ONE merged component itself zooms in edge-to-edge across the screen
+        // 3) 0.70..1.00: That zoomed-in component dissolves over the already-opened playlist page
         val successProgress = remember { Animatable(0f) }
         LaunchedEffect(isSuccess) {
             if (isSuccess) {
                 successProgress.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 1400, easing = LinearEasing)
+                    animationSpec = tween(durationMillis = 1380, easing = LinearEasing)
                 )
             } else {
                 successProgress.snapTo(0f)
@@ -625,13 +634,10 @@ private fun AiPlaylistGeneratingFullScreenPage(
 
         val p = successProgress.value
         val bgColor = MaterialTheme.colorScheme.background
-        val portalCoreColor = MaterialTheme.colorScheme.tertiary
-        val portalEdgeColor = MaterialTheme.colorScheme.primary
-        val density = LocalDensity.current
 
-        // Fade out the dialog background once the portal circle covers the screen so Phase 3 reveals beneath
-        val bgAlpha = if (isSuccess && p > 0.48f) {
-            (1f - ((p - 0.48f) / 0.14f)).coerceIn(0f, 1f)
+        // Fade out the dialog background once the single zoomed-in component covers 100% of the screen
+        val bgAlpha = if (isSuccess && p > 0.56f) {
+            (1f - ((p - 0.56f) / 0.12f)).coerceIn(0f, 1f)
         } else {
             1f
         }
@@ -652,105 +658,68 @@ private fun AiPlaylistGeneratingFullScreenPage(
             }
             val enterBlur = (28f * (1f - enter.value)).dp
 
-            // Stop rendering the inner content as soon as the expanding Canvas portal covers the centerpiece
-            if (!isSuccess || p < 0.48f) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .navigationBarsPadding()
-                        .graphicsLayer {
-                            val s = 1.35f - 0.35f * enter.value
-                            scaleX = s
-                            scaleY = s
-                            alpha = (enter.value * 2.2f).coerceIn(0f, 1f)
-                        }
-                        .then(if (enterBlur > 0.5.dp) Modifier.blur(enterBlur) else Modifier)
-                ) {
-                    // Minimize/Close button at top right
-                    AnimatedVisibility(
-                        visible = !isSuccess,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(16.dp)
-                    ) {
-                        FilledTonalIconButton(
-                            onClick = onDismiss,
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            )
-                        ) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Close")
-                        }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .graphicsLayer {
+                        val s = 1.35f - 0.35f * enter.value
+                        scaleX = s
+                        scaleY = s
+                        alpha = (enter.value * 2.2f).coerceIn(0f, 1f)
                     }
-
-                    // Centered content
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        AiLibraryIndicatorsAnimation(
-                            isGenerating = true,
-                            isSuccess = isSuccess,
-                            heroArtworkUris = heroArtworkUris,
-                            externalSuccessProgress = { successProgress.value }
+                    .then(if (enterBlur > 0.5.dp) Modifier.blur(enterBlur) else Modifier)
+            ) {
+                // Minimize/Close button at top right
+                AnimatedVisibility(
+                    visible = !isSuccess,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                ) {
+                    FilledTonalIconButton(
+                        onClick = onDismiss,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         )
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        AnimatedVisibility(
-                            visible = !isSuccess,
-                            enter = fadeIn(),
-                            exit = fadeOut(tween(250))
-                        ) {
-                            AiPlaylistCreationAnimationView(
-                                status = status,
-                                isSuccess = isSuccess,
-                                error = error,
-                                onDismiss = onDismiss
-                            )
-                        }
+                    ) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Close")
                     }
                 }
-            }
 
-            // Hardware-accelerated GPU Canvas Portal Zoom & Dissolve (zero generic Path clip scaling!)
-            if (isSuccess && p >= 0.28f) {
-                val expandT = ((p - 0.28f) / 0.34f).coerceIn(0f, 1f)
-                val expandCurve = FastOutSlowInEasing.transform(expandT)
-                val revealT = ((p - 0.66f) / 0.34f).coerceIn(0f, 1f)
-                val portalAlpha = (1f - FastOutSlowInEasing.transform(revealT)).coerceIn(0f, 1f)
-                val startRadiusPx = with(density) { 86.dp.toPx() }
+                // Centered content (layout remains fixed during success so the centerpiece never shifts!)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AiLibraryIndicatorsAnimation(
+                        isGenerating = true,
+                        isSuccess = isSuccess,
+                        heroArtworkUris = heroArtworkUris,
+                        externalSuccessProgress = { successProgress.value }
+                    )
 
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val center = Offset(size.width * 0.5f, size.height * 0.42f)
-                    val maxRadius = hypot(size.width, size.height) * 0.72f
-                    val currentRadius = startRadiusPx + (maxRadius - startRadiusPx) * expandCurve
-                    if (expandT >= 0.98f) {
-                        drawRect(color = portalCoreColor.copy(alpha = portalAlpha))
-                    } else {
-                        val fadeInT = ((p - 0.28f) / 0.12f).coerceIn(0f, 1f) * portalAlpha
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    portalCoreColor.copy(alpha = fadeInT),
-                                    portalEdgeColor.copy(alpha = fadeInT * 0.55f),
-                                    Color.Transparent
-                                ),
-                                center = center,
-                                radius = (currentRadius * 1.28f).coerceAtLeast(1f)
-                            ),
-                            radius = currentRadius * 1.28f,
-                            center = center
-                        )
-                        drawCircle(
-                            color = portalCoreColor.copy(alpha = fadeInT),
-                            radius = currentRadius,
-                            center = center
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    val textAlpha = if (isSuccess) (1f - (p / 0.26f)).coerceIn(0f, 1f) else 1f
+                    Box(
+                        modifier = Modifier.graphicsLayer {
+                            alpha = textAlpha
+                            val textScale = 1f - 0.06f * (1f - textAlpha)
+                            scaleX = textScale
+                            scaleY = textScale
+                        }
+                    ) {
+                        AiPlaylistCreationAnimationView(
+                            status = status,
+                            isSuccess = isSuccess,
+                            error = error,
+                            onDismiss = onDismiss
                         )
                     }
                 }
@@ -1597,11 +1566,7 @@ private class AiAodMorphingShape(
     private val toShape: AiAodExpressiveShapeKind,
     private val shapeMorphProgress: Float
 ) : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
+    fun createPath(size: Size): Path {
         val w = size.width.coerceAtLeast(1f)
         val h = size.height.coerceAtLeast(1f)
         val cx = w * 0.5f
@@ -1610,7 +1575,7 @@ private class AiAodMorphingShape(
         val clampedMorph = shapeMorphProgress.coerceIn(0f, 1f)
         val twoPi = 2.0 * PI
 
-        val path = Path().apply {
+        return Path().apply {
             for (i in 0 until SHAPE_STEP_COUNT) {
                 val theta = (twoPi * i) / SHAPE_STEP_COUNT
                 val rFrom = fromShape.normalizedRadiusAt(theta)
@@ -1622,7 +1587,14 @@ private class AiAodMorphingShape(
             }
             close()
         }
-        return Outline.Generic(path)
+    }
+
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        return Outline.Generic(createPath(size))
     }
 }
 
@@ -1810,6 +1782,8 @@ private fun AiAodExpressiveHeroComponent(
     isSuccess: Boolean,
     heroArtworkUris: List<String>,
     convergeFade: Float,
+    haloFade: Float = 1f,
+    artAlpha: Float = 1f,
     glowExpansion: Float,
     morphTrigger: Int,
     continuousSpinDeg: Float,
@@ -1971,50 +1945,62 @@ private fun AiAodExpressiveHeroComponent(
             )
     ) {
         // Layer 1: Unclipped ambient radial palette glow (requiredSize prevents parent Box clamping!)
-        Box(
-            modifier = Modifier
-                .requiredSize(blobSize * (if (isGenerating) 1.92f else 1.65f) * glowExpansion)
-                .graphicsLayer {
-                    scaleX = ambientGlowScale
-                    scaleY = ambientGlowScale
-                    alpha = ambientGlowAlpha * convergeFade
-                }
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            glowColor.copy(alpha = if (isDark) 0.46f else 0.36f),
-                            glowColor.copy(alpha = if (isDark) 0.15f else 0.12f),
-                            Color.Transparent
+        if (haloFade > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .requiredSize(blobSize * (if (isGenerating) 1.92f else 1.65f) * glowExpansion)
+                    .graphicsLayer {
+                        scaleX = ambientGlowScale
+                        scaleY = ambientGlowScale
+                        alpha = ambientGlowAlpha * convergeFade * haloFade
+                    }
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                glowColor.copy(alpha = if (isDark) 0.46f else 0.36f),
+                                glowColor.copy(alpha = if (isDark) 0.15f else 0.12f),
+                                Color.Transparent
+                            )
                         )
                     )
-                )
-        )
+            )
 
-        // Layer 2: Signature AOD +18° rotated tonal expressive backing halo (GPU rotated, solid fill)
-        Box(
-            modifier = Modifier
-                .requiredSize(blobSize * 1.13f)
-                .graphicsLayer {
-                    rotationZ = effectiveRotationDeg + 18f * spinDir
-                    alpha = (if (isDark) 0.56f else 0.44f) * convergeFade
-                }
-                .clip(morphShape)
-                .background(outerHaloColor)
-        )
+            // Layer 2: Signature AOD +18° rotated tonal expressive backing halo (drawn directly via Path, zero clipPath!)
+            Box(
+                modifier = Modifier
+                    .requiredSize(blobSize * 1.13f)
+                    .graphicsLayer {
+                        rotationZ = effectiveRotationDeg + 18f * spinDir
+                        alpha = (if (isDark) 0.56f else 0.44f) * convergeFade * haloFade
+                    }
+                    .drawWithCache {
+                        val path = morphShape.createPath(size)
+                        onDrawBehind {
+                            drawPath(path = path, color = outerHaloColor)
+                        }
+                    }
+            )
 
-        // Layer 3: Counter-rotated -14° expressive cushion halo (GPU rotated)
-        Box(
-            modifier = Modifier
-                .requiredSize(blobSize * 1.055f)
-                .graphicsLayer {
-                    rotationZ = effectiveRotationDeg - 14f * spinDir
-                    alpha = (if (isDark) 0.48f else 0.38f) * convergeFade
-                }
-                .clip(morphShape)
-                .background(midHaloColor)
-        )
+            // Layer 3: Counter-rotated -14° expressive cushion halo (drawn directly via Path, zero clipPath!)
+            Box(
+                modifier = Modifier
+                    .requiredSize(blobSize * 1.055f)
+                    .graphicsLayer {
+                        rotationZ = effectiveRotationDeg - 14f * spinDir
+                        alpha = (if (isDark) 0.48f else 0.38f) * convergeFade * haloFade
+                    }
+                    .drawWithCache {
+                        val path = morphShape.createPath(size)
+                        onDrawBehind {
+                            drawPath(path = path, color = midHaloColor)
+                        }
+                    }
+            )
+        }
 
-        // Layer 4: Main 240-step AOD Expressive Morphing Shape framing crossfading recently played album art
+        // Layer 4: Main 240-step AOD Expressive Morphing Shape.
+        // Uses direct GPU drawPath for the velvet gradient so that when this single merged component
+        // zooms 16x across the screen, zero giant Outline.Generic clip masks are ever allocated!
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -2023,77 +2009,90 @@ private fun AiAodExpressiveHeroComponent(
                     rotationZ = effectiveRotationDeg
                     alpha = convergeFade
                 }
-                .clip(morphShape)
-                .drawBehind {
-                    drawRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(topVelvetTone, color, bottomVelvetTone),
-                            start = Offset(0f, 0f),
-                            end = Offset(size.width, size.height)
-                        )
+                .drawWithCache {
+                    val path = morphShape.createPath(size)
+                    val brush = Brush.linearGradient(
+                        colors = listOf(topVelvetTone, color, bottomVelvetTone),
+                        start = Offset(0f, 0f),
+                        end = Offset(size.width, size.height)
                     )
+                    onDrawBehind {
+                        drawPath(path = path, brush = brush)
+                    }
                 }
         ) {
-            // Fallback sculptural inner petal (also visible while first cached artwork crossfades in)
-            Box(
-                modifier = Modifier
-                    .size(blobSize * 0.64f)
-                    .graphicsLayer {
-                        rotationZ = 24f * spinDir
-                        alpha = (if (isDark) 0.28f else 0.32f) * convergeFade
-                    }
-                    .clip(innerPetalShape)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(innerPetalTone, color.copy(alpha = 0.6f))
-                        )
-                    )
-            )
-
-            // Upright crossfading recently played album art from cache (counter-rotated against shape spin,
-            // matching the AOD screen's upright album art inside the spinning expressive shape)
-            if (currentArtUri != null) {
+            if (artAlpha > 0.01f) {
                 Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer {
-                            rotationZ = -effectiveRotationDeg
-                            // 1.15x scale ensures the square artwork completely covers the rotating polar lobes
-                            scaleX = 1.15f
-                            scaleY = 1.15f
-                        }
+                        .graphicsLayer { alpha = artAlpha }
+                        .clip(morphShape)
                 ) {
-                    Crossfade(
-                        targetState = currentArtUri,
-                        animationSpec = tween(durationMillis = 680, easing = FastOutSlowInEasing),
-                        label = "ai_hero_art_crossfade"
-                    ) { artUri ->
-                        SmartImage(
-                            model = artUri,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            targetSize = SmartImageListTargetSize,
-                            useDiskCache = true,
-                            useMemoryCache = true,
-                            modifier = Modifier.fillMaxSize()
+                    // Fallback sculptural inner petal (visible when no cached artwork is available)
+                    Box(
+                        modifier = Modifier
+                            .size(blobSize * 0.64f)
+                            .graphicsLayer {
+                                rotationZ = 24f * spinDir
+                                alpha = if (isDark) 0.28f else 0.32f
+                            }
+                            .drawWithCache {
+                                val path = innerPetalShape.createPath(size)
+                                val brush = Brush.linearGradient(
+                                    colors = listOf(innerPetalTone, color.copy(alpha = 0.6f))
+                                )
+                                onDrawBehind {
+                                    drawPath(path = path, brush = brush)
+                                }
+                            }
+                    )
+
+                    // Upright crossfading recently played album art from cache (counter-rotated against shape spin)
+                    if (currentArtUri != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    rotationZ = -effectiveRotationDeg
+                                    // 1.15x scale ensures the square artwork completely covers the rotating polar lobes
+                                    scaleX = 1.15f
+                                    scaleY = 1.15f
+                                }
+                        ) {
+                            Crossfade(
+                                targetState = currentArtUri,
+                                animationSpec = tween(durationMillis = 680, easing = FastOutSlowInEasing),
+                                label = "ai_hero_art_crossfade"
+                            ) { artUri ->
+                                SmartImage(
+                                    model = artUri,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    targetSize = SmartImageListTargetSize,
+                                    useDiskCache = true,
+                                    useMemoryCache = true,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+
+                        // Subtle Material You tonal glaze & edge vignette so the artwork harmonizes with each hero color
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            color.copy(alpha = if (isDark) 0.14f else 0.10f),
+                                            color.copy(alpha = if (isDark) 0.24f else 0.18f),
+                                            outerHaloColor.copy(alpha = if (isDark) 0.48f else 0.34f)
+                                        )
+                                    )
+                                )
                         )
                     }
                 }
-
-                // Subtle Material You tonal glaze & edge vignette so the artwork harmonizes with each hero color
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    color.copy(alpha = if (isDark) 0.14f else 0.10f),
-                                    color.copy(alpha = if (isDark) 0.24f else 0.18f),
-                                    outerHaloColor.copy(alpha = if (isDark) 0.48f else 0.34f)
-                                )
-                            )
-                        )
-                )
             }
         }
     }
@@ -2457,8 +2456,12 @@ private fun AiLibraryIndicatorsAnimation(
     ) {
         val p = externalSuccessProgress?.invoke() ?: internalSuccessProgress.value
         val isSuccessActive = isSuccess && p > 0f
-        val convergeT = (p / 0.38f).coerceIn(0f, 1f)
+        val convergeT = (p / 0.36f).coerceIn(0f, 1f)
         val convergeEase = FastOutSlowInEasing.transform(convergeT)
+        val expandT = ((p - 0.32f) / 0.38f).coerceIn(0f, 1f)
+        val expandEase = FastOutSlowInEasing.transform(expandT)
+        val revealT = ((p - 0.70f) / 0.30f).coerceIn(0f, 1f)
+        val portalAlpha = (1f - FastOutSlowInEasing.transform(revealT)).coerceIn(0f, 1f)
 
         // Floating Expressive Material You shapes around the 3 main components
         for ((index, spec) in FLOATING_EXPRESSIVE_SHAPES.withIndex()) {
@@ -2550,9 +2553,14 @@ private fun AiLibraryIndicatorsAnimation(
         // so the focal AOD hero shape sits cleanly in the foreground without awkward side overlap.
         for (i in listOf(0, 2, 1)) {
             val offset = i * (6.2831855f / 3f)
-            val color = indicatorColors[i % indicatorColors.size]
-            val containerTone = containerTones[i % containerTones.size]
-            val glowColor = glowColors[i % glowColors.size]
+            val baseColor = indicatorColors[i % indicatorColors.size]
+            val baseContainerTone = containerTones[i % containerTones.size]
+            val baseGlowColor = glowColors[i % glowColors.size]
+
+            // As the 3 components converge into 1, the side components morph their colors into the centerpiece
+            val color = if (isSuccessActive && i != 1) lerp(baseColor, indicatorColors[1], convergeEase) else baseColor
+            val containerTone = if (isSuccessActive && i != 1) lerp(baseContainerTone, containerTones[1], convergeEase) else baseContainerTone
+            val glowColor = if (isSuccessActive && i != 1) lerp(baseGlowColor, glowColors[1], convergeEase) else baseGlowColor
 
             // Base position relative to exact center of screen
             val baseX = when (i) {
@@ -2568,26 +2576,34 @@ private fun AiLibraryIndicatorsAnimation(
             // Focal hierarchy: Centerpiece (i == 1) is larger (1.06x), companions (0, 2) are 0.86x
             val hierarchyScale = if (i == 1) 1.06f else 0.86f
 
-            // Dynamic scale: side components shrink smoothly into center as they converge;
-            // centerpiece swells gently to 1.28x while handing off to the GPU Canvas portal (zero 45x Path scale!)
+            // Dynamic scale: side components glide into the center component and fuse into it,
+            // then that single unified centerpiece component zooms in (up to 16x) to cover the screen!
             val scale = when {
                 isSuccessActive -> {
                     if (i == 1) {
-                        hierarchyScale + (convergeEase * 0.22f)
+                        val convergeSwell = hierarchyScale + (convergeEase * 0.22f)
+                        val zoomExpansion = expandEase * expandEase * 15.0f
+                        convergeSwell + zoomExpansion
                     } else {
-                        (hierarchyScale * (1f - convergeEase)).coerceAtLeast(0f)
+                        val sideShrink = 1f - 0.25f * convergeEase
+                        val finalMergeCollapse = 1f - ((convergeT - 0.72f) / 0.28f).coerceIn(0f, 1f)
+                        (hierarchyScale * sideShrink * finalMergeCollapse).coerceAtLeast(0f)
                     }
                 }
                 isGenerating -> hierarchyScale * (1.03f + 0.08f * kotlin.math.sin((genScalePhase + offset).toDouble()).toFloat())
                 else -> hierarchyScale * (1.0f + 0.028f * kotlin.math.sin((idleScalePhase + offset).toDouble()).toFloat())
             }
 
-            // Fade multiplier for converging pieces
+            // Side pieces stay opaque while sliding inward, fading only as they overlap the center piece;
+            // the unified centerpiece stays at 1.0f during merge + zoom and dissolves during reveal.
             val convergeFade = when {
                 !isSuccessActive -> 1f
-                i != 1 -> (1f - convergeEase).coerceIn(0f, 1f)
-                else -> (1f - ((p - 0.36f) / 0.10f)).coerceIn(0f, 1f)
+                i != 1 -> (1f - ((convergeT - 0.52f) / 0.44f)).coerceIn(0f, 1f)
+                else -> portalAlpha
             }
+
+            val haloFade = if (isSuccessActive && i == 1) (1f - expandEase).coerceIn(0f, 1f) else 1f
+            val artAlpha = if (isSuccessActive) (1f - convergeEase).coerceIn(0f, 1f) else 1f
 
             // Smooth orbital floating translations
             val idleFloatY = with(density) { 10.dp.toPx() } * kotlin.math.sin((idleFloatPhase + offset).toDouble()).toFloat()
@@ -2596,19 +2612,10 @@ private fun AiLibraryIndicatorsAnimation(
             val genFloatY = with(density) { 16.dp.toPx() } * kotlin.math.sin((genFloatPhase + offset).toDouble()).toFloat()
             val genFloatX = with(density) { 12.dp.toPx() } * kotlin.math.cos((genFloatPhase + offset).toDouble()).toFloat()
 
-            // Swirl / orbit offset during convergence
-            val swirlAngle = convergeEase * 3.14159f * 1.5f
-            val swirlRadius = with(density) { 36.dp.toPx() } * (1f - convergeEase)
-            val swirlOffsetY = when (i) {
-                0 -> -kotlin.math.sin(swirlAngle) * swirlRadius
-                2 -> kotlin.math.sin(swirlAngle) * swirlRadius
-                else -> kotlin.math.cos(swirlAngle) * (swirlRadius * 0.4f)
-            }
-
             val currentBaseX = if (isSuccessActive) baseX * (1f - convergeEase) else baseX
             val currentBaseY = if (isSuccessActive) baseY * (1f - convergeEase) else baseY
             val floatX = if (isSuccessActive) genFloatX * (1f - convergeEase) else (if (isGenerating) genFloatX else idleFloatX)
-            val floatY = if (isSuccessActive) swirlOffsetY + (genFloatY * (1f - convergeEase)) else (if (isGenerating) genFloatY else idleFloatY)
+            val floatY = if (isSuccessActive) genFloatY * (1f - convergeEase) else (if (isGenerating) genFloatY else idleFloatY)
 
             val transX = currentBaseX + floatX
             val transY = currentBaseY + floatY
@@ -2641,6 +2648,8 @@ private fun AiLibraryIndicatorsAnimation(
                         isSuccess = isSuccess,
                         heroArtworkUris = heroArtworkUris,
                         convergeFade = convergeFade,
+                        haloFade = haloFade,
+                        artAlpha = artAlpha,
                         glowExpansion = glowExpansion,
                         morphTrigger = morphTo + tapMorphCount,
                         continuousSpinDeg = if (isGenerating) genShapeSpin else idleShapeSpin,
@@ -2755,24 +2764,37 @@ private fun ExpressiveQuickSelectRow(
         )
     }
 
-    LazyHorizontalGrid(
-        rows = GridCells.Fixed(3), 
+    val scrollState = rememberScrollState()
+    val rows = remember(vibes) {
+        List(3) { rowIdx ->
+            vibes.mapIndexedNotNull { idx, item ->
+                if (idx % 3 == rowIdx) idx to item else null
+            }
+        }
+    }
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .height(174.dp), // Safely fits 3 rows of 48dp pills + spacing
-        contentPadding = PaddingValues(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .horizontalScroll(scrollState)
+            .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        itemsIndexed(vibes) { index, vibe ->
-            val isSelected = selectedPrompt.trim().equals(vibe.label, ignoreCase = true)
-            ExpressiveQuickSelectPill(
-                vibe = vibe,
-                index = index,
-                isSelected = isSelected,
-                onClick = { onPillClick(vibe.label) },
-                modifier = Modifier.width(185.dp) // Locks pill width so they stay uniform while sliding horizontally
-            )
+        rows.forEach { rowItems ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                rowItems.forEach { (index, vibe) ->
+                    val isSelected = selectedPrompt.trim().equals(vibe.label, ignoreCase = true)
+                    ExpressiveQuickSelectPill(
+                        vibe = vibe,
+                        index = index,
+                        isSelected = isSelected,
+                        onClick = { onPillClick(vibe.label) }
+                    )
+                }
+            }
         }
     }
 }
@@ -2908,6 +2930,7 @@ private fun ExpressiveQuickSelectPill(
         shadowElevation = if (isHighlighted) 3.dp else 1.dp,
         modifier = modifier
             .height(48.dp)
+            .wrapContentWidth()
             .shadow(
                 elevation = (14f * morphFraction.coerceIn(0f, 1f)).dp,
                 shape = pillShape,
@@ -2923,13 +2946,14 @@ private fun ExpressiveQuickSelectPill(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
+                .height(48.dp)
+                .wrapContentWidth()
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(badgeColor.copy(alpha = pillGradientAlpha), Color.Transparent)
                     )
                 )
-                .padding(horizontal = 7.dp, vertical = 5.dp),
+                .padding(start = 7.dp, end = 16.dp, top = 5.dp, bottom = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left side 1:1 Material You expressive shape
@@ -2957,13 +2981,13 @@ private fun ExpressiveQuickSelectPill(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // Right side bold text label
+            // Right side bold text label with dynamic horizontal width matching the label length
             Text(
                 text = vibe.label,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = GoogleSansRounded,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
+                    fontSize = 13.sp
                 ),
                 color = if (isHighlighted) {
                     MaterialTheme.colorScheme.onPrimaryContainer
@@ -2971,8 +2995,7 @@ private fun ExpressiveQuickSelectPill(
                     MaterialTheme.colorScheme.onSurface
                 },
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(end = 3.dp)
+                softWrap = false
             )
         }
     }

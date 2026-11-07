@@ -66,13 +66,25 @@ class AiStateHolder @Inject constructor(
         _lastCreatedAiPlaylistId.value = null
     }
 
+    private val _showAiGeneratingOverlay = MutableStateFlow(false)
+    val showAiGeneratingOverlay = _showAiGeneratingOverlay.asStateFlow()
+
+    fun dismissAiGeneratingOverlay() {
+        _showAiGeneratingOverlay.value = false
+        _aiError.value = null
+    }
+
     // Set when the user taps the generation notification; the library screen consumes it and
     // brings the progress sheet back.
     private val _aiSheetReopenRequested = MutableStateFlow(false)
     val aiSheetReopenRequested = _aiSheetReopenRequested.asStateFlow()
 
     fun requestOpenGenerationSheet() {
-        _aiSheetReopenRequested.value = true
+        if (_isGeneratingAiPlaylist.value || _aiSuccess.value) {
+            _showAiGeneratingOverlay.value = true
+        } else {
+            _aiSheetReopenRequested.value = true
+        }
     }
 
     fun consumeGenerationSheetRequest() {
@@ -128,6 +140,7 @@ class AiStateHolder @Inject constructor(
 
     fun dismissAiPlaylistSheet() {
         _showAiPlaylistSheet.value = false
+        _showAiGeneratingOverlay.value = false
         _aiError.value = null
         _aiSuccess.value = false
         _aiMetadataSuccess.value = false
@@ -176,6 +189,9 @@ class AiStateHolder @Inject constructor(
             val allSongs = allSongsProvider?.invoke() ?: emptyList()
             val favoriteIds = favoriteSongIdsProvider?.invoke() ?: emptySet()
             _isGeneratingAiPlaylist.value = true
+            if (saveAsPlaylist) {
+                _showAiGeneratingOverlay.value = true
+            }
             _aiError.value = null
             _aiSuccess.value = false
             _lastCreatedAiPlaylistId.value = null
@@ -233,8 +249,9 @@ class AiStateHolder @Inject constructor(
                                 "$resolvedPlaylistName · ${generatedSongs.size} songs. Tap to open it.",
                                 playlistId = createdPlaylist.id
                             )
-                            kotlinx.coroutines.delay(1600) // Allow full merge, Canvas portal zoom, and root dissolve reveal to complete
+                            kotlinx.coroutines.delay(1480) // Allow full 3-into-1 merge, 1-component zoom, and dissolve reveal to complete
                             dismissAiPlaylistSheet()
+                            _lastCreatedAiPlaylistId.value = null
                         } else {
                             // Play immediately logic
                             _aiStatus.value = "Starting playback..."
