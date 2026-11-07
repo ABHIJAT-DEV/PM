@@ -738,7 +738,8 @@ private suspend fun getSongUrlFromYoutube(
         }
         innerTubeXFallback = Triple(streamUrl, mimeType, bitrate)
         UmihiHelper.printd("InnerTubeXPlayer stream is not M4A ($mimeType), checking direct M4A clients before fallback")
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
         UmihiHelper.printe("InnerTubeXPlayer extraction failed for $videoId: ${e.message}; attempting fallback")
     }
 
@@ -763,13 +764,16 @@ private suspend fun getSongUrlFromYoutube(
                 val patchedUrl = StreamClientUtils.patchClientVersion(chosen.url, client.clientVersion)
                 return@withContext Triple(patchedUrl, normalizeMimeType(chosen.mimeType), chosen.bitrate)
             }
-        } catch (_: Exception) {}
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+        }
     }
 
     // 2. Secondary fallback: NewPipeExtractor
     val streamInfo = try {
         StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$videoId")
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
         UmihiHelper.printe("NewPipeExtractor failed for $videoId: ${e.message}")
         null
     }
