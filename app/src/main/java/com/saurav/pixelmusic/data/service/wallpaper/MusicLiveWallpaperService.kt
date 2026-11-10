@@ -178,7 +178,7 @@ class MusicLiveWallpaperService : WallpaperService() {
             playbackStateHolder = entryPoint.playbackStateHolder()
 
             val roundedFont = runCatching {
-                ResourcesCompat.getFont(appContext, R.font.google_sans_rounded_regular)
+                ResourcesCompat.getFont(appContext, R.font.gflex_variable)
             }.getOrNull()
             val boldTypeface = if (roundedFont != null) {
                 Typeface.create(roundedFont, Typeface.BOLD)
