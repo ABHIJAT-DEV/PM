@@ -187,14 +187,16 @@ class MusicLiveWallpaperService : WallpaperService() {
             val roundedFont = runCatching {
                 ResourcesCompat.getFont(appContext, R.font.gflex_variable)
             }.getOrNull()
-            val boldTypeface = if (roundedFont != null) {
-                Typeface.create(roundedFont, Typeface.BOLD)
-            } else {
-                Typeface.create("sans-serif", Typeface.BOLD)
+            titleTextPaint.typeface = roundedFont ?: Typeface.create("sans-serif", Typeface.BOLD)
+            titleTextPaint.isFakeBoldText = false
+            runCatching {
+                titleTextPaint.fontVariationSettings = "'wght' 700, 'ROND' 100"
             }
-            val mediumTypeface = roundedFont ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            titleTextPaint.typeface = boldTypeface
-            artistTextPaint.typeface = mediumTypeface
+            artistTextPaint.typeface = roundedFont ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            artistTextPaint.isFakeBoldText = false
+            runCatching {
+                artistTextPaint.fontVariationSettings = "'wght' 500, 'ROND' 100"
+            }
 
             // 1. Observe customization settings changes (apply immediately for live customization feedback)
             engineScope.launch {
@@ -306,15 +308,11 @@ class MusicLiveWallpaperService : WallpaperService() {
             settingsRefreshJob = engineScope.launch {
                 val appContext = applicationContext
                 val s = settings
-                val fb = if (s.fallbackWallpaperPath.isNotBlank()) {
-                    MusicLiveWallpaperStateHolder.loadFallbackWallpaperBitmap(
-                        appContext,
-                        s.fallbackWallpaperPath,
-                        s.fallbackWallpaperUpdatedAt
-                    )
-                } else {
-                    null
-                }
+                val fb = MusicLiveWallpaperStateHolder.loadFallbackWallpaperBitmap(
+                    appContext,
+                    s.fallbackWallpaperPath,
+                    s.fallbackWallpaperUpdatedAt
+                )
                 fallbackBitmap = fb
 
                 val curSharp = if (activeScene.isFallbackIdle) fb else (activeScene.sharpBitmap ?: fb)
@@ -352,15 +350,11 @@ class MusicLiveWallpaperService : WallpaperService() {
             val s = settings
             val p = latestRawPlayback
 
-            val fb = if (s.fallbackWallpaperPath.isNotBlank()) {
-                MusicLiveWallpaperStateHolder.loadFallbackWallpaperBitmap(
-                    appContext,
-                    s.fallbackWallpaperPath,
-                    s.fallbackWallpaperUpdatedAt
-                )
-            } else {
-                null
-            }
+            val fb = MusicLiveWallpaperStateHolder.loadFallbackWallpaperBitmap(
+                appContext,
+                s.fallbackWallpaperPath,
+                s.fallbackWallpaperUpdatedAt
+            )
             fallbackBitmap = fb
 
             val shouldShowMusicArt = p.isPlaying && (!p.albumArtUriString.isNullOrBlank() || p.albumArtBytes != null)
@@ -802,12 +796,13 @@ class MusicLiveWallpaperService : WallpaperService() {
                 canvas.drawPath(shapePath, borderPaint)
             }
 
-            // Top-left Song Information Overlay (fades in/out naturally with the scene crossfade!)
+            // Top-right Song Information Overlay (fades in/out naturally with the scene crossfade!)
             if (settings.showSongInfo && !scene.isFallbackIdle && scene.songTitle.isNotBlank()) {
                 val density = applicationContext.resources.displayMetrics.density
-                val startX = 24f * density
+                val horizontalMargin = 24f * density
+                val rightX = w - horizontalMargin
                 val topY = 58f * density
-                val maxTextWidth = (w - startX * 2f).coerceAtLeast(80f)
+                val maxTextWidth = (w - horizontalMargin * 2f).coerceAtLeast(80f)
 
                 topScrimPaint.alpha = 180
                 canvas.drawRect(0f, 0f, w, h * 0.22f, topScrimPaint)
@@ -816,7 +811,7 @@ class MusicLiveWallpaperService : WallpaperService() {
                     canvas = canvas,
                     title = scene.songTitle,
                     artist = scene.artistName,
-                    x = startX,
+                    rightX = rightX,
                     y = topY,
                     maxWidth = maxTextWidth,
                     alpha = 1f,
@@ -829,7 +824,7 @@ class MusicLiveWallpaperService : WallpaperService() {
             canvas: Canvas,
             title: String,
             artist: String,
-            x: Float,
+            rightX: Float,
             y: Float,
             maxWidth: Float,
             alpha: Float,
@@ -840,13 +835,17 @@ class MusicLiveWallpaperService : WallpaperService() {
             artistTextPaint.alpha = (alpha * 205f).roundToInt().coerceIn(0, 255)
 
             val ellipsizedTitle = TextUtils.ellipsize(title, titleTextPaint, maxWidth, TextUtils.TruncateAt.END).toString()
+            val titleWidth = titleTextPaint.measureText(ellipsizedTitle)
+            val titleX = (rightX - titleWidth).coerceAtLeast(24f * density)
             val titleBaseline = y - titleTextPaint.ascent()
-            canvas.drawText(ellipsizedTitle, x, titleBaseline, titleTextPaint)
+            canvas.drawText(ellipsizedTitle, titleX, titleBaseline, titleTextPaint)
 
             if (artist.isNotBlank()) {
                 val ellipsizedArtist = TextUtils.ellipsize(artist, artistTextPaint, maxWidth, TextUtils.TruncateAt.END).toString()
+                val artistWidth = artistTextPaint.measureText(ellipsizedArtist)
+                val artistX = (rightX - artistWidth).coerceAtLeast(24f * density)
                 val artistBaseline = titleBaseline + titleTextPaint.descent() + (4f * density) - artistTextPaint.ascent()
-                canvas.drawText(ellipsizedArtist, x, artistBaseline, artistTextPaint)
+                canvas.drawText(ellipsizedArtist, artistX, artistBaseline, artistTextPaint)
             }
         }
 

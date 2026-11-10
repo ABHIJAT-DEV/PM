@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.data.service.wallpaper
 
+import android.app.WallpaperManager
+import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -388,6 +390,48 @@ object MusicLiveWallpaperStateHolder {
         }
     }
 
+    fun markPlaybackStopped() {
+        _playbackState.update { current ->
+            if (!current.isPlaying) current else current.copy(isPlaying = false)
+        }
+    }
+
+    /**
+     * Pre-populates Android's underlying static system wallpaper slot with the user's selected
+     * gallery fallback image whenever `MusicLiveWallpaperService` is not yet the active live
+     * wallpaper. If the app is later Force Stopped in Android System Settings and the OS detaches
+     * the live wallpaper service back to `ImageWallpaper`, Android has the user's fallback image
+     * in the static wallpaper slot rather than the factory default wallpaper.
+     */
+    suspend fun syncStaticSystemWallpaperIfInactive(
+        context: Context,
+        bitmap: Bitmap? = cachedFallbackBitmap
+    ) = withContext(Dispatchers.IO) {
+        runCatching {
+            val appContext = context.applicationContext
+            val wm = WallpaperManager.getInstance(appContext)
+            val isLiveActive = wm.wallpaperInfo?.component == ComponentName(
+                appContext,
+                MusicLiveWallpaperService::class.java
+            )
+            if (!isLiveActive) {
+                val bmp = bitmap?.takeIf { !it.isRecycled }
+                    ?: loadFallbackWallpaperBitmap(appContext, cachedFallbackPath, cachedFallbackUpdatedAt)
+                    ?: return@runCatching
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    wm.setBitmap(
+                        bmp,
+                        null,
+                        false,
+                        WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
+                    )
+                } else {
+                    wm.setBitmap(bmp)
+                }
+            }
+        }
+    }
+
     /**
      * Loads the full-resolution (720p+) cached album art [Bitmap].
      *
@@ -672,6 +716,7 @@ object MusicLiveWallpaperStateHolder {
                 cachedFallbackPath = destFile.absolutePath
                 cachedFallbackUpdatedAt = System.currentTimeMillis()
                 cachedFallbackBitmap = oriented
+                syncStaticSystemWallpaperIfInactive(appContext, oriented)
                 destFile.absolutePath
             }.getOrNull()
         }
@@ -691,29 +736,41 @@ object MusicLiveWallpaperStateHolder {
         path: String,
         updatedAt: Long
     ): Bitmap? = withContext(Dispatchers.IO) {
-        if (path.isBlank()) return@withContext null
+        val appContext = context.applicationContext
+        val defaultInternalFile = File(appContext.filesDir, FALLBACK_FILE_NAME)
+        val effectivePath = path.ifBlank {
+            if (defaultInternalFile.exists() && defaultInternalFile.length() > 0L) {
+                defaultInternalFile.absolutePath
+            } else {
+                return@withContext null
+            }
+        }
+        val effectiveUpdatedAt = if (updatedAt > 0L) updatedAt else defaultInternalFile.lastModified()
+
         val existing = cachedFallbackBitmap
         if (existing != null && !existing.isRecycled &&
-            cachedFallbackPath == path && cachedFallbackUpdatedAt == updatedAt
+            cachedFallbackPath == effectivePath && cachedFallbackUpdatedAt == effectiveUpdatedAt
         ) {
             return@withContext existing
         }
 
         val loaded = runCatching {
-            val file = File(path)
+            val file = File(effectivePath)
             if (file.exists() && file.length() > 0L) {
                 decodeSampledFile(file, MAX_FALLBACK_DIMENSION_PX)
+            } else if (defaultInternalFile.exists() && defaultInternalFile.length() > 0L) {
+                decodeSampledFile(defaultInternalFile, MAX_FALLBACK_DIMENSION_PX)
             } else {
-                val uri = Uri.parse(path)
-                context.applicationContext.contentResolver.openInputStream(uri)?.use { stream ->
+                val uri = Uri.parse(effectivePath)
+                appContext.contentResolver.openInputStream(uri)?.use { stream ->
                     decodeSampledByteArray(stream.readBytes(), MAX_FALLBACK_DIMENSION_PX)
                 }
             }
         }.getOrNull()
 
         if (loaded != null) {
-            cachedFallbackPath = path
-            cachedFallbackUpdatedAt = updatedAt
+            cachedFallbackPath = effectivePath
+            cachedFallbackUpdatedAt = effectiveUpdatedAt
             cachedFallbackBitmap = loaded
         }
         loaded

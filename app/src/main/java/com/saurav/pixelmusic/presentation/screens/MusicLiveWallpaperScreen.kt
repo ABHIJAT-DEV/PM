@@ -62,7 +62,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BlurOn
 import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.SlowMotionVideo
@@ -115,6 +114,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -140,7 +140,7 @@ import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.SettingsViewModel
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
-import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
+import com.saurav.pixelmusic.ui.theme.ActualGoogleSansRounded
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -551,6 +551,14 @@ fun MusicLiveWallpaperScreen(
 
                             Button(
                                 onClick = {
+                                    if (!isLiveWallpaperActive && fallbackBitmap != null) {
+                                        coroutineScope.launch {
+                                            MusicLiveWallpaperStateHolder.syncStaticSystemWallpaperIfInactive(
+                                                context,
+                                                fallbackBitmap
+                                            )
+                                        }
+                                    }
                                     val component = ComponentName(context, MusicLiveWallpaperService::class.java)
                                     val changeIntent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
                                         putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
@@ -958,7 +966,7 @@ fun MusicLiveWallpaperScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         SwitchSettingItem(
                             title = "Show Song Information",
-                            subtitle = "Display the currently playing song title and artist on the top left of the wallpaper",
+                            subtitle = "Display the currently playing song title and artist in the top right corner of the wallpaper",
                             checked = wallpaperSettings.showSongInfo,
                             onCheckedChange = { show ->
                                 coroutineScope.launch {
@@ -999,33 +1007,6 @@ fun MusicLiveWallpaperScreen(
                             },
                             valueText = { "${(it * 100).roundToInt()}%" }
                         )
-
-                        // Data-saving cache reuse info card
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "Zero extra data usage: Music Live Wallpaper directly reuses the album art already downloaded for the Now Playing screen and notifications.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -1262,14 +1243,15 @@ private fun WallpaperPictureOnlyPreview(
                 }
             }
 
-            // 3. Top-Left Song Information Overlay (only when toggle is enabled & in Music Playing state)
+            // 3. Top-Right Song Information Overlay (only when toggle is enabled & in Music Playing state)
             AnimatedVisibility(
                 visible = settings.showSongInfo && !isFallbackIdleView,
                 enter = fadeIn(tween(420)),
                 exit = fadeOut(tween(320)),
-                modifier = Modifier.align(Alignment.TopStart)
+                modifier = Modifier.align(Alignment.TopEnd)
             ) {
                 Box(
+                    contentAlignment = Alignment.TopEnd,
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
@@ -1290,11 +1272,15 @@ private fun WallpaperPictureOnlyPreview(
                         },
                         label = "previewSongInfoCrossfade"
                     ) { (title, artist) ->
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
                             Text(
                                 text = title,
+                                textAlign = TextAlign.End,
                                 style = TextStyle(
-                                    fontFamily = GoogleSansRounded,
+                                    fontFamily = ActualGoogleSansRounded,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
                                     color = Color.White,
@@ -1309,8 +1295,9 @@ private fun WallpaperPictureOnlyPreview(
                             )
                             Text(
                                 text = artist,
+                                textAlign = TextAlign.End,
                                 style = TextStyle(
-                                    fontFamily = GoogleSansRounded,
+                                    fontFamily = ActualGoogleSansRounded,
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 10.5.sp,
                                     color = Color.White.copy(alpha = 0.84f),
