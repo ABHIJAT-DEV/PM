@@ -51,6 +51,47 @@ object AppFontMode {
     const val SYSTEM = "system"
 }
 
+enum class MusicWallpaperStyleMode(val storageKey: String) {
+    FULL_SCREEN("FULL_SCREEN"),
+    MATERIAL_YOU_SHAPE("MATERIAL_YOU_SHAPE");
+
+    companion object {
+        fun fromStorageKey(key: String?): MusicWallpaperStyleMode {
+            return entries.firstOrNull { it.storageKey.equals(key, ignoreCase = true) }
+                ?: MATERIAL_YOU_SHAPE
+        }
+    }
+}
+
+enum class MusicWallpaperShapePosition(val storageKey: String) {
+    TOP("TOP"),
+    MIDDLE("MIDDLE"),
+    BOTTOM("BOTTOM");
+
+    companion object {
+        fun fromStorageKey(key: String?): MusicWallpaperShapePosition {
+            return entries.firstOrNull { it.storageKey.equals(key, ignoreCase = true) }
+                ?: MIDDLE
+        }
+    }
+}
+
+data class MusicLiveWallpaperSettings(
+    val styleMode: MusicWallpaperStyleMode = MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE,
+    val shapeIndex: Int = 0,
+    val shapePosition: MusicWallpaperShapePosition = MusicWallpaperShapePosition.MIDDLE,
+    val blurAmount: Float = 0.55f,
+    val showSongInfo: Boolean = true,
+    val fallbackWallpaperPath: String = "",
+    val fallbackWallpaperUpdatedAt: Long = 0L,
+    val crossfadeDurationMs: Int = 1800,
+    val shapeScale: Float = 0.85f,
+    val backgroundDim: Float = 0.22f,
+    val animateShapeOnTrackChange: Boolean = true,
+    val slowRotateWhilePlaying: Boolean = true,
+    val tapWallpaperToChangeShape: Boolean = true
+)
+
 const val MIN_NAV_BAR_CORNER_RADIUS = 0
 const val MAX_NAV_BAR_CORNER_RADIUS = 60
 
@@ -419,6 +460,21 @@ constructor(
         val SCROBBLE_DELAY_SECONDS = intPreferencesKey("scrobble_delay_seconds")
         val GENERATED_PLAYLISTS_RETENTION_PERIOD = stringPreferencesKey("generated_playlists_retention_period")
         val VIDEO_SHARING_ENGINE_ENABLED = booleanPreferencesKey("video_sharing_engine_enabled")
+
+        // Music Live Wallpaper (Developer / Experimental)
+        val MLW_STYLE_MODE = stringPreferencesKey("mlw_style_mode")
+        val MLW_SHAPE_INDEX = intPreferencesKey("mlw_shape_index")
+        val MLW_SHAPE_POSITION = stringPreferencesKey("mlw_shape_position")
+        val MLW_BLUR_AMOUNT = androidx.datastore.preferences.core.floatPreferencesKey("mlw_blur_amount")
+        val MLW_SHOW_SONG_INFO = booleanPreferencesKey("mlw_show_song_info")
+        val MLW_FALLBACK_PATH = stringPreferencesKey("mlw_fallback_path")
+        val MLW_FALLBACK_UPDATED_AT = longPreferencesKey("mlw_fallback_updated_at")
+        val MLW_CROSSFADE_DURATION_MS = intPreferencesKey("mlw_crossfade_duration_ms")
+        val MLW_SHAPE_SCALE = androidx.datastore.preferences.core.floatPreferencesKey("mlw_shape_scale")
+        val MLW_BACKGROUND_DIM = androidx.datastore.preferences.core.floatPreferencesKey("mlw_background_dim")
+        val MLW_ANIMATE_SHAPE_ON_TRACK_CHANGE = booleanPreferencesKey("mlw_animate_shape_on_track_change")
+        val MLW_SLOW_ROTATE_WHILE_PLAYING = booleanPreferencesKey("mlw_slow_rotate_while_playing")
+        val MLW_TAP_WALLPAPER_TO_CHANGE_SHAPE = booleanPreferencesKey("mlw_tap_wallpaper_to_change_shape")
     }
 
     val lastUpdatePromptTimeFlow: Flow<Long> =
@@ -2900,6 +2956,100 @@ constructor(
     suspend fun setVerboseLoggingEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.VERBOSE_LOGGING_ENABLED] = enabled
+        }
+    }
+
+    // ===== Music Live Wallpaper (Developer / Experimental) =====
+
+    val musicLiveWallpaperSettingsFlow: Flow<MusicLiveWallpaperSettings> =
+        dataStore.data.map { preferences ->
+            MusicLiveWallpaperSettings(
+                styleMode = MusicWallpaperStyleMode.fromStorageKey(preferences[PreferencesKeys.MLW_STYLE_MODE]),
+                shapeIndex = (preferences[PreferencesKeys.MLW_SHAPE_INDEX] ?: 0).coerceAtLeast(0),
+                shapePosition = MusicWallpaperShapePosition.fromStorageKey(preferences[PreferencesKeys.MLW_SHAPE_POSITION]),
+                blurAmount = (preferences[PreferencesKeys.MLW_BLUR_AMOUNT] ?: 0.55f).coerceIn(0.0f, 1.0f),
+                showSongInfo = preferences[PreferencesKeys.MLW_SHOW_SONG_INFO] ?: true,
+                fallbackWallpaperPath = preferences[PreferencesKeys.MLW_FALLBACK_PATH] ?: "",
+                fallbackWallpaperUpdatedAt = preferences[PreferencesKeys.MLW_FALLBACK_UPDATED_AT] ?: 0L,
+                crossfadeDurationMs = (preferences[PreferencesKeys.MLW_CROSSFADE_DURATION_MS] ?: 1800).coerceIn(800, 4000),
+                shapeScale = (preferences[PreferencesKeys.MLW_SHAPE_SCALE] ?: 0.85f).coerceIn(0.55f, 1.15f),
+                backgroundDim = (preferences[PreferencesKeys.MLW_BACKGROUND_DIM] ?: 0.22f).coerceIn(0.0f, 0.75f),
+                animateShapeOnTrackChange = preferences[PreferencesKeys.MLW_ANIMATE_SHAPE_ON_TRACK_CHANGE] ?: true,
+                slowRotateWhilePlaying = preferences[PreferencesKeys.MLW_SLOW_ROTATE_WHILE_PLAYING] ?: true,
+                tapWallpaperToChangeShape = preferences[PreferencesKeys.MLW_TAP_WALLPAPER_TO_CHANGE_SHAPE] ?: true
+            )
+        }.distinctUntilChanged()
+
+    suspend fun setMusicWallpaperStyleMode(mode: MusicWallpaperStyleMode) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_STYLE_MODE] = mode.storageKey
+        }
+    }
+
+    suspend fun setMusicWallpaperShapeIndex(index: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_SHAPE_INDEX] = index.coerceAtLeast(0)
+        }
+    }
+
+    suspend fun setMusicWallpaperShapePosition(position: MusicWallpaperShapePosition) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_SHAPE_POSITION] = position.storageKey
+        }
+    }
+
+    suspend fun setMusicWallpaperBlurAmount(amount: Float) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_BLUR_AMOUNT] = amount.coerceIn(0.0f, 1.0f)
+        }
+    }
+
+    suspend fun setMusicWallpaperShowSongInfo(show: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_SHOW_SONG_INFO] = show
+        }
+    }
+
+    suspend fun setMusicWallpaperFallback(path: String, updatedAt: Long = System.currentTimeMillis()) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_FALLBACK_PATH] = path
+            preferences[PreferencesKeys.MLW_FALLBACK_UPDATED_AT] = updatedAt
+        }
+    }
+
+    suspend fun setMusicWallpaperCrossfadeDurationMs(durationMs: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_CROSSFADE_DURATION_MS] = durationMs.coerceIn(800, 4000)
+        }
+    }
+
+    suspend fun setMusicWallpaperShapeScale(scale: Float) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_SHAPE_SCALE] = scale.coerceIn(0.55f, 1.15f)
+        }
+    }
+
+    suspend fun setMusicWallpaperBackgroundDim(dim: Float) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_BACKGROUND_DIM] = dim.coerceIn(0.0f, 0.75f)
+        }
+    }
+
+    suspend fun setMusicWallpaperAnimateShapeOnTrackChange(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_ANIMATE_SHAPE_ON_TRACK_CHANGE] = enabled
+        }
+    }
+
+    suspend fun setMusicWallpaperSlowRotateWhilePlaying(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_SLOW_ROTATE_WHILE_PLAYING] = enabled
+        }
+    }
+
+    suspend fun setMusicWallpaperTapToChangeShape(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_TAP_WALLPAPER_TO_CHANGE_SHAPE] = enabled
         }
     }
 }

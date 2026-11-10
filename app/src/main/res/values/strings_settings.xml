@@ -408,4 +408,9 @@
     <string name="lastfm_logged_in_as">Logged in as %1$s</string>
     <string name="lastfm_login_dialog_title">Link Last.fm Account</string>
     <string name="lastfm_login_dialog_desc">Enter your Last.fm account credentials to authorize scrobbling.</string>
+
+    <!-- Music Live Wallpaper (Developer / Experimental) -->
+    <string name="music_live_wallpaper_title">Music Live Wallpaper</string>
+    <string name="music_live_wallpaper_subtitle">Dynamic album art live wallpaper with Material You shapes, blur &amp; crossfades</string>
+    <string name="music_live_wallpaper_service_desc">Displays currently playing album art with smooth crossfades, Material You shapes, and fallback wallpaper.</string>
 </resources>

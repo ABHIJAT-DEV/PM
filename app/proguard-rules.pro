@@ -176,6 +176,7 @@
 
 # Protect MusicService and its lifecycle overrides from R8 minification
 -keep class com.saurav.pixelmusic.data.service.MusicService { *; }
+-keep class com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperService { *; }
 
 # Protect the preferences repository so the background playback toggle state isn't obfuscated
 -keep class com.saurav.pixelmusic.data.preferences.UserPreferencesRepository { *; }

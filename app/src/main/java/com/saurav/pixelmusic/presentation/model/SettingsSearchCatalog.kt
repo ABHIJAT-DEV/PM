@@ -334,6 +334,9 @@ object SettingsSearchCatalog {
             SettingsCategory.DEVELOPER, Screen.FeatureCompatibility.route),
 
         // ─── Developer & Experimental ───────────────────────────────────────────────
+        SearchableSetting("Music Live Wallpaper", "Dynamic live wallpaper with album art, Material You shapes, blur, and fallback wallpaper",
+            listOf("music live wallpaper", "live wallpaper", "wallpaper", "material you", "shapes", "cookie", "triangle", "blur", "crossfade", "experimental", "developer"),
+            SettingsCategory.DEVELOPER, Screen.MusicLiveWallpaper.route),
         SearchableSetting("Experimental Features", "Full player tweaks, delays, and animation options",
             listOf("experimental", "developer", "beta", "tweak", "advanced"),
             SettingsCategory.DEVELOPER, Screen.Experimental.route),

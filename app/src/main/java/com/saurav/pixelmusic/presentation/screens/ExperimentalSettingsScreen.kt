@@ -86,6 +86,7 @@ import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Wallpaper
 import com.saurav.pixelmusic.presentation.model.SettingsCategory
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
@@ -236,6 +237,46 @@ fun ExperimentalSettingsScreen(
                                 }
                             )
                         }
+                    }
+                }
+            }
+
+            item(key = "music_live_wallpaper_nav_card") {
+                SettingsSection(
+                    title = stringResource(R.string.music_live_wallpaper_title),
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Wallpaper,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = Color.Transparent
+                    ) {
+                        SettingsItem(
+                            title = stringResource(R.string.music_live_wallpaper_title),
+                            subtitle = stringResource(R.string.music_live_wallpaper_subtitle),
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Wallpaper,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.ChevronRight,
+                                    contentDescription = stringResource(R.string.cd_open),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = {
+                                navController.navigateSafely(Screen.MusicLiveWallpaper.route)
+                            }
+                        )
                     }
                 }
             }

@@ -2517,6 +2517,7 @@ class MusicService : MediaLibraryService() {
 
     private suspend fun processWidgetUpdateInternal() {
         val playerInfo = buildPlayerInfo()
+        com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.updateFromPlayerInfo(playerInfo)
         val oldInfo = lastWidgetPlayerInfo
 
         val shouldUpdateWidgets = oldInfo == null || shouldUpdateWidget(oldInfo, playerInfo)

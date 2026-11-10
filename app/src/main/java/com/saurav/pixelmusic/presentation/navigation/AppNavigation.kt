@@ -55,6 +55,7 @@ import com.saurav.pixelmusic.presentation.screens.MoodsAndGenresScreen
 import com.saurav.pixelmusic.presentation.screens.NewReleasesScreen
 import com.saurav.pixelmusic.presentation.screens.PodcastsScreen
 import com.saurav.pixelmusic.presentation.screens.ExperimentalSettingsScreen
+import com.saurav.pixelmusic.presentation.screens.MusicLiveWallpaperScreen
 import com.saurav.pixelmusic.presentation.screens.HomeScreen
 import com.saurav.pixelmusic.presentation.screens.ExploreScreen
 import com.saurav.pixelmusic.presentation.screens.LibraryScreen
@@ -411,6 +412,21 @@ fun AppNavigation(
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
                     ExperimentalSettingsScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel,
+                        onNavigationIconClick = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable(
+                Screen.MusicLiveWallpaper.route,
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    MusicLiveWallpaperScreen(
                         navController = navController,
                         playerViewModel = playerViewModel,
                         onNavigationIconClick = { navController.popBackStack() }
