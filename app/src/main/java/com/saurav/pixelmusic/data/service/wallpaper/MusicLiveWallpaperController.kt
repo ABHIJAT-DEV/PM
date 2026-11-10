@@ -339,6 +339,7 @@ object MusicLiveWallpaperStateHolder {
     private const val FALLBACK_FILE_NAME = "music_live_wallpaper_fallback.jpg"
     private const val MAX_ARTWORK_DIMENSION_PX = 1440
     private const val MAX_FALLBACK_DIMENSION_PX = 1920
+    private const val MIN_HD_ARTWORK_DIMENSION_PX = 480
 
     private val _playbackState = MutableStateFlow(WallpaperPlaybackSnapshot())
     val playbackState: StateFlow<WallpaperPlaybackSnapshot> = _playbackState.asStateFlow()
@@ -388,8 +389,17 @@ object MusicLiveWallpaperStateHolder {
     }
 
     /**
-     * Loads the already-downloaded album art [Bitmap] from Coil's memory cache, Coil's disk cache,
-     * local media streams, or `MusicService` embedded bytes — NEVER downloading over the network again.
+     * Loads the full-resolution (720p+) cached album art [Bitmap].
+     *
+     * Priority:
+     * 1. Coil DiskCache snapshot for 720p (`AlbumArtQuality.HIGH`) & effective quality — because
+     *    `ColorSchemeProcessor` and `extractDominantColor` overwrite `MemoryCache[canonicalDiskKey]`
+     *    with a downsampled 128x128 / 160x160 bitmap, while `DiskCache` holds the untouched 720p file!
+     * 2. Coil MemoryCache entries whose minimum dimension is at least [MIN_HD_ARTWORK_DIMENSION_PX] (480px+),
+     *    skipping any 96x96 / 128x128 / 160x160 list or palette thumbnails.
+     * 3. Local artwork stream (`content://`, `file://`, `LocalArtworkUri`).
+     * 4. Full-size Coil execution with a dedicated HD memory cache key (`_wallpaper_hd`) so it never
+     *    collides with 128x128 palette extraction bitmaps.
      */
     suspend fun loadCachedAlbumArtBitmap(
         context: Context,
@@ -401,101 +411,120 @@ object MusicLiveWallpaperStateHolder {
 
         if (cleanUri != null) {
             val effectiveQuality = SmartImageCache.getEffectiveQuality()
-            val optimizedEffective = ThumbnailUrlUtils.optimizeArtworkUrl(cleanUri, effectiveQuality) ?: cleanUri
-            val canonicalEffective = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedEffective, effectiveQuality)
-                ?: optimizedEffective
+            // Always prioritize HIGH (720p) first so if 720p is cached on disk we always use it
+            val candidateQualities = listOf(AlbumArtQuality.HIGH, effectiveQuality, AlbumArtQuality.LOW).distinct()
+            val optimizedHigh = ThumbnailUrlUtils.optimizeArtworkUrl(cleanUri, AlbumArtQuality.HIGH) ?: cleanUri
+            val canonicalHigh = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optimizedHigh, AlbumArtQuality.HIGH)
+                ?: optimizedHigh
 
             synchronized(bitmapCache) {
-                bitmapCache.get(canonicalEffective)?.takeIf { !it.isRecycled }?.let { return@withContext it }
-                bitmapCache.get(cleanUri)?.takeIf { !it.isRecycled }?.let { return@withContext it }
+                bitmapCache.get(canonicalHigh)?.takeIf {
+                    !it.isRecycled && min(it.width, it.height) >= MIN_HD_ARTWORK_DIMENSION_PX
+                }?.let { return@withContext it }
             }
 
-            // Poll briefly if Now Playing / Notification is currently writing the image into Coil's cache
-            val candidateQualities = listOf(effectiveQuality, AlbumArtQuality.HIGH, AlbumArtQuality.LOW).distinct()
             val isRemote = cleanUri.startsWith("http://", ignoreCase = true) ||
                 cleanUri.startsWith("https://", ignoreCase = true)
 
-            val maxAttempts = if (isRemote) 12 else 2
-            for (attempt in 0 until maxAttempts) {
-                // 1. Check Coil MemoryCache across all canonical keys
-                findInCoilMemoryCache(appContext, cleanUri, candidateQualities)?.let { bmp ->
-                    val soft = ensureSoftwareBitmap(bmp)
-                    synchronized(bitmapCache) {
-                        bitmapCache.put(canonicalEffective, soft)
-                    }
-                    return@withContext soft
+            // 1. Check Coil DiskCache snapshots FIRST (stores the raw, full-resolution 720p file!)
+            findInCoilDiskCache(appContext, cleanUri, candidateQualities)?.let { bmp ->
+                synchronized(bitmapCache) {
+                    bitmapCache.put(canonicalHigh, bmp)
                 }
+                return@withContext bmp
+            }
 
-                // 2. Check Coil DiskCache snapshots directly on disk (zero network!)
-                findInCoilDiskCache(appContext, cleanUri, candidateQualities)?.let { bmp ->
+            // 2. Check Coil MemoryCache ONLY for high-resolution bitmaps (>= 480px, ignoring 128x128 palette thumbs)
+            findInCoilMemoryCache(appContext, cleanUri, candidateQualities)?.let { bmp ->
+                val soft = ensureSoftwareBitmap(bmp)
+                synchronized(bitmapCache) {
+                    bitmapCache.put(canonicalHigh, soft)
+                }
+                return@withContext soft
+            }
+
+            // 3. Check local URI streams (content://, file://, LocalArtworkUri)
+            if (!isRemote) {
+                decodeLocalArtworkUri(appContext, cleanUri)?.let { bmp ->
                     synchronized(bitmapCache) {
-                        bitmapCache.put(canonicalEffective, bmp)
+                        bitmapCache.put(canonicalHigh, bmp)
                     }
                     return@withContext bmp
                 }
+            }
 
-                // 3. Check local URI streams (content://, file://, LocalArtworkUri)
-                if (!isRemote) {
-                    decodeLocalArtworkUri(appContext, cleanUri)?.let { bmp ->
-                        synchronized(bitmapCache) {
-                            bitmapCache.put(canonicalEffective, bmp)
-                        }
-                        return@withContext bmp
-                    }
-                }
+            // 4. Try Coil offline disk/memory execution with a dedicated HD memoryCacheKey so it decodes
+            //    the full 720p file from disk rather than returning the 128x128 palette memoryCache entry.
+            for (q in candidateQualities) {
+                val optUrl = ThumbnailUrlUtils.optimizeArtworkUrl(cleanUri, q) ?: cleanUri
+                val diskKey = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optUrl, q) ?: optUrl
+                val hdMemKey = "${diskKey}_wallpaper_hd"
+                val offlineRequest = ImageRequest.Builder(appContext)
+                    .data(optUrl)
+                    .diskCacheKey(diskKey)
+                    .memoryCacheKey(hdMemKey)
+                    .size(MAX_ARTWORK_DIMENSION_PX, MAX_ARTWORK_DIMENSION_PX)
+                    .precision(Precision.INEXACT)
+                    .allowHardware(false)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .networkCachePolicy(CachePolicy.DISABLED)
+                    .build()
 
-                // 4. Try Coil offline-only execution (CachePolicy.DISABLED for network)
-                for (q in candidateQualities) {
-                    val optUrl = ThumbnailUrlUtils.optimizeArtworkUrl(cleanUri, q) ?: cleanUri
-                    val diskKey = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optUrl, q) ?: optUrl
-                    val request = ImageRequest.Builder(appContext)
-                        .data(optUrl)
-                        .diskCacheKey(diskKey)
-                        .memoryCacheKey(diskKey)
-                        .size(MAX_ARTWORK_DIMENSION_PX, MAX_ARTWORK_DIMENSION_PX)
-                        .precision(Precision.INEXACT)
-                        .allowHardware(false)
-                        .memoryCachePolicy(CachePolicy.ENABLED)
-                        .diskCachePolicy(CachePolicy.ENABLED)
-                        .networkCachePolicy(CachePolicy.DISABLED) // Strictly forbid re-downloading!
-                        .build()
-
-                    val drawable = runCatching { appContext.imageLoader.execute(request).drawable }.getOrNull()
-                    if (drawable != null) {
+                val drawable = runCatching { appContext.imageLoader.execute(offlineRequest).drawable }.getOrNull()
+                if (drawable != null) {
+                    val w = drawable.intrinsicWidth.coerceIn(1, MAX_ARTWORK_DIMENSION_PX)
+                    val h = drawable.intrinsicHeight.coerceIn(1, MAX_ARTWORK_DIMENSION_PX)
+                    if (min(w, h) >= MIN_HD_ARTWORK_DIMENSION_PX || q == candidateQualities.last()) {
                         val bmp = runCatching {
-                            drawable.toBitmap(
-                                width = drawable.intrinsicWidth.coerceIn(1, MAX_ARTWORK_DIMENSION_PX),
-                                height = drawable.intrinsicHeight.coerceIn(1, MAX_ARTWORK_DIMENSION_PX),
-                                config = Bitmap.Config.ARGB_8888
-                            )
+                            drawable.toBitmap(width = w, height = h, config = Bitmap.Config.ARGB_8888)
                         }.getOrNull()
                         if (bmp != null && !bmp.isRecycled) {
                             synchronized(bitmapCache) {
-                                bitmapCache.put(canonicalEffective, bmp)
+                                bitmapCache.put(canonicalHigh, bmp)
                             }
                             return@withContext bmp
                         }
                     }
                 }
+            }
 
-                // 5. If embedded bytes from MusicService are available, use them if cache didn't hit on first pass
-                val latestEmbedded = embeddedArtBytes ?: _playbackState.value.albumArtBytes
-                if (latestEmbedded != null && latestEmbedded.isNotEmpty()) {
-                    decodeSampledByteArray(latestEmbedded, MAX_ARTWORK_DIMENSION_PX)?.let { bmp ->
-                        synchronized(bitmapCache) {
-                            bitmapCache.put(canonicalEffective, bmp)
-                        }
-                        return@withContext bmp
+            // 5. If the user skipped tracks while on the Home Screen (so Now Playing wasn't open to cache 720p yet),
+            //    fetch the effective quality artwork once via Coil into the shared canonicalDiskKey so both
+            //    the wallpaper and Now Playing share the single 720p cached file.
+            val targetQ = effectiveQuality
+            val optUrl = ThumbnailUrlUtils.optimizeArtworkUrl(cleanUri, targetQ) ?: cleanUri
+            val diskKey = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(optUrl, targetQ) ?: optUrl
+            val hdMemKey = "${diskKey}_wallpaper_hd"
+            val request = ImageRequest.Builder(appContext)
+                .data(optUrl)
+                .diskCacheKey(diskKey)
+                .memoryCacheKey(hdMemKey)
+                .size(MAX_ARTWORK_DIMENSION_PX, MAX_ARTWORK_DIMENSION_PX)
+                .precision(Precision.INEXACT)
+                .allowHardware(false)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .build()
+            val drawable = runCatching { appContext.imageLoader.execute(request).drawable }.getOrNull()
+            if (drawable != null) {
+                val bmp = runCatching {
+                    drawable.toBitmap(
+                        width = drawable.intrinsicWidth.coerceIn(1, MAX_ARTWORK_DIMENSION_PX),
+                        height = drawable.intrinsicHeight.coerceIn(1, MAX_ARTWORK_DIMENSION_PX),
+                        config = Bitmap.Config.ARGB_8888
+                    )
+                }.getOrNull()
+                if (bmp != null && !bmp.isRecycled) {
+                    synchronized(bitmapCache) {
+                        bitmapCache.put(canonicalHigh, bmp)
                     }
-                }
-
-                if (attempt < maxAttempts - 1) {
-                    delay(220L)
+                    return@withContext bmp
                 }
             }
         }
 
-        // Fallback to embedded bytes if URI was null
+        // Only use embedded bytes when no URI is available (e.g. embedded-only local track)
         val fallbackBytes = embeddedArtBytes ?: _playbackState.value.albumArtBytes
         if (fallbackBytes != null && fallbackBytes.isNotEmpty()) {
             return@withContext decodeSampledByteArray(fallbackBytes, MAX_ARTWORK_DIMENSION_PX)
@@ -514,6 +543,7 @@ object MusicLiveWallpaperStateHolder {
         for (q in qualities) {
             val opt = ThumbnailUrlUtils.optimizeArtworkUrl(rawUri, q) ?: rawUri
             val canonical = ThumbnailUrlUtils.getCanonicalArtworkDiskCacheKey(opt, q) ?: opt
+            candidateKeys.add("${canonical}_wallpaper_hd")
             candidateKeys.add(canonical)
             candidateKeys.add(opt)
         }
@@ -521,19 +551,33 @@ object MusicLiveWallpaperStateHolder {
 
         for (keyStr in candidateKeys) {
             val direct = memCache[MemoryCache.Key(keyStr)]?.bitmap
-            if (direct != null && !direct.isRecycled) return direct
+            if (direct != null && !direct.isRecycled &&
+                min(direct.width, direct.height) >= MIN_HD_ARTWORK_DIMENSION_PX
+            ) {
+                return direct
+            }
         }
 
-        // Also check prefix matches (e.g. canonicalDiskKey_widthxheight created by SmartImage)
+        // Check prefix matches, strictly filtering out small list/palette thumbnails (< 480px)
+        var bestMatch: Bitmap? = null
+        var bestPixels = 0
         val allKeys = runCatching { memCache.keys.toList() }.getOrDefault(emptyList())
         for (cacheKey in allKeys) {
             val k = cacheKey.key
             if (candidateKeys.any { base -> k == base || k.startsWith("${base}_") }) {
                 val bmp = memCache[cacheKey]?.bitmap
-                if (bmp != null && !bmp.isRecycled) return bmp
+                if (bmp != null && !bmp.isRecycled &&
+                    min(bmp.width, bmp.height) >= MIN_HD_ARTWORK_DIMENSION_PX
+                ) {
+                    val pxCount = bmp.width * bmp.height
+                    if (pxCount > bestPixels) {
+                        bestPixels = pxCount
+                        bestMatch = bmp
+                    }
+                }
             }
         }
-        return null
+        return bestMatch
     }
 
     private fun findInCoilDiskCache(

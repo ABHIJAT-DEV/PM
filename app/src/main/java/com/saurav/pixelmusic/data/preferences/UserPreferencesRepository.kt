@@ -84,12 +84,12 @@ data class MusicLiveWallpaperSettings(
     val showSongInfo: Boolean = true,
     val fallbackWallpaperPath: String = "",
     val fallbackWallpaperUpdatedAt: Long = 0L,
-    val crossfadeDurationMs: Int = 1800,
+    val crossfadeDurationMs: Int = 4000,
     val shapeScale: Float = 0.85f,
     val backgroundDim: Float = 0.22f,
     val animateShapeOnTrackChange: Boolean = true,
     val slowRotateWhilePlaying: Boolean = true,
-    val tapWallpaperToChangeShape: Boolean = true
+    val tapWallpaperToChangeShape: Boolean = false
 )
 
 const val MIN_NAV_BAR_CORNER_RADIUS = 0
@@ -2971,12 +2971,12 @@ constructor(
                 showSongInfo = preferences[PreferencesKeys.MLW_SHOW_SONG_INFO] ?: true,
                 fallbackWallpaperPath = preferences[PreferencesKeys.MLW_FALLBACK_PATH] ?: "",
                 fallbackWallpaperUpdatedAt = preferences[PreferencesKeys.MLW_FALLBACK_UPDATED_AT] ?: 0L,
-                crossfadeDurationMs = (preferences[PreferencesKeys.MLW_CROSSFADE_DURATION_MS] ?: 1800).coerceIn(800, 4000),
+                crossfadeDurationMs = (preferences[PreferencesKeys.MLW_CROSSFADE_DURATION_MS] ?: 4000).coerceIn(2000, 8000),
                 shapeScale = (preferences[PreferencesKeys.MLW_SHAPE_SCALE] ?: 0.85f).coerceIn(0.55f, 1.15f),
                 backgroundDim = (preferences[PreferencesKeys.MLW_BACKGROUND_DIM] ?: 0.22f).coerceIn(0.0f, 0.75f),
-                animateShapeOnTrackChange = preferences[PreferencesKeys.MLW_ANIMATE_SHAPE_ON_TRACK_CHANGE] ?: true,
-                slowRotateWhilePlaying = preferences[PreferencesKeys.MLW_SLOW_ROTATE_WHILE_PLAYING] ?: true,
-                tapWallpaperToChangeShape = preferences[PreferencesKeys.MLW_TAP_WALLPAPER_TO_CHANGE_SHAPE] ?: true
+                animateShapeOnTrackChange = true,
+                slowRotateWhilePlaying = true,
+                tapWallpaperToChangeShape = false
             )
         }.distinctUntilChanged()
 
@@ -3019,7 +3019,7 @@ constructor(
 
     suspend fun setMusicWallpaperCrossfadeDurationMs(durationMs: Int) {
         dataStore.edit { preferences ->
-            preferences[PreferencesKeys.MLW_CROSSFADE_DURATION_MS] = durationMs.coerceIn(800, 4000)
+            preferences[PreferencesKeys.MLW_CROSSFADE_DURATION_MS] = durationMs.coerceIn(2000, 8000)
         }
     }
 

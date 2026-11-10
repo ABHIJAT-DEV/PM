@@ -456,42 +456,6 @@ fun MusicLiveWallpaperScreen(
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // Active shape badge & tap hint
-                            val activeShapeKind = WallpaperExpressiveShapeKind.fromIndex(targetShapeIdx)
-                            AnimatedVisibility(
-                                visible = wallpaperSettings.styleMode == MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE &&
-                                    previewStateMode == WallpaperPreviewStateMode.MUSIC_ART,
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically()
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f))
-                                        .clickable {
-                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            animateToShapeIndex(WallpaperExpressiveShapeKind.nextIndex(targetShapeIdx))
-                                        }
-                                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.TouchApp,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Text(
-                                        text = "${activeShapeKind.displayName}  •  Tap shape in preview to morph",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
                             // State switcher to test smooth crossfading between Now Playing Art & Default Fallback Wallpaper
                             Row(
                                 modifier = Modifier
@@ -971,60 +935,6 @@ fun MusicLiveWallpaperScreen(
                                     },
                                     valueText = { "${(it * 100).roundToInt()}%" }
                                 )
-
-                                SwitchSettingItem(
-                                    title = "Tap Wallpaper Shape to Morph",
-                                    subtitle = "Single-tap the shape on your Home screen or preview to smoothly change its Material You shape",
-                                    checked = wallpaperSettings.tapWallpaperToChangeShape,
-                                    onCheckedChange = { enabled ->
-                                        coroutineScope.launch {
-                                            prefsRepo.setMusicWallpaperTapToChangeShape(enabled)
-                                        }
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.TouchApp,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.secondary
-                                        )
-                                    }
-                                )
-
-                                SwitchSettingItem(
-                                    title = "Morph Shape on Track Change",
-                                    subtitle = "Smoothly morph and spin to the next Material You shape when a new song starts",
-                                    checked = wallpaperSettings.animateShapeOnTrackChange,
-                                    onCheckedChange = { enabled ->
-                                        coroutineScope.launch {
-                                            prefsRepo.setMusicWallpaperAnimateShapeOnTrackChange(enabled)
-                                        }
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.AutoAwesome,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.secondary
-                                        )
-                                    }
-                                )
-
-                                SwitchSettingItem(
-                                    title = "Ambient Shape Rotation",
-                                    subtitle = "Gently rotate the Material You shape while music is playing (like AOD)",
-                                    checked = wallpaperSettings.slowRotateWhilePlaying,
-                                    onCheckedChange = { enabled ->
-                                        coroutineScope.launch {
-                                            prefsRepo.setMusicWallpaperSlowRotateWhilePlaying(enabled)
-                                        }
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.SlowMotionVideo,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.secondary
-                                        )
-                                    }
-                                )
                             }
                         }
                     }
@@ -1067,7 +977,7 @@ fun MusicLiveWallpaperScreen(
                         SliderSettingsItem(
                             label = "Song Change Crossfade Duration",
                             value = wallpaperSettings.crossfadeDurationMs / 1000f,
-                            valueRange = 0.8f..4.0f,
+                            valueRange = 2.0f..8.0f,
                             steps = 0,
                             onValueChange = { seconds ->
                                 coroutineScope.launch {
@@ -1212,7 +1122,7 @@ private fun WallpaperPictureOnlyPreview(
         )
     }
 
-    val crossfadeDuration = settings.crossfadeDurationMs.coerceIn(800, 4000)
+    val crossfadeDuration = settings.crossfadeDurationMs.coerceIn(2000, 8000)
 
     Surface(
         shape = RoundedCornerShape(26.dp),
