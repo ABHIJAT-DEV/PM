@@ -79,7 +79,7 @@ private data class PreparedWallpaperScene(
 class MusicLiveWallpaperService : WallpaperService() {
 
     companion object {
-        private const val PLAYBACK_SETTLE_DEBOUNCE_MS = 5200L
+        private const val PLAYBACK_SETTLE_DEBOUNCE_MS = 3500L
     }
 
     override fun onCreateEngine(): Engine {

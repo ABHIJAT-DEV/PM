@@ -370,7 +370,7 @@ object MusicLiveWallpaperStateHolder {
     private const val MAX_ARTWORK_DIMENSION_PX = 1440
     private const val MAX_FALLBACK_DIMENSION_PX = 1920
     private const val MIN_HD_ARTWORK_DIMENSION_PX = 480
-    private const val TRACK_SETTLE_DEBOUNCE_MS = 5200L
+    private const val TRACK_SETTLE_DEBOUNCE_MS = 3500L
 
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val initialized = AtomicBoolean(false)
