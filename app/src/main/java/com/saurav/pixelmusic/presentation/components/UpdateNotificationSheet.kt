@@ -5,17 +5,13 @@ import android.graphics.drawable.AnimatedImageDrawable
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -25,8 +21,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -43,10 +37,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -88,27 +84,25 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import java.util.Locale
-import kotlin.math.PI
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
-private val SlowExpressiveEasing = CubicBezierEasing(0.22f, 1.0f, 0.36f, 1.0f)
-private val SmoothPopEasing = CubicBezierEasing(0.18f, 0.92f, 0.22f, 1.0f)
+private val MinimalSlowEasing = CubicBezierEasing(0.22f, 1.0f, 0.36f, 1.0f)
+private val SoftGlideEasing = CubicBezierEasing(0.16f, 1.0f, 0.30f, 1.0f)
 
-private fun Modifier.expressiveBlurReveal(progress: Float, slideDp: Float = 26f): Modifier {
+private fun Modifier.minimalAestheticReveal(progress: Float, slideDp: Float = 16f): Modifier {
     val p = progress.coerceIn(0f, 1f)
-    val blurRadius = ((1f - p) * 12f)
-    val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.35f) {
+    val blurRadius = (1f - p) * 8f
+    val blurMod = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.3f) {
         Modifier.blur(blurRadius.dp)
     } else {
         Modifier
     }
     return this
-        .then(blurModifier)
+        .then(blurMod)
         .graphicsLayer {
             alpha = p
             translationY = (1f - p) * slideDp.dp.toPx()
-            val scale = 0.94f + (0.06f * p)
+            val scale = 0.97f + (0.03f * p)
             scaleX = scale
             scaleY = scale
         }
@@ -158,22 +152,16 @@ fun UpdateNotificationSheet(
         changelog ?: InAppUpdater.getResolvedChangelog()
     }
 
-    // Changelog dropdown state: collapsed by default on update available so the sheet is clean and compact,
-    // expanded when the user taps the dropdown pill (or when viewing changelog on current version)
-    var isChangelogExpanded by remember { mutableStateOf(!isUpdateAvailable) }
+    // Never auto-expand the What's New card; only expand when the user taps the dropdown pill
+    var isChangelogExpanded by remember { mutableStateOf(false) }
 
-    // Choreography states:
-    // 1. Big monochrome app logo appears in center of the bottom sheet
-    // 2. Smoothly and slowly flies to sit in the top-left of the bottom sheet
-    // 3. Staggered pop-up of greeting + device architecture + changelog dropdown pill + APK card + download actions
     val isAlreadyDownloading = remember {
         downloadState is InAppUpdater.GlobalDownloadState.Downloading ||
             downloadState is InAppUpdater.GlobalDownloadState.Finished
     }
 
-    val logoIntroScale = remember { Animatable(if (isAlreadyDownloading) 1f else 0.42f) }
+    val logoIntroScale = remember { Animatable(if (isAlreadyDownloading) 1f else 0.72f) }
     val logoIntroAlpha = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
-    val logoHaloProgress = remember { Animatable(0f) }
     val logoFlightProgress = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
 
     val headerReveal = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
@@ -183,67 +171,57 @@ fun UpdateNotificationSheet(
 
     LaunchedEffect(Unit) {
         if (!isAlreadyDownloading) {
-            // Phase 1: Big monochrome logo blooms in the center of the bottom sheet
+            // Phase 1: Soft, minimal entrance of the monochrome logo in the center
             launch {
                 logoIntroAlpha.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing)
+                    animationSpec = tween(durationMillis = 620, easing = SoftGlideEasing)
                 )
             }
             launch {
                 logoIntroScale.animateTo(
                     targetValue = 1f,
-                    animationSpec = spring(
-                        dampingRatio = 0.72f,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
-            }
-            launch {
-                logoHaloProgress.animateTo(
-                    targetValue = 1f,
-                    animationSpec = tween(durationMillis = 1050, easing = SlowExpressiveEasing)
+                    animationSpec = tween(durationMillis = 720, easing = SoftGlideEasing)
                 )
             }
 
-            // Hold big monochrome logo in center before flying to top-left
-            delay(540L)
+            delay(560L)
 
-            // Phase 2: Slow, smooth flight from center to top-left of the bottom sheet
+            // Phase 2: Slow, fluid glide from center to top-left
             launch {
                 logoFlightProgress.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 920, easing = SlowExpressiveEasing)
+                    animationSpec = tween(durationMillis = 1080, easing = MinimalSlowEasing)
                 )
             }
 
-            // Phase 3: Staggered smooth pop-up with blur reveal as the logo lands in top-left
-            delay(460L)
+            // Phase 3: Slow, minimal, overlapping reveal of sheet sections
+            delay(540L)
             launch {
                 headerReveal.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 660, easing = SmoothPopEasing)
+                    animationSpec = tween(durationMillis = 820, easing = MinimalSlowEasing)
                 )
             }
-            delay(115L)
+            delay(95L)
             launch {
                 pillsReveal.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 680, easing = SmoothPopEasing)
+                    animationSpec = tween(durationMillis = 840, easing = MinimalSlowEasing)
                 )
             }
-            delay(115L)
+            delay(95L)
             launch {
                 apkCardReveal.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 700, easing = SmoothPopEasing)
+                    animationSpec = tween(durationMillis = 860, easing = MinimalSlowEasing)
                 )
             }
-            delay(115L)
+            delay(95L)
             launch {
                 actionsReveal.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 720, easing = SmoothPopEasing)
+                    animationSpec = tween(durationMillis = 880, easing = MinimalSlowEasing)
                 )
             }
         }
@@ -253,6 +231,8 @@ fun UpdateNotificationSheet(
     var sheetWidthPx by remember { mutableFloatStateOf(0f) }
     var sheetHeightPx by remember { mutableFloatStateOf(0f) }
     var targetSlotCenterInRoot by remember { mutableStateOf<Offset?>(null) }
+
+    val scrollState = rememberScrollState()
 
     SmoothModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -272,24 +252,41 @@ fun UpdateNotificationSheet(
                         sheetHeightPx = coords.size.height.toFloat()
                     }
                 }
+                // Soft top & bottom fade mask so scrolled content never clips with a sharp edge
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawWithContent {
+                    drawContent()
+                    val topFadeHeight = 28.dp.toPx().coerceAtMost(size.height * 0.15f)
+                    val topStop = (topFadeHeight / size.height.coerceAtLeast(1f)).coerceIn(0f, 0.2f)
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            0.0f to Color.Transparent,
+                            topStop to Color.Black,
+                            1.0f to Color.Black
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 22.dp)
-                    .padding(top = 6.dp, bottom = 22.dp)
+                    .padding(top = 14.dp, bottom = 22.dp)
                     .animateContentSize(
                         animationSpec = spring(
-                            dampingRatio = 0.88f,
+                            dampingRatio = 0.94f,
                             stiffness = Spring.StiffnessLow
                         )
                     )
             ) {
-                // Top-Left Monochrome App Logo Slot (Target of the center-to-top-left flight)
+                // Top-Left Monochrome App Logo Slot (Filled, no border)
                 Box(
                     modifier = Modifier
-                        .size(66.dp)
+                        .size(64.dp)
                         .onGloballyPositioned { coords ->
                             if (coords.isAttached) {
                                 val pos = coords.positionInRoot()
@@ -300,17 +297,12 @@ fun UpdateNotificationSheet(
                             }
                         }
                         .graphicsLayer {
-                            // Seamless handoff once the flying logo settles at flightProgress >= 0.98f
-                            alpha = if (logoFlightProgress.value >= 0.98f) 1f else 0f
+                            alpha = if (logoFlightProgress.value >= 0.985f) 1f else 0f
                         }
                 ) {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        border = BorderStroke(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                        ),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -318,7 +310,7 @@ fun UpdateNotificationSheet(
                                 painter = painterResource(R.drawable.pixelmusic_base_monochrome),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(34.dp)
+                                modifier = Modifier.size(32.dp)
                             )
                         }
                     }
@@ -330,7 +322,7 @@ fun UpdateNotificationSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .expressiveBlurReveal(headerReveal.value, slideDp = 22f)
+                        .minimalAestheticReveal(headerReveal.value, slideDp = 14f)
                 ) {
                     val greetingName = remember(userName) {
                         userName?.trim()?.takeIf { it.isNotEmpty() }?.lowercase(Locale.getDefault())
@@ -367,28 +359,24 @@ fun UpdateNotificationSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 2. Device Architecture Pill + Dropdown Pill to Show Changelog
+                // 2. Device Architecture Pill + Dropdown Pill to Show Changelog (Solid filled, no borders)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .expressiveBlurReveal(pillsReveal.value, slideDp = 26f)
+                        .minimalAestheticReveal(pillsReveal.value, slideDp = 16f)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Device Architecture Pill
+                        // Device Architecture Pill (Filled, no border)
                         Surface(
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-                            )
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(7.dp)
                             ) {
@@ -407,31 +395,34 @@ fun UpdateNotificationSheet(
                             }
                         }
 
-                        // Dropdown Pill to Show / Hide Changelog
+                        // Dropdown Pill to Show / Hide Changelog (Filled, no border)
                         val arrowRotation by animateFloatAsState(
                             targetValue = if (isChangelogExpanded) 180f else 0f,
-                            animationSpec = spring(
-                                dampingRatio = 0.8f,
-                                stiffness = Spring.StiffnessLow
-                            ),
+                            animationSpec = tween(durationMillis = 520, easing = MinimalSlowEasing),
                             label = "ChangelogChevronRotation"
+                        )
+                        val dropdownContainerColor by animateColorAsState(
+                            targetValue = if (isChangelogExpanded) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHighest
+                            },
+                            animationSpec = tween(durationMillis = 420, easing = MinimalSlowEasing),
+                            label = "DropdownPillColor"
+                        )
+                        val dropdownContentColor by animateColorAsState(
+                            targetValue = if (isChangelogExpanded) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                            animationSpec = tween(durationMillis = 420, easing = MinimalSlowEasing),
+                            label = "DropdownContentColor"
                         )
 
                         Surface(
                             shape = CircleShape,
-                            color = if (isChangelogExpanded) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerHighest
-                            },
-                            border = BorderStroke(
-                                1.dp,
-                                if (isChangelogExpanded) {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-                                } else {
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                                }
-                            ),
+                            color = dropdownContainerColor,
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(CircleShape)
@@ -440,7 +431,7 @@ fun UpdateNotificationSheet(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    .padding(horizontal = 16.dp, vertical = 11.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
@@ -453,7 +444,7 @@ fun UpdateNotificationSheet(
                                         imageVector = Icons.Rounded.AutoAwesome,
                                         contentDescription = null,
                                         tint = if (isChangelogExpanded) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                            MaterialTheme.colorScheme.onSecondaryContainer
                                         } else {
                                             MaterialTheme.colorScheme.primary
                                         },
@@ -463,11 +454,7 @@ fun UpdateNotificationSheet(
                                         text = "What changed on $cleanVersion",
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isChangelogExpanded) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface
-                                        },
+                                        color = dropdownContentColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -476,11 +463,7 @@ fun UpdateNotificationSheet(
                                 Icon(
                                     imageVector = Icons.Rounded.KeyboardArrowDown,
                                     contentDescription = if (isChangelogExpanded) "Hide changelog" else "Show changelog",
-                                    tint = if (isChangelogExpanded) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                    tint = dropdownContentColor.copy(alpha = 0.8f),
                                     modifier = Modifier
                                         .size(20.dp)
                                         .graphicsLayer { rotationZ = arrowRotation }
@@ -489,29 +472,25 @@ fun UpdateNotificationSheet(
                         }
                     }
 
-                    // Expandable Changelog Card
+                    // Expandable Changelog Card (Solid filled, no border, smooth top/bottom scroll fade)
                     AnimatedVisibility(
                         visible = isChangelogExpanded,
                         enter = expandVertically(
                             expandFrom = Alignment.Top,
-                            animationSpec = tween(durationMillis = 560, easing = SlowExpressiveEasing)
+                            animationSpec = tween(durationMillis = 640, easing = MinimalSlowEasing)
                         ) + fadeIn(
-                            animationSpec = tween(durationMillis = 440, easing = FastOutSlowInEasing)
+                            animationSpec = tween(durationMillis = 520, easing = SoftGlideEasing)
                         ),
                         exit = shrinkVertically(
                             shrinkTowards = Alignment.Top,
-                            animationSpec = tween(durationMillis = 420, easing = SlowExpressiveEasing)
+                            animationSpec = tween(durationMillis = 500, easing = MinimalSlowEasing)
                         ) + fadeOut(
-                            animationSpec = tween(durationMillis = 280)
+                            animationSpec = tween(durationMillis = 340, easing = SoftGlideEasing)
                         )
                     ) {
                         Surface(
                             shape = AbsoluteSmoothCornerShape(24.dp, 60),
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
-                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 12.dp)
@@ -531,8 +510,26 @@ fun UpdateNotificationSheet(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(max = if (isUpdateAvailable) 260.dp else 380.dp)
+                                        .heightIn(max = if (isUpdateAvailable) 260.dp else 360.dp)
+                                        .graphicsLayer {
+                                            compositingStrategy = CompositingStrategy.Offscreen
+                                        }
+                                        .drawWithContent {
+                                            drawContent()
+                                            val fadeH = 18.dp.toPx().coerceAtMost(size.height * 0.15f)
+                                            val stop = (fadeH / size.height.coerceAtLeast(1f)).coerceIn(0f, 0.2f)
+                                            drawRect(
+                                                brush = Brush.verticalGradient(
+                                                    0f to Color.Transparent,
+                                                    stop to Color.Black,
+                                                    (1f - stop) to Color.Black,
+                                                    1f to Color.Transparent
+                                                ),
+                                                blendMode = BlendMode.DstIn
+                                            )
+                                        }
                                         .verticalScroll(rememberScrollState())
+                                        .padding(vertical = 4.dp)
                                 ) {
                                     RichChangelogContent(changelog = resolvedChangelog)
                                 }
@@ -543,7 +540,7 @@ fun UpdateNotificationSheet(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // 3. "To Be Installed -" APK & Device Architecture Card
+                // 3. "To Be Installed -" APK Card (No duplicate ABI text on right, no border)
                 if (isUpdateAvailable || downloadState !is InAppUpdater.GlobalDownloadState.Idle) {
                     val liveTotalBytes = when (val s = downloadState) {
                         is InAppUpdater.GlobalDownloadState.Downloading -> s.totalBytes
@@ -568,36 +565,19 @@ fun UpdateNotificationSheet(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .expressiveBlurReveal(apkCardReveal.value, slideDp = 28f)
+                            .minimalAestheticReveal(apkCardReveal.value, slideDp = 18f)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "To Be Installed -",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "ABI • $deviceArch",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = "To Be Installed -",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)
+                        )
 
                         Surface(
                             shape = AbsoluteSmoothCornerShape(22.dp, 60),
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
-                            ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -649,11 +629,11 @@ fun UpdateNotificationSheet(
                     Spacer(modifier = Modifier.height(18.dp))
                 }
 
-                // 4. Expressive Download / Progress / Install & Secondary Actions
+                // 4. Expressive Download / Single-Line Progress Pill & Secondary Filled Actions (No borders)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .expressiveBlurReveal(actionsReveal.value, slideDp = 32f),
+                        .minimalAestheticReveal(actionsReveal.value, slideDp = 20f),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     ExpressiveUpdateActionArea(
@@ -673,14 +653,13 @@ fun UpdateNotificationSheet(
                     )
 
                     if (isTestBuild) {
-                        val migrateShape = AbsoluteSmoothCornerShape(26.dp, 60)
+                        val migrateShape = AbsoluteSmoothCornerShape(28.dp, 60)
                         Surface(
                             shape = migrateShape,
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
+                            color = MaterialTheme.colorScheme.errorContainer,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
+                                .height(56.dp)
                                 .clip(migrateShape)
                                 .clickable {
                                     onMigrateClick()
@@ -690,7 +669,7 @@ fun UpdateNotificationSheet(
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = "Migrate to Stable Release",
-                                    style = MaterialTheme.typography.titleSmall,
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onErrorContainer
                                 )
@@ -701,7 +680,6 @@ fun UpdateNotificationSheet(
                     if (isUpdateAvailable) {
                         val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
 
-                        // "Open the web" button (preserves web release/test page access)
                         Surface(
                             shape = pillShape,
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -728,7 +706,7 @@ fun UpdateNotificationSheet(
                         if (onSnoozeClick != null) {
                             Surface(
                                 shape = pillShape,
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.75f),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(56.dp)
@@ -752,19 +730,19 @@ fun UpdateNotificationSheet(
                 }
             }
 
-            // Floating Hero Monochrome App Logo Layer (Center -> Top-Left Flight)
-            if (logoFlightProgress.value < 0.98f) {
+            // Minimal, Slow, Aesthetic Floating Monochrome Logo (Center -> Top-Left, Solid Filled, No Border)
+            if (logoFlightProgress.value < 0.985f) {
                 val flight = logoFlightProgress.value
-                val startSizePx = with(density) { 122.dp.toPx() }
-                val endSizePx = with(density) { 66.dp.toPx() }
+                val startSizePx = with(density) { 112.dp.toPx() }
+                val endSizePx = with(density) { 64.dp.toPx() }
                 val currentSizePx = startSizePx + (endSizePx - startSizePx) * flight
                 val currentSizeDp = with(density) { currentSizePx.toDp() }
 
                 val startCenterX = if (sheetWidthPx > 0f) sheetWidthPx * 0.5f else with(density) { 180.dp.toPx() }
                 val startCenterY = if (sheetHeightPx > 0f) {
-                    (sheetHeightPx * 0.36f).coerceAtLeast(with(density) { 150.dp.toPx() })
+                    (sheetHeightPx * 0.34f).coerceAtLeast(with(density) { 130.dp.toPx() })
                 } else {
-                    with(density) { 170.dp.toPx() }
+                    with(density) { 150.dp.toPx() }
                 }
 
                 val targetLocalCenter = targetSlotCenterInRoot?.let { targetInRoot ->
@@ -773,50 +751,19 @@ fun UpdateNotificationSheet(
                         y = targetInRoot.y - sheetRootInWindow.y
                     )
                 } ?: Offset(
-                    x = with(density) { (22.dp + 33.dp).toPx() },
-                    y = with(density) { (6.dp + 33.dp).toPx() }
+                    x = with(density) { (22.dp + 32.dp).toPx() },
+                    y = with(density) { (14.dp + 32.dp).toPx() }
                 )
 
-                val arcLiftPx = with(density) { -18.dp.toPx() } * sin(flight * PI).toFloat()
                 val currentCenterX = startCenterX + (targetLocalCenter.x - startCenterX) * flight
-                val currentCenterY = startCenterY + (targetLocalCenter.y - startCenterY) * flight + arcLiftPx
+                val currentCenterY = startCenterY + (targetLocalCenter.y - startCenterY) * flight
 
                 val topLeftX = (currentCenterX - currentSizePx * 0.5f).roundToInt()
                 val topLeftY = (currentCenterY - currentSizePx * 0.5f).roundToInt()
 
-                // Expanding halo ring while big monochrome logo is in the center
-                val haloFade = (1f - flight * 1.8f).coerceIn(0f, 1f)
-                if (haloFade > 0.01f) {
-                    val haloSizePx = startSizePx * (1.15f + 0.55f * logoHaloProgress.value)
-                    val haloSizeDp = with(density) { haloSizePx.toDp() }
-                    val haloX = (currentCenterX - haloSizePx * 0.5f).roundToInt()
-                    val haloY = (currentCenterY - haloSizePx * 0.5f).roundToInt()
-                    val haloColor = MaterialTheme.colorScheme.primary
-
-                    Canvas(
-                        modifier = Modifier
-                            .offset { IntOffset(haloX, haloY) }
-                            .size(haloSizeDp)
-                            .graphicsLayer {
-                                alpha = (1f - logoHaloProgress.value * 0.65f) * haloFade * 0.45f
-                            }
-                    ) {
-                        drawCircle(
-                            color = haloColor,
-                            radius = size.minDimension * 0.48f,
-                            style = Stroke(width = 12.dp.toPx())
-                        )
-                    }
-                }
-
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    border = BorderStroke(
-                        width = 1.5.dp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f + 0.25f * (1f - flight))
-                    ),
-                    shadowElevation = (12f * (1f - flight)).dp,
                     modifier = Modifier
                         .offset { IntOffset(topLeftX, topLeftY) }
                         .size(currentSizeDp)
@@ -825,11 +772,10 @@ fun UpdateNotificationSheet(
                             val s = logoIntroScale.value
                             scaleX = s
                             scaleY = s
-                            rotationZ = -12f * (1f - flight)
                         }
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        val iconSizeDp = with(density) { (currentSizePx * 0.515f).toDp() }
+                        val iconSizeDp = with(density) { (currentSizePx * 0.5f).toDp() }
                         Icon(
                             painter = painterResource(R.drawable.pixelmusic_base_monochrome),
                             contentDescription = null,
@@ -868,11 +814,11 @@ private fun ExpressiveUpdateActionArea(
     AnimatedContent(
         targetState = uiPhase,
         transitionSpec = {
-            (fadeIn(tween(420, easing = SlowExpressiveEasing)) +
-                scaleIn(initialScale = 0.96f, animationSpec = tween(420, easing = SlowExpressiveEasing)))
+            (fadeIn(tween(520, easing = MinimalSlowEasing)) +
+                scaleIn(initialScale = 0.97f, animationSpec = tween(520, easing = MinimalSlowEasing)))
                 .togetherWith(
-                    fadeOut(tween(260)) +
-                        scaleOut(targetScale = 0.96f, animationSpec = tween(260))
+                    fadeOut(tween(320, easing = SoftGlideEasing)) +
+                        scaleOut(targetScale = 0.97f, animationSpec = tween(320, easing = SoftGlideEasing))
                 )
         },
         label = "ExpressiveUpdateActionState"
@@ -891,81 +837,49 @@ private fun ExpressiveUpdateActionArea(
                     label = "ExpressiveDownloadProgress"
                 )
 
-                val infiniteTransition = rememberInfiniteTransition(label = "ProgressShimmer")
-                val shimmerPhase by infiniteTransition.animateFloat(
-                    initialValue = 0f,
-                    targetValue = 1f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(durationMillis = 1800, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    ),
-                    label = "ShimmerPhase"
-                )
-
                 val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
                 val percentInt = (animatedProgress * 100f).roundToInt().coerceIn(0, 100)
-                val sizeProgressText = remember(state?.downloadedBytes, state?.totalBytes) {
-                    val total = state?.totalBytes ?: 0L
-                    val down = state?.downloadedBytes ?: 0L
-                    if (total > 0L) {
-                        String.format(
-                            Locale.US,
-                            "%.1f / %.1f MB",
-                            down / (1024f * 1024f),
-                            total / (1024f * 1024f)
-                        )
-                    } else if (down > 0L) {
-                        String.format(Locale.US, "%.1f MB", down / (1024f * 1024f))
-                    } else {
-                        "Starting..."
-                    }
-                }
 
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                val singleFillColor by animateColorAsState(
+                    targetValue = if (isPaused) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
+                    animationSpec = tween(durationMillis = 400, easing = MinimalSlowEasing),
+                    label = "SingleProgressFillColor"
+                )
+
+                // Single horizontal line: [ Big Single-Color Fill Progress Pill ] [ Pause Circle ] [ Cancel Circle ]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Main Expressive Fill Pill (matches reference screenshot "Downloading... 8%")
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(60.dp)
+                            .weight(1f)
+                            .fillMaxHeight()
                             .clip(pillShape)
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     ) {
-                        // Smooth animated left-to-right progress fill
-                        val fillFraction = animatedProgress.coerceAtLeast(0.06f)
-                        val baseFillColor = if (isPaused) {
-                            MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+                        val fillFraction = animatedProgress.coerceIn(0f, 1f)
+                        if (fillFraction > 0.005f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(fraction = fillFraction)
+                                    .background(singleFillColor)
+                            )
                         }
-                        val accentGlowColor = MaterialTheme.colorScheme.primary.copy(
-                            alpha = if (isPaused) 0.18f else 0.36f
-                        )
 
                         Box(
                             modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(fraction = fillFraction)
-                                .background(
-                                    brush = Brush.horizontalGradient(
-                                        colors = listOf(
-                                            baseFillColor,
-                                            accentGlowColor,
-                                            baseFillColor.copy(alpha = 0.28f + 0.12f * sin(shimmerPhase * 2f * PI).toFloat())
-                                        )
-                                    )
-                                )
-                        )
-
-                        // Label & MB status inside the pill
-                        Row(
-                            modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = 20.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = if (isPaused) {
@@ -975,69 +889,55 @@ private fun ExpressiveUpdateActionArea(
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
 
-                    // Expressive Wavy Progress + MB Counter + Pause/Cancel Pill Controls
-                    Row(
+                    // Pause / Resume Circle Button (Filled, no border)
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            LinearWavyProgressIndicator(
-                                progress = { animatedProgress },
-                                modifier = Modifier.fillMaxWidth(),
-                                color = if (isPaused) {
-                                    MaterialTheme.colorScheme.outline
-                                } else {
-                                    MaterialTheme.colorScheme.primary
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = sizeProgressText,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        FilledTonalIconButton(
-                            onClick = {
+                            .size(58.dp)
+                            .clip(CircleShape)
+                            .clickable {
                                 if (isPaused) {
                                     InAppUpdater.resumeDownload(context.applicationContext)
                                 } else {
                                     InAppUpdater.pauseDownload()
                                 }
-                            },
-                            modifier = Modifier.size(42.dp)
-                        ) {
+                            }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = if (isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
                                 contentDescription = if (isPaused) "Resume" else "Pause",
-                                modifier = Modifier.size(20.dp)
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
+                    }
 
-                        FilledTonalIconButton(
-                            onClick = {
+                    // Cancel Circle Button (Filled, no border)
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(CircleShape)
+                            .clickable {
                                 InAppUpdater.cancelDownload(context.applicationContext)
-                            },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            ),
-                            modifier = Modifier.size(42.dp)
-                        ) {
+                            }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Rounded.Close,
                                 contentDescription = "Cancel download",
-                                modifier = Modifier.size(20.dp)
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
@@ -1048,9 +948,12 @@ private fun ExpressiveUpdateActionArea(
                 val state = downloadState as? InAppUpdater.GlobalDownloadState.Finished
                 val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
 
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Button(
                         onClick = {
@@ -1064,8 +967,8 @@ private fun ExpressiveUpdateActionArea(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(58.dp)
+                            .weight(1f)
+                            .fillMaxHeight()
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.DownloadDone,
@@ -1080,24 +983,24 @@ private fun ExpressiveUpdateActionArea(
                         )
                     }
 
-                    TextButton(
-                        onClick = { InAppUpdater.deleteApk(context.applicationContext) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(CircleShape)
+                            .clickable {
+                                InAppUpdater.deleteApk(context.applicationContext)
+                            }
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Delete downloaded APK",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = "Delete downloaded APK",
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1111,12 +1014,12 @@ private fun ExpressiveUpdateActionArea(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Surface(
-                        shape = AbsoluteSmoothCornerShape(16.dp, 60),
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f),
+                        shape = AbsoluteSmoothCornerShape(18.dp, 60),
+                        color = MaterialTheme.colorScheme.errorContainer,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -1151,7 +1054,7 @@ private fun ExpressiveUpdateActionArea(
                         shape = pillShape,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
+                            .height(58.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
@@ -1295,7 +1198,7 @@ fun RichChangelogContent(
                 is ChangelogItem.Paragraph -> ParagraphView(item)
                 is ChangelogItem.Divider -> HorizontalDivider(
                     modifier = Modifier.padding(vertical = 6.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
                 )
             }
         }
@@ -1311,8 +1214,7 @@ private fun NoticeCard(notice: ChangelogItem.Notice) {
 
     Surface(
         shape = AbsoluteSmoothCornerShape(16.dp, 60),
-        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+        color = MaterialTheme.colorScheme.errorContainer,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
@@ -1345,7 +1247,7 @@ private fun NoticeCard(notice: ChangelogItem.Notice) {
                 Text(
                     text = parseRichMarkdown(line, primaryColor, tertiaryColor, codeBg, highlightBg),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.padding(vertical = 2.dp)
                 )
             }
@@ -1381,12 +1283,11 @@ private fun VersionHeaderView(header: ChangelogItem.VersionHeader) {
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Surface(
-            shape = AbsoluteSmoothCornerShape(12.dp, 60),
-            color = containerColor,
-            border = BorderStroke(1.dp, contentColor.copy(alpha = 0.25f))
+            shape = CircleShape,
+            color = containerColor
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -1399,17 +1300,13 @@ private fun VersionHeaderView(header: ChangelogItem.VersionHeader) {
                 )
             }
         }
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-        )
     }
 }
 
 @Composable
 private fun LinkButtonView(button: ChangelogItem.LinkButton) {
     val uriHandler = LocalUriHandler.current
-    val buttonShape = AbsoluteSmoothCornerShape(16.dp, 60)
+    val buttonShape = AbsoluteSmoothCornerShape(18.dp, 60)
 
     Button(
         onClick = {
@@ -1517,7 +1414,7 @@ private fun BulletItemView(bullet: ChangelogItem.Bullet) {
                     bullet.tags.forEach { contributor ->
                         Surface(
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.clickable {
                                 uriHandler.openUri("https://t.me/$contributor")
                             }
@@ -1588,7 +1485,6 @@ private fun ImageItemView(img: ChangelogItem.Image) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
