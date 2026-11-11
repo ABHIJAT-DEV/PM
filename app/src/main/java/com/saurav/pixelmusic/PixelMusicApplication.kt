@@ -135,6 +135,7 @@ startupScope.launch {
 
     MediaItemBuilder.initialize(this)
     com.saurav.pixelmusic.data.session.ListenTogetherFirebase.init(this)
+    com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.initialize(this)
 
     val smartImageEntryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
         this,

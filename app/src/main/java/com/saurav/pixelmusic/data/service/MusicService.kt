@@ -1987,7 +1987,7 @@ class MusicService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
 
     override fun onDestroy() {
-        com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.markPlaybackStopped()
+        com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.markPlaybackStopped(this)
         AodScreenOffTrigger.unregister(this)
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
         stopLiveProgressTracker()
@@ -3173,7 +3173,7 @@ class MusicService : MediaLibraryService() {
         player.playWhenReady = false
         player.stop()
         player.clearMediaItems()
-        com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.markPlaybackStopped()
+        com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.markPlaybackStopped(this)
 
         requestWidgetFullUpdate(force = true)
         stopForeground(STOP_FOREGROUND_REMOVE)

@@ -702,122 +702,26 @@ class MusicLiveWallpaperService : WallpaperService() {
             w: Float,
             h: Float
         ) {
-            canvas.drawColor(Color.rgb(12, 12, 16))
-
-            val sharpBmp = scene.sharpBitmap
-            val blurredBmp = scene.blurredBitmap ?: sharpBmp
-
-            val effectiveModeT = if (scene.isFallbackIdle) 0f else currentModeT
-
-            if (sharpBmp == null || sharpBmp.isRecycled) {
-                drawFallbackGradient(canvas, w, h)
-                return
-            }
-
-            if (effectiveModeT <= 0.005f) {
-                // FULL SCREEN MODE (or idle default gallery wallpaper)
-                drawCenterCropBitmap(canvas, sharpBmp, w, h, 255)
-                val dimAlpha = (settings.backgroundDim * 255f).roundToInt().coerceIn(0, 200)
-                if (dimAlpha > 0) {
-                    dimPaint.color = Color.argb(dimAlpha, 0, 0, 0)
-                    canvas.drawRect(0f, 0f, w, h, dimPaint)
-                }
-            } else {
-                // MATERIAL YOU SHAPE MODE
-                val bgBmp = if (settings.blurAmount > 0.01f && blurredBmp != null && !blurredBmp.isRecycled) {
-                    blurredBmp
-                } else {
-                    sharpBmp
-                }
-                drawCenterCropBitmap(canvas, bgBmp, w, h, 255)
-
-                val baseDim = lerp(
-                    settings.backgroundDim,
-                    (settings.backgroundDim + 0.14f).coerceAtMost(0.78f),
-                    effectiveModeT
-                )
-                val dimAlpha = (baseDim * 255f).roundToInt().coerceIn(0, 210)
-                if (dimAlpha > 0) {
-                    dimPaint.color = Color.argb(dimAlpha, 0, 0, 0)
-                    canvas.drawRect(0f, 0f, w, h, dimPaint)
-                }
-
-                val cx = w * 0.5f
-                val cy = h * currentPosY
-                val shapeDiameter = min(w, h) * 0.72f * settings.shapeScale
-                val totalRotRad = Math.toRadians((currentSpinDeg + continuousSpinDeg).toDouble())
-
-                if (effectiveModeT > 0.25f) {
-                    val haloDiameter = shapeDiameter * 1.065f
-                    buildMorphingWallpaperAndroidPath(
-                        outPath = haloPath,
-                        canvasWidth = w,
-                        canvasHeight = h,
-                        centerX = cx,
-                        centerY = cy,
-                        shapeDiameterPx = haloDiameter,
-                        fromShape = fromShapeKind,
-                        toShape = toShapeKind,
-                        shapeMorphProgress = shapeMorphProgress,
-                        shapeRotationRad = totalRotRad + Math.toRadians(16.0),
-                        modeMorphT = 1f
-                    )
-                    haloPaint.alpha = (effectiveModeT * 42f).roundToInt().coerceIn(0, 60)
-                    canvas.drawPath(haloPath, haloPaint)
-                }
-
-                buildMorphingWallpaperAndroidPath(
-                    outPath = shapePath,
-                    canvasWidth = w,
-                    canvasHeight = h,
-                    centerX = cx,
-                    centerY = cy,
-                    shapeDiameterPx = shapeDiameter,
-                    fromShape = fromShapeKind,
-                    toShape = toShapeKind,
-                    shapeMorphProgress = shapeMorphProgress,
-                    shapeRotationRad = totalRotRad,
-                    modeMorphT = effectiveModeT
-                )
-
-                val saveCount = canvas.save()
-                canvas.clipPath(shapePath)
-
-                val boxSize = shapeDiameter * 1.02f
-                val left = lerp(0f, cx - boxSize * 0.5f, effectiveModeT)
-                val top = lerp(0f, cy - boxSize * 0.5f, effectiveModeT)
-                val right = lerp(w, cx + boxSize * 0.5f, effectiveModeT)
-                val bottom = lerp(h, cy + boxSize * 0.5f, effectiveModeT)
-                tempRect.set(left, top, right, bottom)
-                drawCenterCropBitmapInRect(canvas, sharpBmp, tempRect, 255)
-                canvas.restoreToCount(saveCount)
-
-                borderPaint.alpha = (effectiveModeT * 40f).roundToInt().coerceIn(0, 60)
-                canvas.drawPath(shapePath, borderPaint)
-            }
-
-            // Top-right Song Information Overlay (fades in/out naturally with the scene crossfade!)
-            if (settings.showSongInfo && !scene.isFallbackIdle && scene.songTitle.isNotBlank()) {
-                val density = applicationContext.resources.displayMetrics.density
-                val horizontalMargin = 24f * density
-                val rightX = w - horizontalMargin
-                val topY = 58f * density
-                val maxTextWidth = (w - horizontalMargin * 2f).coerceAtLeast(80f)
-
-                topScrimPaint.alpha = 180
-                canvas.drawRect(0f, 0f, w, h * 0.22f, topScrimPaint)
-
-                drawSongInfoTextBlock(
-                    canvas = canvas,
-                    title = scene.songTitle,
-                    artist = scene.artistName,
-                    rightX = rightX,
-                    y = topY,
-                    maxWidth = maxTextWidth,
-                    alpha = 1f,
-                    density = density
-                )
-            }
+            MusicLiveWallpaperStateHolder.renderWallpaperSceneToCanvas(
+                context = applicationContext,
+                canvas = canvas,
+                w = w,
+                h = h,
+                settings = settings,
+                sharpBmp = scene.sharpBitmap,
+                blurredBmp = scene.blurredBitmap ?: scene.sharpBitmap,
+                sourceKey = scene.sceneKey.ifEmpty { "scene" },
+                isFallbackIdle = scene.isFallbackIdle,
+                songTitle = scene.songTitle,
+                artistName = scene.artistName,
+                fromShape = fromShapeKind,
+                toShape = toShapeKind,
+                shapeMorphProgress = shapeMorphProgress,
+                shapeRotationDeg = currentSpinDeg + continuousSpinDeg,
+                positionCenterY = currentPosY,
+                modeMorphT = if (scene.isFallbackIdle) 0f else currentModeT,
+                drawSongInfoOverlay = true
+            )
         }
 
         private fun drawSongInfoTextBlock(

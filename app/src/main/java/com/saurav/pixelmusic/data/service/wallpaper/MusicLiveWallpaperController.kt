@@ -5,10 +5,21 @@ import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.graphics.Shader
+import android.graphics.Typeface
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
+import android.text.TextPaint
+import android.text.TextUtils
 import android.util.LruCache
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.ui.geometry.Size
@@ -18,28 +29,40 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.lerp
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.drawable.toBitmap
 import coil.imageLoader
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import coil.size.Precision
+import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.PlayerInfo
 import com.saurav.pixelmusic.data.preferences.AlbumArtQuality
+import com.saurav.pixelmusic.data.preferences.MusicLiveWallpaperSettings
 import com.saurav.pixelmusic.data.preferences.MusicWallpaperShapePosition
+import com.saurav.pixelmusic.data.preferences.MusicWallpaperStyleMode
+import com.saurav.pixelmusic.data.preferences.MusicWallpaperTargetScreen
 import com.saurav.pixelmusic.presentation.components.SmartImageCache
 import com.saurav.pixelmusic.utils.AlbumArtUtils
-import com.saurav.pixelmusic.utils.LocalArtworkUri
 import com.saurav.pixelmusic.utils.ThumbnailUrlUtils
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -337,17 +360,28 @@ data class WallpaperPlaybackSnapshot(
  * local storage (`CachePolicy.DISABLED` for network requests) so the wallpaper never consumes
  * extra mobile/Wi-Fi data.
  */
+data class WallpaperAmbientPalette(
+    val topColor: Int,
+    val bottomColor: Int
+)
+
 object MusicLiveWallpaperStateHolder {
     private const val FALLBACK_FILE_NAME = "music_live_wallpaper_fallback.jpg"
     private const val MAX_ARTWORK_DIMENSION_PX = 1440
     private const val MAX_FALLBACK_DIMENSION_PX = 1920
     private const val MIN_HD_ARTWORK_DIMENSION_PX = 480
+    private const val TRACK_SETTLE_DEBOUNCE_MS = 5200L
+    private const val PAUSE_FALLBACK_DEBOUNCE_MS = 900L
+
+    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val initialized = AtomicBoolean(false)
 
     private val _playbackState = MutableStateFlow(WallpaperPlaybackSnapshot())
     val playbackState: StateFlow<WallpaperPlaybackSnapshot> = _playbackState.asStateFlow()
 
     private val bitmapCache = LruCache<String, Bitmap>(16)
     private val blurredBitmapCache = LruCache<String, Bitmap>(24)
+    private val ambientPaletteCache = LruCache<String, WallpaperAmbientPalette>(32)
 
     @Volatile
     private var cachedFallbackPath: String = ""
@@ -357,6 +391,137 @@ object MusicLiveWallpaperStateHolder {
 
     @Volatile
     private var cachedFallbackBitmap: Bitmap? = null
+
+    @Volatile
+    private var latestSettings: MusicLiveWallpaperSettings = MusicLiveWallpaperSettings()
+
+    @Volatile
+    private var lastPushedSystemSignature: String = ""
+
+    @Volatile
+    private var cachedRoundedFont: Typeface? = null
+
+    private var pseudoLivePlaybackJob: Job? = null
+    private var pseudoLiveSettingsJob: Job? = null
+
+    /**
+     * Initializes the "Pseudo-Live" Static Wallpaper Manager (`WallpaperManager.setBitmap`).
+     *
+     * Why this survives manual Force Stop in Android System Settings:
+     * When a wallpaper is pushed via `WallpaperManager.setBitmap()`, Android caches the image in
+     * `/data/system/users/0/wallpaper` and renders it inside `SystemUI`'s built-in `ImageWallpaper`
+     * process rather than binding to a `WallpaperService` inside PixelMusic. Even if the user
+     * manually Force Stops PixelMusic in Android Settings, `SystemUI` keeps displaying the cached
+     * wallpaper bitmap and NEVER resets to the device's factory default wallpaper.
+     */
+    fun initialize(context: Context) {
+        if (!initialized.compareAndSet(false, true)) return
+        val appContext = context.applicationContext
+
+        managerScope.launch {
+            val entryPoint = runCatching {
+                EntryPointAccessors.fromApplication(
+                    appContext,
+                    MusicLiveWallpaperServiceEntryPoint::class.java
+                )
+            }.getOrNull() ?: return@launch
+
+            val prefsRepo = entryPoint.userPreferencesRepository()
+            val playbackHolder = entryPoint.playbackStateHolder()
+
+            // If the user previously had the legacy WallpaperService active on their device,
+            // automatically migrate them to the Force-Stop-safe Pseudo-Live mode.
+            runCatching {
+                val wm = WallpaperManager.getInstance(appContext)
+                if (wm.wallpaperInfo?.component == ComponentName(appContext, MusicLiveWallpaperService::class.java)) {
+                    prefsRepo.setMusicWallpaperEnabled(true)
+                }
+            }
+
+            // 1. Sync PlaybackStateHolder into _playbackState
+            launch {
+                playbackHolder.stablePlayerState.collectLatest { stable ->
+                    val song = stable.currentSong
+                    if (song != null) {
+                        updatePlaybackQuickState(
+                            songTitle = song.title,
+                            artistName = song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist,
+                            albumArtUriString = song.albumArtUriString,
+                            isPlaying = stable.isPlaying
+                        )
+                    } else if (!stable.isPlaying && _playbackState.value.isPlaying) {
+                        markPlaybackStopped(appContext)
+                    }
+                }
+            }
+
+            // 2. Observe settings changes and update the Pseudo-Live static system wallpaper when enabled
+            launch {
+                var isFirstSettings = true
+                prefsRepo.musicLiveWallpaperSettingsFlow.collectLatest { newSettings ->
+                    val oldSettings = latestSettings
+                    latestSettings = newSettings
+
+                    if (!newSettings.isEnabled) {
+                        isFirstSettings = false
+                        return@collectLatest
+                    }
+
+                    if (isFirstSettings) {
+                        isFirstSettings = false
+                        // Ensure the initial fallback or playing state is synced into /data/system/users/0/wallpaper
+                        schedulePseudoLiveSettingsSync(appContext, delayMs = 150L, force = false)
+                    } else if (oldSettings != newSettings) {
+                        schedulePseudoLiveSettingsSync(appContext, delayMs = 280L, force = false)
+                    }
+                }
+            }
+
+            // 3. Observe playback state changes for Pseudo-Live static wallpaper updates
+            launch {
+                var isInitialPlayback = true
+                _playbackState.collectLatest { snapshot ->
+                    if (isInitialPlayback) {
+                        isInitialPlayback = false
+                        return@collectLatest
+                    }
+                    if (!latestSettings.isEnabled) return@collectLatest
+
+                    pseudoLivePlaybackJob?.cancel()
+                    pseudoLivePlaybackJob = managerScope.launch {
+                        if (snapshot.isPlaying) {
+                            // 5.2s settle debounce while skipping tracks so rapid skips do zero work
+                            delay(TRACK_SETTLE_DEBOUNCE_MS)
+                            if (latestSettings.isEnabled && _playbackState.value.isPlaying &&
+                                latestSettings.animateShapeOnTrackChange &&
+                                latestSettings.styleMode == MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE
+                            ) {
+                                val nextShape = WallpaperExpressiveShapeKind.nextIndex(latestSettings.shapeIndex)
+                                prefsRepo.setMusicWallpaperShapeIndex(nextShape)
+                            }
+                            pushPseudoLiveWallpaperToSystem(appContext, force = false)
+                        } else {
+                            // Fast 0.9s restore to the Gallery Fallback Wallpaper when playback pauses
+                            // so if the user pauses and goes to Force Stop the app, the fallback image
+                            // is already cached in /data/system/users/0/wallpaper!
+                            delay(PAUSE_FALLBACK_DEBOUNCE_MS)
+                            pushPseudoLiveWallpaperToSystem(appContext, force = false)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun schedulePseudoLiveSettingsSync(context: Context, delayMs: Long, force: Boolean) {
+        pseudoLiveSettingsJob?.cancel()
+        pseudoLiveSettingsJob = managerScope.launch {
+            if (delayMs > 0L) delay(delayMs)
+            if (latestSettings.isEnabled) {
+                pushPseudoLiveWallpaperToSystem(context.applicationContext, force = force)
+            }
+        }
+    }
 
     fun updateFromPlayerInfo(playerInfo: PlayerInfo) {
         _playbackState.update { current ->
@@ -390,45 +555,756 @@ object MusicLiveWallpaperStateHolder {
         }
     }
 
-    fun markPlaybackStopped() {
+    /**
+     * Called when `MusicService` unloads, stops, or `onTaskRemoved` / `onDestroy` fires.
+     * Immediately marks playback as stopped and pushes the Gallery Fallback Wallpaper into
+     * `WallpaperManager` (`/data/system/users/0/wallpaper`) on an un-cancellable IO job.
+     */
+    fun markPlaybackStopped(context: Context? = null) {
         _playbackState.update { current ->
             if (!current.isPlaying) current else current.copy(isPlaying = false)
+        }
+        val appContext = context?.applicationContext ?: return
+        if (latestSettings.isEnabled) {
+            pseudoLivePlaybackJob?.cancel()
+            managerScope.launch(Dispatchers.IO + NonCancellable) {
+                pushPseudoLiveWallpaperToSystem(appContext, force = false, forceFallbackIdle = true)
+            }
         }
     }
 
     /**
-     * Pre-populates Android's underlying static system wallpaper slot with the user's selected
-     * gallery fallback image whenever `MusicLiveWallpaperService` is not yet the active live
-     * wallpaper. If the app is later Force Stopped in Android System Settings and the OS detaches
-     * the live wallpaper service back to `ImageWallpaper`, Android has the user's fallback image
-     * in the static wallpaper slot rather than the factory default wallpaper.
+     * Immediately renders and applies the current Pseudo-Live wallpaper (or forces the fallback
+     * wallpaper when disabling) directly into Android's `WallpaperManager` storage.
      */
-    suspend fun syncStaticSystemWallpaperIfInactive(
+    suspend fun applyPseudoLiveWallpaperNow(
         context: Context,
-        bitmap: Bitmap? = cachedFallbackBitmap
-    ) = withContext(Dispatchers.IO) {
+        settingsOverride: MusicLiveWallpaperSettings? = null,
+        forceFallbackIdle: Boolean = false
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (settingsOverride != null) {
+            latestSettings = settingsOverride
+        }
+        pushPseudoLiveWallpaperToSystem(
+            context = context.applicationContext,
+            force = true,
+            forceFallbackIdle = forceFallbackIdle
+        )
+    }
+
+    private suspend fun pushPseudoLiveWallpaperToSystem(
+        context: Context,
+        force: Boolean,
+        forceFallbackIdle: Boolean = false
+    ): Boolean = withContext(Dispatchers.IO) {
         runCatching {
             val appContext = context.applicationContext
+            val s = latestSettings
+            val p = _playbackState.value
+
+            val fb = loadFallbackWallpaperBitmap(
+                appContext,
+                s.fallbackWallpaperPath,
+                s.fallbackWallpaperUpdatedAt
+            )
+
+            val shouldShowMusicArt = !forceFallbackIdle &&
+                p.isPlaying &&
+                (!p.albumArtUriString.isNullOrBlank() || p.albumArtBytes != null)
+
+            val signature = if (shouldShowMusicArt) {
+                "music|${p.albumArtUriString}|${p.songTitle}|${p.artistName}|${s.styleMode}|${s.shapeIndex}|${s.shapePosition}|${(s.blurAmount * 100).roundToInt()}|${(s.shapeScale * 100).roundToInt()}|${(s.backgroundDim * 100).roundToInt()}|${s.showSongInfo}|${s.targetScreen}"
+            } else {
+                "fallback|${s.fallbackWallpaperPath}|${s.fallbackWallpaperUpdatedAt}|${(s.backgroundDim * 100).roundToInt()}|${s.targetScreen}"
+            }
+
             val wm = WallpaperManager.getInstance(appContext)
-            val isLiveActive = wm.wallpaperInfo?.component == ComponentName(
+            val isLegacyServiceActive = wm.wallpaperInfo?.component == ComponentName(
                 appContext,
                 MusicLiveWallpaperService::class.java
             )
-            if (!isLiveActive) {
-                val bmp = bitmap?.takeIf { !it.isRecycled }
-                    ?: loadFallbackWallpaperBitmap(appContext, cachedFallbackPath, cachedFallbackUpdatedAt)
-                    ?: return@runCatching
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    wm.setBitmap(
-                        bmp,
-                        null,
-                        false,
-                        WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
-                    )
-                } else {
-                    wm.setBitmap(bmp)
-                }
+
+            if (!force && !isLegacyServiceActive && signature == lastPushedSystemSignature) {
+                return@runCatching true
             }
+
+            val sharpBmp: Bitmap? = if (shouldShowMusicArt) {
+                loadCachedAlbumArtBitmap(appContext, p.albumArtUriString, p.albumArtBytes) ?: fb
+            } else {
+                fb
+            }
+
+            // If the user hasn't picked a gallery fallback image yet and no song art is available,
+            // don't overwrite their existing system wallpaper until they pick one or play a song.
+            if (sharpBmp == null || sharpBmp.isRecycled) {
+                return@runCatching false
+            }
+
+            val isEffectiveFallback = !shouldShowMusicArt || (sharpBmp === fb && p.albumArtUriString.isNullOrBlank())
+            val sourceKey = if (shouldShowMusicArt) {
+                "sys_music_${p.albumArtUriString ?: "embedded"}_${p.songTitle}"
+            } else {
+                "sys_fallback_${s.fallbackWallpaperUpdatedAt}"
+            }
+
+            val blurredBmp: Bitmap? = if (!isEffectiveFallback && s.styleMode.usesBlurBackdrop) {
+                getOrCreateBlurredBitmap(
+                    source = sharpBmp,
+                    sourceKey = sourceKey,
+                    blurAmount = s.blurAmount.coerceAtLeast(0.25f)
+                )
+            } else {
+                null
+            }
+
+            val dm = appContext.resources.displayMetrics
+            val rawW = min(dm.widthPixels, dm.heightPixels).coerceAtLeast(720)
+            val rawH = max(dm.widthPixels, dm.heightPixels).coerceAtLeast(1600)
+            val scaleCap = min(1440f / rawW.toFloat(), 2560f / rawH.toFloat()).coerceAtMost(1f)
+            val targetW = (rawW * scaleCap).roundToInt().coerceAtLeast(720)
+            val targetH = (rawH * scaleCap).roundToInt().coerceAtLeast(1600)
+
+            val rendered = renderWallpaperBitmap(
+                context = appContext,
+                width = targetW,
+                height = targetH,
+                settings = s,
+                sharpBitmap = sharpBmp,
+                blurredBitmap = blurredBmp,
+                sourceKey = sourceKey,
+                isFallbackIdle = isEffectiveFallback,
+                songTitle = if (shouldShowMusicArt) p.songTitle.trim() else "",
+                artistName = if (shouldShowMusicArt) p.artistName.trim() else ""
+            )
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                val flags = when (s.targetScreen) {
+                    MusicWallpaperTargetScreen.HOME -> WallpaperManager.FLAG_SYSTEM
+                    MusicWallpaperTargetScreen.LOCK -> WallpaperManager.FLAG_LOCK
+                    MusicWallpaperTargetScreen.BOTH -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
+                }
+                // If legacy WallpaperService is currently bound, calling setBitmap(rendered) or
+                // setBitmap with FLAG_SYSTEM detaches WallpaperService and switches to ImageWallpaper.
+                runCatching {
+                    wm.setBitmap(rendered, null, false, flags)
+                }.onFailure {
+                    wm.setBitmap(rendered)
+                }
+            } else {
+                wm.setBitmap(rendered)
+            }
+
+            lastPushedSystemSignature = signature
+            true
+        }.getOrDefault(false)
+    }
+
+    fun getOrLoadPixelMusicTypeface(context: Context): Typeface? {
+        cachedRoundedFont?.let { return it }
+        val loaded = runCatching {
+            ResourcesCompat.getFont(context.applicationContext, R.font.gflex_variable)
+        }.getOrNull()
+        if (loaded != null) {
+            cachedRoundedFont = loaded
+        }
+        return loaded
+    }
+
+    fun getOrExtractAmbientPalette(source: Bitmap, sourceKey: String): WallpaperAmbientPalette {
+        synchronized(ambientPaletteCache) {
+            ambientPaletteCache.get(sourceKey)?.let { return it }
+        }
+        val soft = ensureSoftwareBitmap(source)
+        val w = soft.width.coerceAtLeast(1)
+        val h = soft.height.coerceAtLeast(1)
+
+        val topSample = sampleRegionColor(soft, 0, 0, w, (h * 0.42f).roundToInt().coerceAtLeast(1))
+        val bottomSample = sampleRegionColor(
+            soft,
+            0,
+            (h * 0.35f).roundToInt().coerceIn(0, h - 1),
+            w,
+            h
+        )
+        val palette = WallpaperAmbientPalette(
+            topColor = boostAmbientTone(topSample),
+            bottomColor = boostAmbientTone(bottomSample)
+        )
+        synchronized(ambientPaletteCache) {
+            ambientPaletteCache.put(sourceKey, palette)
+        }
+        return palette
+    }
+
+    private fun sampleRegionColor(bmp: Bitmap, startX: Int, startY: Int, endX: Int, endY: Int): Int {
+        var rSum = 0L
+        var gSum = 0L
+        var bSum = 0L
+        var weightSum = 0L
+        val stepX = ((endX - startX) / 12).coerceAtLeast(1)
+        val stepY = ((endY - startY) / 12).coerceAtLeast(1)
+        val hsv = FloatArray(3)
+
+        var y = startY
+        while (y < endY) {
+            var x = startX
+            while (x < endX) {
+                val px = bmp.getPixel(x.coerceIn(0, bmp.width - 1), y.coerceIn(0, bmp.height - 1))
+                val r = (px shr 16) and 0xFF
+                val g = (px shr 8) and 0xFF
+                val b = px and 0xFF
+                Color.RGBToHSV(r, g, b, hsv)
+                // Favor colorful, non-black/non-white pixels so the fade matches vibrant artwork tones
+                val vibrancyWeight = (1 + (hsv[1] * 6f).roundToInt()) *
+                    (if (hsv[2] in 0.15f..0.92f) 2 else 1)
+                rSum += r * vibrancyWeight
+                gSum += g * vibrancyWeight
+                bSum += b * vibrancyWeight
+                weightSum += vibrancyWeight
+                x += stepX
+            }
+            y += stepY
+        }
+
+        if (weightSum <= 0L) return Color.rgb(36, 32, 48)
+        return Color.rgb(
+            (rSum / weightSum).toInt().coerceIn(0, 255),
+            (gSum / weightSum).toInt().coerceIn(0, 255),
+            (bSum / weightSum).toInt().coerceIn(0, 255)
+        )
+    }
+
+    private fun boostAmbientTone(color: Int): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(color, hsv)
+        hsv[1] = (hsv[1] * 1.18f).coerceIn(0.22f, 0.82f)
+        hsv[2] = hsv[2].coerceIn(0.32f, 0.88f)
+        return Color.HSVToColor(hsv)
+    }
+
+    private fun withAlpha(color: Int, alpha: Int): Int {
+        return Color.argb(
+            alpha.coerceIn(0, 255),
+            Color.red(color),
+            Color.green(color),
+            Color.blue(color)
+        )
+    }
+
+    fun renderWallpaperBitmap(
+        context: Context,
+        width: Int,
+        height: Int,
+        settings: MusicLiveWallpaperSettings,
+        sharpBitmap: Bitmap?,
+        blurredBitmap: Bitmap?,
+        sourceKey: String,
+        isFallbackIdle: Boolean,
+        songTitle: String,
+        artistName: String,
+        fromShape: WallpaperExpressiveShapeKind = WallpaperExpressiveShapeKind.fromIndex(settings.shapeIndex),
+        toShape: WallpaperExpressiveShapeKind = WallpaperExpressiveShapeKind.fromIndex(settings.shapeIndex),
+        shapeMorphProgress: Float = 1f,
+        shapeRotationDeg: Float = 0f
+    ): Bitmap {
+        val w = width.coerceAtLeast(1)
+        val h = height.coerceAtLeast(1)
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        renderWallpaperSceneToCanvas(
+            context = context,
+            canvas = canvas,
+            w = w.toFloat(),
+            h = h.toFloat(),
+            settings = settings,
+            sharpBmp = sharpBitmap,
+            blurredBmp = blurredBitmap,
+            sourceKey = sourceKey,
+            isFallbackIdle = isFallbackIdle,
+            songTitle = songTitle,
+            artistName = artistName,
+            fromShape = fromShape,
+            toShape = toShape,
+            shapeMorphProgress = shapeMorphProgress,
+            shapeRotationDeg = shapeRotationDeg,
+            positionCenterY = settings.shapePosition.verticalCenterFraction(),
+            modeMorphT = if (settings.styleMode == MusicWallpaperStyleMode.FULL_SCREEN || isFallbackIdle) 0f else 1f
+        )
+        return out
+    }
+
+    /**
+     * Unified, allocation-light Canvas renderer for all 7 [MusicWallpaperStyleMode] styles,
+     * shared across `WallpaperManager` ("Pseudo-Live" static wallpaper), `MusicLiveWallpaperService`,
+     * and the in-app interactive preview & style cards.
+     */
+    fun renderWallpaperSceneToCanvas(
+        context: Context,
+        canvas: Canvas,
+        w: Float,
+        h: Float,
+        settings: MusicLiveWallpaperSettings,
+        sharpBmp: Bitmap?,
+        blurredBmp: Bitmap?,
+        sourceKey: String,
+        isFallbackIdle: Boolean,
+        songTitle: String,
+        artistName: String,
+        fromShape: WallpaperExpressiveShapeKind = WallpaperExpressiveShapeKind.fromIndex(settings.shapeIndex),
+        toShape: WallpaperExpressiveShapeKind = WallpaperExpressiveShapeKind.fromIndex(settings.shapeIndex),
+        shapeMorphProgress: Float = 1f,
+        shapeRotationDeg: Float = 0f,
+        positionCenterY: Float = settings.shapePosition.verticalCenterFraction(),
+        modeMorphT: Float = 1f,
+        drawSongInfoOverlay: Boolean = true
+    ) {
+        canvas.drawColor(Color.rgb(12, 12, 16))
+
+        if (sharpBmp == null || sharpBmp.isRecycled) {
+            val gradPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = LinearGradient(
+                    0f, 0f, w, h,
+                    intArrayOf(
+                        Color.rgb(34, 24, 56),
+                        Color.rgb(20, 24, 42),
+                        Color.rgb(12, 12, 18)
+                    ),
+                    floatArrayOf(0f, 0.52f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+            }
+            canvas.drawRect(0f, 0f, w, h, gradPaint)
+            return
+        }
+
+        val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+        val overlayPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val fullRect = RectF(0f, 0f, w, h)
+
+        // When showing the user's Gallery Fallback Wallpaper (idle / no music playing),
+        // always render the clean full-screen gallery image without music shape/blur overlays.
+        val activeStyle = if (isFallbackIdle) MusicWallpaperStyleMode.FULL_SCREEN else settings.styleMode
+        val effectiveBlurBmp = if (blurredBmp != null && !blurredBmp.isRecycled) blurredBmp else sharpBmp
+        val blurStrength = settings.blurAmount.coerceIn(0.15f, 1.0f)
+
+        when (activeStyle) {
+            MusicWallpaperStyleMode.FULL_SCREEN -> {
+                drawCenterCropBitmapInRect(canvas, sharpBmp, fullRect, bitmapPaint, 255)
+            }
+
+            MusicWallpaperStyleMode.TOP_ART_BOTTOM_BLUR -> {
+                // Card 2 style: Sharp album art in top area + smooth blurry ambient color fade in bottom area
+                val palette = getOrExtractAmbientPalette(effectiveBlurBmp, sourceKey)
+                drawCenterCropBitmapInRect(canvas, effectiveBlurBmp, fullRect, bitmapPaint, 255)
+
+                // Rich ambient color fade over the blurred bottom area
+                val bottomWashAlpha = (blurStrength * 235f).roundToInt().coerceIn(90, 242)
+                val midWashAlpha = (blurStrength * 175f).roundToInt().coerceIn(60, 200)
+                overlayPaint.shader = LinearGradient(
+                    0f, 0f, 0f, h,
+                    intArrayOf(
+                        Color.TRANSPARENT,
+                        withAlpha(palette.bottomColor, (midWashAlpha * 0.22f).roundToInt()),
+                        withAlpha(palette.bottomColor, midWashAlpha),
+                        withAlpha(palette.bottomColor, bottomWashAlpha),
+                        withAlpha(palette.bottomColor, (bottomWashAlpha * 1.03f).roundToInt().coerceAtMost(248))
+                    ),
+                    floatArrayOf(0f, 0.36f, 0.54f, 0.74f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                canvas.drawRect(0f, 0f, w, h, overlayPaint)
+                overlayPaint.shader = null
+
+                // Feathered sharp album art in the top showcase zone (0%..70% height)
+                val saveLayer = canvas.saveLayer(0f, 0f, w, h, null)
+                val artShowcaseRect = RectF(0f, 0f, w, h * 0.72f)
+                drawCenterCropBitmapInRect(canvas, sharpBmp, artShowcaseRect, bitmapPaint, 255)
+
+                val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                    shader = LinearGradient(
+                        0f, 0f, 0f, h,
+                        intArrayOf(
+                            Color.argb(255, 0, 0, 0),
+                            Color.argb(255, 0, 0, 0),
+                            Color.argb(135, 0, 0, 0),
+                            Color.argb(28, 0, 0, 0),
+                            Color.argb(0, 0, 0, 0),
+                            Color.argb(0, 0, 0, 0)
+                        ),
+                        floatArrayOf(0f, 0.38f, 0.50f, 0.60f, 0.67f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(0f, 0f, w, h, maskPaint)
+                canvas.restoreToCount(saveLayer)
+
+                // Subtle top status-bar shade matching Card 2 in reference screenshot
+                overlayPaint.shader = LinearGradient(
+                    0f, 0f, 0f, h * 0.12f,
+                    intArrayOf(
+                        Color.argb(92, 20, 24, 30),
+                        Color.argb(36, 20, 24, 30),
+                        Color.TRANSPARENT
+                    ),
+                    floatArrayOf(0f, 0.55f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                canvas.drawRect(0f, 0f, w, h * 0.12f, overlayPaint)
+                overlayPaint.shader = null
+            }
+
+            MusicWallpaperStyleMode.TOP_AND_BOTTOM_BLUR -> {
+                // Card 3 style: Blurry ambient band at top, sharp album art in upper-middle, blurry fade at bottom
+                val palette = getOrExtractAmbientPalette(effectiveBlurBmp, sourceKey)
+                drawCenterCropBitmapInRect(canvas, effectiveBlurBmp, fullRect, bitmapPaint, 255)
+
+                val topGlowAlpha = (blurStrength * 215f).roundToInt().coerceIn(85, 235)
+                val bottomWashAlpha = (blurStrength * 235f).roundToInt().coerceIn(90, 242)
+                val midWashAlpha = (blurStrength * 175f).roundToInt().coerceIn(60, 200)
+                overlayPaint.shader = LinearGradient(
+                    0f, 0f, 0f, h,
+                    intArrayOf(
+                        withAlpha(palette.bottomColor, topGlowAlpha),
+                        withAlpha(palette.topColor, (topGlowAlpha * 0.55f).roundToInt()),
+                        Color.TRANSPARENT,
+                        Color.TRANSPARENT,
+                        withAlpha(palette.bottomColor, midWashAlpha),
+                        withAlpha(palette.bottomColor, bottomWashAlpha),
+                        withAlpha(palette.bottomColor, (bottomWashAlpha * 1.03f).roundToInt().coerceAtMost(248))
+                    ),
+                    floatArrayOf(0f, 0.06f, 0.16f, 0.38f, 0.54f, 0.74f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                canvas.drawRect(0f, 0f, w, h, overlayPaint)
+                overlayPaint.shader = null
+
+                val saveLayer = canvas.saveLayer(0f, 0f, w, h, null)
+                val artShowcaseRect = RectF(0f, 0f, w, h * 0.72f)
+                drawCenterCropBitmapInRect(canvas, sharpBmp, artShowcaseRect, bitmapPaint, 255)
+
+                val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                    shader = LinearGradient(
+                        0f, 0f, 0f, h,
+                        intArrayOf(
+                            Color.argb(0, 0, 0, 0),
+                            Color.argb(48, 0, 0, 0),
+                            Color.argb(255, 0, 0, 0),
+                            Color.argb(255, 0, 0, 0),
+                            Color.argb(130, 0, 0, 0),
+                            Color.argb(25, 0, 0, 0),
+                            Color.argb(0, 0, 0, 0),
+                            Color.argb(0, 0, 0, 0)
+                        ),
+                        floatArrayOf(0f, 0.055f, 0.15f, 0.40f, 0.51f, 0.60f, 0.67f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(0f, 0f, w, h, maskPaint)
+                canvas.restoreToCount(saveLayer)
+            }
+
+            MusicWallpaperStyleMode.SUBTLE_BOTTOM_BLUR -> {
+                // "Less Blur": ~72% of the screen stays crisp album art, soft blur only in the bottom dock area
+                val palette = getOrExtractAmbientPalette(effectiveBlurBmp, sourceKey)
+                drawCenterCropBitmapInRect(canvas, effectiveBlurBmp, fullRect, bitmapPaint, 255)
+
+                val dockWashAlpha = (blurStrength * 205f).roundToInt().coerceIn(70, 225)
+                overlayPaint.shader = LinearGradient(
+                    0f, 0f, 0f, h,
+                    intArrayOf(
+                        Color.TRANSPARENT,
+                        Color.TRANSPARENT,
+                        withAlpha(palette.bottomColor, (dockWashAlpha * 0.45f).roundToInt()),
+                        withAlpha(palette.bottomColor, dockWashAlpha)
+                    ),
+                    floatArrayOf(0f, 0.62f, 0.80f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                canvas.drawRect(0f, 0f, w, h, overlayPaint)
+                overlayPaint.shader = null
+
+                val saveLayer = canvas.saveLayer(0f, 0f, w, h, null)
+                drawCenterCropBitmapInRect(canvas, sharpBmp, fullRect, bitmapPaint, 255)
+
+                val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                    shader = LinearGradient(
+                        0f, 0f, 0f, h,
+                        intArrayOf(
+                            Color.argb(255, 0, 0, 0),
+                            Color.argb(255, 0, 0, 0),
+                            Color.argb(135, 0, 0, 0),
+                            Color.argb(0, 0, 0, 0),
+                            Color.argb(0, 0, 0, 0)
+                        ),
+                        floatArrayOf(0f, 0.66f, 0.78f, 0.91f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(0f, 0f, w, h, maskPaint)
+                canvas.restoreToCount(saveLayer)
+            }
+
+            MusicWallpaperStyleMode.SOFT_VIGNETTE_BLUR -> {
+                // Cinema Frame Blur: Soft blur at top (~18%) & bottom (~22%) with a large sharp center
+                val palette = getOrExtractAmbientPalette(effectiveBlurBmp, sourceKey)
+                drawCenterCropBitmapInRect(canvas, effectiveBlurBmp, fullRect, bitmapPaint, 255)
+
+                val edgeWashAlpha = (blurStrength * 190f).roundToInt().coerceIn(65, 215)
+                overlayPaint.shader = LinearGradient(
+                    0f, 0f, 0f, h,
+                    intArrayOf(
+                        withAlpha(palette.topColor, edgeWashAlpha),
+                        Color.TRANSPARENT,
+                        Color.TRANSPARENT,
+                        withAlpha(palette.bottomColor, edgeWashAlpha)
+                    ),
+                    floatArrayOf(0f, 0.22f, 0.72f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                canvas.drawRect(0f, 0f, w, h, overlayPaint)
+                overlayPaint.shader = null
+
+                val saveLayer = canvas.saveLayer(0f, 0f, w, h, null)
+                drawCenterCropBitmapInRect(canvas, sharpBmp, fullRect, bitmapPaint, 255)
+
+                val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                    shader = LinearGradient(
+                        0f, 0f, 0f, h,
+                        intArrayOf(
+                            Color.argb(0, 0, 0, 0),
+                            Color.argb(95, 0, 0, 0),
+                            Color.argb(255, 0, 0, 0),
+                            Color.argb(255, 0, 0, 0),
+                            Color.argb(95, 0, 0, 0),
+                            Color.argb(0, 0, 0, 0)
+                        ),
+                        floatArrayOf(0f, 0.09f, 0.21f, 0.72f, 0.85f, 0.96f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(0f, 0f, w, h, maskPaint)
+                canvas.restoreToCount(saveLayer)
+            }
+
+            MusicWallpaperStyleMode.AMBIENT_GLASS_CARD -> {
+                // Floating rounded album cover card over blurred backdrop
+                drawCenterCropBitmapInRect(canvas, effectiveBlurBmp, fullRect, bitmapPaint, 255)
+                val baseDim = (settings.backgroundDim + 0.12f).coerceIn(0f, 0.75f)
+                overlayPaint.color = Color.argb((baseDim * 255f).roundToInt(), 0, 0, 0)
+                canvas.drawRect(0f, 0f, w, h, overlayPaint)
+
+                val cx = w * 0.5f
+                val cy = h * positionCenterY
+                val cardSize = min(w, h) * 0.74f * settings.shapeScale
+                val cornerRadius = cardSize * 0.14f
+                val cardRect = RectF(
+                    cx - cardSize * 0.5f,
+                    cy - cardSize * 0.5f,
+                    cx + cardSize * 0.5f,
+                    cy + cardSize * 0.5f
+                )
+
+                // Soft outer glass halo
+                val haloRect = RectF(cardRect).apply { inset(-cardSize * 0.028f, -cardSize * 0.028f) }
+                overlayPaint.color = Color.argb(38, 255, 255, 255)
+                canvas.drawRoundRect(haloRect, cornerRadius * 1.12f, cornerRadius * 1.12f, overlayPaint)
+
+                val clipPath = android.graphics.Path().apply {
+                    addRoundRect(cardRect, cornerRadius, cornerRadius, android.graphics.Path.Direction.CW)
+                }
+                val saveCount = canvas.save()
+                canvas.clipPath(clipPath)
+                drawCenterCropBitmapInRect(canvas, sharpBmp, cardRect, bitmapPaint, 255)
+                canvas.restoreToCount(saveCount)
+
+                val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = max(1.5f, min(w, h) * 0.0035f)
+                    color = Color.argb(52, 255, 255, 255)
+                }
+                canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, borderPaint)
+            }
+
+            MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE -> {
+                val effectiveModeT = modeMorphT.coerceIn(0f, 1f)
+                val bgBmp = if (settings.blurAmount > 0.01f) effectiveBlurBmp else sharpBmp
+                drawCenterCropBitmapInRect(canvas, bgBmp, fullRect, bitmapPaint, 255)
+
+                val baseDim = lerp(
+                    settings.backgroundDim,
+                    (settings.backgroundDim + 0.14f).coerceAtMost(0.78f),
+                    effectiveModeT
+                )
+                val dimAlpha = (baseDim * 255f).roundToInt().coerceIn(0, 210)
+                if (dimAlpha > 0) {
+                    overlayPaint.color = Color.argb(dimAlpha, 0, 0, 0)
+                    canvas.drawRect(0f, 0f, w, h, overlayPaint)
+                }
+
+                val cx = w * 0.5f
+                val cy = h * positionCenterY
+                val shapeDiameter = min(w, h) * 0.72f * settings.shapeScale
+                val totalRotRad = Math.toRadians(shapeRotationDeg.toDouble())
+
+                if (effectiveModeT > 0.25f) {
+                    val haloPath = android.graphics.Path()
+                    buildMorphingWallpaperAndroidPath(
+                        outPath = haloPath,
+                        canvasWidth = w,
+                        canvasHeight = h,
+                        centerX = cx,
+                        centerY = cy,
+                        shapeDiameterPx = shapeDiameter * 1.065f,
+                        fromShape = fromShape,
+                        toShape = toShape,
+                        shapeMorphProgress = shapeMorphProgress,
+                        shapeRotationRad = totalRotRad + Math.toRadians(16.0),
+                        modeMorphT = 1f
+                    )
+                    overlayPaint.color = Color.argb((effectiveModeT * 42f).roundToInt().coerceIn(0, 60), 255, 255, 255)
+                    canvas.drawPath(haloPath, overlayPaint)
+                }
+
+                val shapePath = android.graphics.Path()
+                buildMorphingWallpaperAndroidPath(
+                    outPath = shapePath,
+                    canvasWidth = w,
+                    canvasHeight = h,
+                    centerX = cx,
+                    centerY = cy,
+                    shapeDiameterPx = shapeDiameter,
+                    fromShape = fromShape,
+                    toShape = toShape,
+                    shapeMorphProgress = shapeMorphProgress,
+                    shapeRotationRad = totalRotRad,
+                    modeMorphT = effectiveModeT
+                )
+
+                val saveCount = canvas.save()
+                canvas.clipPath(shapePath)
+                val boxSize = shapeDiameter * 1.02f
+                val artRect = RectF(
+                    lerp(0f, cx - boxSize * 0.5f, effectiveModeT),
+                    lerp(0f, cy - boxSize * 0.5f, effectiveModeT),
+                    lerp(w, cx + boxSize * 0.5f, effectiveModeT),
+                    lerp(h, cy + boxSize * 0.5f, effectiveModeT)
+                )
+                drawCenterCropBitmapInRect(canvas, sharpBmp, artRect, bitmapPaint, 255)
+                canvas.restoreToCount(saveCount)
+
+                val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = max(1.5f, min(w, h) * 0.0032f)
+                    color = Color.argb((effectiveModeT * 40f).roundToInt().coerceIn(0, 60), 255, 255, 255)
+                }
+                canvas.drawPath(shapePath, borderPaint)
+            }
+        }
+
+        // Apply contrast dim for non-shape/card styles (shape/card styles already dimmed their backdrop)
+        if (activeStyle != MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE &&
+            activeStyle != MusicWallpaperStyleMode.AMBIENT_GLASS_CARD
+        ) {
+            val dimAlpha = (settings.backgroundDim * 255f).roundToInt().coerceIn(0, 200)
+            if (dimAlpha > 0) {
+                overlayPaint.color = Color.argb(dimAlpha, 0, 0, 0)
+                canvas.drawRect(0f, 0f, w, h, overlayPaint)
+            }
+        }
+
+        // Top-right Song Information Overlay using the bundled PixelMusic default font (R.font.gflex_variable)
+        if (drawSongInfoOverlay && settings.showSongInfo && !isFallbackIdle && songTitle.isNotBlank()) {
+            val scaleFactor = (min(w, h) / 392f).coerceAtLeast(0.35f)
+            val horizontalMargin = 24f * scaleFactor
+            val rightX = w - horizontalMargin
+            val topY = 58f * scaleFactor
+            val maxTextWidth = (w - horizontalMargin * 2f).coerceAtLeast(60f)
+
+            overlayPaint.shader = LinearGradient(
+                0f, 0f, 0f, h * 0.22f,
+                intArrayOf(
+                    Color.argb(128, 0, 0, 0),
+                    Color.argb(54, 0, 0, 0),
+                    Color.TRANSPARENT
+                ),
+                floatArrayOf(0f, 0.55f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, w, h * 0.22f, overlayPaint)
+            overlayPaint.shader = null
+
+            val roundedFont = getOrLoadPixelMusicTypeface(context)
+            val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(245, 255, 255, 255)
+                textSize = 20f * scaleFactor
+                typeface = roundedFont ?: Typeface.create("sans-serif", Typeface.BOLD)
+                isFakeBoldText = false
+                runCatching { fontVariationSettings = "'wght' 700, 'ROND' 100" }
+                setShadowLayer(10f * scaleFactor, 0f, 2.5f * scaleFactor, Color.argb(145, 0, 0, 0))
+            }
+            val artistPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(210, 255, 255, 255)
+                textSize = 14f * scaleFactor
+                typeface = roundedFont ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                isFakeBoldText = false
+                runCatching { fontVariationSettings = "'wght' 500, 'ROND' 100" }
+                setShadowLayer(8f * scaleFactor, 0f, 2f * scaleFactor, Color.argb(135, 0, 0, 0))
+            }
+
+            val ellipsizedTitle = TextUtils.ellipsize(songTitle, titlePaint, maxTextWidth, TextUtils.TruncateAt.END).toString()
+            val titleWidth = titlePaint.measureText(ellipsizedTitle)
+            val titleX = (rightX - titleWidth).coerceAtLeast(horizontalMargin)
+            val titleBaseline = topY - titlePaint.ascent()
+            canvas.drawText(ellipsizedTitle, titleX, titleBaseline, titlePaint)
+
+            if (artistName.isNotBlank()) {
+                val ellipsizedArtist = TextUtils.ellipsize(artistName, artistPaint, maxTextWidth, TextUtils.TruncateAt.END).toString()
+                val artistWidth = artistPaint.measureText(ellipsizedArtist)
+                val artistX = (rightX - artistWidth).coerceAtLeast(horizontalMargin)
+                val artistBaseline = titleBaseline + titlePaint.descent() + (4f * scaleFactor) - artistPaint.ascent()
+                canvas.drawText(ellipsizedArtist, artistX, artistBaseline, artistPaint)
+            }
+        }
+    }
+
+    private fun drawCenterCropBitmapInRect(
+        canvas: Canvas,
+        bitmap: Bitmap,
+        dst: RectF,
+        paint: Paint,
+        alpha: Int
+    ) {
+        val bw = bitmap.width.toFloat().coerceAtLeast(1f)
+        val bh = bitmap.height.toFloat().coerceAtLeast(1f)
+        val dw = dst.width().coerceAtLeast(1f)
+        val dh = dst.height().coerceAtLeast(1f)
+
+        val scale = max(dw / bw, dh / bh)
+        val dx = dst.left + (dw - bw * scale) * 0.5f
+        val dy = dst.top + (dh - bh * scale) * 0.5f
+
+        val matrix = Matrix().apply {
+            postScale(scale, scale)
+            postTranslate(dx, dy)
+        }
+        val needsClip = dst.left > 0.5f || dst.top > 0.5f ||
+            dst.right < canvas.width - 0.5f || dst.bottom < canvas.height - 0.5f
+        val save = if (needsClip) {
+            val sc = canvas.save()
+            canvas.clipRect(dst)
+            sc
+        } else {
+            -1
+        }
+        paint.alpha = alpha.coerceIn(0, 255)
+        canvas.drawBitmap(bitmap, matrix, paint)
+        paint.alpha = 255
+        if (save != -1) {
+            canvas.restoreToCount(save)
         }
     }
 
@@ -716,7 +1592,12 @@ object MusicLiveWallpaperStateHolder {
                 cachedFallbackPath = destFile.absolutePath
                 cachedFallbackUpdatedAt = System.currentTimeMillis()
                 cachedFallbackBitmap = oriented
-                syncStaticSystemWallpaperIfInactive(appContext, oriented)
+                // Step 1 of Pseudo-Live Static Wallpaper: when the user configures their fallback
+                // wallpaper and no music is playing, immediately set it as the static system wallpaper
+                // so it persists in /data/system/users/0/wallpaper across manual Force Stop.
+                if (!_playbackState.value.isPlaying) {
+                    pushPseudoLiveWallpaperToSystem(appContext, force = true, forceFallbackIdle = true)
+                }
                 destFile.absolutePath
             }.getOrNull()
         }

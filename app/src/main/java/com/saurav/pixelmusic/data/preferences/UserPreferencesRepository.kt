@@ -51,14 +51,70 @@ object AppFontMode {
     const val SYSTEM = "system"
 }
 
-enum class MusicWallpaperStyleMode(val storageKey: String) {
-    FULL_SCREEN("FULL_SCREEN"),
-    MATERIAL_YOU_SHAPE("MATERIAL_YOU_SHAPE");
+enum class MusicWallpaperStyleMode(
+    val storageKey: String,
+    val title: String,
+    val subtitle: String
+) {
+    FULL_SCREEN(
+        storageKey = "FULL_SCREEN",
+        title = "Full Screen",
+        subtitle = "Sharp edge-to-edge album cover"
+    ),
+    TOP_ART_BOTTOM_BLUR(
+        storageKey = "TOP_ART_BOTTOM_BLUR",
+        title = "Bottom Blur Fade",
+        subtitle = "Album art in top area, blurry fade at bottom"
+    ),
+    TOP_AND_BOTTOM_BLUR(
+        storageKey = "TOP_AND_BOTTOM_BLUR",
+        title = "Top & Bottom Blur",
+        subtitle = "Blurry top band, sharp art, blurry bottom fade"
+    ),
+    SUBTLE_BOTTOM_BLUR(
+        storageKey = "SUBTLE_BOTTOM_BLUR",
+        title = "Less Blur (Bottom)",
+        subtitle = "Mostly sharp art with soft blur at bottom edge"
+    ),
+    SOFT_VIGNETTE_BLUR(
+        storageKey = "SOFT_VIGNETTE_BLUR",
+        title = "Cinema Frame Blur",
+        subtitle = "Soft top & bottom blur with large sharp center"
+    ),
+    AMBIENT_GLASS_CARD(
+        storageKey = "AMBIENT_GLASS_CARD",
+        title = "Floating Art Card",
+        subtitle = "Rounded album cover over blurred backdrop"
+    ),
+    MATERIAL_YOU_SHAPE(
+        storageKey = "MATERIAL_YOU_SHAPE",
+        title = "Material You Shapes",
+        subtitle = "Cookies, triangle, square & pill over blur"
+    );
+
+    val usesBlurBackdrop: Boolean
+        get() = this != FULL_SCREEN
+
+    val usesShapeOrCardPlacement: Boolean
+        get() = this == MATERIAL_YOU_SHAPE || this == AMBIENT_GLASS_CARD
 
     companion object {
         fun fromStorageKey(key: String?): MusicWallpaperStyleMode {
             return entries.firstOrNull { it.storageKey.equals(key, ignoreCase = true) }
-                ?: MATERIAL_YOU_SHAPE
+                ?: TOP_ART_BOTTOM_BLUR
+        }
+    }
+}
+
+enum class MusicWallpaperTargetScreen(val storageKey: String, val label: String) {
+    HOME("HOME", "Home Screen"),
+    LOCK("LOCK", "Lock Screen"),
+    BOTH("BOTH", "Home & Lock");
+
+    companion object {
+        fun fromStorageKey(key: String?): MusicWallpaperTargetScreen {
+            return entries.firstOrNull { it.storageKey.equals(key, ignoreCase = true) }
+                ?: BOTH
         }
     }
 }
@@ -77,16 +133,18 @@ enum class MusicWallpaperShapePosition(val storageKey: String) {
 }
 
 data class MusicLiveWallpaperSettings(
-    val styleMode: MusicWallpaperStyleMode = MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE,
+    val isEnabled: Boolean = false,
+    val targetScreen: MusicWallpaperTargetScreen = MusicWallpaperTargetScreen.BOTH,
+    val styleMode: MusicWallpaperStyleMode = MusicWallpaperStyleMode.TOP_ART_BOTTOM_BLUR,
     val shapeIndex: Int = 0,
     val shapePosition: MusicWallpaperShapePosition = MusicWallpaperShapePosition.MIDDLE,
-    val blurAmount: Float = 0.55f,
+    val blurAmount: Float = 0.65f,
     val showSongInfo: Boolean = true,
     val fallbackWallpaperPath: String = "",
     val fallbackWallpaperUpdatedAt: Long = 0L,
     val crossfadeDurationMs: Int = 4000,
     val shapeScale: Float = 0.85f,
-    val backgroundDim: Float = 0.22f,
+    val backgroundDim: Float = 0.16f,
     val animateShapeOnTrackChange: Boolean = true,
     val slowRotateWhilePlaying: Boolean = true,
     val tapWallpaperToChangeShape: Boolean = false
@@ -462,6 +520,8 @@ constructor(
         val VIDEO_SHARING_ENGINE_ENABLED = booleanPreferencesKey("video_sharing_engine_enabled")
 
         // Music Live Wallpaper (Developer / Experimental)
+        val MLW_ENABLED = booleanPreferencesKey("mlw_enabled")
+        val MLW_TARGET_SCREEN = stringPreferencesKey("mlw_target_screen")
         val MLW_STYLE_MODE = stringPreferencesKey("mlw_style_mode")
         val MLW_SHAPE_INDEX = intPreferencesKey("mlw_shape_index")
         val MLW_SHAPE_POSITION = stringPreferencesKey("mlw_shape_position")
@@ -2964,21 +3024,35 @@ constructor(
     val musicLiveWallpaperSettingsFlow: Flow<MusicLiveWallpaperSettings> =
         dataStore.data.map { preferences ->
             MusicLiveWallpaperSettings(
+                isEnabled = preferences[PreferencesKeys.MLW_ENABLED] ?: false,
+                targetScreen = MusicWallpaperTargetScreen.fromStorageKey(preferences[PreferencesKeys.MLW_TARGET_SCREEN]),
                 styleMode = MusicWallpaperStyleMode.fromStorageKey(preferences[PreferencesKeys.MLW_STYLE_MODE]),
                 shapeIndex = (preferences[PreferencesKeys.MLW_SHAPE_INDEX] ?: 0).coerceAtLeast(0),
                 shapePosition = MusicWallpaperShapePosition.fromStorageKey(preferences[PreferencesKeys.MLW_SHAPE_POSITION]),
-                blurAmount = (preferences[PreferencesKeys.MLW_BLUR_AMOUNT] ?: 0.55f).coerceIn(0.0f, 1.0f),
+                blurAmount = (preferences[PreferencesKeys.MLW_BLUR_AMOUNT] ?: 0.65f).coerceIn(0.0f, 1.0f),
                 showSongInfo = preferences[PreferencesKeys.MLW_SHOW_SONG_INFO] ?: true,
                 fallbackWallpaperPath = preferences[PreferencesKeys.MLW_FALLBACK_PATH] ?: "",
                 fallbackWallpaperUpdatedAt = preferences[PreferencesKeys.MLW_FALLBACK_UPDATED_AT] ?: 0L,
                 crossfadeDurationMs = (preferences[PreferencesKeys.MLW_CROSSFADE_DURATION_MS] ?: 4000).coerceIn(2000, 8000),
                 shapeScale = (preferences[PreferencesKeys.MLW_SHAPE_SCALE] ?: 0.85f).coerceIn(0.55f, 1.15f),
-                backgroundDim = (preferences[PreferencesKeys.MLW_BACKGROUND_DIM] ?: 0.22f).coerceIn(0.0f, 0.75f),
+                backgroundDim = (preferences[PreferencesKeys.MLW_BACKGROUND_DIM] ?: 0.16f).coerceIn(0.0f, 0.75f),
                 animateShapeOnTrackChange = true,
                 slowRotateWhilePlaying = true,
                 tapWallpaperToChangeShape = false
             )
         }.distinctUntilChanged()
+
+    suspend fun setMusicWallpaperEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setMusicWallpaperTargetScreen(target: MusicWallpaperTargetScreen) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MLW_TARGET_SCREEN] = target.storageKey
+        }
+    }
 
     suspend fun setMusicWallpaperStyleMode(mode: MusicWallpaperStyleMode) {
         dataStore.edit { preferences ->
