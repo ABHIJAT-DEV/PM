@@ -177,12 +177,7 @@ class AiOrchestrator @Inject constructor(
             // Cache expired — proceed with fresh generation
         }
 
-        val baseChain = com.saurav.pixelmusic.data.ai.provider.AiProviderSupport.buildProviderChain(userProvider)
-        val providersToTry = if (type == AiSystemPromptType.LYRICS_RESCUE) {
-            listOf(AiProvider.GEMINI) + baseChain.filter { it != AiProvider.GEMINI }
-        } else {
-            baseChain
-        }
+        val providersToTry = com.saurav.pixelmusic.data.ai.provider.AiProviderSupport.buildProviderChain(userProvider)
         val failedProviders = mutableListOf<String>()
         val now = System.currentTimeMillis()
         

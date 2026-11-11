@@ -1322,7 +1322,7 @@ constructor(
 
     val isAiLyricsRescueEnabledFlow: Flow<Boolean> =
         dataStore.data.map { preferences ->
-            preferences[PreferencesKeys.AI_LYRICS_RESCUE_ENABLED] ?: true
+            preferences[PreferencesKeys.AI_LYRICS_RESCUE_ENABLED] ?: false
         }
 
     suspend fun setAiLyricsRescueEnabled(enabled: Boolean) {

@@ -138,7 +138,7 @@ class LyricsRepositoryImpl @Inject constructor(
                 saurav.shru.pixelmusic.innertube.YouTube.search(
                     query,
                     saurav.shru.pixelmusic.innertube.YouTube.SearchFilter.FILTER_VIDEO
-                ).getOrNull()?.items?.filterIsInstance<saurav.shru.pixelmusic.innertube.models.VideoItem>()?.firstOrNull()
+                ).getOrNull()?.items?.filterIsInstance<saurav.shru.pixelmusic.innertube.models.SongItem>()?.firstOrNull()
             }.getOrNull()
 
             if (videoItem != null && videoItem.id.isNotBlank()) {
@@ -198,10 +198,8 @@ class LyricsRepositoryImpl @Inject constructor(
 
     private suspend fun aiLyricsRescue(song: Song): List<LyricsSearchResult> {
         val orchestrator = aiOrchestrator?.get() ?: return emptyList()
-        val prefs = userPreferencesRepository
-        val isEnabled = prefs?.let {
-            runCatching { it.isAiLyricsRescueEnabledFlow.first() }.getOrDefault(true)
-        } ?: true
+        val prefs = userPreferencesRepository ?: return emptyList()
+        val isEnabled = runCatching { prefs.isAiLyricsRescueEnabledFlow.first() }.getOrDefault(false)
         if (!isEnabled) return emptyList()
 
         return try {
