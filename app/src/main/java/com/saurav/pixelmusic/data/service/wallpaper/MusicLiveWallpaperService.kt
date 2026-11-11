@@ -1,5 +1,6 @@
 package com.saurav.pixelmusic.data.service.wallpaper
 
+import android.app.WallpaperColors
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -10,12 +11,14 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.os.Build
 import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.text.TextPaint
 import android.text.TextUtils
 import android.view.Choreographer
 import android.view.SurfaceHolder
+import androidx.annotation.RequiresApi
 import androidx.compose.ui.util.lerp
 import androidx.core.content.res.ResourcesCompat
 import com.saurav.pixelmusic.R
@@ -303,6 +306,25 @@ class MusicLiveWallpaperService : WallpaperService() {
             }
         }
 
+        // Material You colors come ONLY from the gallery fallback image, never from album art,
+        // so the system theme stays fixed across track changes.
+        private var fallbackColors: WallpaperColors? = null
+        private var fallbackColorsKey: String? = null
+
+        @RequiresApi(Build.VERSION_CODES.O_MR1)
+        override fun onComputeColors(): WallpaperColors? = fallbackColors
+
+        private suspend fun updateColorsFromFallback(fb: Bitmap?) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) return
+            if (fb == null || fb.isRecycled) return
+            val key = "${settings.fallbackWallpaperPath}|${settings.fallbackWallpaperUpdatedAt}"
+            if (key == fallbackColorsKey) return
+            val colors = withContext(Dispatchers.Default) { WallpaperColors.fromBitmap(fb) }
+            fallbackColors = colors
+            fallbackColorsKey = key
+            notifyColorsChanged()
+        }
+
         private fun refreshExistingSceneBlurAndFallback(animateCrossfade: Boolean) {
             settingsRefreshJob?.cancel()
             settingsRefreshJob = engineScope.launch {
@@ -314,6 +336,7 @@ class MusicLiveWallpaperService : WallpaperService() {
                     s.fallbackWallpaperUpdatedAt
                 )
                 fallbackBitmap = fb
+                updateColorsFromFallback(fb)
 
                 val curSharp = if (activeScene.isFallbackIdle) fb else (activeScene.sharpBitmap ?: fb)
                 val curBlurred = if (curSharp != null && !curSharp.isRecycled) {
@@ -356,6 +379,7 @@ class MusicLiveWallpaperService : WallpaperService() {
                 s.fallbackWallpaperUpdatedAt
             )
             fallbackBitmap = fb
+            updateColorsFromFallback(fb)
 
             val shouldShowMusicArt = p.isPlaying && (!p.albumArtUriString.isNullOrBlank() || p.albumArtBytes != null)
             val targetKey = if (shouldShowMusicArt) {

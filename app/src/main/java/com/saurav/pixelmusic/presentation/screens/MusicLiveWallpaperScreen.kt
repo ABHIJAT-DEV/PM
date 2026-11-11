@@ -268,7 +268,7 @@ fun MusicLiveWallpaperScreen(
                     isSavingFallback = false
                     Toast.makeText(
                         context,
-                        "Default fallback wallpaper saved & cached to system wallpaper",
+                        "Default fallback wallpaper saved",
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
@@ -536,7 +536,7 @@ fun MusicLiveWallpaperScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = if (isWallpaperActive) {
-                                            "Music Wallpaper is Active (Force-Stop Safe)"
+                                            "Music Wallpaper is Active"
                                         } else {
                                             "Enable Music Wallpaper"
                                         },
@@ -546,9 +546,9 @@ fun MusicLiveWallpaperScreen(
                                     )
                                     Text(
                                         text = if (isWallpaperActive) {
-                                            "Pushes rendered album art and your gallery fallback directly into Android's system wallpaper cache so it survives manual Force Stop."
+                                            "Album art is drawn live over your gallery fallback. Nothing is written to the system wallpaper, and Material You colors come only from the fallback image."
                                         } else {
-                                            "Uses Android's native WallpaperManager storage so your gallery fallback wallpaper stays on screen even if the app is Force Stopped."
+                                            "Set PixelMusic as your live wallpaper. Album art is drawn live over your gallery fallback, and Material You colors come only from the fallback image."
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -581,29 +581,43 @@ fun MusicLiveWallpaperScreen(
                             ) {
                                 Button(
                                     onClick = {
-                                        if (fallbackBitmap == null && cachedSongBitmap == null) {
+                                        if (fallbackBitmap == null) {
                                             Toast.makeText(
                                                 context,
-                                                "Select a Default Wallpaper from Gallery below or play a song first",
+                                                "Select a Default Wallpaper from Gallery first",
                                                 Toast.LENGTH_SHORT
                                             ).show()
                                             launchGalleryPicker()
                                             return@Button
                                         }
-                                        isApplyingWallpaper = true
                                         coroutineScope.launch {
                                             prefsRepo.setMusicWallpaperEnabled(true)
-                                            val updated = wallpaperSettings.copy(isEnabled = true)
-                                            val ok = MusicLiveWallpaperStateHolder.applyPseudoLiveWallpaperNow(
-                                                context = context,
-                                                settingsOverride = updated,
-                                                forceFallbackIdle = !playerState.isPlaying
+                                        }
+                                        // Open Android's live wallpaper preview for PixelMusic. The service draws
+                                        // album art itself; nothing is written to the system wallpaper.
+                                        val liveWallpaperComponent = ComponentName(
+                                            context,
+                                            MusicLiveWallpaperService::class.java
+                                        )
+                                        val opened = runCatching {
+                                            context.startActivity(
+                                                Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                                                    .putExtra(
+                                                        WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                                                        liveWallpaperComponent
+                                                    )
+                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                             )
-                                            isApplyingWallpaper = false
+                                        }.isSuccess || runCatching {
+                                            context.startActivity(
+                                                Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            )
+                                        }.isSuccess
+                                        if (!opened) {
                                             Toast.makeText(
                                                 context,
-                                                if (ok) "Wallpaper applied to ${wallpaperSettings.targetScreen.label}"
-                                                else "Select a Default Wallpaper from Gallery first",
+                                                "Could not open the live wallpaper picker",
                                                 Toast.LENGTH_SHORT
                                             ).show()
                                         }
@@ -621,8 +635,8 @@ fun MusicLiveWallpaperScreen(
                                     Text(
                                         text = when {
                                             isApplyingWallpaper -> "Applying…"
-                                            isWallpaperActive -> "Sync Wallpaper Now"
-                                            else -> "Enable & Apply Wallpaper"
+                                            isWallpaperActive -> "Set Live Wallpaper Again"
+                                            else -> "Set as Live Wallpaper"
                                         },
                                         fontWeight = FontWeight.SemiBold
                                     )

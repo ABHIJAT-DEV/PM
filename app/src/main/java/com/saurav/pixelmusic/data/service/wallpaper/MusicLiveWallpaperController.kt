@@ -371,7 +371,6 @@ object MusicLiveWallpaperStateHolder {
     private const val MAX_FALLBACK_DIMENSION_PX = 1920
     private const val MIN_HD_ARTWORK_DIMENSION_PX = 480
     private const val TRACK_SETTLE_DEBOUNCE_MS = 3500L
-    private const val PAUSE_FALLBACK_DEBOUNCE_MS = 900L
 
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val initialized = AtomicBoolean(false)
@@ -462,16 +461,21 @@ object MusicLiveWallpaperStateHolder {
                     val oldSettings = latestSettings
                     latestSettings = newSettings
 
-                    if (!newSettings.isEnabled) {
+                    if (isFirstSettings) {
+                        // Never re-push on app start; the stored fallback is already in the system.
                         isFirstSettings = false
                         return@collectLatest
                     }
+                    if (!newSettings.isEnabled) return@collectLatest
 
-                    if (isFirstSettings) {
-                        isFirstSettings = false
-                        // Ensure the initial fallback or playing state is synced into /data/system/users/0/wallpaper
-                        schedulePseudoLiveSettingsSync(appContext, delayMs = 150L, force = false)
-                    } else if (oldSettings != newSettings) {
+                    // Only fallback-related changes matter to the system wallpaper store. Shape, blur,
+                    // style, song info etc. are rendered live by MusicLiveWallpaperService.
+                    val fallbackChanged =
+                        oldSettings.fallbackWallpaperPath != newSettings.fallbackWallpaperPath ||
+                            oldSettings.fallbackWallpaperUpdatedAt != newSettings.fallbackWallpaperUpdatedAt ||
+                            oldSettings.backgroundDim != newSettings.backgroundDim ||
+                            oldSettings.targetScreen != newSettings.targetScreen
+                    if (fallbackChanged) {
                         schedulePseudoLiveSettingsSync(appContext, delayMs = 280L, force = false)
                     }
                 }
@@ -499,13 +503,7 @@ object MusicLiveWallpaperStateHolder {
                                 val nextShape = WallpaperExpressiveShapeKind.nextIndex(latestSettings.shapeIndex)
                                 prefsRepo.setMusicWallpaperShapeIndex(nextShape)
                             }
-                            pushPseudoLiveWallpaperToSystem(appContext, force = false)
-                        } else {
-                            // Fast 0.9s restore to the Gallery Fallback Wallpaper when playback pauses
-                            // so if the user pauses and goes to Force Stop the app, the fallback image
-                            // is already cached in /data/system/users/0/wallpaper!
-                            delay(PAUSE_FALLBACK_DEBOUNCE_MS)
-                            pushPseudoLiveWallpaperToSystem(appContext, force = false)
+                            // Playback changes never write to the system wallpaper store (see pushPseudoLiveWallpaperToSystem).
                         }
                     }
                 }
@@ -557,20 +555,14 @@ object MusicLiveWallpaperStateHolder {
 
     /**
      * Called when `MusicService` unloads, stops, or `onTaskRemoved` / `onDestroy` fires.
-     * Immediately marks playback as stopped and pushes the Gallery Fallback Wallpaper into
-     * `WallpaperManager` (`/data/system/users/0/wallpaper`) on an un-cancellable IO job.
+     * Immediately marks playback as stopped. Nothing is written to `WallpaperManager` here;
+     * the stored gallery fallback is already in place.
      */
     fun markPlaybackStopped(context: Context? = null) {
         _playbackState.update { current ->
             if (!current.isPlaying) current else current.copy(isPlaying = false)
         }
-        val appContext = context?.applicationContext ?: return
-        if (latestSettings.isEnabled) {
-            pseudoLivePlaybackJob?.cancel()
-            managerScope.launch(Dispatchers.IO + NonCancellable) {
-                pushPseudoLiveWallpaperToSystem(appContext, force = false, forceFallbackIdle = true)
-            }
-        }
+        pseudoLivePlaybackJob?.cancel()
     }
 
     /**
@@ -592,6 +584,17 @@ object MusicLiveWallpaperStateHolder {
         )
     }
 
+    /**
+     * Persists ONLY the user's gallery fallback image into Android's WallpaperManager store.
+     *
+     * Album art is deliberately never written here: `WallpaperManager.setBitmap()` changes the system
+     * WallpaperColors, so pushing art per track re-themes Material You and restarts apps on every skip.
+     * Album art is drawn by [MusicLiveWallpaperService] on its own canvas, layered over the fallback
+     * with no connection to the stored image.
+     *
+     * Never runs while the live service is bound, because `setBitmap()` would detach it.
+     * [forceFallbackIdle] is kept only for call-site compatibility; the fallback is always what is pushed.
+     */
     private suspend fun pushPseudoLiveWallpaperToSystem(
         context: Context,
         force: Boolean,
@@ -600,7 +603,17 @@ object MusicLiveWallpaperStateHolder {
         runCatching {
             val appContext = context.applicationContext
             val s = latestSettings
-            val p = _playbackState.value
+
+            val wm = WallpaperManager.getInstance(appContext)
+            val isLiveServiceActive = wm.wallpaperInfo?.component == ComponentName(
+                appContext,
+                MusicLiveWallpaperService::class.java
+            )
+            if (isLiveServiceActive) {
+                // The live service already draws fallback + album art itself and picks up fallback
+                // changes through settings; setBitmap() here would detach it.
+                return@runCatching true
+            }
 
             val fb = loadFallbackWallpaperBitmap(
                 appContext,
@@ -608,53 +621,14 @@ object MusicLiveWallpaperStateHolder {
                 s.fallbackWallpaperUpdatedAt
             )
 
-            val shouldShowMusicArt = !forceFallbackIdle &&
-                p.isPlaying &&
-                (!p.albumArtUriString.isNullOrBlank() || p.albumArtBytes != null)
-
-            val signature = if (shouldShowMusicArt) {
-                "music|${p.albumArtUriString}|${p.songTitle}|${p.artistName}|${s.styleMode}|${s.shapeIndex}|${s.shapePosition}|${(s.blurAmount * 100).roundToInt()}|${(s.shapeScale * 100).roundToInt()}|${(s.backgroundDim * 100).roundToInt()}|${s.showSongInfo}|${s.targetScreen}"
-            } else {
-                "fallback|${s.fallbackWallpaperPath}|${s.fallbackWallpaperUpdatedAt}|${(s.backgroundDim * 100).roundToInt()}|${s.targetScreen}"
-            }
-
-            val wm = WallpaperManager.getInstance(appContext)
-            val isLegacyServiceActive = wm.wallpaperInfo?.component == ComponentName(
-                appContext,
-                MusicLiveWallpaperService::class.java
-            )
-
-            if (!force && !isLegacyServiceActive && signature == lastPushedSystemSignature) {
-                return@runCatching true
-            }
-
-            val sharpBmp: Bitmap? = if (shouldShowMusicArt) {
-                loadCachedAlbumArtBitmap(appContext, p.albumArtUriString, p.albumArtBytes) ?: fb
-            } else {
-                fb
-            }
-
-            // If the user hasn't picked a gallery fallback image yet and no song art is available,
-            // don't overwrite their existing system wallpaper until they pick one or play a song.
-            if (sharpBmp == null || sharpBmp.isRecycled) {
+            // If the user hasn't picked a gallery fallback yet, leave their system wallpaper untouched.
+            if (fb == null || fb.isRecycled) {
                 return@runCatching false
             }
 
-            val isEffectiveFallback = !shouldShowMusicArt || (sharpBmp === fb && p.albumArtUriString.isNullOrBlank())
-            val sourceKey = if (shouldShowMusicArt) {
-                "sys_music_${p.albumArtUriString ?: "embedded"}_${p.songTitle}"
-            } else {
-                "sys_fallback_${s.fallbackWallpaperUpdatedAt}"
-            }
-
-            val blurredBmp: Bitmap? = if (!isEffectiveFallback && s.styleMode.usesBlurBackdrop) {
-                getOrCreateBlurredBitmap(
-                    source = sharpBmp,
-                    sourceKey = sourceKey,
-                    blurAmount = s.blurAmount.coerceAtLeast(0.25f)
-                )
-            } else {
-                null
+            val signature = "fallback|${s.fallbackWallpaperPath}|${s.fallbackWallpaperUpdatedAt}|${(s.backgroundDim * 100).roundToInt()}|${s.targetScreen}"
+            if (!force && signature == lastPushedSystemSignature) {
+                return@runCatching true
             }
 
             val dm = appContext.resources.displayMetrics
@@ -669,12 +643,12 @@ object MusicLiveWallpaperStateHolder {
                 width = targetW,
                 height = targetH,
                 settings = s,
-                sharpBitmap = sharpBmp,
-                blurredBitmap = blurredBmp,
-                sourceKey = sourceKey,
-                isFallbackIdle = isEffectiveFallback,
-                songTitle = if (shouldShowMusicArt) p.songTitle.trim() else "",
-                artistName = if (shouldShowMusicArt) p.artistName.trim() else ""
+                sharpBitmap = fb,
+                blurredBitmap = null,
+                sourceKey = "sys_fallback_${s.fallbackWallpaperUpdatedAt}",
+                isFallbackIdle = true,
+                songTitle = "",
+                artistName = ""
             )
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
