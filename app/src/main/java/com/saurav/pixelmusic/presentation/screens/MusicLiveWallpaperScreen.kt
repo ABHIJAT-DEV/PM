@@ -68,6 +68,7 @@ import androidx.compose.material.icons.outlined.SlowMotionVideo
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CropPortrait
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -102,7 +103,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -129,6 +133,7 @@ import androidx.navigation.NavController
 import com.saurav.pixelmusic.data.preferences.MusicLiveWallpaperSettings
 import com.saurav.pixelmusic.data.preferences.MusicWallpaperShapePosition
 import com.saurav.pixelmusic.data.preferences.MusicWallpaperStyleMode
+import com.saurav.pixelmusic.data.preferences.MusicWallpaperTargetScreen
 import com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperService
 import com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder
 import com.saurav.pixelmusic.data.service.wallpaper.WallpaperExpressiveShapeKind
@@ -181,29 +186,18 @@ fun MusicLiveWallpaperScreen(
         ?: currentSong?.artist?.takeIf { it.isNotBlank() }
         ?: "PixelMusic Expressive"
 
-    // Check if MusicLiveWallpaperService is currently active on the device
-    var isLiveWallpaperActive by remember { mutableStateOf(false) }
-    val checkWallpaperActive: () -> Unit = remember(context) {
-        {
-            isLiveWallpaperActive = runCatching {
-                val info = WallpaperManager.getInstance(context).wallpaperInfo
-                info?.component == ComponentName(context, MusicLiveWallpaperService::class.java)
-            }.getOrDefault(false)
-        }
+    val isWallpaperActive = wallpaperSettings.isEnabled
+    var isApplyingWallpaper by remember { mutableStateOf(false) }
+
+    // Default expressive artwork bitmap for preview when no song or gallery wallpaper is loaded yet
+    val primaryArgb = MaterialTheme.colorScheme.primary.toArgb()
+    val tertiaryArgb = MaterialTheme.colorScheme.tertiary.toArgb()
+    val primaryContainerArgb = MaterialTheme.colorScheme.primaryContainer.toArgb()
+    val defaultPreviewBitmap = remember(primaryArgb, tertiaryArgb, primaryContainerArgb) {
+        createDefaultExpressiveBitmap(primaryContainerArgb, primaryArgb, tertiaryArgb)
     }
 
-    DisposableEffect(lifecycleOwner) {
-        checkWallpaperActive()
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                checkWallpaperActive()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    // Load already-cached album art (zero network downloads!) & fallback gallery bitmap
+    // Load already-cached album art & fallback gallery bitmap
     var cachedSongBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var fallbackBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var softwareBlurredBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -219,34 +213,30 @@ fun MusicLiveWallpaperScreen(
     }
 
     LaunchedEffect(wallpaperSettings.fallbackWallpaperPath, wallpaperSettings.fallbackWallpaperUpdatedAt) {
-        fallbackBitmap = if (wallpaperSettings.fallbackWallpaperPath.isNotBlank()) {
-            MusicLiveWallpaperStateHolder.loadFallbackWallpaperBitmap(
-                context,
-                wallpaperSettings.fallbackWallpaperPath,
-                wallpaperSettings.fallbackWallpaperUpdatedAt
-            )
-        } else {
-            null
-        }
+        fallbackBitmap = MusicLiveWallpaperStateHolder.loadFallbackWallpaperBitmap(
+            context,
+            wallpaperSettings.fallbackWallpaperPath,
+            wallpaperSettings.fallbackWallpaperUpdatedAt
+        )
     }
 
     // Preview mode toggle so user can inspect both Music Art and Fallback Wallpaper crossfades
     var previewStateMode by remember { mutableStateOf(WallpaperPreviewStateMode.MUSIC_ART) }
 
     val activePreviewBitmap = when (previewStateMode) {
-        WallpaperPreviewStateMode.MUSIC_ART -> cachedSongBitmap ?: fallbackBitmap
-        WallpaperPreviewStateMode.FALLBACK_WALLPAPER -> fallbackBitmap ?: cachedSongBitmap
+        WallpaperPreviewStateMode.MUSIC_ART -> cachedSongBitmap ?: fallbackBitmap ?: defaultPreviewBitmap
+        WallpaperPreviewStateMode.FALLBACK_WALLPAPER -> fallbackBitmap ?: cachedSongBitmap ?: defaultPreviewBitmap
     }
 
-    // Pre-compute software blurred bitmap for Android < 12 or smooth fallback
+    // Pre-compute software blurred bitmap for preview & style cards
     LaunchedEffect(activePreviewBitmap, wallpaperSettings.blurAmount) {
         val src = activePreviewBitmap
-        if (src != null && !src.isRecycled) {
+        if (!src.isRecycled) {
             softwareBlurredBitmap = withContext(Dispatchers.Default) {
                 MusicLiveWallpaperStateHolder.getOrCreateBlurredBitmap(
                     source = src,
                     sourceKey = "preview_${src.hashCode()}",
-                    blurAmount = wallpaperSettings.blurAmount
+                    blurAmount = wallpaperSettings.blurAmount.coerceAtLeast(0.25f)
                 )
             }
         } else {
@@ -260,12 +250,29 @@ fun MusicLiveWallpaperScreen(
         if (uri != null) {
             isSavingFallback = true
             coroutineScope.launch {
+                val updatedAt = System.currentTimeMillis()
                 val savedPath = MusicLiveWallpaperStateHolder.saveFallbackWallpaperFromUri(context, uri)
-                isSavingFallback = false
                 if (savedPath != null) {
-                    prefsRepo.setMusicWallpaperFallback(savedPath, System.currentTimeMillis())
-                    Toast.makeText(context, "Default fallback wallpaper updated", Toast.LENGTH_SHORT).show()
+                    prefsRepo.setMusicWallpaperFallback(savedPath, updatedAt)
+                    prefsRepo.setMusicWallpaperEnabled(true)
+                    val updatedSettings = wallpaperSettings.copy(
+                        isEnabled = true,
+                        fallbackWallpaperPath = savedPath,
+                        fallbackWallpaperUpdatedAt = updatedAt
+                    )
+                    MusicLiveWallpaperStateHolder.applyPseudoLiveWallpaperNow(
+                        context = context,
+                        settingsOverride = updatedSettings,
+                        forceFallbackIdle = !playerState.isPlaying
+                    )
+                    isSavingFallback = false
+                    Toast.makeText(
+                        context,
+                        "Default fallback wallpaper saved & cached to system wallpaper",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } else {
+                    isSavingFallback = false
                     Toast.makeText(context, "Could not load selected image", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -484,7 +491,7 @@ fun MusicLiveWallpaperScreen(
             }
 
             // =========================================================================
-            // 2. APPLY / ACTIVATE LIVE WALLPAPER CARD
+            // 2. APPLY / ACTIVATE PSEUDO-LIVE STATIC WALLPAPER CARD (FORCE-STOP SAFE)
             // =========================================================================
             item(key = "apply_wallpaper_section") {
                 SettingsSection(
@@ -498,7 +505,7 @@ fun MusicLiveWallpaperScreen(
                     }
                 ) {
                     Surface(
-                        color = if (isLiveWallpaperActive) {
+                        color = if (isWallpaperActive) {
                             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
                         } else {
                             MaterialTheme.colorScheme.surfaceContainer
@@ -517,9 +524,9 @@ fun MusicLiveWallpaperScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Icon(
-                                    imageVector = if (isLiveWallpaperActive) Icons.Rounded.CheckCircle else Icons.Outlined.Wallpaper,
+                                    imageVector = if (isWallpaperActive) Icons.Rounded.CheckCircle else Icons.Outlined.Wallpaper,
                                     contentDescription = null,
-                                    tint = if (isLiveWallpaperActive) {
+                                    tint = if (isWallpaperActive) {
                                         MaterialTheme.colorScheme.primary
                                     } else {
                                         MaterialTheme.colorScheme.secondary
@@ -528,20 +535,20 @@ fun MusicLiveWallpaperScreen(
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (isLiveWallpaperActive) {
-                                            "Music Live Wallpaper is Active"
+                                        text = if (isWallpaperActive) {
+                                            "Music Wallpaper is Active (Force-Stop Safe)"
                                         } else {
-                                            "Set as System Live Wallpaper"
+                                            "Enable Music Wallpaper"
                                         },
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = if (isLiveWallpaperActive) {
-                                            "All customization changes below apply smoothly in real time on your Home & Lock screen."
+                                        text = if (isWallpaperActive) {
+                                            "Pushes rendered album art and your gallery fallback directly into Android's system wallpaper cache so it survives manual Force Stop."
                                         } else {
-                                            "Apply PixelMusic Live Wallpaper to your Home screen or both Home and Lock screen."
+                                            "Uses Android's native WallpaperManager storage so your gallery fallback wallpaper stays on screen even if the app is Force Stopped."
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -549,51 +556,100 @@ fun MusicLiveWallpaperScreen(
                                 }
                             }
 
-                            Button(
-                                onClick = {
-                                    if (!isLiveWallpaperActive && fallbackBitmap != null) {
-                                        coroutineScope.launch {
-                                            MusicLiveWallpaperStateHolder.syncStaticSystemWallpaperIfInactive(
-                                                context,
-                                                fallbackBitmap
-                                            )
-                                        }
-                                    }
-                                    val component = ComponentName(context, MusicLiveWallpaperService::class.java)
-                                    val changeIntent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
-                                        putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    runCatching {
-                                        context.startActivity(changeIntent)
-                                    }.onFailure {
-                                        val chooserIntent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER).apply {
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        runCatching {
-                                            context.startActivity(chooserIntent)
-                                        }.onFailure {
+                            // Target screen selector (Home, Lock, Both)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                MusicWallpaperTargetScreen.entries.forEach { target ->
+                                    WallpaperPositionChip(
+                                        label = target.label,
+                                        selected = wallpaperSettings.targetScreen == target,
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                prefsRepo.setMusicWallpaperTargetScreen(target)
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        if (fallbackBitmap == null && cachedSongBitmap == null) {
                                             Toast.makeText(
                                                 context,
-                                                "Live Wallpaper picker is not supported on this device",
+                                                "Select a Default Wallpaper from Gallery below or play a song first",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            launchGalleryPicker()
+                                            return@Button
+                                        }
+                                        isApplyingWallpaper = true
+                                        coroutineScope.launch {
+                                            prefsRepo.setMusicWallpaperEnabled(true)
+                                            val updated = wallpaperSettings.copy(isEnabled = true)
+                                            val ok = MusicLiveWallpaperStateHolder.applyPseudoLiveWallpaperNow(
+                                                context = context,
+                                                settingsOverride = updated,
+                                                forceFallbackIdle = !playerState.isPlaying
+                                            )
+                                            isApplyingWallpaper = false
+                                            Toast.makeText(
+                                                context,
+                                                if (ok) "Wallpaper applied to ${wallpaperSettings.targetScreen.label}"
+                                                else "Select a Default Wallpaper from Gallery first",
                                                 Toast.LENGTH_SHORT
                                             ).show()
                                         }
+                                    },
+                                    enabled = !isApplyingWallpaper,
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Wallpaper,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = when {
+                                            isApplyingWallpaper -> "Applying…"
+                                            isWallpaperActive -> "Sync Wallpaper Now"
+                                            else -> "Enable & Apply Wallpaper"
+                                        },
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+
+                                if (isWallpaperActive) {
+                                    FilledTonalButton(
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                MusicLiveWallpaperStateHolder.applyPseudoLiveWallpaperNow(
+                                                    context = context,
+                                                    settingsOverride = wallpaperSettings.copy(isEnabled = false),
+                                                    forceFallbackIdle = true
+                                                )
+                                                prefsRepo.setMusicWallpaperEnabled(false)
+                                                Toast.makeText(
+                                                    context,
+                                                    "Music Wallpaper paused; fallback wallpaper kept on screen",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(14.dp)
+                                    ) {
+                                        Text("Disable")
                                     }
-                                },
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Wallpaper,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isLiveWallpaperActive) "Re-open Live Wallpaper Picker" else "Apply Music Live Wallpaper",
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                }
                             }
                         }
                     }
@@ -730,11 +786,11 @@ fun MusicLiveWallpaperScreen(
             }
 
             // =========================================================================
-            // 4. WALLPAPER STYLE & MATERIAL YOU SHAPES CUSTOMIZATION
+            // 4. WALLPAPER STYLE & BLUR / MATERIAL YOU SHAPES CUSTOMIZATION
             // =========================================================================
             item(key = "wallpaper_style_section") {
                 SettingsSection(
-                    title = "Wallpaper Style & Shapes",
+                    title = "Wallpaper Styles & Blur",
                     icon = {
                         Icon(
                             imageVector = Icons.Outlined.AutoAwesome,
@@ -744,68 +800,85 @@ fun MusicLiveWallpaperScreen(
                     }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        // Style selector: Full Screen vs Material You Shapes
+                        // Visual Phone Style Gallery (Full Screen, Bottom Blur Fade, Top & Bottom Blur, Less Blur, Cinema Frame, Floating Card, Material You Shapes)
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceContainer,
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(vertical = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text(
-                                    text = "Display Style",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Choose between edge-to-edge full screen album art or Material You expressive shapes over a blurred backdrop",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                    Text(
+                                        text = "Wallpaper Style",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Pick Full Screen, Top Art with Bottom Blur Fade, Top & Bottom Blur, Subtle Bottom Blur, Cinema Frame, Floating Card, or Material You Shapes",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    WallpaperOptionCard(
-                                        title = "Full Screen",
-                                        subtitle = "Edge-to-edge album cover",
-                                        selected = wallpaperSettings.styleMode == MusicWallpaperStyleMode.FULL_SCREEN,
-                                        onClick = {
-                                            previewStateMode = WallpaperPreviewStateMode.MUSIC_ART
-                                            coroutineScope.launch {
-                                                prefsRepo.setMusicWallpaperStyleMode(MusicWallpaperStyleMode.FULL_SCREEN)
+                                    MusicWallpaperStyleMode.entries.forEach { mode ->
+                                        WallpaperStyleMiniPhoneCard(
+                                            styleMode = mode,
+                                            selected = wallpaperSettings.styleMode == mode,
+                                            settings = wallpaperSettings,
+                                            sharpBitmap = activePreviewBitmap,
+                                            blurredBitmap = softwareBlurredBitmap,
+                                            onClick = {
+                                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                previewStateMode = WallpaperPreviewStateMode.MUSIC_ART
+                                                coroutineScope.launch {
+                                                    prefsRepo.setMusicWallpaperStyleMode(mode)
+                                                }
                                             }
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    WallpaperOptionCard(
-                                        title = "Material You Shapes",
-                                        subtitle = "Cookies, triangle, square & more",
-                                        selected = wallpaperSettings.styleMode == MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE,
-                                        onClick = {
-                                            previewStateMode = WallpaperPreviewStateMode.MUSIC_ART
-                                            coroutineScope.launch {
-                                                prefsRepo.setMusicWallpaperStyleMode(MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE)
-                                            }
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
 
-                        // Material You Shape Options (Position, Shape Picker, Blur Amount, Size)
+                        // Blur & Fade Intensity Slider (shown for all blur-based styles)
                         AnimatedVisibility(
-                            visible = wallpaperSettings.styleMode == MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE,
+                            visible = wallpaperSettings.styleMode.usesBlurBackdrop,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            SliderSettingsItem(
+                                label = "Blur & Fade Intensity",
+                                value = wallpaperSettings.blurAmount,
+                                valueRange = 0.15f..1.0f,
+                                steps = 0,
+                                onValueChange = { amount ->
+                                    coroutineScope.launch {
+                                        prefsRepo.setMusicWallpaperBlurAmount(amount)
+                                    }
+                                },
+                                valueText = { "${(it * 100).roundToInt()}%" }
+                            )
+                        }
+
+                        // Position & Size Controls (shown for Floating Art Card and Material You Shapes)
+                        AnimatedVisibility(
+                            visible = wallpaperSettings.styleMode.usesShapeOrCardPlacement,
                             enter = fadeIn() + expandVertically(),
                             exit = fadeOut() + shrinkVertically()
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                // Shape Position: Top, Middle, Bottom
                                 Surface(
                                     color = MaterialTheme.colorScheme.surfaceContainer,
                                     shape = RoundedCornerShape(12.dp),
@@ -818,12 +891,12 @@ fun MusicLiveWallpaperScreen(
                                         verticalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
                                         Text(
-                                            text = "Shape Position",
+                                            text = "Artwork Placement",
                                             style = MaterialTheme.typography.titleMedium,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "Place the Material You shape at the top, middle, or bottom of the screen",
+                                            text = "Place the focal artwork at the top, middle, or bottom of the screen",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -868,71 +941,8 @@ fun MusicLiveWallpaperScreen(
                                     }
                                 }
 
-                                // Material You Shape Gallery / Quick Picker
-                                Surface(
-                                    color = MaterialTheme.colorScheme.surfaceContainer,
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                            Text(
-                                                text = "Material You Shape",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Text(
-                                                text = "Tap the shape in the preview above or pick a shape below to smoothly morph",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState())
-                                                .padding(horizontal = 16.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            WallpaperExpressiveShapeKind.entries.forEachIndexed { idx, kind ->
-                                                val isSelected = targetShapeIdx == idx
-                                                ShapeMiniPreviewChip(
-                                                    kind = kind,
-                                                    selected = isSelected,
-                                                    onClick = {
-                                                        previewStateMode = WallpaperPreviewStateMode.MUSIC_ART
-                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                        animateToShapeIndex(idx)
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Background Blur Amount Slider
                                 SliderSettingsItem(
-                                    label = "Background Blur Amount",
-                                    value = wallpaperSettings.blurAmount,
-                                    valueRange = 0.0f..1.0f,
-                                    steps = 0,
-                                    onValueChange = { amount ->
-                                        coroutineScope.launch {
-                                            prefsRepo.setMusicWallpaperBlurAmount(amount)
-                                        }
-                                    },
-                                    valueText = { "${(it * 100).roundToInt()}%" }
-                                )
-
-                                // Shape Size Slider
-                                SliderSettingsItem(
-                                    label = "Shape Size",
+                                    label = "Artwork Size",
                                     value = wallpaperSettings.shapeScale,
                                     valueRange = 0.60f..1.15f,
                                     steps = 0,
@@ -943,6 +953,60 @@ fun MusicLiveWallpaperScreen(
                                     },
                                     valueText = { "${(it * 100).roundToInt()}%" }
                                 )
+                            }
+                        }
+
+                        // Material You Shape Gallery / Quick Picker
+                        AnimatedVisibility(
+                            visible = wallpaperSettings.styleMode == MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                        Text(
+                                            text = "Material You Shape",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Tap the shape in the preview above or pick a shape below to smoothly morph",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState())
+                                            .padding(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        WallpaperExpressiveShapeKind.entries.forEachIndexed { idx, kind ->
+                                            val isSelected = targetShapeIdx == idx
+                                            ShapeMiniPreviewChip(
+                                                kind = kind,
+                                                selected = isSelected,
+                                                onClick = {
+                                                    previewStateMode = WallpaperPreviewStateMode.MUSIC_ART
+                                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    animateToShapeIndex(idx)
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1045,18 +1109,8 @@ private fun WallpaperPictureOnlyPreview(
     onTapShape: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val isFallbackIdleView = previewMode == WallpaperPreviewStateMode.FALLBACK_WALLPAPER
-    val targetModeFraction = if (isFallbackIdleView || settings.styleMode == MusicWallpaperStyleMode.FULL_SCREEN) {
-        0f
-    } else {
-        1f
-    }
-
-    val modeFraction by animateFloatAsState(
-        targetValue = targetModeFraction,
-        animationSpec = tween(durationMillis = 720, easing = WallpaperSmoothMorphEasing),
-        label = "previewModeFraction"
-    )
 
     val positionCenterFraction by animateFloatAsState(
         targetValue = settings.shapePosition.verticalCenterFraction(),
@@ -1081,26 +1135,14 @@ private fun WallpaperPictureOnlyPreview(
         label = "previewContinuousSpin"
     )
 
-    val effectiveRotationDeg = tapRotationDeg + if (settings.slowRotateWhilePlaying) continuousRotationDeg else 0f
-    val quantizedRotDeg = (effectiveRotationDeg * 4f).roundToInt() / 4f
-    val quantizedMorph = (shapeMorphProgress * 90f).roundToInt() / 90f
-
-    val morphShape = remember(fromShape, toShape, quantizedMorph, quantizedRotDeg) {
-        WallpaperMorphingComposeShape(
-            fromShape = fromShape,
-            toShape = toShape,
-            shapeMorphProgress = quantizedMorph,
-            shapeRotationRad = Math.toRadians(quantizedRotDeg.toDouble())
-        )
-    }
-
-    val haloShape = remember(fromShape, toShape, quantizedMorph, quantizedRotDeg) {
-        WallpaperMorphingComposeShape(
-            fromShape = fromShape,
-            toShape = toShape,
-            shapeMorphProgress = quantizedMorph,
-            shapeRotationRad = Math.toRadians((quantizedRotDeg + 16f).toDouble())
-        )
+    val effectiveRotationDeg = tapRotationDeg + if (
+        settings.slowRotateWhilePlaying &&
+            settings.styleMode == MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE &&
+            !isFallbackIdleView
+    ) {
+        continuousRotationDeg
+    } else {
+        0f
     }
 
     val crossfadeDuration = settings.crossfadeDurationMs.coerceIn(2000, 8000)
@@ -1116,134 +1158,54 @@ private fun WallpaperPictureOnlyPreview(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
                 shape = RoundedCornerShape(26.dp)
             )
+            .pointerInput(settings.styleMode, isFallbackIdleView) {
+                if (settings.styleMode == MusicWallpaperStyleMode.MATERIAL_YOU_SHAPE && !isFallbackIdleView) {
+                    detectTapGestures(onTap = { onTapShape() })
+                }
+            }
     ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val previewW = maxWidth
-            val previewH = maxHeight
-            val shapeBaseSize = min(previewW.value, previewH.value).dp * 0.72f * animatedShapeScale
-            val shapeCenterY = previewH * positionCenterFraction
-
-            // 1. Background Layer (Crossfades smoothly like song crossfade; blurred in Material You Shape mode)
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 1. Unified Canvas Wallpaper Layer (renders all 7 styles with authentic feathered gradients)
             Crossfade(
-                targetState = Pair(activeBitmap, previewMode),
-                animationSpec = tween(durationMillis = crossfadeDuration, easing = WallpaperSmoothMorphEasing),
-                label = "previewBgCrossfade",
+                targetState = Triple(activeBitmap, previewMode, settings.styleMode),
+                animationSpec = tween(
+                    durationMillis = if (isFallbackIdleView) crossfadeDuration else 620,
+                    easing = WallpaperSmoothMorphEasing
+                ),
+                label = "previewWallpaperSceneCrossfade",
                 modifier = Modifier.fillMaxSize()
-            ) { (bmp, _) ->
-                val effectiveBlur = settings.blurAmount * modeFraction
-                if (bmp != null && !bmp.isRecycled) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        Image(
-                            bitmap = bmp.asImageBitmap(),
-                            contentDescription = "Wallpaper background preview",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .then(
-                                    if (effectiveBlur > 0.01f) {
-                                        Modifier.blur(
-                                            radius = (effectiveBlur * 38f).dp,
-                                            edgeTreatment = BlurredEdgeTreatment.Unbounded
-                                        )
-                                    } else {
-                                        Modifier
-                                    }
-                                )
+            ) { (bmp, mode, style) ->
+                val isIdle = mode == WallpaperPreviewStateMode.FALLBACK_WALLPAPER
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawIntoCanvas { composeCanvas ->
+                        MusicLiveWallpaperStateHolder.renderWallpaperSceneToCanvas(
+                            context = context,
+                            canvas = composeCanvas.nativeCanvas,
+                            w = size.width,
+                            h = size.height,
+                            settings = settings.copy(
+                                styleMode = style,
+                                shapeScale = animatedShapeScale
+                            ),
+                            sharpBmp = bmp,
+                            blurredBmp = softwareBlurredBitmap ?: bmp,
+                            sourceKey = "preview_${bmp?.hashCode() ?: 0}",
+                            isFallbackIdle = isIdle,
+                            songTitle = songTitle,
+                            artistName = artistName,
+                            fromShape = fromShape,
+                            toShape = toShape,
+                            shapeMorphProgress = shapeMorphProgress,
+                            shapeRotationDeg = effectiveRotationDeg,
+                            positionCenterY = positionCenterFraction,
+                            modeMorphT = if (isIdle || style == MusicWallpaperStyleMode.FULL_SCREEN) 0f else 1f,
+                            drawSongInfoOverlay = false
                         )
-                    } else {
-                        val displayBmp = if (effectiveBlur > 0.02f && softwareBlurredBitmap != null && !softwareBlurredBitmap.isRecycled) {
-                            softwareBlurredBitmap
-                        } else {
-                            bmp
-                        }
-                        Image(
-                            bitmap = displayBmp.asImageBitmap(),
-                            contentDescription = "Wallpaper background preview",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                } else {
-                    DefaultExpressivePreviewArt(modifier = Modifier.fillMaxSize(), blurred = effectiveBlur > 0.05f)
-                }
-            }
-
-            // Contrast dim overlay
-            val effectiveDim = lerp(
-                settings.backgroundDim,
-                (settings.backgroundDim + 0.12f).coerceAtMost(0.75f),
-                modeFraction
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = effectiveDim))
-            )
-
-            // 2. Material You Expressive Shape Layer (placed at Top, Middle, or Bottom; single-tap morphs shape!)
-            if (modeFraction > 0.01f) {
-                val curWidth = androidx.compose.ui.unit.lerp(previewW, shapeBaseSize, modeFraction)
-                val curHeight = androidx.compose.ui.unit.lerp(previewH, shapeBaseSize, modeFraction)
-                val curTopOffset = androidx.compose.ui.unit.lerp(
-                    0.dp,
-                    (shapeCenterY - shapeBaseSize * 0.5f).coerceIn(0.dp, (previewH - shapeBaseSize).coerceAtLeast(0.dp)),
-                    modeFraction
-                )
-
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .padding(top = curTopOffset)
-                        .align(Alignment.TopCenter)
-                        .size(width = curWidth, height = curHeight)
-                ) {
-                    // Subtle expressive backing halo
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize(1.065f)
-                            .graphicsLayer { alpha = modeFraction * 0.22f }
-                            .clip(haloShape)
-                            .background(Color.White)
-                    )
-
-                    // Morphing Material You Shape containing sharp album art
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(if (modeFraction > 0.15f) morphShape else RoundedCornerShape(0.dp))
-                            .border(
-                                width = 1.dp,
-                                color = Color.White.copy(alpha = 0.22f * modeFraction),
-                                shape = if (modeFraction > 0.15f) morphShape else RoundedCornerShape(0.dp)
-                            )
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onTap = { onTapShape() }
-                                )
-                            }
-                    ) {
-                        Crossfade(
-                            targetState = activeBitmap,
-                            animationSpec = tween(durationMillis = crossfadeDuration, easing = WallpaperSmoothMorphEasing),
-                            label = "previewShapeArtCrossfade",
-                            modifier = Modifier.fillMaxSize()
-                        ) { bmp ->
-                            if (bmp != null && !bmp.isRecycled) {
-                                Image(
-                                    bitmap = bmp.asImageBitmap(),
-                                    contentDescription = "Shape album art preview",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                DefaultExpressivePreviewArt(modifier = Modifier.fillMaxSize(), blurred = false)
-                            }
-                        }
                     }
                 }
             }
 
-            // 3. Top-Right Song Information Overlay (only when toggle is enabled & in Music Playing state)
+            // 2. Top-Right Song Information Overlay using bundled PixelMusic default font (ActualGoogleSansRounded)
             AnimatedVisibility(
                 visible = settings.showSongInfo && !isFallbackIdleView,
                 enter = fadeIn(tween(420)),
@@ -1257,8 +1219,8 @@ private fun WallpaperPictureOnlyPreview(
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    Color.Black.copy(alpha = 0.48f),
-                                    Color.Black.copy(alpha = 0.18f),
+                                    Color.Black.copy(alpha = 0.46f),
+                                    Color.Black.copy(alpha = 0.16f),
                                     Color.Transparent
                                 )
                             )
@@ -1318,49 +1280,134 @@ private fun WallpaperPictureOnlyPreview(
     }
 }
 
+/**
+ * Mini phone style card modeled after the 3-card blur/fade wallpaper selector, showing the
+ * live rendered style preview and a centered circular checkmark badge when selected.
+ */
 @Composable
-private fun DefaultExpressivePreviewArt(
-    modifier: Modifier = Modifier,
-    blurred: Boolean
+private fun WallpaperStyleMiniPhoneCard(
+    styleMode: MusicWallpaperStyleMode,
+    selected: Boolean,
+    settings: MusicLiveWallpaperSettings,
+    sharpBitmap: Bitmap?,
+    blurredBitmap: Bitmap?,
+    onClick: () -> Unit
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val tertiary = MaterialTheme.colorScheme.tertiary
-    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
-    val surface = MaterialTheme.colorScheme.surfaceContainerHighest
+    val context = LocalContext.current
+    val shapeKind = WallpaperExpressiveShapeKind.fromIndex(settings.shapeIndex)
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+    }
 
-    Canvas(modifier = modifier) {
-        drawRect(
-            brush = Brush.linearGradient(
-                colors = listOf(primaryContainer, primary, tertiary, surface),
-                start = Offset.Zero,
-                end = Offset(size.width, size.height)
-            )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .width(108.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(4.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(9f / 18.5f)
+                .clip(RoundedCornerShape(18.dp))
+                .border(
+                    width = if (selected) 2.2.dp else 1.dp,
+                    color = borderColor,
+                    shape = RoundedCornerShape(18.dp)
+                )
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawIntoCanvas { composeCanvas ->
+                    MusicLiveWallpaperStateHolder.renderWallpaperSceneToCanvas(
+                        context = context,
+                        canvas = composeCanvas.nativeCanvas,
+                        w = size.width,
+                        h = size.height,
+                        settings = settings.copy(
+                            styleMode = styleMode,
+                            blurAmount = settings.blurAmount.coerceAtLeast(0.62f)
+                        ),
+                        sharpBmp = sharpBitmap,
+                        blurredBmp = blurredBitmap ?: sharpBitmap,
+                        sourceKey = "card_${sharpBitmap?.hashCode() ?: 0}",
+                        isFallbackIdle = false,
+                        songTitle = "",
+                        artistName = "",
+                        fromShape = shapeKind,
+                        toShape = shapeKind,
+                        shapeMorphProgress = 1f,
+                        shapeRotationDeg = 0f,
+                        positionCenterY = settings.shapePosition.verticalCenterFraction(),
+                        modeMorphT = if (styleMode == MusicWallpaperStyleMode.FULL_SCREEN) 0f else 1f,
+                        drawSongInfoOverlay = false
+                    )
+                }
+            }
+
+            if (selected) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = "Selected style",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Text(
+            text = styleMode.title,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    tertiary.copy(alpha = if (blurred) 0.55f else 0.78f),
-                    Color.Transparent
-                ),
-                center = Offset(size.width * 0.32f, size.height * 0.35f),
-                radius = size.minDimension * 0.65f
-            ),
-            center = Offset(size.width * 0.32f, size.height * 0.35f),
-            radius = size.minDimension * 0.65f
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    primary.copy(alpha = if (blurred) 0.50f else 0.72f),
-                    Color.Transparent
-                ),
-                center = Offset(size.width * 0.72f, size.height * 0.68f),
-                radius = size.minDimension * 0.58f
-            ),
-            center = Offset(size.width * 0.72f, size.height * 0.68f),
-            radius = size.minDimension * 0.58f
+        Text(
+            text = styleMode.subtitle,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            lineHeight = 13.sp
         )
     }
+}
+
+private fun createDefaultExpressiveBitmap(
+    primaryContainerArgb: Int,
+    primaryArgb: Int,
+    tertiaryArgb: Int
+): Bitmap {
+    val w = 360
+    val h = 640
+    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    paint.shader = android.graphics.LinearGradient(
+        0f, 0f, w.toFloat(), h.toFloat(),
+        intArrayOf(primaryContainerArgb, primaryArgb, tertiaryArgb, android.graphics.Color.rgb(245, 160, 145)),
+        floatArrayOf(0f, 0.38f, 0.72f, 1f),
+        android.graphics.Shader.TileMode.CLAMP
+    )
+    canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+    return bmp
 }
 
 @Composable
