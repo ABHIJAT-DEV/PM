@@ -453,6 +453,47 @@ fun HomeScreen(
     var isUpdateAvailableState by remember { mutableStateOf(false) }
     var sheetVersionName by remember { mutableStateOf("") }
     var sheetChangelog by remember { mutableStateOf<String?>(null) }
+    var sheetDownloadUrl by remember { mutableStateOf<String?>(null) }
+    var sheetApkName by remember { mutableStateOf<String?>(null) }
+    var sheetApkSizeBytes by remember { mutableStateOf<Long?>(null) }
+
+    val openUpdateSheetEvent by com.saurav.pixelmusic.utils.InAppUpdater.openUpdateSheetEvent.collectAsStateWithLifecycle()
+
+    LaunchedEffect(openUpdateSheetEvent) {
+        if (openUpdateSheetEvent) {
+            com.saurav.pixelmusic.utils.InAppUpdater.consumeOpenUpdateSheetEvent()
+            val currentAppVersion = com.saurav.pixelmusic.BuildConfig.VERSION_NAME
+            val cached = com.saurav.pixelmusic.utils.InAppUpdater.latestUpdateState.value
+                ?: com.saurav.pixelmusic.utils.InAppUpdater.checkForUpdate(currentAppVersion)
+            when (cached) {
+                is com.saurav.pixelmusic.utils.UpdateState.Available -> {
+                    isUpdateAvailableState = true
+                    sheetVersionName = cached.versionName
+                    sheetChangelog = cached.changelog
+                    sheetDownloadUrl = cached.downloadUrl
+                    sheetApkName = cached.apkName
+                    sheetApkSizeBytes = cached.apkSizeBytes
+                }
+                is com.saurav.pixelmusic.utils.UpdateState.UpToDate -> {
+                    isUpdateAvailableState = true
+                    sheetVersionName = cached.versionName ?: com.saurav.pixelmusic.utils.InAppUpdater.getResolvedVersionName() ?: currentAppVersion
+                    sheetChangelog = cached.changelog ?: com.saurav.pixelmusic.utils.InAppUpdater.getResolvedChangelog()
+                    sheetDownloadUrl = cached.downloadUrl ?: com.saurav.pixelmusic.utils.InAppUpdater.getResolvedDownloadUrl()
+                    sheetApkName = cached.apkName ?: com.saurav.pixelmusic.utils.InAppUpdater.getResolvedApkName()
+                    sheetApkSizeBytes = cached.apkSizeBytes ?: com.saurav.pixelmusic.utils.InAppUpdater.getResolvedApkSizeBytes()
+                }
+                else -> {
+                    isUpdateAvailableState = true
+                    sheetVersionName = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedVersionName() ?: currentAppVersion
+                    sheetChangelog = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedChangelog()
+                    sheetDownloadUrl = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedDownloadUrl()
+                    sheetApkName = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedApkName()
+                    sheetApkSizeBytes = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedApkSizeBytes()
+                }
+            }
+            showUpdateSheet = true
+        }
+    }
 
     LaunchedEffect(Unit) {
         val currentAppVersion = com.saurav.pixelmusic.BuildConfig.VERSION_NAME
@@ -468,16 +509,22 @@ fun HomeScreen(
                 val isNewer = com.saurav.pixelmusic.utils.InAppUpdater.isNewerVersion(updateState.versionName, currentAppVersion)
 
                 if (isNewer) {
+                    sheetVersionName = updateState.versionName
+                    sheetChangelog = updateState.changelog
+                    sheetDownloadUrl = updateState.downloadUrl
+                    sheetApkName = updateState.apkName
+                    sheetApkSizeBytes = updateState.apkSizeBytes
                     if (now - lastPrompt > oneDayMs) {
                         isUpdateAvailableState = true
-                        sheetVersionName = updateState.versionName
-                        sheetChangelog = updateState.changelog
                         delay(2500)
                         showUpdateSheet = true
                     }
                 }
             }
             is com.saurav.pixelmusic.utils.UpdateState.UpToDate -> {
+                sheetDownloadUrl = updateState.downloadUrl
+                sheetApkName = updateState.apkName
+                sheetApkSizeBytes = updateState.apkSizeBytes
                 if (lastVersionSeen.isNotEmpty() && lastVersionSeen != currentAppVersion) {
                     isUpdateAvailableState = false
                     sheetVersionName = currentAppVersion
@@ -911,10 +958,14 @@ fun HomeScreen(
             isUpdateAvailable = isUpdateAvailableState,
             versionName = sheetVersionName,
             changelog = sheetChangelog,
+            downloadUrl = sheetDownloadUrl,
+            apkName = sheetApkName,
+            apkSizeBytes = sheetApkSizeBytes,
+            userName = userName,
             isTestBuild = isTestBuild,
             onDismiss = { showUpdateSheet = false },
             onConfirmClick = {
-                if (isUpdateAvailableState) {
+                if (isUpdateAvailableState && sheetDownloadUrl.isNullOrBlank()) {
                     navController.navigateSafely("about")
                 }
             },

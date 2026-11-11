@@ -33,7 +33,9 @@ data class GithubAsset(
     @SerializedName("download_url", alternate = ["browser_download_url", "url"])
     val downloadUrl: String? = null,
     @SerializedName("name")
-    val name: String? = null
+    val name: String? = null,
+    @SerializedName("size")
+    val size: Long? = null
 )
 
 sealed class UpdateState {
@@ -41,12 +43,16 @@ sealed class UpdateState {
     data class UpToDate(
         val versionName: String? = null,
         val downloadUrl: String? = null,
-        val changelog: String? = null
+        val changelog: String? = null,
+        val apkName: String? = null,
+        val apkSizeBytes: Long? = null
     ) : UpdateState()
     data class Available(
         val versionName: String, 
         val downloadUrl: String,
-        val changelog: String? = null
+        val changelog: String? = null,
+        val apkName: String? = null,
+        val apkSizeBytes: Long? = null
     ) : UpdateState()
 }
 
@@ -57,6 +63,41 @@ object InAppUpdater {
     // directly, so a decompiled APK reveals no repo and no token.
     // Test builds get "?channel=test" appended by the Test.yaml workflow.
     private const val UPDATE_CHECK_URL = "https://pixelmusic-updater.atappu805.workers.dev/updater/check"
+
+    val latestUpdateState = MutableStateFlow<UpdateState?>(null)
+    val openUpdateSheetEvent = MutableStateFlow(false)
+
+    fun requestOpenUpdateSheet() {
+        openUpdateSheetEvent.value = true
+    }
+
+    fun consumeOpenUpdateSheetEvent() {
+        openUpdateSheetEvent.value = false
+    }
+
+    fun getDeviceArchitecture(): String {
+        return android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
+    }
+
+    fun resolveApkFileName(
+        downloadUrl: String?,
+        versionName: String,
+        assetName: String? = null
+    ): String {
+        if (!assetName.isNullOrBlank() && assetName.endsWith(".apk", ignoreCase = true)) {
+            return assetName
+        }
+        val fromUrl = downloadUrl
+            ?.substringBefore("?")
+            ?.substringAfterLast("/")
+            ?.takeIf { it.endsWith(".apk", ignoreCase = true) }
+        if (!fromUrl.isNullOrBlank()) {
+            return fromUrl
+        }
+        val arch = getDeviceArchitecture()
+        val cleanVer = versionName.ifBlank { "latest" }
+        return "app-$arch-release-$cleanVer.apk"
+    }
 
     fun isNewerVersion(latest: String?, current: String?): Boolean {
         if (latest.isNullOrBlank() || current.isNullOrBlank()) return false
@@ -120,19 +161,39 @@ object InAppUpdater {
                         val apkAssets = release.assets?.filter { it.name?.endsWith(".apk", ignoreCase = true) == true } ?: emptyList()
                         val apkAsset = selectBestApkForDevice(apkAssets)
                         val downloadUrl = apkAsset?.downloadUrl ?: release.downloadUrl
+                        val resolvedApkName = resolveApkFileName(downloadUrl, tagName, apkAsset?.name)
+                        val resolvedApkSize = apkAsset?.size?.takeIf { it > 0L }
+
+                        if (!downloadUrl.isNullOrBlank()) {
+                            currentDownloadUrl = downloadUrl
+                        }
+                        currentVersionName = tagName
+                        currentChangelog = release.body
+                        currentApkDisplayName = resolvedApkName
+                        if (resolvedApkSize != null && totalBytes <= 0L) {
+                            totalBytes = resolvedApkSize
+                        }
 
                         if (isUpdate && !downloadUrl.isNullOrBlank()) {
-                            return@withContext UpdateState.Available(
+                            val available = UpdateState.Available(
                                 versionName = tagName, 
                                 downloadUrl = downloadUrl,
-                                changelog = release.body
+                                changelog = release.body,
+                                apkName = resolvedApkName,
+                                apkSizeBytes = resolvedApkSize
                             )
+                            latestUpdateState.value = available
+                            return@withContext available
                         }
-                        return@withContext UpdateState.UpToDate(
+                        val upToDate = UpdateState.UpToDate(
                             versionName = tagName,
                             downloadUrl = downloadUrl,
-                            changelog = release.body
+                            changelog = release.body,
+                            apkName = resolvedApkName,
+                            apkSizeBytes = resolvedApkSize
                         )
+                        latestUpdateState.value = upToDate
+                        return@withContext upToDate
                     }
                 }
             }
@@ -190,8 +251,40 @@ object InAppUpdater {
     private var currentDownloadUrl: String? = null
     private var currentFileName: String? = null
     private var currentVersionName: String? = null
+    private var currentApkDisplayName: String? = null
+    private var currentChangelog: String? = null
     private var downloadedBytes = 0L
     private var totalBytes = 0L
+
+    fun getResolvedDownloadUrl(): String? = when (val state = latestUpdateState.value) {
+        is UpdateState.Available -> state.downloadUrl
+        is UpdateState.UpToDate -> state.downloadUrl ?: currentDownloadUrl
+        else -> currentDownloadUrl
+    }
+
+    fun getResolvedVersionName(): String? = when (val state = latestUpdateState.value) {
+        is UpdateState.Available -> state.versionName
+        is UpdateState.UpToDate -> state.versionName ?: currentVersionName
+        else -> currentVersionName
+    }
+
+    fun getResolvedChangelog(): String? = when (val state = latestUpdateState.value) {
+        is UpdateState.Available -> state.changelog
+        is UpdateState.UpToDate -> state.changelog ?: currentChangelog
+        else -> currentChangelog
+    }
+
+    fun getResolvedApkName(): String? = when (val state = latestUpdateState.value) {
+        is UpdateState.Available -> state.apkName ?: currentApkDisplayName
+        is UpdateState.UpToDate -> state.apkName ?: currentApkDisplayName
+        else -> currentApkDisplayName
+    }
+
+    fun getResolvedApkSizeBytes(): Long? = when (val state = latestUpdateState.value) {
+        is UpdateState.Available -> state.apkSizeBytes ?: totalBytes.takeIf { it > 0L }
+        is UpdateState.UpToDate -> state.apkSizeBytes ?: totalBytes.takeIf { it > 0L }
+        else -> totalBytes.takeIf { it > 0L }
+    }
 
     private var isReceiverRegistered = false
     private var appContext: Context? = null
@@ -222,6 +315,20 @@ object InAppUpdater {
         }
     }
 
+    private fun buildOpenUpdateSheetPendingIntent(context: Context): android.app.PendingIntent {
+        val openIntent = Intent(context, com.saurav.pixelmusic.MainActivity::class.java).apply {
+            action = "OPEN_UPDATE_SHEET"
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("OPEN_UPDATE_SHEET", true)
+        }
+        return android.app.PendingIntent.getActivity(
+            context,
+            4,
+            openIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
     fun createNotificationChannel(context: Context) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
@@ -236,7 +343,13 @@ object InAppUpdater {
         }
     }
 
-    fun startOrResumeDownload(context: Context, url: String, versionName: String) {
+    fun startOrResumeDownload(
+        context: Context,
+        url: String,
+        versionName: String,
+        apkName: String? = null,
+        changelog: String? = null
+    ) {
         if (url.isBlank()) {
             downloadState.value = GlobalDownloadState.Error("Invalid download URL")
             return
@@ -247,8 +360,15 @@ object InAppUpdater {
         createNotificationChannel(appContext!!)
         registerReceiverIfNeeded(appContext!!)
 
+        if (currentDownloadUrl != null && currentDownloadUrl != url) {
+            downloadedBytes = 0L
+            totalBytes = 0L
+        }
+
         currentDownloadUrl = url
         currentVersionName = versionName
+        if (!apkName.isNullOrBlank()) currentApkDisplayName = apkName
+        if (!changelog.isNullOrBlank()) currentChangelog = changelog
         currentFileName = "PixelMusic_$versionName.apk"
         val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), currentFileName!!)
 
@@ -345,14 +465,7 @@ object InAppUpdater {
 
                 val pauseIntent = android.app.PendingIntent.getBroadcast(appContext, 1, Intent("PIXELMUSIC_PAUSE").setPackage(appContext!!.packageName), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
                 val cancelIntent = android.app.PendingIntent.getBroadcast(appContext, 3, Intent("PIXELMUSIC_CANCEL").setPackage(appContext!!.packageName), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
-
-                val openIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("pixelmusic://update_download")).apply {
-                    setPackage(appContext!!.packageName)
-                }
-                val pendingOpenIntent = android.app.PendingIntent.getActivity(
-                    appContext, 4, openIntent, 
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                )
+                val pendingOpenIntent = buildOpenUpdateSheetPendingIntent(appContext!!)
 
                 while (bytes >= 0) {
                     if (!isActive) break 
@@ -424,14 +537,7 @@ object InAppUpdater {
                 val notificationManager = appContext!!.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
                 val resumeIntent = android.app.PendingIntent.getBroadcast(appContext, 2, Intent("PIXELMUSIC_RESUME").setPackage(appContext!!.packageName), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
                 val cancelIntent = android.app.PendingIntent.getBroadcast(appContext, 3, Intent("PIXELMUSIC_CANCEL").setPackage(appContext!!.packageName), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
-                
-                val openIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("pixelmusic://update_download")).apply {
-                    setPackage(appContext!!.packageName)
-                }
-                val pendingOpenIntent = android.app.PendingIntent.getActivity(
-                    appContext, 4, openIntent, 
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                )
+                val pendingOpenIntent = buildOpenUpdateSheetPendingIntent(appContext!!)
 
                 val pausedNotif = androidx.core.app.NotificationCompat.Builder(appContext!!, "app_updates")
                     .setSmallIcon(android.R.drawable.stat_sys_download)

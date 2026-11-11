@@ -393,6 +393,8 @@ class MainActivity : ComponentActivity() {
                         action == MainActivityIntentContract.ACTION_OPEN_PLAYLIST ||
                         action == MainActivityIntentContract.ACTION_OPEN_AI_PLAYLIST_SHEET ||
                         action == "com.saurav.pixelmusic.ACTION_PLAY_SONG" ||
+                        action == "OPEN_UPDATE_SHEET" ||
+                        intent?.getBooleanExtra("OPEN_UPDATE_SHEET", false) == true ||
                         intent?.getBooleanExtra("ACTION_SHOW_PLAYER", false) == true ||
                         intent?.getBooleanExtra("NAVIGATE_TO_ABOUT", false) == true
                 }
@@ -531,8 +533,14 @@ class MainActivity : ComponentActivity() {
                 intent.action = null
             }
 
+            intent.action == "OPEN_UPDATE_SHEET" || intent.getBooleanExtra("OPEN_UPDATE_SHEET", false) -> {
+                com.saurav.pixelmusic.utils.InAppUpdater.requestOpenUpdateSheet()
+                intent.action = null
+                intent.removeExtra("OPEN_UPDATE_SHEET")
+            }
+
             intent.getBooleanExtra("NAVIGATE_TO_ABOUT", false) -> {
-                _pendingRouteNavigation.value = Screen.About.route
+                com.saurav.pixelmusic.utils.InAppUpdater.requestOpenUpdateSheet()
                 intent.removeExtra("NAVIGATE_TO_ABOUT")
             }
 
@@ -561,12 +569,16 @@ class MainActivity : ComponentActivity() {
 
             intent.action == android.content.Intent.ACTION_VIEW && intent.data != null -> {
                 intent.data?.let { uri ->
-                    if (uri.scheme == "pixelmusic" && (uri.host == "listen_together" || uri.path?.contains("listen_together") == true)) {
-                        val roomCode = uri.getQueryParameter("code")
-                        if (!roomCode.isNullOrBlank()) {
-                            playerViewModel.setPendingListenTogetherCode(roomCode)
+                    if (uri.scheme == "pixelmusic") {
+                        if (uri.host == "listen_together" || uri.path?.contains("listen_together") == true) {
+                            val roomCode = uri.getQueryParameter("code")
+                            if (!roomCode.isNullOrBlank()) {
+                                playerViewModel.setPendingListenTogetherCode(roomCode)
+                            }
+                            playerViewModel.openListenTogetherSheet()
+                        } else if (uri.host == "update_download" || uri.path?.contains("update_download") == true) {
+                            com.saurav.pixelmusic.utils.InAppUpdater.requestOpenUpdateSheet()
                         }
-                        playerViewModel.openListenTogetherSheet()
                     } else {
                         persistUriPermissionIfNeeded(intent, uri)
                         playerViewModel.playExternalUri(uri)
@@ -1573,6 +1585,38 @@ class MainActivity : ComponentActivity() {
                                 durationMillis = dismissUndoBarSlice.durationMillis,
                                 isLiquidGlass = isLiquidGlassOnDismissPrompt,
                                 backdrop = navBackdrop
+                            )
+                        }
+
+                        val openUpdateSheetEvent by com.saurav.pixelmusic.utils.InAppUpdater.openUpdateSheetEvent.collectAsStateWithLifecycle()
+                        var showGlobalUpdateSheet by remember { mutableStateOf(false) }
+
+                        LaunchedEffect(openUpdateSheetEvent, currentRoute) {
+                            if (openUpdateSheetEvent && currentRoute != Screen.Home.route && currentRoute != Screen.About.route) {
+                                com.saurav.pixelmusic.utils.InAppUpdater.consumeOpenUpdateSheetEvent()
+                                showGlobalUpdateSheet = true
+                            }
+                        }
+
+                        if (showGlobalUpdateSheet) {
+                            val resolvedVersion = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedVersionName()
+                                ?: com.saurav.pixelmusic.BuildConfig.VERSION_NAME
+                            com.saurav.pixelmusic.presentation.components.UpdateNotificationSheet(
+                                isUpdateAvailable = true,
+                                versionName = resolvedVersion,
+                                changelog = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedChangelog(),
+                                downloadUrl = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedDownloadUrl(),
+                                apkName = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedApkName(),
+                                apkSizeBytes = com.saurav.pixelmusic.utils.InAppUpdater.getResolvedApkSizeBytes(),
+                                isTestBuild = packageName.endsWith(".test"),
+                                onDismiss = { showGlobalUpdateSheet = false },
+                                onMigrateClick = {
+                                    val migrateIntent = Intent(
+                                        Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://github.com/Saurav-02/PixelMusic/releases/latest")
+                                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                    try { startActivity(migrateIntent) } catch (_: ActivityNotFoundException) {}
+                                }
                             )
                         }
 

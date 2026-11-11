@@ -87,6 +87,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
@@ -326,9 +327,17 @@ private fun AboutHeroCard(
 
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Checking) }
     var showChangelogDialog by remember { mutableStateOf(false) }
+    val openUpdateSheetEvent by InAppUpdater.openUpdateSheetEvent.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         updateState = InAppUpdater.checkForUpdate(versionName)
+    }
+
+    LaunchedEffect(openUpdateSheetEvent) {
+        if (openUpdateSheetEvent) {
+            InAppUpdater.consumeOpenUpdateSheetEvent()
+            showChangelogDialog = true
+        }
     }
 
     val latestChangelog = when (val state = updateState) {
@@ -338,28 +347,55 @@ private fun AboutHeroCard(
     }
 
     if (showChangelogDialog) {
-        val isUpdate = updateState is UpdateState.Available
+        val isUpdate = updateState is UpdateState.Available ||
+            (updateState as? UpdateState.UpToDate)?.downloadUrl != null
         val displayVersion = when (val state = updateState) {
             is UpdateState.Available -> state.versionName
+            is UpdateState.UpToDate -> state.versionName ?: versionName
             else -> versionName
+        }
+        val resolvedUrl = when (val state = updateState) {
+            is UpdateState.Available -> state.downloadUrl
+            is UpdateState.UpToDate -> state.downloadUrl
+            else -> InAppUpdater.getResolvedDownloadUrl()
+        }
+        val resolvedApkName = when (val state = updateState) {
+            is UpdateState.Available -> state.apkName
+            is UpdateState.UpToDate -> state.apkName
+            else -> InAppUpdater.getResolvedApkName()
+        }
+        val resolvedApkSize = when (val state = updateState) {
+            is UpdateState.Available -> state.apkSizeBytes
+            is UpdateState.UpToDate -> state.apkSizeBytes
+            else -> InAppUpdater.getResolvedApkSizeBytes()
         }
         UpdateNotificationSheet(
             isUpdateAvailable = isUpdate,
             versionName = displayVersion,
             changelog = latestChangelog,
+            downloadUrl = resolvedUrl,
+            apkName = resolvedApkName,
+            apkSizeBytes = resolvedApkSize,
+            isTestBuild = context.packageName.endsWith(".test"),
             onDismiss = { showChangelogDialog = false },
             onConfirmClick = {
-                showChangelogDialog = false
-                val availableState = updateState as? UpdateState.Available
-                if (availableState != null) {
+                if (!resolvedUrl.isNullOrBlank()) {
                     val appContext = context.applicationContext
                     InAppUpdater.startOrResumeDownload(
                         context = appContext,
-                        url = availableState.downloadUrl,
-                        versionName = availableState.versionName
+                        url = resolvedUrl,
+                        versionName = displayVersion,
+                        apkName = resolvedApkName,
+                        changelog = latestChangelog
                     )
-                    navController.navigateSafely("update_download")
                 }
+            },
+            onMigrateClick = {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/Saurav-02/PixelMusic/releases/latest")
+                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                try { context.startActivity(intent) } catch (_: ActivityNotFoundException) {}
             }
         )
     }
@@ -493,9 +529,11 @@ private fun AboutHeroCard(
                                                 InAppUpdater.startOrResumeDownload(
                                                     context = appContext,
                                                     url = state.downloadUrl,
-                                                    versionName = state.versionName ?: versionName
+                                                    versionName = state.versionName ?: versionName,
+                                                    apkName = state.apkName,
+                                                    changelog = state.changelog
                                                 )
-                                                navController.navigateSafely("update_download")
+                                                showChangelogDialog = true
                                             },
                                             modifier = Modifier.fillMaxWidth(),
                                             colors = androidx.compose.material3.ButtonDefaults.buttonColors(
@@ -663,15 +701,15 @@ private fun AboutHeroCard(
                                                 notificationManager.createNotificationChannel(channel)
                                             }
 
-                                            // Fire off the background singleton
+                                            // Open the redesigned App Update bottom sheet and start downloading
                                             InAppUpdater.startOrResumeDownload(
                                                 context = appContext,
                                                 url = state.downloadUrl,
-                                                versionName = state.versionName
+                                                versionName = state.versionName,
+                                                apkName = state.apkName,
+                                                changelog = state.changelog
                                             )
-                                            
-                                            // Launch the new beautiful UI screen!
-                                            navController.navigateSafely("update_download")
+                                            showChangelogDialog = true
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()

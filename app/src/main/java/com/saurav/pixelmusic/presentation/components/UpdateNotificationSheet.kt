@@ -1,9 +1,32 @@
 package com.saurav.pixelmusic.presentation.components
 
-import android.graphics.drawable.Animatable
+import android.graphics.drawable.Animatable as DrawableAnimatable
 import android.graphics.drawable.AnimatedImageDrawable
 import android.os.Build
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,22 +36,27 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
-import androidx.core.graphics.ColorUtils
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -42,33 +70,189 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.ColorUtils
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.components.subcomps.MaterialYouVectorDrawable
-import com.saurav.pixelmusic.presentation.components.subcomps.SineWaveLine
+import com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme
+import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
+import com.saurav.pixelmusic.utils.InAppUpdater
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
+import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val SlowExpressiveEasing = CubicBezierEasing(0.22f, 1.0f, 0.36f, 1.0f)
+private val SmoothPopEasing = CubicBezierEasing(0.18f, 0.92f, 0.22f, 1.0f)
+
+private fun Modifier.expressiveBlurReveal(progress: Float, slideDp: Float = 26f): Modifier {
+    val p = progress.coerceIn(0f, 1f)
+    val blurRadius = ((1f - p) * 12f)
+    val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.35f) {
+        Modifier.blur(blurRadius.dp)
+    } else {
+        Modifier
+    }
+    return this
+        .then(blurModifier)
+        .graphicsLayer {
+            alpha = p
+            translationY = (1f - p) * slideDp.dp.toPx()
+            val scale = 0.94f + (0.06f * p)
+            scaleX = scale
+            scaleY = scale
+        }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun UpdateNotificationSheet(
     isUpdateAvailable: Boolean,
     versionName: String,
     changelog: String?,
+    downloadUrl: String? = null,
+    apkName: String? = null,
+    apkSizeBytes: Long? = null,
+    userName: String? = null,
     isTestBuild: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirmClick: () -> Unit,
+    onConfirmClick: () -> Unit = {},
     onMigrateClick: () -> Unit = {},
     onSnoozeClick: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val density = LocalDensity.current
+
     val sheetState = rememberBottomSheetState(
         initialValue = SheetValue.Hidden,
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
     )
+
+    val downloadState by InAppUpdater.downloadState.collectAsStateWithLifecycle()
+    val resolvedDownloadUrl = remember(downloadUrl) {
+        downloadUrl?.takeIf { it.isNotBlank() } ?: InAppUpdater.getResolvedDownloadUrl()
+    }
+    val deviceArch = remember { InAppUpdater.getDeviceArchitecture() }
+    val cleanVersion = remember(versionName) {
+        versionName.removePrefix("v").removePrefix("V").ifBlank { "Latest" }
+    }
+    val resolvedApkName = remember(apkName, resolvedDownloadUrl, versionName) {
+        InAppUpdater.resolveApkFileName(
+            downloadUrl = resolvedDownloadUrl,
+            versionName = versionName,
+            assetName = apkName ?: InAppUpdater.getResolvedApkName()
+        )
+    }
+    val resolvedChangelog = remember(changelog) {
+        changelog ?: InAppUpdater.getResolvedChangelog()
+    }
+
+    // Changelog dropdown state: collapsed by default on update available so the sheet is clean and compact,
+    // expanded when the user taps the dropdown pill (or when viewing changelog on current version)
+    var isChangelogExpanded by remember { mutableStateOf(!isUpdateAvailable) }
+
+    // Choreography states:
+    // 1. Big monochrome app logo appears in center of the bottom sheet
+    // 2. Smoothly and slowly flies to sit in the top-left of the bottom sheet
+    // 3. Staggered pop-up of greeting + device architecture + changelog dropdown pill + APK card + download actions
+    val isAlreadyDownloading = remember {
+        downloadState is InAppUpdater.GlobalDownloadState.Downloading ||
+            downloadState is InAppUpdater.GlobalDownloadState.Finished
+    }
+
+    val logoIntroScale = remember { Animatable(if (isAlreadyDownloading) 1f else 0.42f) }
+    val logoIntroAlpha = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
+    val logoHaloProgress = remember { Animatable(0f) }
+    val logoFlightProgress = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
+
+    val headerReveal = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
+    val pillsReveal = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
+    val apkCardReveal = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
+    val actionsReveal = remember { Animatable(if (isAlreadyDownloading) 1f else 0f) }
+
+    LaunchedEffect(Unit) {
+        if (!isAlreadyDownloading) {
+            // Phase 1: Big monochrome logo blooms in the center of the bottom sheet
+            launch {
+                logoIntroAlpha.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing)
+                )
+            }
+            launch {
+                logoIntroScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = 0.72f,
+                        stiffness = Spring.StiffnessLow
+                    )
+                )
+            }
+            launch {
+                logoHaloProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 1050, easing = SlowExpressiveEasing)
+                )
+            }
+
+            // Hold big monochrome logo in center before flying to top-left
+            delay(540L)
+
+            // Phase 2: Slow, smooth flight from center to top-left of the bottom sheet
+            launch {
+                logoFlightProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 920, easing = SlowExpressiveEasing)
+                )
+            }
+
+            // Phase 3: Staggered smooth pop-up with blur reveal as the logo lands in top-left
+            delay(460L)
+            launch {
+                headerReveal.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 660, easing = SmoothPopEasing)
+                )
+            }
+            delay(115L)
+            launch {
+                pillsReveal.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 680, easing = SmoothPopEasing)
+                )
+            }
+            delay(115L)
+            launch {
+                apkCardReveal.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 700, easing = SmoothPopEasing)
+                )
+            }
+            delay(115L)
+            launch {
+                actionsReveal.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 720, easing = SmoothPopEasing)
+                )
+            }
+        }
+    }
+
+    var sheetRootInWindow by remember { mutableStateOf(Offset.Zero) }
+    var sheetWidthPx by remember { mutableFloatStateOf(0f) }
+    var sheetHeightPx by remember { mutableFloatStateOf(0f) }
+    var targetSlotCenterInRoot by remember { mutableStateOf<Offset?>(null) }
 
     SmoothModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -76,198 +260,984 @@ fun UpdateNotificationSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         val smoothDismiss = LocalSmoothDismiss.current
-        Column(
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.88f)
-        ) {
-            // Top Header Section
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 4.dp, bottom = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (isUpdateAvailable) "Update Available! 🚀" else "Changes in latest version ✨",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Surface(
-                    shape = AbsoluteSmoothCornerShape(12.dp, 60),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
-                ) {
-                    Text(
-                        text = "Version $versionName",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                        fontWeight = FontWeight.Bold
-                    )
+                .navigationBarsPadding()
+                .onGloballyPositioned { coords ->
+                    if (coords.isAttached) {
+                        sheetRootInWindow = coords.positionInRoot()
+                        sheetWidthPx = coords.size.width.toFloat()
+                        sheetHeightPx = coords.size.height.toFloat()
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                SineWaveLine(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(16.dp)
-                        .padding(horizontal = 8.dp),
-                    animate = true,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
-                    alpha = 0.9f,
-                    strokeWidth = 3.dp,
-                    amplitude = 3.dp,
-                    waves = 7.6f,
-                    phase = 0f
-                )
-            }
-
-            // Scrollable Rich Changelog Content
+        ) {
             Column(
                 modifier = Modifier
-                    .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 22.dp)
+                    .padding(top = 6.dp, bottom = 22.dp)
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = 0.88f,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    )
             ) {
-                RichChangelogContent(changelog = changelog)
-                Spacer(modifier = Modifier.height(12.dp))
-            }
+                // Top-Left Monochrome App Logo Slot (Target of the center-to-top-left flight)
+                Box(
+                    modifier = Modifier
+                        .size(66.dp)
+                        .onGloballyPositioned { coords ->
+                            if (coords.isAttached) {
+                                val pos = coords.positionInRoot()
+                                targetSlotCenterInRoot = Offset(
+                                    x = pos.x + coords.size.width * 0.5f,
+                                    y = pos.y + coords.size.height * 0.5f
+                                )
+                            }
+                        }
+                        .graphicsLayer {
+                            // Seamless handoff once the flying logo settles at flightProgress >= 0.98f
+                            alpha = if (logoFlightProgress.value >= 0.98f) 1f else 0f
+                        }
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        ),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(R.drawable.pixelmusic_base_monochrome),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(34.dp)
+                            )
+                        }
+                    }
+                }
 
-            // Fixed Bottom Action Bar
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                tonalElevation = 3.dp
-            ) {
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // 1. Greeting & Update Title
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 8.dp, bottom = 20.dp)
+                        .expressiveBlurReveal(headerReveal.value, slideDp = 22f)
                 ) {
-                    if (isTestBuild) {
-                        Text(
-                            text = "⚠️ This is a testing version of the app. It may contain bugs and unstable features.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp)
+                    val greetingName = remember(userName) {
+                        userName?.trim()?.takeIf { it.isNotEmpty() }?.lowercase(Locale.getDefault())
+                    }
+                    val headlineText = when {
+                        isUpdateAvailable && greetingName != null -> "Update available, $greetingName!"
+                        isUpdateAvailable -> "Update available!"
+                        greetingName != null -> "What's new, $greetingName!"
+                        else -> "What's new in $cleanVersion"
+                    }
+
+                    Text(
+                        text = headlineText,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontSize = 24.sp,
+                            letterSpacing = (-0.3).sp
+                        ),
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = if (isUpdateAvailable) {
+                            "PixelMusic $cleanVersion is ready for your device"
+                        } else {
+                            "You are running PixelMusic $cleanVersion"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 2. Device Architecture Pill + Dropdown Pill to Show Changelog
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .expressiveBlurReveal(pillsReveal.value, slideDp = 26f)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Device Architecture Pill
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Memory,
+                                    contentDescription = "Device Architecture",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = deviceArch,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        // Dropdown Pill to Show / Hide Changelog
+                        val arrowRotation by animateFloatAsState(
+                            targetValue = if (isChangelogExpanded) 180f else 0f,
+                            animationSpec = spring(
+                                dampingRatio = 0.8f,
+                                stiffness = Spring.StiffnessLow
+                            ),
+                            label = "ChangelogChevronRotation"
                         )
 
-                        val isLiquidGlass = LocalLiquidGlassEnabled.current
-                        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                        val migrateShape = AbsoluteSmoothCornerShape(18.dp, 60)
-
-                        Button(
-                            onClick = {
-                                onMigrateClick()
-                                smoothDismiss(null)
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isChangelogExpanded) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHighest
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isLiquidGlass) Color.Transparent else MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            border = BorderStroke(
+                                1.dp,
+                                if (isChangelogExpanded) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                                }
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(CircleShape)
+                                .clickable { isChangelogExpanded = !isChangelogExpanded }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = if (isChangelogExpanded) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.primary
+                                        },
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "What changed on $cleanVersion",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isChangelogExpanded) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Icon(
+                                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                                    contentDescription = if (isChangelogExpanded) "Hide changelog" else "Show changelog",
+                                    tint = if (isChangelogExpanded) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .graphicsLayer { rotationZ = arrowRotation }
+                                )
+                            }
+                        }
+                    }
+
+                    // Expandable Changelog Card
+                    AnimatedVisibility(
+                        visible = isChangelogExpanded,
+                        enter = expandVertically(
+                            expandFrom = Alignment.Top,
+                            animationSpec = tween(durationMillis = 560, easing = SlowExpressiveEasing)
+                        ) + fadeIn(
+                            animationSpec = tween(durationMillis = 440, easing = FastOutSlowInEasing)
+                        ),
+                        exit = shrinkVertically(
+                            shrinkTowards = Alignment.Top,
+                            animationSpec = tween(durationMillis = 420, easing = SlowExpressiveEasing)
+                        ) + fadeOut(
+                            animationSpec = tween(durationMillis = 280)
+                        )
+                    ) {
+                        Surface(
+                            shape = AbsoluteSmoothCornerShape(24.dp, 60),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
-                                .liquidGlassInteractiveSurface(
-                                    shape = migrateShape,
-                                    surfaceTint = if (isLiquidGlass) MaterialTheme.colorScheme.errorContainer.copy(alpha = if (isDark) 0.65f else 0.80f) else null
-                                ),
-                            shape = migrateShape,
-                            elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
+                                .padding(top = 12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(18.dp)
+                            ) {
+                                Text(
+                                    text = "What changed on $cleanVersion",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = if (isUpdateAvailable) 260.dp else 380.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    RichChangelogContent(changelog = resolvedChangelog)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // 3. "To Be Installed -" APK & Device Architecture Card
+                if (isUpdateAvailable || downloadState !is InAppUpdater.GlobalDownloadState.Idle) {
+                    val liveTotalBytes = when (val s = downloadState) {
+                        is InAppUpdater.GlobalDownloadState.Downloading -> s.totalBytes
+                        is InAppUpdater.GlobalDownloadState.Finished -> s.apkFile.length()
+                        else -> 0L
+                    }
+                    val effectiveBytes = remember(liveTotalBytes, apkSizeBytes) {
+                        when {
+                            liveTotalBytes > 0L -> liveTotalBytes
+                            apkSizeBytes != null && apkSizeBytes > 0L -> apkSizeBytes
+                            else -> InAppUpdater.getResolvedApkSizeBytes() ?: 0L
+                        }
+                    }
+                    val sizeLabel = remember(effectiveBytes) {
+                        if (effectiveBytes > 0L) {
+                            String.format(Locale.US, "%.1f MB", effectiveBytes / (1024f * 1024f))
+                        } else {
+                            "APK Package"
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .expressiveBlurReveal(apkCardReveal.value, slideDp = 28f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Migrate to Stable Release",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                                text = "To Be Installed -",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "ABI • $deviceArch",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
 
-                    val isLiquidGlass = LocalLiquidGlassEnabled.current
-                    val isBwTheme = com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme.current
-                    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                    val buttonShape = AbsoluteSmoothCornerShape(18.dp, 60)
+                        Surface(
+                            shape = AbsoluteSmoothCornerShape(22.dp, 60),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Surface(
+                                    shape = AbsoluteSmoothCornerShape(14.dp, 60),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.pixelmusic_base_monochrome),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
+                                }
 
-                    val primaryButtonColor = when {
-                        isBwTheme -> if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary
-                        isDark -> {
-                            val hsl = FloatArray(3)
-                            ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
-                            hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
-                            Color(ColorUtils.HSLToColor(hsl))
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(
+                                        text = resolvedApkName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${context.packageName} · $sizeLabel",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
-                        else -> MaterialTheme.colorScheme.primary
                     }
-                    val buttonContentColor = if (isBwTheme && !isDark) MaterialTheme.colorScheme.onPrimary else Color.White
 
-                    Button(
-                        onClick = {
+                    Spacer(modifier = Modifier.height(18.dp))
+                }
+
+                // 4. Expressive Download / Progress / Install & Secondary Actions
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .expressiveBlurReveal(actionsReveal.value, slideDp = 32f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ExpressiveUpdateActionArea(
+                        isUpdateAvailable = isUpdateAvailable,
+                        versionName = versionName,
+                        downloadUrl = resolvedDownloadUrl,
+                        apkName = resolvedApkName,
+                        changelog = resolvedChangelog,
+                        downloadState = downloadState,
+                        onFallbackConfirm = {
                             onConfirmClick()
                             smoothDismiss(null)
                         },
+                        onAwesomeDismiss = {
+                            smoothDismiss(null)
+                        }
+                    )
+
+                    if (isTestBuild) {
+                        val migrateShape = AbsoluteSmoothCornerShape(26.dp, 60)
+                        Surface(
+                            shape = migrateShape,
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .clip(migrateShape)
+                                .clickable {
+                                    onMigrateClick()
+                                    smoothDismiss(null)
+                                }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "Migrate to Stable Release",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+
+                    if (isUpdateAvailable) {
+                        val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
+
+                        // "Open the web" button (preserves web release/test page access)
+                        Surface(
+                            shape = pillShape,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .clip(pillShape)
+                                .clickable {
+                                    try {
+                                        uriHandler.openUri("https://pixelmusic.pages.dev")
+                                    } catch (_: Exception) {}
+                                }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "Open the web",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        if (onSnoozeClick != null) {
+                            Surface(
+                                shape = pillShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.75f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .clip(pillShape)
+                                    .clickable {
+                                        onSnoozeClick()
+                                        smoothDismiss(null)
+                                    }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "no thanks remind me in 24 hour",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Floating Hero Monochrome App Logo Layer (Center -> Top-Left Flight)
+            if (logoFlightProgress.value < 0.98f) {
+                val flight = logoFlightProgress.value
+                val startSizePx = with(density) { 122.dp.toPx() }
+                val endSizePx = with(density) { 66.dp.toPx() }
+                val currentSizePx = startSizePx + (endSizePx - startSizePx) * flight
+                val currentSizeDp = with(density) { currentSizePx.toDp() }
+
+                val startCenterX = if (sheetWidthPx > 0f) sheetWidthPx * 0.5f else with(density) { 180.dp.toPx() }
+                val startCenterY = if (sheetHeightPx > 0f) {
+                    (sheetHeightPx * 0.36f).coerceAtLeast(with(density) { 150.dp.toPx() })
+                } else {
+                    with(density) { 170.dp.toPx() }
+                }
+
+                val targetLocalCenter = targetSlotCenterInRoot?.let { targetInRoot ->
+                    Offset(
+                        x = targetInRoot.x - sheetRootInWindow.x,
+                        y = targetInRoot.y - sheetRootInWindow.y
+                    )
+                } ?: Offset(
+                    x = with(density) { (22.dp + 33.dp).toPx() },
+                    y = with(density) { (6.dp + 33.dp).toPx() }
+                )
+
+                val arcLiftPx = with(density) { -18.dp.toPx() } * sin(flight * PI).toFloat()
+                val currentCenterX = startCenterX + (targetLocalCenter.x - startCenterX) * flight
+                val currentCenterY = startCenterY + (targetLocalCenter.y - startCenterY) * flight + arcLiftPx
+
+                val topLeftX = (currentCenterX - currentSizePx * 0.5f).roundToInt()
+                val topLeftY = (currentCenterY - currentSizePx * 0.5f).roundToInt()
+
+                // Expanding halo ring while big monochrome logo is in the center
+                val haloFade = (1f - flight * 1.8f).coerceIn(0f, 1f)
+                if (haloFade > 0.01f) {
+                    val haloSizePx = startSizePx * (1.15f + 0.55f * logoHaloProgress.value)
+                    val haloSizeDp = with(density) { haloSizePx.toDp() }
+                    val haloX = (currentCenterX - haloSizePx * 0.5f).roundToInt()
+                    val haloY = (currentCenterY - haloSizePx * 0.5f).roundToInt()
+                    val haloColor = MaterialTheme.colorScheme.primary
+
+                    Canvas(
+                        modifier = Modifier
+                            .offset { IntOffset(haloX, haloY) }
+                            .size(haloSizeDp)
+                            .graphicsLayer {
+                                alpha = (1f - logoHaloProgress.value * 0.65f) * haloFade * 0.45f
+                            }
+                    ) {
+                        drawCircle(
+                            color = haloColor,
+                            radius = size.minDimension * 0.48f,
+                            style = Stroke(width = 12.dp.toPx())
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    border = BorderStroke(
+                        width = 1.5.dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f + 0.25f * (1f - flight))
+                    ),
+                    shadowElevation = (12f * (1f - flight)).dp,
+                    modifier = Modifier
+                        .offset { IntOffset(topLeftX, topLeftY) }
+                        .size(currentSizeDp)
+                        .graphicsLayer {
+                            alpha = logoIntroAlpha.value
+                            val s = logoIntroScale.value
+                            scaleX = s
+                            scaleY = s
+                            rotationZ = -12f * (1f - flight)
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        val iconSizeDp = with(density) { (currentSizePx * 0.515f).toDp() }
+                        Icon(
+                            painter = painterResource(R.drawable.pixelmusic_base_monochrome),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(iconSizeDp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ExpressiveUpdateActionArea(
+    isUpdateAvailable: Boolean,
+    versionName: String,
+    downloadUrl: String?,
+    apkName: String?,
+    changelog: String?,
+    downloadState: InAppUpdater.GlobalDownloadState,
+    onFallbackConfirm: () -> Unit,
+    onAwesomeDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val uiPhase = remember(downloadState) {
+        when (downloadState) {
+            is InAppUpdater.GlobalDownloadState.Idle -> "IDLE"
+            is InAppUpdater.GlobalDownloadState.Downloading -> "DOWNLOADING"
+            is InAppUpdater.GlobalDownloadState.Finished -> "FINISHED"
+            is InAppUpdater.GlobalDownloadState.Error -> "ERROR"
+        }
+    }
+
+    AnimatedContent(
+        targetState = uiPhase,
+        transitionSpec = {
+            (fadeIn(tween(420, easing = SlowExpressiveEasing)) +
+                scaleIn(initialScale = 0.96f, animationSpec = tween(420, easing = SlowExpressiveEasing)))
+                .togetherWith(
+                    fadeOut(tween(260)) +
+                        scaleOut(targetScale = 0.96f, animationSpec = tween(260))
+                )
+        },
+        label = "ExpressiveUpdateActionState"
+    ) { phase ->
+        when (phase) {
+            "DOWNLOADING" -> {
+                val state = downloadState as? InAppUpdater.GlobalDownloadState.Downloading
+                val rawProgress = (state?.progress ?: 0f).coerceIn(0f, 1f)
+                val isPaused = state?.isPaused ?: false
+                val animatedProgress by animateFloatAsState(
+                    targetValue = rawProgress,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessVeryLow
+                    ),
+                    label = "ExpressiveDownloadProgress"
+                )
+
+                val infiniteTransition = rememberInfiniteTransition(label = "ProgressShimmer")
+                val shimmerPhase by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 1800, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "ShimmerPhase"
+                )
+
+                val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
+                val percentInt = (animatedProgress * 100f).roundToInt().coerceIn(0, 100)
+                val sizeProgressText = remember(state?.downloadedBytes, state?.totalBytes) {
+                    val total = state?.totalBytes ?: 0L
+                    val down = state?.downloadedBytes ?: 0L
+                    if (total > 0L) {
+                        String.format(
+                            Locale.US,
+                            "%.1f / %.1f MB",
+                            down / (1024f * 1024f),
+                            total / (1024f * 1024f)
+                        )
+                    } else if (down > 0L) {
+                        String.format(Locale.US, "%.1f MB", down / (1024f * 1024f))
+                    } else {
+                        "Starting..."
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Main Expressive Fill Pill (matches reference screenshot "Downloading... 8%")
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
-                            .liquidGlassInteractiveSurface(
-                                shape = buttonShape,
-                                surfaceTint = if (isLiquidGlass) primaryButtonColor.copy(alpha = if (isDark) 0.65f else 0.80f) else null
+                            .height(60.dp)
+                            .clip(pillShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    ) {
+                        // Smooth animated left-to-right progress fill
+                        val fillFraction = animatedProgress.coerceAtLeast(0.06f)
+                        val baseFillColor = if (isPaused) {
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+                        }
+                        val accentGlowColor = MaterialTheme.colorScheme.primary.copy(
+                            alpha = if (isPaused) 0.18f else 0.36f
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(fraction = fillFraction)
+                                .background(
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            baseFillColor,
+                                            accentGlowColor,
+                                            baseFillColor.copy(alpha = 0.28f + 0.12f * sin(shimmerPhase * 2f * PI).toFloat())
+                                        )
+                                    )
+                                )
+                        )
+
+                        // Label & MB status inside the pill
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 20.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = if (isPaused) {
+                                    "Paused... $percentInt%"
+                                } else {
+                                    "Downloading... $percentInt%"
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // Expressive Wavy Progress + MB Counter + Pause/Cancel Pill Controls
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            LinearWavyProgressIndicator(
+                                progress = { animatedProgress },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = if (isPaused) {
+                                    MaterialTheme.colorScheme.outline
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = sizeProgressText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        FilledTonalIconButton(
+                            onClick = {
+                                if (isPaused) {
+                                    InAppUpdater.resumeDownload(context.applicationContext)
+                                } else {
+                                    InAppUpdater.pauseDownload()
+                                }
+                            },
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                                contentDescription = if (isPaused) "Resume" else "Pause",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        FilledTonalIconButton(
+                            onClick = {
+                                InAppUpdater.cancelDownload(context.applicationContext)
+                            },
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
                             ),
-                        shape = buttonShape,
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "Cancel download",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            "FINISHED" -> {
+                val state = downloadState as? InAppUpdater.GlobalDownloadState.Finished
+                val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            state?.apkFile?.let { file ->
+                                InAppUpdater.installApk(context, file)
+                            }
+                        },
+                        shape = pillShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isLiquidGlass) Color.Transparent else primaryButtonColor,
-                            contentColor = buttonContentColor
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
-                        elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(58.dp)
                     ) {
                         Icon(
-                            imageVector = if (isUpdateAvailable) Icons.Rounded.Download else Icons.Rounded.Check,
+                            imageVector = Icons.Rounded.DownloadDone,
                             contentDescription = null,
-                            tint = buttonContentColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Install Update",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { InAppUpdater.deleteApk(context.applicationContext) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DeleteOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Delete downloaded APK",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            "ERROR" -> {
+                val state = downloadState as? InAppUpdater.GlobalDownloadState.Error
+                val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        shape = AbsoluteSmoothCornerShape(16.dp, 60),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ErrorOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = state?.message ?: "Download failed. Please try again.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            if (!downloadUrl.isNullOrBlank()) {
+                                InAppUpdater.startOrResumeDownload(
+                                    context = context.applicationContext,
+                                    url = downloadUrl,
+                                    versionName = versionName,
+                                    apkName = apkName,
+                                    changelog = changelog
+                                )
+                            } else {
+                                onFallbackConfirm()
+                            }
+                        },
+                        shape = pillShape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isUpdateAvailable) "Update Now" else "Awesome",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = buttonContentColor
+                            text = "Retry Download",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
                     }
+                }
+            }
 
-                    if (isUpdateAvailable && onSnoozeClick != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        TextButton(
-                            onClick = {
-                                onSnoozeClick()
-                                smoothDismiss(null)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                        ) {
-                            Text(
-                                text = "Don't remind me today",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
-                            )
-                        }
+            else -> {
+                val isLiquidGlass = LocalLiquidGlassEnabled.current
+                val isBwTheme = LocalIsBlackAndWhiteTheme.current
+                val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+                val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
+
+                val primaryButtonColor = when {
+                    isBwTheme -> if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary
+                    isDark -> {
+                        val hsl = FloatArray(3)
+                        ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
+                        hsl[2] = (hsl[2] * 0.45f).coerceIn(0.22f, 0.40f)
+                        Color(ColorUtils.HSLToColor(hsl))
                     }
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                val buttonContentColor = if (isBwTheme && !isDark) MaterialTheme.colorScheme.onPrimary else Color.White
+
+                Button(
+                    onClick = {
+                        if (isUpdateAvailable) {
+                            if (!downloadUrl.isNullOrBlank()) {
+                                InAppUpdater.createNotificationChannel(context.applicationContext)
+                                InAppUpdater.startOrResumeDownload(
+                                    context = context.applicationContext,
+                                    url = downloadUrl,
+                                    versionName = versionName,
+                                    apkName = apkName,
+                                    changelog = changelog
+                                )
+                            } else {
+                                onFallbackConfirm()
+                            }
+                        } else {
+                            onAwesomeDismiss()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp)
+                        .liquidGlassInteractiveSurface(
+                            shape = pillShape,
+                            surfaceTint = if (isLiquidGlass) {
+                                primaryButtonColor.copy(alpha = if (isDark) 0.65f else 0.80f)
+                            } else null
+                        ),
+                    shape = pillShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isLiquidGlass) Color.Transparent else primaryButtonColor,
+                        contentColor = buttonContentColor
+                    ),
+                    elevation = if (isLiquidGlass) {
+                        ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                    } else {
+                        ButtonDefaults.buttonElevation()
+                    }
+                ) {
+                    Icon(
+                        imageVector = if (isUpdateAvailable) Icons.Rounded.Download else Icons.Rounded.Check,
+                        contentDescription = null,
+                        tint = buttonContentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = if (isUpdateAvailable) "Download Update" else "Awesome",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = buttonContentColor
+                    )
                 }
             }
         }
@@ -285,30 +1255,23 @@ fun RichChangelogContent(
         Column(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp),
+                .padding(vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
-                    .clip(RoundedCornerShape(20.dp))
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(18.dp))
             ) {
                 MaterialYouVectorDrawable(
                     modifier = Modifier.fillMaxSize(),
                     drawableResId = R.drawable.welcome_art
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Welcome to the latest PixelMusic! 🎉",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Includes under-the-hood fixes and performance polish.",
+                text = "This release focuses on bug fixes and performance polish.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -331,8 +1294,8 @@ fun RichChangelogContent(
                 is ChangelogItem.Image -> ImageItemView(item)
                 is ChangelogItem.Paragraph -> ParagraphView(item)
                 is ChangelogItem.Divider -> HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    modifier = Modifier.padding(vertical = 6.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                 )
             }
         }
@@ -354,7 +1317,7 @@ private fun NoticeCard(notice: ChangelogItem.Notice) {
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -362,21 +1325,21 @@ private fun NoticeCard(notice: ChangelogItem.Notice) {
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
-                    modifier = Modifier.size(30.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(text = notice.icon, fontSize = 15.sp)
+                        Text(text = notice.icon, fontSize = 14.sp)
                     }
                 }
                 Text(
                     text = notice.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             notice.lines.forEach { line ->
                 Text(
@@ -413,7 +1376,7 @@ private fun VersionHeaderView(header: ChangelogItem.VersionHeader) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 14.dp, bottom = 4.dp),
+            .padding(top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -423,14 +1386,14 @@ private fun VersionHeaderView(header: ChangelogItem.VersionHeader) {
             border = BorderStroke(1.dp, contentColor.copy(alpha = 0.25f))
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(text = icon, fontSize = 15.sp)
+                Text(text = icon, fontSize = 14.sp)
                 Text(
                     text = header.cleanName,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = contentColor
                 )
@@ -446,34 +1409,20 @@ private fun VersionHeaderView(header: ChangelogItem.VersionHeader) {
 @Composable
 private fun LinkButtonView(button: ChangelogItem.LinkButton) {
     val uriHandler = LocalUriHandler.current
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val buttonShape = AbsoluteSmoothCornerShape(18.dp, 60)
+    val buttonShape = AbsoluteSmoothCornerShape(16.dp, 60)
 
     Button(
         onClick = {
             try {
                 uriHandler.openUri(button.url)
-            } catch (e: Exception) {
-                // ignore if invalid
-            }
+            } catch (_: Exception) {}
         },
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .liquidGlassInteractiveSurface(
-                shape = buttonShape,
-                surfaceTint = if (isLiquidGlass) {
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.65f else 0.80f)
-                } else null
-            ),
+            .height(48.dp),
         shape = buttonShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isLiquidGlass) {
-                Color.Transparent
-            } else {
-                MaterialTheme.colorScheme.secondaryContainer
-            },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         ),
         elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
@@ -501,10 +1450,10 @@ private fun LinkButtonView(button: ChangelogItem.LinkButton) {
 private fun SectionHeaderView(header: ChangelogItem.SectionHeader) {
     Text(
         text = header.title,
-        style = if (header.level <= 2) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+        style = if (header.level <= 2) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
     )
 }
 
@@ -515,82 +1464,71 @@ private fun BulletItemView(bullet: ChangelogItem.Bullet) {
     val codeBg = MaterialTheme.colorScheme.surfaceContainerHighest
     val highlightBg = MaterialTheme.colorScheme.primaryContainer
 
-    Surface(
-        shape = AbsoluteSmoothCornerShape(14.dp, 60),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (!bullet.emoji.isNullOrBlank()) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                    modifier = Modifier.size(34.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(text = bullet.emoji, fontSize = 17.sp)
-                    }
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 7.dp, start = 4.dp, end = 4.dp)
-                        .size(8.dp)
-                        .background(color = MaterialTheme.colorScheme.primary, shape = CircleShape)
+        if (!bullet.emoji.isNullOrBlank()) {
+            Text(
+                text = bullet.emoji,
+                fontSize = 15.sp,
+                modifier = Modifier.padding(top = 1.dp)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .padding(top = 8.dp, start = 2.dp, end = 2.dp)
+                    .size(6.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        shape = CircleShape
+                    )
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            if (!bullet.title.isNullOrBlank()) {
+                Text(
+                    text = parseRichMarkdown(bullet.title, primaryColor, tertiaryColor, codeBg, highlightBg),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                if (!bullet.title.isNullOrBlank()) {
-                    Text(
-                        text = parseRichMarkdown(bullet.title, primaryColor, tertiaryColor, codeBg, highlightBg),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-
+            if (bullet.body.isNotBlank() && bullet.body != bullet.title) {
                 Text(
                     text = parseRichMarkdown(bullet.body, primaryColor, tertiaryColor, codeBg, highlightBg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
 
-                if (bullet.tags.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val uriHandler = LocalUriHandler.current
-                        bullet.tags.forEach { contributor ->
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
-                                modifier = Modifier.clickable {
-                                    uriHandler.openUri("https://t.me/$contributor")
-                                }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        text = "✈️ @$contributor",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
+            if (bullet.tags.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val uriHandler = LocalUriHandler.current
+                    bullet.tags.forEach { contributor ->
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                            modifier = Modifier.clickable {
+                                uriHandler.openUri("https://t.me/$contributor")
                             }
+                        ) {
+                            Text(
+                                text = "@$contributor",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
                         }
                     }
                 }
@@ -601,7 +1539,6 @@ private fun BulletItemView(bullet: ChangelogItem.Bullet) {
 
 fun normalizeMediaUrl(rawUrl: String): String {
     var trimmed = rawUrl.trim()
-    // Convert github.com/owner/repo/blob/branch/path or /raw/branch/path to raw.githubusercontent.com/owner/repo/branch/path
     val ghRegex = Regex("""^https?://github\.com/([^/]+)/([^/]+)/(?:blob|raw)/([^/]+)/(.*)""")
     val ghMatch = ghRegex.find(trimmed)
     if (ghMatch != null) {
@@ -650,7 +1587,7 @@ private fun ImageItemView(img: ChangelogItem.Image) {
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         modifier = Modifier
             .fillMaxWidth()
@@ -661,12 +1598,12 @@ private fun ImageItemView(img: ChangelogItem.Image) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 120.dp, max = 360.dp),
+                    .heightIn(min = 100.dp, max = 300.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(28.dp),
                         strokeWidth = 3.dp,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -675,13 +1612,13 @@ private fun ImageItemView(img: ChangelogItem.Image) {
                 if (isError) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(24.dp)
+                        modifier = Modifier.padding(20.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Warning,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(28.dp)
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
@@ -707,7 +1644,7 @@ private fun ImageItemView(img: ChangelogItem.Image) {
                         if (Build.VERSION.SDK_INT >= 28 && drawable is AnimatedImageDrawable) {
                             drawable.repeatCount = AnimatedImageDrawable.REPEAT_INFINITE
                             drawable.start()
-                        } else if (drawable is Animatable) {
+                        } else if (drawable is DrawableAnimatable) {
                             drawable.start()
                         }
                     },
@@ -717,7 +1654,7 @@ private fun ImageItemView(img: ChangelogItem.Image) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 120.dp, max = 360.dp),
+                        .heightIn(min = 100.dp, max = 300.dp),
                     contentScale = ContentScale.FillWidth
                 )
             }
@@ -767,7 +1704,6 @@ private fun parseRichMarkdown(
         }
         val groups = match.groups
         when {
-            // [text](url)
             groups[1] != null && groups[2] != null -> {
                 val label = groups[1]!!.value
                 val url = groups[2]!!.value
@@ -786,7 +1722,6 @@ private fun parseRichMarkdown(
                     append(label)
                 }
             }
-            // @user or [@user] -> Telegram profile
             groups[3] != null -> {
                 val user = groups[3]!!.value
                 withLink(
@@ -803,13 +1738,11 @@ private fun parseRichMarkdown(
                     append("@$user")
                 }
             }
-            // **bold**
             groups[4] != null -> {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
                     append(groups[4]!!.value)
                 }
             }
-            // `code`
             groups[5] != null -> {
                 withStyle(
                     SpanStyle(
@@ -822,7 +1755,6 @@ private fun parseRichMarkdown(
                     append(" ${groups[5]!!.value} ")
                 }
             }
-            // ==highlight==
             groups[6] != null -> {
                 withStyle(
                     SpanStyle(
@@ -834,7 +1766,6 @@ private fun parseRichMarkdown(
                     append(" ${groups[6]!!.value} ")
                 }
             }
-            // *italic*
             groups[7] != null -> {
                 withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
                     append(groups[7]!!.value)
@@ -889,7 +1820,6 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
             continue
         }
 
-        // 1. Notice / Alert Block
         if (line.startsWith("⚠️") || line.startsWith("🚨") || line.startsWith("💡") ||
             line.startsWith("📌") || line.contains("IMPORTANT NOTICE", ignoreCase = true) ||
             line.contains("NOTICE:", ignoreCase = true) || line.startsWith("[notice]", ignoreCase = true)
@@ -921,14 +1851,12 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
             continue
         }
 
-        // 2. Horizontal Divider
         if (line.matches(Regex("^-{3,}|_{3,}|\\*{3,}$"))) {
             items.add(ChangelogItem.Divider)
             i++
             continue
         }
 
-        // 2.5 Link Button (e.g. "### 🚀 Official APK Page: [pixelmusic.pages.dev](https://pixelmusic.pages.dev)")
         val rawUrlMatch = Regex("""(https?://[^\s)]+)""").find(line)
         if (rawUrlMatch != null) {
             val lowerLine = line.lowercase()
@@ -956,14 +1884,9 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
             }
         }
 
-        // 3. Image & GIF Detection:
-        // Markdown: ![alt](url)
         val mdImageMatch = Regex("""^!\[(.*?)\]\((https?://[^\s)]+)\)""").find(line)
-        // HTML: <img src="url" />
         val htmlImageMatch = Regex("""^<img\s+[^>]*src=["'](https?://[^"']+)["'][^>]*>""", RegexOption.IGNORE_CASE).find(line)
-        // Direct media URL ending in image/gif extension
         val directMediaMatch = Regex("""^(https?://[^\s]+?\.(?:png|jpg|jpeg|webp|gif|svg)(?:\?[^\s]*)?)$""", RegexOption.IGNORE_CASE).find(line)
-        // Direct link containing assets or gif hosting platforms
         val mediaUrlMatch = Regex("""^(https?://[^\s]+(?:/assets/[^\s]+|giphy\.com|tenor\.com|imgur\.com)[^\s]*)$""", RegexOption.IGNORE_CASE).find(line)
 
         if (mdImageMatch != null) {
@@ -989,7 +1912,6 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
             continue
         }
 
-        // 4. Version Header
         if (isVersionHeaderLine(line)) {
             val cleanName = line
                 .replace(Regex("^[-*#\\s]+|[-*#\\s]+$"), "")
@@ -1005,7 +1927,6 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
             continue
         }
 
-        // 5. Section Header (#, ##, ###)
         if (line.startsWith("#")) {
             val level = line.takeWhile { it == '#' }.length
             val title = line.drop(level).trim().replace(Regex("\\*\\*"), "")
@@ -1014,7 +1935,6 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
             continue
         }
 
-        // 6. Bullet Items (*, -, •, 1.)
         val bulletMatch = Regex("""^(\*|-|•|\d+\.)\s+(.*)""").find(line)
         if (bulletMatch != null) {
             val rawContent = bulletMatch.groupValues[2].trim()
@@ -1043,7 +1963,6 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
             continue
         }
 
-        // 7. Fallback Paragraph
         items.add(ChangelogItem.Paragraph(text = line))
         i++
     }

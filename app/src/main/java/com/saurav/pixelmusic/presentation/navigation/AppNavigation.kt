@@ -852,14 +852,7 @@ fun AppNavigation(
                     )
                 }
             }
-            composable(
-                route = "update_download",
-                deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "pixelmusic://update_download" })
-            ) {
-                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                    com.saurav.pixelmusic.presentation.screens.UpdateDownloadScreen(navController = navController)
-                }
-            }
+
         }
 
         if (showAiGeneratingOverlay && (isGeneratingAiPlaylist || aiSuccess || !aiError.isNullOrBlank())) {
