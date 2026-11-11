@@ -414,6 +414,8 @@ object MusicLiveWallpaperStateHolder {
      * wallpaper bitmap and NEVER resets to the device's factory default wallpaper.
      */
     fun initialize(context: Context) {
+        // Music Live Wallpaper requires Android 12+ (API 31); do nothing on older versions.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return
         if (!initialized.compareAndSet(false, true)) return
         val appContext = context.applicationContext
 
@@ -522,6 +524,7 @@ object MusicLiveWallpaperStateHolder {
     }
 
     fun updateFromPlayerInfo(playerInfo: PlayerInfo) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return
         _playbackState.update { current ->
             val resolvedArtBytes = playerInfo.albumArtBitmapData
                 ?: if (current.albumArtUriString == playerInfo.albumArtUri) current.albumArtBytes else null
@@ -559,6 +562,7 @@ object MusicLiveWallpaperStateHolder {
      * the stored gallery fallback is already in place.
      */
     fun markPlaybackStopped(context: Context? = null) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return
         _playbackState.update { current ->
             if (!current.isPlaying) current else current.copy(isPlaying = false)
         }

@@ -405,6 +405,7 @@ object SettingsSearchCatalog {
             "Dynamic Island", "Island Visualizer Style" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsLiveNotificationOrIsland()
             "Wallpaper Blur", "Lyrics Background Blur" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsHardwareBlur
             "Liquid Glass" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsLiquidGlass
+            "Music Live Wallpaper" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsMusicLiveWallpaper
             else -> true
         }
     }

@@ -136,6 +136,21 @@ startupScope.launch {
     MediaItemBuilder.initialize(this)
     com.saurav.pixelmusic.data.session.ListenTogetherFirebase.init(this)
     com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.initialize(this)
+    // Music Live Wallpaper needs Android 12+; hide its live wallpaper entry on older versions.
+    runCatching {
+        packageManager.setComponentEnabledSetting(
+            android.content.ComponentName(
+                this,
+                com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperService::class.java
+            ),
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+            } else {
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            },
+            android.content.pm.PackageManager.DONT_KILL_APP
+        )
+    }
 
     val smartImageEntryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
         this,

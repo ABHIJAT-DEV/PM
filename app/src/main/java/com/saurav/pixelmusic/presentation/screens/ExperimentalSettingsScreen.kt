@@ -241,7 +241,7 @@ fun ExperimentalSettingsScreen(
                 }
             }
 
-            item(key = "music_live_wallpaper_nav_card") {
+            if (com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsMusicLiveWallpaper) item(key = "music_live_wallpaper_nav_card") {
                 SettingsSection(
                     title = stringResource(R.string.music_live_wallpaper_title),
                     icon = {

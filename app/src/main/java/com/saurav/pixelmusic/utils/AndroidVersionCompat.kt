@@ -50,6 +50,15 @@ object AndroidVersionCompat {
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     /**
+     * Music Live Wallpaper needs Android 12+ (API 31, S): its Material You colors come from
+     * [android.app.WallpaperColors] reported by the live wallpaper engine, and its artwork blur
+     * uses hardware RenderEffect. The feature, its settings entry and its live wallpaper service
+     * are removed on Android 10/11.
+     */
+    val supportsMusicLiveWallpaper: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    /**
      * AGSL shaders ([android.graphics.RuntimeShader]) require Android 13+ (API 33, TIRAMISU).
      */
     val supportsAgsl: Boolean
@@ -167,6 +176,16 @@ object AndroidVersionCompat {
                 isSupported = supportsDynamicColor,
                 description = "Extracts accent and surface colors from your system wallpaper using Google Monet.",
                 limitationNote = "Wallpaper color extraction requires Android 12+. Preset themes (Album Art, Black & White, Sage, etc.) are available on all versions."
+            ),
+            FeatureCompatibilityItem(
+                id = "music_live_wallpaper",
+                name = "Music Live Wallpaper",
+                category = "Theming & Appearance",
+                requiredVersionLabel = "Android 12+ (API 31)",
+                minApi = 31,
+                isSupported = supportsMusicLiveWallpaper,
+                description = "Live wallpaper that draws the playing album art over your gallery fallback image, with Material You colors taken from the fallback.",
+                limitationNote = "Requires Android 12+ for wallpaper color reporting and hardware blur. On Android 10/11 the feature, its settings entry, and the live wallpaper are removed."
             ),
             FeatureCompatibilityItem(
                 id = "live_island",
