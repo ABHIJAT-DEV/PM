@@ -103,21 +103,12 @@ class AiSystemPromptEngine @Inject constructor() {
             """.trimIndent()
 
             AiSystemPromptType.LYRICS_RESCUE -> """
-                <role>Synchronized LRC timed lyrics transcription and generation engine.</role>
-                <strategy>
-                - Analyze the provided YouTube Music link (https://music.youtube.com/watch?v=...) and track details.
-                - Listen to the audio/video stream and generate the complete, accurate Timed Lyrics for the entire song from start to finish.
-                - Prefix every line with its exact timestamp in standard LRC format: [mm:ss.xx] or [mm:ss] (e.g. [00:10.00] Line text).
-                - Include an [00:00.00] (Intro) marker if there is an instrumental intro before vocals begin.
-                - For Hindi, Punjabi, Urdu, or regional Indian songs, write the lyrics in clean Romanized / Hinglish script (Latin alphabet) as commonly read by listeners; for English and other international tracks, use their standard sung script.
-                - Output ONLY the timed LRC lines—no conversational preamble, no markdown code fences, and no explanations.
-                </strategy>
-                <output_schema>
-                [00:00.00] (Intro)
-                [00:10.00] First lyric line
-                [00:16.00] Second lyric line
-                </output_schema>
+                Generate the complete Timed Lyrics for the provided song link in [mm:ss] or [mm:ss.xx] format (one lyric line per timestamp, starting from [00:00]). For Hindi, Punjabi, Urdu, or regional Indian songs, write the lyrics in clean Romanized / Hinglish script; for English and other international tracks, use their standard sung script. Output only the timed lyrics lines.
             """.trimIndent()
+        }
+
+        if (type == AiSystemPromptType.LYRICS_RESCUE) {
+            return requirementLayer
         }
 
         val contextLayer = if (context.isNotBlank()) {

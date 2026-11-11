@@ -484,13 +484,24 @@ class LyricsStateHolder @Inject constructor(
     }
 
     private suspend fun persistLyricsToFileMetadataIfPossible(song: Song, rawLyrics: String): String? {
-        val songId = song.id.toLongOrNull() ?: return null
+        val songId = song.id.toLongOrNull()?.takeIf { it > 0L } ?: return null
+        if (song.path.isBlank() ||
+            song.contentUriString.startsWith("youtube://") ||
+            song.contentUriString.startsWith("http") ||
+            song.contentUriString.startsWith("telegram://") ||
+            song.contentUriString.startsWith("netease://")
+        ) {
+            return null
+        }
         val normalizedLyrics = rawLyrics.trim()
         if (normalizedLyrics.isBlank()) return null
 
         return withContext(Dispatchers.IO) {
+            val localFile = File(song.path)
+            if (!localFile.exists() || !localFile.canWrite()) return@withContext null
+
             val existingArtwork = runCatching {
-                AudioMetadataReader.read(File(song.path))?.artwork
+                AudioMetadataReader.read(localFile)?.artwork
             }.getOrNull()
 
             val coverArtUpdate = existingArtwork?.let { artwork ->
