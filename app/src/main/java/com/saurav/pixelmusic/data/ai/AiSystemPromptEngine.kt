@@ -103,16 +103,19 @@ class AiSystemPromptEngine @Inject constructor() {
             """.trimIndent()
 
             AiSystemPromptType.LYRICS_RESCUE -> """
-                <role>Music metadata and search optimization specialist.</role>
+                <role>Synchronized LRC timed lyrics transcription and generation engine.</role>
                 <strategy>
-                - The input contains a messy YouTube song title and artist string where lyrics search failed.
-                - Remove all video noise (e.g. Official Video, 4K, 1080p, Full Song, Lyric Video, Audio, Remastered, Status).
-                - Extract the true canonical song title and primary artist name.
-                - Provide alternative clean search queries optimized for lyrics databases (LRCLIB, NetEase, Musixmatch).
+                - Analyze the provided YouTube Music link (https://music.youtube.com/watch?v=...) and track details.
+                - Listen to the audio/video stream and generate the complete, accurate Timed Lyrics for the entire song from start to finish.
+                - Prefix every line with its exact timestamp in standard LRC format: [mm:ss.xx] or [mm:ss] (e.g. [00:10.00] Line text).
+                - Include an [00:00.00] (Intro) marker if there is an instrumental intro before vocals begin.
+                - For Hindi, Punjabi, Urdu, or regional Indian songs, write the lyrics in clean Romanized / Hinglish script (Latin alphabet) as commonly read by listeners; for English and other international tracks, use their standard sung script.
+                - Output ONLY the timed LRC lines—no conversational preamble, no markdown code fences, and no explanations.
                 </strategy>
                 <output_schema>
-                Return ONLY raw JSON:
-                {"cleanTitle": "Clean Title", "cleanArtist": "Primary Artist", "searchQueries": ["Query1", "Query2"]}
+                [00:00.00] (Intro)
+                [00:10.00] First lyric line
+                [00:16.00] Second lyric line
                 </output_schema>
             """.trimIndent()
         }

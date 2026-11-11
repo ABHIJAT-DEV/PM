@@ -154,7 +154,7 @@ data class SettingsUiState(
     val replayGainEnabled: Boolean = false,
     val replayGainUseAlbumGain: Boolean = false,
     val isSafeTokenLimitEnabled: Boolean = true,
-    val isAiLyricsRescueEnabled: Boolean = false,
+    val isAiLyricsRescueEnabled: Boolean = true,
     val streamingAudioQualityWifi: StreamingAudioQuality = StreamingAudioQuality.AUTO,
     val streamingAudioQualityMobile: StreamingAudioQuality = StreamingAudioQuality.AUTO,
     val downloadAudioQuality: StreamingAudioQuality = StreamingAudioQuality.HIGH,

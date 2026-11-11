@@ -73,19 +73,162 @@ class LyricsRepositoryImpl @Inject constructor(
     private val aiOrchestrator: javax.inject.Provider<com.saurav.pixelmusic.data.ai.AiOrchestrator>? = null
 ) : LyricsRepository {
 
+    private data class ResolvedYtTrack(
+        val videoId: String?,
+        val title: String,
+        val artist: String,
+        val durationSec: Double?
+    )
+
+    private val ytUrlIdRegex = Regex(
+        "(?:https?://)?(?:music\\.|www\\.|m\\.)?youtube\\.com/watch\\?v=([a-zA-Z0-9_-]{11})|(?:https?://)?youtu\\.be/([a-zA-Z0-9_-]{11})",
+        RegexOption.IGNORE_CASE
+    )
+
+    private val aiBracketTimestampRegex = Regex(
+        """^\s*(?:[-*•]\s*)?(?:\*\*|`)?\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?](?:\*\*|`)?\s*(.*)$"""
+    )
+
+    private val aiLooseTimestampRegex = Regex(
+        """^\s*(?:[-*•]\s*)?(?:\*\*|`)?\(?(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\)?(?:\*\*|`)?\s*(?:[-–—:]\s*|\s+)(.+)$"""
+    )
+
+    private suspend fun resolveYtMusicTrack(song: Song): ResolvedYtTrack {
+        val directVideoId = song.youtubeId?.trim()?.takeIf { it.matches(Regex("^[a-zA-Z0-9_-]{11}$")) }
+            ?: song.id.removePrefix("youtube_").takeIf { it.matches(Regex("^[a-zA-Z0-9_-]{11}$")) }
+            ?: song.contentUriString.removePrefix("youtube://").takeIf { it.matches(Regex("^[a-zA-Z0-9_-]{11}$")) }
+            ?: ytUrlIdRegex.find(song.contentUriString)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }
+            ?: ytUrlIdRegex.find(song.title)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }
+
+        val fallbackDurationSec = if (song.duration > 0) song.duration / 1000.0 else null
+
+        if (directVideoId != null) {
+            val cleanTitle = song.title.takeIf { it.isNotBlank() && !ytUrlIdRegex.containsMatchIn(it) } ?: "YouTube Music Track"
+            return ResolvedYtTrack(
+                videoId = directVideoId,
+                title = cleanTitle,
+                artist = song.displayArtist,
+                durationSec = fallbackDurationSec
+            )
+        }
+
+        val query = listOfNotNull(
+            song.title.trim().takeIf { it.isNotBlank() },
+            song.displayArtist.trim().takeIf { it.isNotBlank() && !it.equals("Unknown Artist", ignoreCase = true) }
+        ).joinToString(" ").trim()
+
+        if (query.isNotBlank()) {
+            val songItem = runCatching {
+                saurav.shru.pixelmusic.innertube.YouTube.search(
+                    query,
+                    saurav.shru.pixelmusic.innertube.YouTube.SearchFilter.FILTER_SONG
+                ).getOrNull()?.items?.filterIsInstance<saurav.shru.pixelmusic.innertube.models.SongItem>()?.firstOrNull()
+            }.getOrNull()
+
+            if (songItem != null && songItem.id.isNotBlank()) {
+                return ResolvedYtTrack(
+                    videoId = songItem.id,
+                    title = songItem.title.ifBlank { song.title },
+                    artist = songItem.artists.joinToString(", ") { it.name }.ifBlank { song.displayArtist },
+                    durationSec = songItem.duration?.toDouble() ?: fallbackDurationSec
+                )
+            }
+
+            val videoItem = runCatching {
+                saurav.shru.pixelmusic.innertube.YouTube.search(
+                    query,
+                    saurav.shru.pixelmusic.innertube.YouTube.SearchFilter.FILTER_VIDEO
+                ).getOrNull()?.items?.filterIsInstance<saurav.shru.pixelmusic.innertube.models.VideoItem>()?.firstOrNull()
+            }.getOrNull()
+
+            if (videoItem != null && videoItem.id.isNotBlank()) {
+                return ResolvedYtTrack(
+                    videoId = videoItem.id,
+                    title = videoItem.title.ifBlank { song.title },
+                    artist = videoItem.artists.joinToString(", ") { it.name }.ifBlank { song.displayArtist },
+                    durationSec = videoItem.duration?.toDouble() ?: fallbackDurationSec
+                )
+            }
+        }
+
+        return ResolvedYtTrack(
+            videoId = null,
+            title = song.title,
+            artist = song.displayArtist,
+            durationSec = fallbackDurationSec
+        )
+    }
+
+    private fun normalizeAiTimedLyricsToLrc(rawResponse: String): String? {
+        val cleaned = rawResponse
+            .replace(Regex("```[a-zA-Z]*"), "")
+            .replace("```", "")
+            .trim()
+        if (cleaned.isBlank()) return null
+
+        val lrcLines = mutableListOf<String>()
+        for (rawLine in cleaned.lines()) {
+            val trimmed = rawLine.trim()
+            if (trimmed.isEmpty()) continue
+
+            val match = aiBracketTimestampRegex.matchEntire(trimmed)
+                ?: aiLooseTimestampRegex.matchEntire(trimmed)
+
+            if (match != null) {
+                val min = match.groupValues[1].toIntOrNull()?.coerceIn(0, 99) ?: continue
+                val sec = match.groupValues[2].toIntOrNull()?.coerceIn(0, 59) ?: continue
+                val fracStr = match.groupValues.getOrNull(3).orEmpty()
+                val hundredths = when (fracStr.length) {
+                    1 -> (fracStr.toIntOrNull() ?: 0) * 10
+                    2 -> fracStr.toIntOrNull() ?: 0
+                    3 -> (fracStr.toIntOrNull() ?: 0) / 10
+                    else -> 0
+                }.coerceIn(0, 99)
+                val lyricText = match.groupValues[4].trim()
+                lrcLines += String.format(java.util.Locale.US, "[%02d:%02d.%02d]%s", min, sec, hundredths, lyricText)
+            }
+        }
+
+        return if (lrcLines.size >= 2) {
+            lrcLines.joinToString("\n")
+        } else {
+            null
+        }
+    }
+
     private suspend fun aiLyricsRescue(song: Song): List<LyricsSearchResult> {
         val orchestrator = aiOrchestrator?.get() ?: return emptyList()
-        val prefs = userPreferencesRepository ?: return emptyList()
-        val isEnabled = runCatching { prefs.isAiLyricsRescueEnabledFlow.first() }.getOrDefault(false)
+        val prefs = userPreferencesRepository
+        val isEnabled = prefs?.let {
+            runCatching { it.isAiLyricsRescueEnabledFlow.first() }.getOrDefault(true)
+        } ?: true
         if (!isEnabled) return emptyList()
 
         return try {
-            val prompt = """
-                Extract clean track details for lyrics search:
-                Title: "${song.title}"
-                Artist: "${song.displayArtist}"
-                Album: "${song.album}"
-            """.trimIndent()
+            val resolved = resolveYtMusicTrack(song)
+            val ytMusicLink = resolved.videoId?.let { "https://music.youtube.com/watch?v=$it" }
+            val durationHint = resolved.durationSec?.takeIf { it > 0 }?.let { sec ->
+                val totalSec = sec.toInt()
+                String.format(java.util.Locale.US, "%02d:%02d", totalSec / 60, totalSec % 60)
+            }
+
+            val prompt = buildString {
+                if (ytMusicLink != null) {
+                    appendLine(ytMusicLink)
+                    appendLine()
+                }
+                appendLine("Timed Lyrics")
+                if (resolved.title.isNotBlank()) {
+                    appendLine("Song: \"${resolved.title}\"")
+                }
+                if (resolved.artist.isNotBlank() && !resolved.artist.equals("Unknown Artist", ignoreCase = true)) {
+                    appendLine("Artist: \"${resolved.artist}\"")
+                }
+                if (durationHint != null) {
+                    appendLine("Duration: $durationHint")
+                }
+                appendLine("Generate the complete synced timed lyrics for this song in LRC format ([mm:ss.xx] or [mm:ss] before each line).")
+            }.trim()
 
             val response = orchestrator.generateContent(
                 prompt = prompt,
@@ -93,43 +236,79 @@ class LyricsRepositoryImpl @Inject constructor(
             )
             if (response.isBlank()) return emptyList()
 
-            val cleanJson = response.replace("```json", "").replace("```", "").trim()
-            val jsonObj = org.json.JSONObject(cleanJson)
-            val cleanTitle = jsonObj.optString("cleanTitle").takeIf { it.isNotBlank() } ?: song.title
-            val cleanArtist = jsonObj.optString("cleanArtist").takeIf { it.isNotBlank() }
-            val searchQueries = jsonObj.optJSONArray("searchQueries")
-
-            val aiCandidates = mutableListOf<com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.QueryCandidate>()
-            aiCandidates.add(com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.QueryCandidate(cleanTitle, cleanArtist, com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.MatchStrategy.TAGS))
-
-            if (searchQueries != null) {
-                for (i in 0 until searchQueries.length()) {
-                    val q = searchQueries.getString(i).trim()
-                    if (q.isNotBlank()) {
-                        aiCandidates.add(com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.QueryCandidate(q, null, com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.MatchStrategy.FILENAME_TITLE_ONLY))
-                    }
+            val normalizedLrc = normalizeAiTimedLyricsToLrc(response)
+            if (normalizedLrc != null) {
+                val parsedLyrics = LyricsUtils.parseLyrics(normalizedLrc).copy(areFromRemote = true)
+                if (parsedLyrics.isValid()) {
+                    val hasSynced = !parsedLyrics.synced.isNullOrEmpty()
+                    val aiHit = ScoredHit(
+                        provider = com.saurav.pixelmusic.data.remote.lyrics_providers.util.Providers.LYRICSPLUS,
+                        strategy = com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.MatchStrategy.TAGS,
+                        result = com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.ProviderResult(
+                            title = resolved.title.ifBlank { song.title },
+                            artist = resolved.artist.ifBlank { song.displayArtist },
+                            durationSec = resolved.durationSec,
+                            album = if (ytMusicLink != null) "AI Timed Lyrics (YTMusic)" else "AI Timed Lyrics",
+                            hasSyncedLyrics = hasSynced
+                        ),
+                        confidence = com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.ConfidenceBreakdown(
+                            score = 0.95,
+                            title = 1.0,
+                            artist = 1.0,
+                            duration = 1.0,
+                            album = 1.0,
+                            tier = MatchTier.AUTO_ACCEPT,
+                            durationMatched = true
+                        ),
+                        inlineLyrics = normalizedLrc,
+                        neteaseId = null
+                    )
+                    return listOf(LyricsSearchResult(aiHit, parsedLyrics, normalizedLrc))
                 }
             }
 
-            val localTrack = LocalTrack(
-                title = cleanTitle,
-                artist = cleanArtist,
-                durationSec = if (song.duration > 0) song.duration / 1000.0 else null,
-                album = null
-            )
-            val hits = smartLyricsMatcher.search(localTrack, aiCandidates)
+            // Fallback: if the model returned clean metadata JSON instead of LRC lines, search providers with it
+            val cleanJson = response.replace("```json", "").replace("```", "").trim()
+            if (cleanJson.startsWith("{")) {
+                val jsonObj = org.json.JSONObject(cleanJson)
+                val cleanTitle = jsonObj.optString("cleanTitle").takeIf { it.isNotBlank() } ?: resolved.title
+                val cleanArtist = jsonObj.optString("cleanArtist").takeIf { it.isNotBlank() }
+                val searchQueries = jsonObj.optJSONArray("searchQueries")
 
-            coroutineScope {
-                hits.map { hit ->
-                    async {
-                        val rawLyrics = smartLyricsMatcher.fetchLyrics(hit) ?: return@async null
-                        val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true)
-                        if (!parsedLyrics.isValid()) return@async null
+                val aiCandidates = mutableListOf<com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.QueryCandidate>()
+                aiCandidates.add(com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.QueryCandidate(cleanTitle, cleanArtist, com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.MatchStrategy.TAGS))
 
-                        LyricsSearchResult(hit, parsedLyrics, rawLyrics)
+                if (searchQueries != null) {
+                    for (i in 0 until searchQueries.length()) {
+                        val q = searchQueries.getString(i).trim()
+                        if (q.isNotBlank()) {
+                            aiCandidates.add(com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.QueryCandidate(q, null, com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.MatchStrategy.FILENAME_TITLE_ONLY))
+                        }
                     }
-                }.awaitAll().filterNotNull()
+                }
+
+                val localTrack = LocalTrack(
+                    title = cleanTitle,
+                    artist = cleanArtist,
+                    durationSec = resolved.durationSec,
+                    album = null
+                )
+                val hits = smartLyricsMatcher.search(localTrack, aiCandidates)
+
+                return coroutineScope {
+                    hits.map { hit ->
+                        async {
+                            val rawLyrics = smartLyricsMatcher.fetchLyrics(hit) ?: return@async null
+                            val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true)
+                            if (!parsedLyrics.isValid()) return@async null
+
+                            LyricsSearchResult(hit, parsedLyrics, rawLyrics)
+                        }
+                    }.awaitAll().filterNotNull()
+                }
             }
+
+            emptyList()
         } catch (e: Exception) {
             Log.w(TAG, "AI lyrics rescue error: ${e.message}")
             emptyList()
@@ -274,6 +453,17 @@ class LyricsRepositoryImpl @Inject constructor(
                     }
                 }
             }
+            val aiResults = aiLyricsRescue(song)
+            val bestAi = aiResults.firstOrNull { !it.lyrics.synced.isNullOrEmpty() } ?: aiResults.firstOrNull()
+            if (bestAi != null && bestAi.lyrics.isValid()) {
+                saveToDbAndCache(
+                    song = song,
+                    rawLyrics = bestAi.rawLyrics,
+                    isSynced = !bestAi.lyrics.synced.isNullOrEmpty()
+                )
+                return@withContext bestAi.lyrics
+            }
+
             if (fallbackPlainResult != null) {
                 saveToDbAndCache(song, lyricsToRawContent(fallbackPlainResult) ?: "", isSynced = false)
                 return@withContext fallbackPlainResult
@@ -755,10 +945,10 @@ class LyricsRepositoryImpl @Inject constructor(
                 }.awaitAll().filterNotNull()
             }
 
-            if (results.isEmpty()) {
+            if (results.none { !it.lyrics.synced.isNullOrEmpty() }) {
                 val aiResults = aiLyricsRescue(song)
                 if (aiResults.isNotEmpty()) {
-                    results = aiResults
+                    results = aiResults + results
                 }
             }
 
@@ -797,11 +987,11 @@ class LyricsRepositoryImpl @Inject constructor(
                 }.awaitAll().filterNotNull()
             }
 
-            if (results.isEmpty()) {
+            if (results.none { !it.lyrics.synced.isNullOrEmpty() }) {
                 val dummySong = Song.emptySong().copy(title = cleanTitle, artist = cleanArtist.orEmpty())
                 val aiResults = aiLyricsRescue(dummySong)
                 if (aiResults.isNotEmpty()) {
-                    results = aiResults
+                    results = aiResults + results
                 }
             }
 

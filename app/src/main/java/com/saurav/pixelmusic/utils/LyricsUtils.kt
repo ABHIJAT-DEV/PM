@@ -73,7 +73,7 @@ private fun String.capitalizeFirstLetter(): String {
 
 object LyricsUtils {
 
-    private val LRC_LINE_REGEX = Pattern.compile("^\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})](.*)$")
+    private val LRC_LINE_REGEX = Pattern.compile("^\\[(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?](.*)$")
     private val LRC_WORD_REGEX = Pattern.compile("<(\\d{2}):(\\d{2})[.:](\\d{2,3})>([^<]*)")
     private val LRC_WORD_TAG_REGEX = Regex("<\\d{2}:\\d{2}[.:]\\d{2,3}>")
     private val LRC_WORD_SPLIT_REGEX = Regex("(?=<\\d{2}:\\d{2}[.:]\\d{2,3}>)")
@@ -127,11 +127,17 @@ object LyricsUtils {
                 isSynced = true
                 val minutes = lineMatcher.group(1)?.toLong() ?: 0
                 val seconds = lineMatcher.group(2)?.toLong() ?: 0
-                val fraction = lineMatcher.group(3)?.toLong() ?: 0
+                val fractionStr = lineMatcher.group(3)
+                val fraction = fractionStr?.toLongOrNull() ?: 0L
                 val textWithTags = stripFormatCharacters(lineMatcher.group(4)?.trim() ?: "")
                 val text = stripLrcTimestamps(textWithTags)
 
-                val millis = if (lineMatcher.group(3)?.length == 2) fraction * 10 else fraction
+                val millis = when (fractionStr?.length) {
+                    1 -> fraction * 100
+                    2 -> fraction * 10
+                    3 -> fraction
+                    else -> 0L
+                }
                 val lineTimestamp = minutes * 60 * 1000 + seconds * 1000 + millis
 
                 // Enhanced word-by-word parsing

@@ -32,9 +32,13 @@ import java.time.Duration
 class GeminiAiClient(private val apiKey: String) : AiClient {
 
     companion object {
-        private const val DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
+        private const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
+        private val YOUTUBE_VIDEO_ID_REGEX = Regex(
+            "(?:https?://)?(?:music\\.|www\\.|m\\.)?youtube\\.com/watch\\?v=([a-zA-Z0-9_-]{11})|(?:https?://)?youtu\\.be/([a-zA-Z0-9_-]{11})",
+            RegexOption.IGNORE_CASE
+        )
     }
 
     private val json = Json {
@@ -45,9 +49,14 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(Duration.ofSeconds(15))
-            .readTimeout(Duration.ofSeconds(60))
+            .readTimeout(Duration.ofSeconds(90))
             .writeTimeout(Duration.ofSeconds(60))
             .build()
+    }
+
+    private fun extractYoutubeVideoId(text: String): String? {
+        val match = YOUTUBE_VIDEO_ID_REGEX.find(text) ?: return null
+        return match.groupValues.drop(1).firstOrNull { it.isNotBlank() }
     }
 
     override suspend fun generateContent(
@@ -57,8 +66,65 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
         temperature: Float
     ): String = withContext(Dispatchers.IO) {
         val resolvedModel = model.ifBlank { DEFAULT_GEMINI_MODEL }
+        val youtubeVideoId = extractYoutubeVideoId(prompt)
 
+        if (youtubeVideoId != null) {
+            val candidateFileUris = listOf(
+                "https://www.youtube.com/watch?v=$youtubeVideoId",
+                "https://music.youtube.com/watch?v=$youtubeVideoId",
+                null
+            )
+            var lastError: AiProviderException? = null
+            for (fileUri in candidateFileUris) {
+                try {
+                    return@withContext executeGenerateContent(
+                        resolvedModel = resolvedModel,
+                        systemPrompt = systemPrompt,
+                        prompt = prompt,
+                        temperature = temperature,
+                        fileUri = fileUri
+                    )
+                } catch (e: AiProviderException) {
+                    lastError = e
+                    if (e.isModelUnavailable() || e.isApiKeyIssue() || e.isBillingIssue()) {
+                        throw e
+                    }
+                }
+            }
+            throw lastError ?: AiProviderSupport.createException(
+                providerName = "Gemini",
+                statusCode = null,
+                transportMessage = "Failed to generate content for YouTube link",
+                responseBody = null,
+                requestedModel = resolvedModel
+            )
+        }
+
+        executeGenerateContent(
+            resolvedModel = resolvedModel,
+            systemPrompt = systemPrompt,
+            prompt = prompt,
+            temperature = temperature,
+            fileUri = null
+        )
+    }
+
+    private fun executeGenerateContent(
+        resolvedModel: String,
+        systemPrompt: String,
+        prompt: String,
+        temperature: Float,
+        fileUri: String?
+    ): String {
         val userParts = buildJsonArray {
+            if (!fileUri.isNullOrBlank()) {
+                add(buildJsonObject {
+                    put("fileData", buildJsonObject {
+                        put("mimeType", "video/mp4")
+                        put("fileUri", fileUri)
+                    })
+                })
+            }
             add(buildJsonObject { put("text", prompt) })
         }
         val userContent = buildJsonObject {
@@ -113,7 +179,7 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
                     requestedModel = resolvedModel
                 )
             }
-            text
+            return text
         }
     }
 

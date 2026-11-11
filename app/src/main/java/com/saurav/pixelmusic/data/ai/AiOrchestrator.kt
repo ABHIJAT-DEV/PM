@@ -34,8 +34,8 @@ class AiOrchestrator @Inject constructor(
     // Cache TTL: 30 minutes — prevents stale results from being served indefinitely
     private val CACHE_TTL_MS = 1000L * 60 * 30
 
-    // Request timeout: 60 seconds max per provider attempt
-    private val REQUEST_TIMEOUT_MS = 60_000L
+    // Request timeout: 90 seconds max per provider attempt (allows multimodal YouTube audio/lyrics transcription)
+    private val REQUEST_TIMEOUT_MS = 90_000L
 
     private fun String.sha256(): String {
         return MessageDigest.getInstance("SHA-256")
@@ -177,7 +177,12 @@ class AiOrchestrator @Inject constructor(
             // Cache expired — proceed with fresh generation
         }
 
-        val providersToTry = com.saurav.pixelmusic.data.ai.provider.AiProviderSupport.buildProviderChain(userProvider)
+        val baseChain = com.saurav.pixelmusic.data.ai.provider.AiProviderSupport.buildProviderChain(userProvider)
+        val providersToTry = if (type == AiSystemPromptType.LYRICS_RESCUE) {
+            listOf(AiProvider.GEMINI) + baseChain.filter { it != AiProvider.GEMINI }
+        } else {
+            baseChain
+        }
         val failedProviders = mutableListOf<String>()
         val now = System.currentTimeMillis()
         

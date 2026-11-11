@@ -1535,7 +1535,7 @@ fun SettingsCategoryScreen(
                                     )
                                     SwitchSettingItem(
                                         title = "AI Lyrics Search (β)",
-                                        subtitle = "Extract clean song titles with AI when standard search finds no lyrics",
+                                        subtitle = "Feed the YouTube Music song link to AI to generate synced timed lyrics when standard providers fail",
                                         checked = uiState.isAiLyricsRescueEnabled,
                                         onCheckedChange = { enabled ->
                                             if (enabled && currentAiApiKey.isBlank()) {
