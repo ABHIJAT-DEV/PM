@@ -301,7 +301,6 @@ dependencies {
     implementation(libs.google.play.services.cast.framework)
 
     // UI Utilities & Extra
-    implementation(libs.backdrop)
     implementation(libs.timber)
     implementation(libs.smooth.corner.rect.android.compose)
     implementation(libs.reorderables)

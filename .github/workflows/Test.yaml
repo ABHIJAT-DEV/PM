@@ -134,7 +134,6 @@ jobs:
           git checkout --orphan dist-tmp
           rm -f vz-pixelmusic.jks
           rm -rf .github/workflows
-          rm -rf liquid_glass
 
           # Customize README for the Test-px distribution repository
           cat << 'EOF' > README.md

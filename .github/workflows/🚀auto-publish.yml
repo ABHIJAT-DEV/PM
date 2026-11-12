@@ -94,7 +94,6 @@ jobs:
           git checkout --orphan dist-tmp
           rm -f vz-pixelmusic.jks
           rm -rf .github/workflows
-          rm -rf liquid_glass
           git add -A
           git commit -m "chore: sync stripped source with cleared history [skip ci]"
           echo "Syncing code to ${{ env.TARGET_REPO }} (master branch)..."

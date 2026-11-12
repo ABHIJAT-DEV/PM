@@ -67,9 +67,6 @@ import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -166,9 +163,6 @@ import com.saurav.pixelmusic.presentation.utils.AppHapticsConfig
 import com.saurav.pixelmusic.presentation.utils.LocalAppHapticsConfig
 import com.saurav.pixelmusic.ui.modifiers.LocalMotionBlurEnabled
 import com.saurav.pixelmusic.ui.modifiers.LocalMotionBlurIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassBlurIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import com.saurav.pixelmusic.utils.AndroidVersionCompat
 import com.saurav.pixelmusic.presentation.utils.NoOpHapticFeedback
 import com.saurav.pixelmusic.utils.CrashLogData
@@ -909,34 +903,6 @@ class MainActivity : ComponentActivity() {
 
         val navBarStyle by playerViewModel.navBarStyle.collectAsStateWithLifecycle()
         val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
-        val performanceModeEnabled by playerViewModel.userPreferencesRepository.performanceModeEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
-        val liquidGlassEnabled by playerViewModel.userPreferencesRepository.liquidGlassEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-        val liquidGlassNavBarEnabled by playerViewModel.userPreferencesRepository.liquidGlassNavBarEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-        val liquidGlassMiniPlayerEnabled by playerViewModel.userPreferencesRepository.liquidGlassMiniPlayerEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-        val liquidGlassDismissPromptEnabled by playerViewModel.userPreferencesRepository.liquidGlassDismissPromptEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-        val liquidGlassBlurIntensity by playerViewModel.userPreferencesRepository.liquidGlassBlurIntensityFlow.collectAsStateWithLifecycle(initialValue = 1f)
-        val liquidGlassRefractionIntensity by playerViewModel.userPreferencesRepository.liquidGlassRefractionIntensityFlow.collectAsStateWithLifecycle(initialValue = 1f)
-        val liquidGlassVibrancyIntensity by playerViewModel.userPreferencesRepository.liquidGlassVibrancyIntensityFlow.collectAsStateWithLifecycle(initialValue = 1f)
-        val liquidGlassRefractionHeight by playerViewModel.userPreferencesRepository.liquidGlassRefractionHeightFlow.collectAsStateWithLifecycle(initialValue = 1f)
-        val liquidGlassRefractionAmount by playerViewModel.userPreferencesRepository.liquidGlassRefractionAmountFlow.collectAsStateWithLifecycle(initialValue = 1f)
-        val liquidGlassChromaticAberration by playerViewModel.userPreferencesRepository.liquidGlassChromaticAberrationFlow.collectAsStateWithLifecycle(initialValue = true)
-        val liquidGlassDepthEffect by playerViewModel.userPreferencesRepository.liquidGlassDepthEffectFlow.collectAsStateWithLifecycle(initialValue = true)
-        val liquidGlassSurfaceTint by playerViewModel.userPreferencesRepository.liquidGlassSurfaceTintFlow.collectAsStateWithLifecycle(initialValue = "SYSTEM")
-        val liquidGlassSurfaceOpacity by playerViewModel.userPreferencesRepository.liquidGlassSurfaceOpacityFlow.collectAsStateWithLifecycle(initialValue = 0.25f)
-        val liquidGlassStyle by playerViewModel.userPreferencesRepository.liquidGlassStyleFlow.collectAsStateWithLifecycle(initialValue = "LIQUID")
-        val liquidGlassTabSelectionOpacity by playerViewModel.userPreferencesRepository.liquidGlassTabSelectionOpacityFlow.collectAsStateWithLifecycle(initialValue = 0.35f)
-        val liquidGlassTabSelectionColorMode by playerViewModel.userPreferencesRepository.liquidGlassTabSelectionColorModeFlow.collectAsStateWithLifecycle(initialValue = "CLEAR")
-        val liquidGlassHighlightOpacity by playerViewModel.userPreferencesRepository.liquidGlassHighlightOpacityFlow.collectAsStateWithLifecycle(initialValue = 0.20f)
-        val liquidGlassTextColor by playerViewModel.userPreferencesRepository.liquidGlassTextColorFlow.collectAsStateWithLifecycle(initialValue = "ADAPTIVE")
-        val isDarkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-        val effectiveLiquidGlassEnabled = liquidGlassEnabled && !performanceModeEnabled && AndroidVersionCompat.supportsLiquidGlass
-        val isLiquidGlassOnNavBar = effectiveLiquidGlassEnabled && liquidGlassNavBarEnabled
-        val isLiquidGlassOnMiniPlayer = effectiveLiquidGlassEnabled && liquidGlassMiniPlayerEnabled
-        val isLiquidGlassOnDismissPrompt = effectiveLiquidGlassEnabled && liquidGlassDismissPromptEnabled
-        val navBackdrop = rememberLayerBackdrop {
-            drawRect(if (isDarkTheme) Color.Black else Color.White)
-            drawContent()
-        }
         val navBarCornerRadiusRaw by playerViewModel.navBarCornerRadius.collectAsStateWithLifecycle()
         val navBarCornerRadius = sanitizeNavBarCornerRadius(navBarCornerRadiusRaw)
         val isMiniPlayerDismissing by playerViewModel.isMiniPlayerDismissing.collectAsStateWithLifecycle()
@@ -1062,22 +1028,7 @@ class MainActivity : ComponentActivity() {
             LocalAppHapticsConfig provides appHapticsConfig,
             LocalHapticFeedback provides scopedHapticFeedback,
             LocalMotionBlurIntensity provides motionBlurIntensity,
-            LocalMotionBlurEnabled provides motionBlurEnabled,
-            LocalLiquidGlassBlurIntensity provides liquidGlassBlurIntensity,
-            LocalLiquidGlassRefractionIntensity provides liquidGlassRefractionIntensity,
-            LocalLiquidGlassEnabled provides effectiveLiquidGlassEnabled,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassVibrancyIntensity provides liquidGlassVibrancyIntensity,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionHeight provides liquidGlassRefractionHeight,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionAmount provides liquidGlassRefractionAmount,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassChromaticAberration provides liquidGlassChromaticAberration,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassDepthEffect provides liquidGlassDepthEffect,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassSurfaceTint provides liquidGlassSurfaceTint,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassSurfaceOpacity provides liquidGlassSurfaceOpacity,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassStyle provides liquidGlassStyle,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassTabSelectionOpacity provides liquidGlassTabSelectionOpacity,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassTabSelectionColorMode provides liquidGlassTabSelectionColorMode,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassHighlightOpacity provides liquidGlassHighlightOpacity,
-            com.saurav.pixelmusic.ui.theme.LocalLiquidGlassTextColor provides liquidGlassTextColor
+            LocalMotionBlurEnabled provides motionBlurEnabled
         ) {
             AppSidebarDrawer(
                 drawerState = drawerState,
@@ -1318,8 +1269,6 @@ class MainActivity : ComponentActivity() {
                                     compactMode = navBarCompactMode,
                                     bottomBarPadding = bottomBarPadding,
                                     onSearchIconDoubleTap = onSearchIconDoubleTap,
-                                    isLiquidGlass = isLiquidGlassOnNavBar,
-                                    backdrop = if (isNavBarCoveredByPlayer) null else navBackdrop,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -1360,26 +1309,11 @@ class MainActivity : ComponentActivity() {
                             bottomSpacerPx = spacerPx
                         )
 
-                        val isPlayerFullyExpanded by remember(showPlayerContentInitially) {
-                            derivedStateOf {
-                                showPlayerContentInitially && playerViewModel.playerContentExpansionFraction.value >= 0.98f
-                            }
-                        }
-                        val isBottomChromeCovered by remember(showPlayerContentInitially) {
-                            derivedStateOf {
-                                showPlayerContentInitially && playerViewModel.playerContentExpansionFraction.value >= 0.45f
-                            }
-                        }
-                        val shouldCaptureNavBackdrop = (isLiquidGlassOnNavBar || isLiquidGlassOnMiniPlayer || isLiquidGlassOnDismissPrompt) && !isPlayerFullyExpanded
-
                         // ==========================================
-                        // BASE CONTENT LAYER (SAMPLED FOR GLASS BACKDROP)
-                        // Contains Scrims & AppNavigation ONLY (no floating glass surfaces)
+                        // BASE CONTENT LAYER
                         // ==========================================
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .then(if (shouldCaptureNavBackdrop) Modifier.layerBackdrop(navBackdrop) else Modifier)
+                            modifier = Modifier.fillMaxSize()
                         ) {
                             // ==========================================
                             // GLOBAL PERSISTENT SCRIMS (BACKGROUND LAYER)
@@ -1422,10 +1356,9 @@ class MainActivity : ComponentActivity() {
                                     )
                             )
                             
-                            // Global Bottom Scrim (Subtle when Liquid Glass is on so glass samples real backdrop content)
+                            // Global Bottom Scrim
                             val currentSongIdForScrim by remember { playerViewModel.stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
                             val bottomPaddingForScrim = innerPadding.calculateBottomPadding() + (if(currentSongIdForScrim != null) MiniPlayerHeight else 0.dp)
-                            val bottomScrimAlphaScale = if (isLiquidGlassOnNavBar) 0.15f else 1.0f
                             
                             Box(
                                 modifier = Modifier
@@ -1436,12 +1369,12 @@ class MainActivity : ComponentActivity() {
                                         brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
                                                 0.00f to Color.Transparent,
-                                                0.12f to scrimBottomColor.copy(alpha = 0.11f * bottomScrimAlphaScale),
-                                                0.28f to scrimBottomColor.copy(alpha = 0.28f * bottomScrimAlphaScale),
-                                                0.46f to scrimBottomColor.copy(alpha = 0.48f * bottomScrimAlphaScale),
-                                                0.64f to scrimBottomColor.copy(alpha = 0.68f * bottomScrimAlphaScale),
-                                                0.82f to scrimBottomColor.copy(alpha = 0.86f * bottomScrimAlphaScale),
-                                                1.00f to scrimBottomColor.copy(alpha = 0.95f * bottomScrimAlphaScale)
+                                                0.12f to scrimBottomColor.copy(alpha = 0.11f),
+                                                0.28f to scrimBottomColor.copy(alpha = 0.28f),
+                                                0.46f to scrimBottomColor.copy(alpha = 0.48f),
+                                                0.64f to scrimBottomColor.copy(alpha = 0.68f),
+                                                0.82f to scrimBottomColor.copy(alpha = 0.86f),
+                                                1.00f to scrimBottomColor.copy(alpha = 0.95f)
                                             )
                                         )
                                     )
@@ -1501,9 +1434,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onSwipeUp = { showRecognitionDialog = true },
-                                onListenTogetherClick = { playerViewModel.openListenTogetherSheet() },
-                                isLiquidGlass = isLiquidGlassOnNavBar,
-                                backdrop = if (isBottomChromeCovered) null else navBackdrop
+                                onListenTogetherClick = { playerViewModel.openListenTogetherSheet() }
                             )
                         }
                             
@@ -1536,9 +1467,7 @@ class MainActivity : ComponentActivity() {
                             hideMiniPlayer = shouldHideMiniPlayer,
                             containerHeight = containerHeight,
                             navController = navController,
-                            isNavBarHidden = isNavBarEffectivelyHidden,
-                            isLiquidGlass = isLiquidGlassOnMiniPlayer,
-                            backdrop = navBackdrop
+                            isNavBarHidden = isNavBarEffectivelyHidden
                         )
 
                         val dismissUndoBarSlice by remember {
@@ -1582,9 +1511,7 @@ class MainActivity : ComponentActivity() {
                                     .padding(horizontal = 14.dp),
                                 onUndo = onUndoDismissPlaylist,
                                 onClose = onCloseDismissUndoBar,
-                                durationMillis = dismissUndoBarSlice.durationMillis,
-                                isLiquidGlass = isLiquidGlassOnDismissPrompt,
-                                backdrop = navBackdrop
+                                durationMillis = dismissUndoBarSlice.durationMillis
                             )
                         }
 

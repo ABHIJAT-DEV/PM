@@ -306,20 +306,6 @@ object SettingsSearchCatalog {
             listOf("scrobble", "lastfm", "track", "history"),
             SettingsCategory.LASTFM, Screen.SettingsCategory.createRoute(SettingsCategory.LASTFM.id)),
 
-        // ─── Liquid Glass (Developer / Experimental) ─────────────────────────────────
-        SearchableSetting("Liquid Glass", "Enable iOS-style liquid glass refraction across supported components",
-            listOf("liquid", "glass", "liquid glass", "refraction", "blur", "ios", "glassmorphism", "specular", "experimental", "developer", "battery", "performance"),
-            SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
-        SearchableSetting("Liquid Glass Blur Intensity", "Adjust optical background blur for liquid glass surfaces",
-            listOf("liquid glass", "blur", "intensity", "glass blur", "background", "experimental", "developer"),
-            SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
-        SearchableSetting("Liquid Glass Refraction Height", "Adjust lens distortion curvature and refraction depth",
-            listOf("liquid glass", "refraction", "height", "depth", "lens", "curvature", "experimental", "developer"),
-            SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
-        SearchableSetting("Liquid Glass Light Mode Boost", "Enhance glass contrast and specular highlights in light themes",
-            listOf("liquid glass", "light mode", "contrast", "specular", "boost", "white", "experimental", "developer"),
-            SettingsCategory.DEVELOPER, Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)),
-
         // ─── Equalizer ──────────────────────────────────────────────────────────────
         SearchableSetting("Equalizer", "Launch audio effects, equalizer, and sound enhancement panel",
             listOf("equalizer", "eq", "audio", "bass", "treble", "dolby", "sound", "effects"),
@@ -397,14 +383,10 @@ object SettingsSearchCatalog {
     }
 
     private fun isSupportedOnCurrentDevice(entry: SearchableSetting): Boolean {
-        if (entry.route.contains("liquid_glass") && !com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsLiquidGlass) {
-            return false
-        }
         return when (entry.title) {
             "Motion Blur" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsMotionBlur
             "Dynamic Island", "Island Visualizer Style" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsLiveNotificationOrIsland()
             "Wallpaper Blur", "Lyrics Background Blur" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsHardwareBlur
-            "Liquid Glass" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsLiquidGlass
             "Music Live Wallpaper" -> com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsMusicLiveWallpaper
             else -> true
         }

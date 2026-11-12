@@ -37,13 +37,6 @@ object AndroidVersionCompat {
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     /**
-     * Liquid Glass real-time refraction and blur effects rely on Android 12+ (API 31, S)
-     * RenderEffect runtime shader and backdrop capture support.
-     */
-    val supportsLiquidGlass: Boolean
-        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-
-    /**
      * Material You dynamic Monet system theming requires Android 12+ (API 31, S).
      */
     val supportsDynamicColor: Boolean
@@ -146,16 +139,6 @@ object AndroidVersionCompat {
                 isSupported = supportsMotionBlur,
                 description = "Applies real-time directional velocity blur when scrolling song and album lists.",
                 limitationNote = "Requires AGSL (Android Graphics Shading Language) RuntimeShader introduced in Android 13."
-            ),
-            FeatureCompatibilityItem(
-                id = "liquid_glass",
-                name = "Liquid Glass Effect",
-                category = "Graphics & UI",
-                requiredVersionLabel = "Android 12+ (API 31)",
-                minApi = 31,
-                isSupported = supportsLiquidGlass,
-                description = "Real-time iOS-style liquid glass refraction, dynamic blur, specular highlights, and spring animations.",
-                limitationNote = "Requires hardware-accelerated RenderEffect runtime shader and backdrop capture support introduced in Android 12."
             ),
             FeatureCompatibilityItem(
                 id = "hardware_blur",

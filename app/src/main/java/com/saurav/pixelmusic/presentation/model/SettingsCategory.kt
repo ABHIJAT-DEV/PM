@@ -88,12 +88,6 @@ enum class SettingsCategory(
         subtitleRes = R.string.settings_category_about_subtitle,
         icon = Icons.Rounded.Info
     ),
-    LIQUID_GLASS(
-        id = "liquid_glass",
-        titleRes = R.string.settings_category_liquid_glass_title,
-        subtitleRes = R.string.settings_category_liquid_glass_subtitle,
-        icon = Icons.Rounded.AutoAwesome
-    ),
     LASTFM(
         id = "lastfm",
         titleRes = R.string.lastfm_integration,

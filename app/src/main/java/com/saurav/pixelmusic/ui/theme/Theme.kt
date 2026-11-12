@@ -40,22 +40,6 @@ import com.saurav.pixelmusic.presentation.viewmodel.ColorSchemePair
 
 val LocalPixelMusicDarkTheme = staticCompositionLocalOf { false }
 val LocalIsBlackAndWhiteTheme = staticCompositionLocalOf { false }
-val LocalLiquidGlassBlurIntensity = staticCompositionLocalOf { 1.0f }
-val LocalLiquidGlassRefractionIntensity = staticCompositionLocalOf { 1.0f }
-val LocalLiquidGlassEnabled = staticCompositionLocalOf { true }
-val LocalLiquidGlassBackdrop = staticCompositionLocalOf<com.kyant.backdrop.Backdrop?> { null }
-val LocalLiquidGlassVibrancyIntensity = staticCompositionLocalOf { 1.0f }
-val LocalLiquidGlassRefractionHeight = staticCompositionLocalOf { 1.0f }
-val LocalLiquidGlassRefractionAmount = staticCompositionLocalOf { 1.0f }
-val LocalLiquidGlassChromaticAberration = staticCompositionLocalOf { true }
-val LocalLiquidGlassDepthEffect = staticCompositionLocalOf { true }
-val LocalLiquidGlassSurfaceTint = staticCompositionLocalOf { "SYSTEM" }
-val LocalLiquidGlassSurfaceOpacity = staticCompositionLocalOf { 0.25f }
-val LocalLiquidGlassStyle = staticCompositionLocalOf { "LIQUID" }
-val LocalLiquidGlassTabSelectionOpacity = staticCompositionLocalOf { 0.35f }
-val LocalLiquidGlassTabSelectionColorMode = staticCompositionLocalOf { "CLEAR" }
-val LocalLiquidGlassHighlightOpacity = staticCompositionLocalOf { 0.20f }
-val LocalLiquidGlassTextColor = staticCompositionLocalOf { "ADAPTIVE" }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
