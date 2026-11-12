@@ -34,7 +34,6 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -242,7 +241,7 @@ fun BackupModuleSelectionDialog(
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.Restore,
+                                                    painter = painterResource(R.drawable.rounded_restore_24),
                                                     contentDescription = null
                                                 )
                                                 Text(

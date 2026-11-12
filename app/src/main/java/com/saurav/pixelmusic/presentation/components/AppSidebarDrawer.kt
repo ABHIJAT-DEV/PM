@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.HorizontalDivider
@@ -129,7 +127,7 @@ private fun DrawerContent(
         NavigationDrawerItem(
             icon = {
                 Icon(
-                    imageVector = Icons.Rounded.GraphicEq,
+                    painter = painterResource(R.drawable.rounded_graphic_eq_24),
                     contentDescription = stringResource(R.string.settings_category_equalizer_title)
                 )
             },

@@ -15,9 +15,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -135,7 +136,7 @@ fun AiMetadataSheet(
                             imageVector = when {
                                 isSuccess -> Icons.Rounded.Check
                                 error != null -> Icons.Rounded.Close
-                                else -> Icons.Rounded.AutoAwesome
+                                else -> ImageVector.vectorResource(R.drawable.rounded_auto_awesome_24)
                             },
                             contentDescription = null,
                             modifier = Modifier.size(28.dp),

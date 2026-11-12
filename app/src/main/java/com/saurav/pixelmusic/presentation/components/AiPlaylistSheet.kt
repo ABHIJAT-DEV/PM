@@ -33,17 +33,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Leaderboard
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.People
-import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Sell
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -401,14 +394,14 @@ fun AiPlaylistSheet(
                     shape = AbsoluteSmoothCornerShape(16.dp, 60)
                 ) {
                     val modesList = listOf(
-                        Triple("recommendations", "My Recommendations", Icons.Rounded.AutoAwesome),
-                        Triple("recent", "Recent Tracks", Icons.Rounded.History),
-                        Triple("top", "Top Tracks", Icons.Rounded.Leaderboard),
-                        Triple("library", "My Library", Icons.Rounded.LibraryMusic),
-                        Triple("similar-tracks", "Similar Tracks", Icons.Rounded.MusicNote),
-                        Triple("similar-artists", "Similar Artists", Icons.Rounded.People),
-                        Triple("tag", "By Tag / Genre", Icons.Rounded.Sell),
-                        Triple("mix", "My Mix", Icons.Rounded.Shuffle)
+                        Triple("recommendations", "My Recommendations", ImageVector.vectorResource(R.drawable.rounded_auto_awesome_24)),
+                        Triple("recent", "Recent Tracks", ImageVector.vectorResource(R.drawable.rounded_history_24)),
+                        Triple("top", "Top Tracks", ImageVector.vectorResource(R.drawable.rounded_leaderboard_24)),
+                        Triple("library", "My Library", ImageVector.vectorResource(R.drawable.rounded_library_music_24)),
+                        Triple("similar-tracks", "Similar Tracks", ImageVector.vectorResource(R.drawable.rounded_music_note_24)),
+                        Triple("similar-artists", "Similar Artists", ImageVector.vectorResource(R.drawable.rounded_people_24)),
+                        Triple("tag", "By Tag / Genre", ImageVector.vectorResource(R.drawable.rounded_sell_24)),
+                        Triple("mix", "My Mix", ImageVector.vectorResource(R.drawable.rounded_shuffle_24))
                     )
                     modesList.forEach { (modeId, modeName, icon) ->
                         val isSelected = selectedMode == modeId
@@ -493,7 +486,7 @@ fun AiPlaylistSheet(
                         shape = AbsoluteSmoothCornerShape(12.dp, 60),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Rounded.LibraryMusic, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(18.dp))
+                        Icon(painter = painterResource(R.drawable.rounded_library_music_24), contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Pick From My Top Tracks", fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
                     }
@@ -587,7 +580,7 @@ fun AiPlaylistSheet(
                         shape = AbsoluteSmoothCornerShape(12.dp, 60),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Rounded.People, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(18.dp))
+                        Icon(painter = painterResource(R.drawable.rounded_people_24), contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Pick From My Top Artists", fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
                     }
@@ -743,7 +736,7 @@ fun AiPlaylistSheet(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Rounded.Restore, null, tint = colors.error, modifier = Modifier.size(18.dp))
+                            Icon(painter = painterResource(R.drawable.rounded_restore_24), null, tint = colors.error, modifier = Modifier.size(18.dp))
                             Text(
                                 text = "Tap to Retry",
                                 color = colors.error,
@@ -910,7 +903,7 @@ private fun SeedSearchResultItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Rounded.MusicNote,
+                painter = painterResource(R.drawable.rounded_music_note_24),
                 contentDescription = null,
                 tint = colors.second,
                 modifier = Modifier.size(16.dp)

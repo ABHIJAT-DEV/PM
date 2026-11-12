@@ -20,19 +20,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Gavel
-import androidx.compose.material.icons.rounded.Highlight
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material.icons.rounded.Whatshot
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -184,7 +176,7 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
                 BetaFaqSection(
                     title = stringResource(R.string.presentation_batch_g_beta_sheet_expect_title),
                     summary = stringResource(R.string.presentation_batch_g_beta_sheet_expect_summary),
-                    icon = Icons.Rounded.Whatshot,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_whatshot_24),
                     iconTint = MaterialTheme.colorScheme.primary,
                     initiallyExpanded = true
                 ) {
@@ -237,12 +229,12 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
                 BetaFaqSection(
                     title = stringResource(R.string.presentation_batch_g_beta_sheet_bug_title),
                     summary = stringResource(R.string.presentation_batch_g_beta_sheet_bug_summary_text),
-                    icon = Icons.Rounded.BugReport,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_bug_report_24),
                     iconTint = MaterialTheme.colorScheme.error,
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 ) {
                     BetaSubsectionHeader(
-                        icon = Icons.Rounded.BugReport,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_bug_report_24),
                         title = stringResource(R.string.presentation_batch_g_beta_sheet_bug_template_title)
                     )
                     BetaFieldList(
@@ -277,7 +269,7 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
                 BetaFaqSection(
                     title = stringResource(R.string.presentation_batch_g_beta_sheet_feature_title),
                     summary = stringResource(R.string.presentation_batch_g_beta_sheet_feature_summary),
-                    icon = Icons.Rounded.Highlight,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_highlight_24),
                     iconTint = MaterialTheme.colorScheme.primary
                 ) {
                     BetaFieldList(
@@ -296,12 +288,12 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
                 BetaFaqSection(
                     title = stringResource(R.string.presentation_batch_g_beta_sheet_quality_title),
                     summary = stringResource(R.string.presentation_batch_g_beta_sheet_quality_summary),
-                    icon = Icons.Rounded.Gavel,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_gavel_24),
                     iconTint = MaterialTheme.colorScheme.tertiary,
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
                 ) {
                     BetaSubsectionHeader(
-                        icon = Icons.Rounded.Gavel,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_gavel_24),
                         title = stringResource(R.string.presentation_batch_g_beta_sheet_title_examples_title)
                     )
                     BetaBulletList(
@@ -326,7 +318,7 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
                     )
                     BetaSectionDivider()
                     BetaSubsectionHeader(
-                        icon = Icons.Rounded.Shield,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_shield_24),
                         title = stringResource(R.string.presentation_batch_g_beta_sheet_privacy_title)
                     )
                     Text(
@@ -341,12 +333,12 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
                 BetaFaqSection(
                     title = stringResource(R.string.presentation_batch_g_beta_sheet_nightly_title),
                     summary = stringResource(R.string.presentation_batch_g_beta_sheet_nightly_summary),
-                    icon = Icons.Rounded.NightsStay,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_nights_stay_24),
                     iconTint = MaterialTheme.colorScheme.secondary,
                     containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
                 ) {
                     BetaSubsectionHeader(
-                        icon = Icons.Rounded.NightsStay,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_nights_stay_24),
                         title = stringResource(R.string.presentation_batch_g_beta_sheet_nightly_title)
                     )
                     Text(
@@ -361,7 +353,7 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
                     )
                     BetaSectionDivider()
                     BetaSubsectionHeader(
-                        icon = Icons.Rounded.Cloud,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_cloud_24),
                         title = stringResource(R.string.presentation_batch_g_beta_sheet_nightly_report_title)
                     )
                     Text(
@@ -566,7 +558,7 @@ private fun BetaFaqSection(
                     )
                 }
                 Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    painter = painterResource(if (expanded) R.drawable.rounded_expand_less_24 else R.drawable.rounded_expand_more_24),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
