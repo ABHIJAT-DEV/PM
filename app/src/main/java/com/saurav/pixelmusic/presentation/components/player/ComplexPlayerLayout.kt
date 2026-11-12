@@ -51,13 +51,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -1706,7 +1701,7 @@ private fun VerticalExpressiveControlStack(
             }
         ) {
             Icon(
-                imageVector = Icons.Rounded.MoreHoriz,
+                painter = painterResource(R.drawable.rounded_more_horiz_24),
                 contentDescription = stringResource(R.string.cd_player_more_options),
                 tint = onNeutralContainerColor,
                 modifier = Modifier.size(26.dp)
@@ -1812,7 +1807,7 @@ private fun VerticalExpressiveControlStack(
             }
         ) {
             Icon(
-                imageVector = Icons.Rounded.SkipPrevious,
+                painter = painterResource(R.drawable.rounded_skip_previous_24),
                 contentDescription = "Previous",
                 tint = onSkipContainerColor,
                 modifier = Modifier
@@ -1895,7 +1890,9 @@ private fun VerticalExpressiveControlStack(
                     label = "complexPlayPauseIcon"
                 ) { playing ->
                     Icon(
-                        imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        painter = painterResource(
+                            if (playing) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24
+                        ),
                         contentDescription = if (playing) "Pause" else "Play",
                         tint = onPlayPauseContainerColor,
                         modifier = Modifier.size(36.dp)
@@ -1945,7 +1942,7 @@ private fun VerticalExpressiveControlStack(
             }
         ) {
             Icon(
-                imageVector = Icons.Rounded.SkipNext,
+                painter = painterResource(R.drawable.rounded_skip_next_24),
                 contentDescription = "Next",
                 tint = onSkipContainerColor,
                 modifier = Modifier
@@ -2058,7 +2055,7 @@ private fun ComplexExpressiveVisualizer(
                     drawPath(path = path, color = tertiaryColor)
                 }
                 Icon(
-                    imageVector = Icons.Rounded.GraphicEq,
+                    painter = painterResource(R.drawable.rounded_graphic_eq_24),
                     contentDescription = null,
                     tint = onTertiaryColor,
                     modifier = Modifier.size(22.dp)
@@ -2177,7 +2174,7 @@ internal fun MorphingTransportButtonsOverlay(
         endIconColor = targetSkipIconColor,
         startIconSize = 22.dp,
         endIconSize = targetSkipIconSize,
-        icon = Icons.Rounded.SkipPrevious
+        icon = ImageVector.vectorResource(R.drawable.rounded_skip_previous_24)
     )
 
     MorphingSingleTransportButton(
@@ -2193,7 +2190,7 @@ internal fun MorphingTransportButtonsOverlay(
         endIconColor = targetPlayIconColor,
         startIconSize = 22.dp,
         endIconSize = targetPlayIconSize,
-        icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow
+        icon = ImageVector.vectorResource(if (isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24)
     )
 
     MorphingSingleTransportButton(
@@ -2209,7 +2206,7 @@ internal fun MorphingTransportButtonsOverlay(
         endIconColor = targetSkipIconColor,
         startIconSize = 22.dp,
         endIconSize = targetSkipIconSize,
-        icon = Icons.Rounded.SkipNext
+        icon = ImageVector.vectorResource(R.drawable.rounded_skip_next_24)
     )
 }
 

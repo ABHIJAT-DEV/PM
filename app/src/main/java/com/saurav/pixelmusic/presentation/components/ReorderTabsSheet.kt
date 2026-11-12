@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.DragIndicator
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -223,7 +222,7 @@ fun ReorderTabsSheet(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.DragIndicator,
+                                            painter = painterResource(R.drawable.rounded_drag_indicator_24),
                                             contentDescription = stringResource(R.string.cd_drag_handle),
                                             modifier = Modifier.draggableHandle()
                                         )

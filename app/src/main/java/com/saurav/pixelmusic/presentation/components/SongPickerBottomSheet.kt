@@ -31,8 +31,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
@@ -210,7 +208,7 @@ fun SongPickerContent(
                                         )
                                     } else {
                                         Icon(
-                                            imageVector = Icons.Rounded.Cloud,
+                                            painter = painterResource(R.drawable.rounded_cloud_24),
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )

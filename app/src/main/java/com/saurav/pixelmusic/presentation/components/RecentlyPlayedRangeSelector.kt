@@ -19,8 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.History
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -159,7 +159,7 @@ private fun RecentlyPlayedRangeChip(
                 contentAlignment = Alignment.CenterStart
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.History,
+                    painter = painterResource(R.drawable.rounded_history_24),
                     contentDescription = null,
                     modifier = Modifier
                         .size(FilterChipDefaults.IconSize)

@@ -11,8 +11,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -109,7 +109,7 @@ fun ScannerButton(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = Icons.Rounded.GraphicEq,
+                    painter = painterResource(R.drawable.rounded_graphic_eq_24),
                     contentDescription = "Microphone",
                     modifier = Modifier.size(42.dp),
                     tint = if (isListening) MaterialTheme.colorScheme.onPrimary
