@@ -96,52 +96,10 @@ import androidx.compose.ui.unit.dp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.MusicFolder
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import java.io.File
 
 val defaultShape = RoundedCornerShape(26.dp) // Fallback shape
 val genHeight = 42.dp
-
-private fun Modifier.liquidGlassActionButton(
-    shape: Shape,
-    isLiquidGlass: Boolean,
-    press: Animatable<Float, *>,
-    jiggle: Animatable<Float, *>,
-    isCircle: Boolean = false,
-    borderBrush: Brush,
-    coroutineScope: CoroutineScope,
-    pressSpec: SpringSpec<Float>,
-    jiggleSpec: SpringSpec<Float>
-): Modifier {
-    if (!isLiquidGlass) return this
-    val scaleXMult = if (isCircle) 0.10f else 0.08f
-    val jiggleXMult = if (isCircle) 0.15f else 0.12f
-    val scaleYMult = if (isCircle) 0.08f else 0.06f
-    val jiggleYMult = if (isCircle) 0.13f else 0.10f
-
-    return this
-        .graphicsLayer {
-            scaleX = 1f + (press.value * scaleXMult) + (jiggle.value * jiggleXMult)
-            scaleY = 1f - (press.value * scaleYMult) - (jiggle.value * jiggleYMult)
-            shadowElevation = 0f
-        }
-        .pointerInput(Unit) {
-            awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false)
-                coroutineScope.launch {
-                    jiggle.snapTo(1f)
-                    jiggle.animateTo(0f, jiggleSpec)
-                }
-                coroutineScope.launch { press.animateTo(1f, pressSpec) }
-                waitForUpOrCancellation()
-                coroutineScope.launch { press.animateTo(0f, pressSpec) }
-            }
-        }
-        .border(BorderStroke(0.75.dp, borderBrush), shape)
-        .clip(shape)
-}
 
 @Composable
 fun LibraryActionRow(
@@ -169,34 +127,6 @@ fun LibraryActionRow(
     onStorageFilterClick: () -> Unit = {}
 ) {
     val shouldShowImport = isPlaylistTab && showImportButton
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val coroutineScope = rememberCoroutineScope()
-    val pressSpec = remember { spring<Float>(dampingRatio = 0.5f, stiffness = 450f) }
-    val jiggleSpec = remember { spring<Float>(dampingRatio = 0.32f, stiffness = 280f) }
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
-    val newPress = remember { Animatable(0f) }
-    val newJiggle = remember { Animatable(0f) }
-    val importPress = remember { Animatable(0f) }
-    val importJiggle = remember { Animatable(0f) }
-    val locatePress = remember { Animatable(0f) }
-    val locateJiggle = remember { Animatable(0f) }
-    val filterPress = remember { Animatable(0f) }
-    val filterJiggle = remember { Animatable(0f) }
-    val sortPress = remember { Animatable(0f) }
-    val sortJiggle = remember { Animatable(0f) }
 
     CompositionLocalProvider(
         LocalMinimumInteractiveComponentSize provides 0.dp
@@ -230,13 +160,7 @@ fun LibraryActionRow(
                         rootPath = folderRootPath,
                         rootLabel = folderRootLabel,
                         onFolderClick = onFolderClick,
-                        onNavigateBack = onNavigateBack,
-                        isLiquidGlass = isLiquidGlass,
-                        isDark = isDark,
-                        glassBorderBrush = glassBorderBrush,
-                        coroutineScope = coroutineScope,
-                        pressSpec = pressSpec,
-                        jiggleSpec = jiggleSpec
+                        onNavigateBack = onNavigateBack
                     )
                 } else {
                     val outerCorner = 26.dp
@@ -283,24 +207,12 @@ fun LibraryActionRow(
                             onClick = onMainActionClick,
                             shape = newButtonShape,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isLiquidGlass) buttonContainerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else buttonContainerColor,
+                                containerColor = buttonContainerColor,
                                 contentColor = buttonContentColor
                             ),
                             elevation = flatElevation,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                            modifier = Modifier
-                                .height(genHeight)
-                                .liquidGlassActionButton(
-                                    shape = newButtonShape,
-                                    isLiquidGlass = isLiquidGlass,
-                                    press = newPress,
-                                    jiggle = newJiggle,
-                                    isCircle = false,
-                                    borderBrush = glassBorderBrush,
-                                    coroutineScope = coroutineScope,
-                                    pressSpec = pressSpec,
-                                    jiggleSpec = jiggleSpec
-                                )
+                            modifier = Modifier.height(genHeight)
                         ) {
                             AnimatedContent(
                                 targetState = isPlaylistTab,
@@ -359,7 +271,7 @@ fun LibraryActionRow(
                                     onClick = onImportM3uClick,
                                     shape = importButtonShape,
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer,
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                     ),
                                     elevation = flatElevation,
@@ -367,19 +279,7 @@ fun LibraryActionRow(
                                         horizontal = 14.dp,
                                         vertical = 10.dp
                                     ),
-                                    modifier = Modifier
-                                        .height(genHeight)
-                                        .liquidGlassActionButton(
-                                            shape = importButtonShape,
-                                            isLiquidGlass = isLiquidGlass,
-                                            press = importPress,
-                                            jiggle = importJiggle,
-                                            isCircle = false,
-                                            borderBrush = glassBorderBrush,
-                                            coroutineScope = coroutineScope,
-                                            pressSpec = pressSpec,
-                                            jiggleSpec = jiggleSpec
-                                        )
+                                    modifier = Modifier.height(genHeight)
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -453,22 +353,8 @@ fun LibraryActionRow(
                         FilledTonalIconButton(
                             onClick = onLocateClick,
                             shape = locateShape,
-                            colors = if (isLiquidGlass) IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = if (isDark) Color(0x351E1E22) else Color(0x55FFFFFF)
-                            ) else IconButtonDefaults.filledTonalIconButtonColors(),
-                            modifier = Modifier
-                                .size(genHeight)
-                                .liquidGlassActionButton(
-                                    shape = locateShape,
-                                    isLiquidGlass = isLiquidGlass,
-                                    press = locatePress,
-                                    jiggle = locateJiggle,
-                                    isCircle = true,
-                                    borderBrush = glassBorderBrush,
-                                    coroutineScope = coroutineScope,
-                                    pressSpec = pressSpec,
-                                    jiggleSpec = jiggleSpec
-                                )
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(),
+                            modifier = Modifier.size(genHeight)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.MyLocation,
@@ -518,22 +404,8 @@ fun LibraryActionRow(
                             FilledTonalIconButton(
                                 onClick = onStorageFilterClick,
                                 shape = filterShape,
-                                colors = if (isLiquidGlass) IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = if (isDark) Color(0x351E1E22) else Color(0x55FFFFFF)
-                                ) else IconButtonDefaults.filledTonalIconButtonColors(),
-                                modifier = Modifier
-                                    .size(genHeight)
-                                    .liquidGlassActionButton(
-                                        shape = filterShape,
-                                        isLiquidGlass = isLiquidGlass,
-                                        press = filterPress,
-                                        jiggle = filterJiggle,
-                                        isCircle = true,
-                                        borderBrush = glassBorderBrush,
-                                        coroutineScope = coroutineScope,
-                                        pressSpec = pressSpec,
-                                        jiggleSpec = jiggleSpec
-                                    )
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(),
+                                modifier = Modifier.size(genHeight)
                             ) {
                                  Icon(
                                     imageVector = finalIcon,
@@ -556,22 +428,8 @@ fun LibraryActionRow(
                     FilledTonalIconButton(
                         onClick = onSortClick,
                         shape = sortShape,
-                        colors = if (isLiquidGlass) IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = if (isDark) Color(0x351E1E22) else Color(0x55FFFFFF)
-                        ) else IconButtonDefaults.filledTonalIconButtonColors(),
-                        modifier = Modifier
-                            .size(genHeight)
-                            .liquidGlassActionButton(
-                                shape = sortShape,
-                                isLiquidGlass = isLiquidGlass,
-                                press = sortPress,
-                                jiggle = sortJiggle,
-                                isCircle = true,
-                                borderBrush = glassBorderBrush,
-                                coroutineScope = coroutineScope,
-                                pressSpec = pressSpec,
-                                jiggleSpec = jiggleSpec
-                            )
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(),
+                        modifier = Modifier.size(genHeight)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.Sort,
@@ -590,13 +448,7 @@ fun Breadcrumbs(
     rootPath: String,
     rootLabel: String,
     onFolderClick: (String) -> Unit,
-    onNavigateBack: () -> Unit,
-    isLiquidGlass: Boolean = false,
-    isDark: Boolean = false,
-    glassBorderBrush: Brush = Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent)),
-    coroutineScope: CoroutineScope = rememberCoroutineScope(),
-    pressSpec: SpringSpec<Float> = spring(dampingRatio = 0.5f, stiffness = 450f),
-    jiggleSpec: SpringSpec<Float> = spring(dampingRatio = 0.32f, stiffness = 280f)
+    onNavigateBack: () -> Unit
 ) {
     val rowState = rememberLazyListState()
     val pathSegments = remember(currentFolder?.path, rootPath, rootLabel) {
@@ -628,8 +480,6 @@ fun Breadcrumbs(
         }
     }
 
-    val backPress = remember { Animatable(0f) }
-    val backJiggle = remember { Animatable(0f) }
     val backShape = CircleShape
 
     Row(
@@ -641,22 +491,8 @@ fun Breadcrumbs(
         FilledTonalIconButton(
             onClick = onNavigateBack,
             shape = backShape,
-            colors = if (isLiquidGlass) IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = if (isDark) Color(0x351E1E22) else Color(0x55FFFFFF)
-            ) else IconButtonDefaults.filledTonalIconButtonColors(),
-            modifier = Modifier
-                .size(36.dp)
-                .liquidGlassActionButton(
-                    shape = backShape,
-                    isLiquidGlass = isLiquidGlass,
-                    press = backPress,
-                    jiggle = backJiggle,
-                    isCircle = true,
-                    borderBrush = glassBorderBrush,
-                    coroutineScope = coroutineScope,
-                    pressSpec = pressSpec,
-                    jiggleSpec = jiggleSpec
-                ),
+            colors = IconButtonDefaults.filledTonalIconButtonColors(),
+            modifier = Modifier.size(36.dp),
             enabled = currentFolder != null
         ) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.auth_cd_back))

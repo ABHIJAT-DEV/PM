@@ -47,7 +47,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.saurav.pixelmusic.data.stats.StatsTimeRange
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.foundation.lazy.items
 
 private val RecentlyPlayedRangeChipHeight = 44.dp
@@ -96,32 +95,14 @@ private fun RecentlyPlayedRangeChip(
 ) {
     val colors = MaterialTheme.colorScheme
     val motionScheme = MotionScheme.expressive()
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
 
     val containerColor by animateColorAsState(
-        targetValue = if (isLiquidGlass) {
-            if (selected) colors.tertiary.copy(alpha = if (isDark) 0.55f else 0.70f) else (if (isDark) Color(0x301E1E22) else Color(0x45FFFFFF))
-        } else {
-            if (selected) colors.tertiary else Color.Transparent
-        },
+        targetValue = if (selected) colors.tertiary else Color.Transparent,
         animationSpec = motionScheme.defaultEffectsSpec(),
         label = "RecentlyPlayedRangeChipContainerColor"
     )
     val contentColor by animateColorAsState(
-        targetValue = if (selected) colors.onTertiary else (if (isLiquidGlass) colors.onSurface.copy(alpha = 0.85f) else colors.tertiary),
+        targetValue = if (selected) colors.onTertiary else colors.tertiary,
         animationSpec = motionScheme.fastEffectsSpec(),
         label = "RecentlyPlayedRangeChipContentColor"
     )
@@ -150,13 +131,11 @@ private fun RecentlyPlayedRangeChip(
     Surface(
         selected = selected,
         onClick = onClick,
-        modifier = modifier
-            .semantics { role = Role.Tab }
-            .liquidGlassInteractiveSurface(shape = chipShape),
+        modifier = modifier.semantics { role = Role.Tab },
         shape = chipShape,
         color = containerColor,
         contentColor = contentColor,
-        border = if (isLiquidGlass) null else BorderStroke(
+        border = BorderStroke(
             width = RecentlyPlayedRangeChipBorderWidth,
             color = colors.tertiary
         ),

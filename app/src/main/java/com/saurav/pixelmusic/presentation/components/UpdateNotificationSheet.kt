@@ -78,7 +78,6 @@ import coil.request.ImageRequest
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.components.subcomps.MaterialYouVectorDrawable
 import com.saurav.pixelmusic.ui.theme.LocalIsBlackAndWhiteTheme
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import com.saurav.pixelmusic.utils.InAppUpdater
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -1059,7 +1058,6 @@ private fun ExpressiveUpdateActionArea(
             }
 
             else -> {
-                val isLiquidGlass = LocalLiquidGlassEnabled.current
                 val isBwTheme = LocalIsBlackAndWhiteTheme.current
                 val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
@@ -1093,23 +1091,13 @@ private fun ExpressiveUpdateActionArea(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(58.dp)
-                        .liquidGlassInteractiveSurface(
-                            shape = pillShape,
-                            surfaceTint = if (isLiquidGlass) {
-                                primaryButtonColor.copy(alpha = if (isDark) 0.65f else 0.80f)
-                            } else null
-                        ),
+                        .height(58.dp),
                     shape = pillShape,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLiquidGlass) Color.Transparent else primaryButtonColor,
+                        containerColor = primaryButtonColor,
                         contentColor = buttonContentColor
                     ),
-                    elevation = if (isLiquidGlass) {
-                        ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
-                    } else {
-                        ButtonDefaults.buttonElevation()
-                    }
+                    elevation = ButtonDefaults.buttonElevation()
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Download,

@@ -58,9 +58,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 private val buttonHeight = 44.dp
@@ -68,45 +65,6 @@ private val segmentedOuterCornerRadius = 26.dp
 private val segmentedInnerCornerRadius = 8.dp
 private val segmentGap = 3.dp
 private val optionsGap = 4.dp
-
-private fun Modifier.liquidGlassSelectionButton(
-    shape: Shape,
-    isLiquidGlass: Boolean,
-    press: Animatable<Float, *>,
-    jiggle: Animatable<Float, *>,
-    isCircle: Boolean = false,
-    borderBrush: Brush,
-    coroutineScope: CoroutineScope,
-    pressSpec: SpringSpec<Float>,
-    jiggleSpec: SpringSpec<Float>
-): Modifier {
-    if (!isLiquidGlass) return this
-    val scaleXMult = if (isCircle) 0.10f else 0.08f
-    val jiggleXMult = if (isCircle) 0.15f else 0.12f
-    val scaleYMult = if (isCircle) 0.08f else 0.06f
-    val jiggleYMult = if (isCircle) 0.13f else 0.10f
-
-    return this
-        .graphicsLayer {
-            scaleX = 1f + (press.value * scaleXMult) + (jiggle.value * jiggleXMult)
-            scaleY = 1f - (press.value * scaleYMult) - (jiggle.value * jiggleYMult)
-            shadowElevation = 0f
-        }
-        .pointerInput(Unit) {
-            awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false)
-                coroutineScope.launch {
-                    jiggle.snapTo(1f)
-                    jiggle.animateTo(0f, jiggleSpec)
-                }
-                coroutineScope.launch { press.animateTo(1f, pressSpec) }
-                waitForUpOrCancellation()
-                coroutineScope.launch { press.animateTo(0f, pressSpec) }
-            }
-        }
-        .border(BorderStroke(0.75.dp, borderBrush), shape)
-        .clip(shape)
-}
 
 /**
  * Action row displayed during multi-selection mode.
@@ -121,32 +79,6 @@ fun SelectionActionRow(
     onOptionsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val coroutineScope = rememberCoroutineScope()
-    val pressSpec = remember { spring<Float>(dampingRatio = 0.5f, stiffness = 450f) }
-    val jiggleSpec = remember { spring<Float>(dampingRatio = 0.32f, stiffness = 280f) }
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
-    val selectAllPress = remember { Animatable(0f) }
-    val selectAllJiggle = remember { Animatable(0f) }
-    val deselectPress = remember { Animatable(0f) }
-    val deselectJiggle = remember { Animatable(0f) }
-    val counterPress = remember { Animatable(0f) }
-    val counterJiggle = remember { Animatable(0f) }
-    val optionsPress = remember { Animatable(0f) }
-    val optionsJiggle = remember { Animatable(0f) }
 
     val leftSegmentShape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = segmentedOuterCornerRadius,
@@ -198,24 +130,12 @@ fun SelectionActionRow(
                 onClick = onSelectAll,
                 shape = leftSegmentShape,
                 colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 ),
-                elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                elevation = ButtonDefaults.filledTonalButtonElevation(),
                 contentPadding = PaddingValues(horizontal = 14.dp),
-                modifier = Modifier
-                    .height(buttonHeight)
-                    .liquidGlassSelectionButton(
-                        shape = leftSegmentShape,
-                        isLiquidGlass = isLiquidGlass,
-                        press = selectAllPress,
-                        jiggle = selectAllJiggle,
-                        isCircle = false,
-                        borderBrush = glassBorderBrush,
-                        coroutineScope = coroutineScope,
-                        pressSpec = pressSpec,
-                        jiggleSpec = jiggleSpec
-                    )
+                modifier = Modifier.height(buttonHeight)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.SelectAll,
@@ -236,24 +156,12 @@ fun SelectionActionRow(
                 onClick = onDeselect,
                 shape = rightSegmentShape,
                 colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondary,
+                    containerColor = MaterialTheme.colorScheme.secondary,
                     contentColor = MaterialTheme.colorScheme.onSecondary
                 ),
-                elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                elevation = ButtonDefaults.filledTonalButtonElevation(),
                 contentPadding = PaddingValues(horizontal = 14.dp),
-                modifier = Modifier
-                    .height(buttonHeight)
-                    .liquidGlassSelectionButton(
-                        shape = rightSegmentShape,
-                        isLiquidGlass = isLiquidGlass,
-                        press = deselectPress,
-                        jiggle = deselectJiggle,
-                        isCircle = false,
-                        borderBrush = glassBorderBrush,
-                        coroutineScope = coroutineScope,
-                        pressSpec = pressSpec,
-                        jiggleSpec = jiggleSpec
-                    )
+                modifier = Modifier.height(buttonHeight)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Deselect,
@@ -281,24 +189,12 @@ fun SelectionActionRow(
                     onClick = onOptionsClick,
                     shape = leftSegmentShape,
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primaryContainer,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
-                    elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                    elevation = ButtonDefaults.filledTonalButtonElevation(),
                     contentPadding = PaddingValues(horizontal = 12.dp),
-                    modifier = Modifier
-                        .height(buttonHeight)
-                        .liquidGlassSelectionButton(
-                            shape = leftSegmentShape,
-                            isLiquidGlass = isLiquidGlass,
-                            press = counterPress,
-                            jiggle = counterJiggle,
-                            isCircle = false,
-                            borderBrush = glassBorderBrush,
-                            coroutineScope = coroutineScope,
-                            pressSpec = pressSpec,
-                            jiggleSpec = jiggleSpec
-                        )
+                    modifier = Modifier.height(buttonHeight)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.CheckCircle,
@@ -321,25 +217,14 @@ fun SelectionActionRow(
                 onClick = onOptionsClick,
                 shape = currentOptionsShape,
                 colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
-                elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                elevation = ButtonDefaults.filledTonalButtonElevation(),
                 contentPadding = PaddingValues(horizontal = 2.dp),
                 modifier = Modifier
                     .height(buttonHeight)
                     .width(36.dp)
-                    .liquidGlassSelectionButton(
-                        shape = currentOptionsShape,
-                        isLiquidGlass = isLiquidGlass,
-                        press = optionsPress,
-                        jiggle = optionsJiggle,
-                        isCircle = selectedCount <= 0,
-                        borderBrush = glassBorderBrush,
-                        coroutineScope = coroutineScope,
-                        pressSpec = pressSpec,
-                        jiggleSpec = jiggleSpec
-                    )
             ) {
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,
@@ -359,21 +244,6 @@ fun SelectionCountPill(
     selectedCount: Int,
     modifier: Modifier = Modifier
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
     val pillShape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = 20.dp,
         cornerRadiusBL = 20.dp,
@@ -396,19 +266,10 @@ fun SelectionCountPill(
     ) {
         Surface(
             shape = pillShape,
-            color = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.60f else 0.75f) else MaterialTheme.colorScheme.primaryContainer,
-            shadowElevation = if (isLiquidGlass) 0.dp else 6.dp,
-            tonalElevation = if (isLiquidGlass) 0.dp else 2.dp,
-            modifier = Modifier
-                .padding(8.dp)
-                .then(
-                    if (isLiquidGlass) {
-                        Modifier
-                            .graphicsLayer { shadowElevation = 0f }
-                            .border(BorderStroke(0.75.dp, glassBorderBrush), pillShape)
-                            .clip(pillShape)
-                    } else Modifier
-                )
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shadowElevation = 6.dp,
+            tonalElevation = 2.dp,
+            modifier = Modifier.padding(8.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

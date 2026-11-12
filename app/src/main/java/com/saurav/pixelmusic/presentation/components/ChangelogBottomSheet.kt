@@ -28,8 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.FloatingActionButtonDefaults
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -133,8 +131,6 @@ fun ChangelogBottomSheet(
             }
         }
 
-        val isLiquidGlass = LocalLiquidGlassEnabled.current
-        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
         val fabShape = AbsoluteSmoothCornerShape(
             cornerRadiusBR = fabCornerRadius,
             smoothnessAsPercentBR = 60,
@@ -149,9 +145,9 @@ fun ChangelogBottomSheet(
         MediumExtendedFloatingActionButton(
             onClick = { openUrl(context, changelogUrl) },
             shape = fabShape,
-            containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.65f else 0.80f) else MaterialTheme.colorScheme.tertiaryContainer,
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-            elevation = if (isLiquidGlass) FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp) else FloatingActionButtonDefaults.elevation(),
+            elevation = FloatingActionButtonDefaults.elevation(),
             icon = {
                 Icon(
                     painter = painterResource(id = R.drawable.github),
@@ -162,7 +158,6 @@ fun ChangelogBottomSheet(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(horizontal = 24.dp, vertical = 24.dp)
-                .liquidGlassInteractiveSurface(shape = fabShape)
         )
 
         Box(

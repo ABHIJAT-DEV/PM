@@ -63,7 +63,6 @@ import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.SortDirection
 import com.saurav.pixelmusic.data.model.SortOption
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,21 +88,6 @@ fun LibrarySortBottomSheet(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
     )
 
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
     val selectedColor = MaterialTheme.colorScheme.secondaryContainer
     val unselectedColor = MaterialTheme.colorScheme.surfaceContainerLow
 
@@ -124,7 +108,7 @@ fun LibrarySortBottomSheet(
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle() },
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = if (isLiquidGlass) 0.dp else 8.dp
+        tonalElevation = 8.dp
     ) {
         Column(
             modifier = Modifier
@@ -209,21 +193,14 @@ fun LibrarySortBottomSheet(
                     val itemShape = RoundedCornerShape(8.dp)
 
                     Surface(
-                        color = if (isLiquidGlass) containerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else containerColor,
+                        color = containerColor,
                         shadowElevation = 0.dp,
                         tonalElevation = 0.dp,
                         shape = itemShape,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 0.dp)
-                            .then(
-                                if (isLiquidGlass) {
-                                    Modifier
-                                        .graphicsLayer { shadowElevation = 0f }
-                                        .border(BorderStroke(0.75.dp, glassBorderBrush), itemShape)
-                                        .clip(itemShape)
-                                } else Modifier.clip(itemShape)
-                            )
+                            .clip(itemShape)
                             .selectable(
                                 selected = isSelected,
                                 onClick = {
@@ -308,21 +285,6 @@ private fun LibrarySheetSortDirectionCard(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
     val cardShape = AbsoluteSmoothCornerShape(18.dp, 60)
 
     val transition = updateTransition(
@@ -390,10 +352,9 @@ private fun LibrarySheetSortDirectionCard(
         modifier = modifier
             .fillMaxWidth()
             .alpha(if (enabled) 1f else 0.72f)
-            .liquidGlassInteractiveSurface(shape = cardShape, enabled = enabled)
             .clip(cardShape)
             .background(
-                color = if (isLiquidGlass) containerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else containerColor,
+                color = containerColor,
                 shape = cardShape
             )
             .clickable(enabled = enabled, onClick = onClick)
@@ -448,21 +409,6 @@ internal fun LibrarySheetToggleCard(
     boxCornerRadius: Dp,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
     val toggleShape = AbsoluteSmoothCornerShape(
         cornerRadiusBL = boxCornerRadius,
         smoothnessAsPercentBR = 60,
@@ -478,10 +424,9 @@ internal fun LibrarySheetToggleCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 0.dp)
-            .liquidGlassInteractiveSurface(shape = toggleShape)
             .clip(toggleShape)
             .background(
-                color = if (isLiquidGlass) boxBackgroundColor.copy(alpha = if (isDark) 0.55f else 0.70f) else boxBackgroundColor,
+                color = boxBackgroundColor,
                 shape = toggleShape
             )
             .clickable(onClick = { onCheckedChange(!checked) })

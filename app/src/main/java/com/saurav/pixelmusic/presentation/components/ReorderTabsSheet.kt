@@ -67,7 +67,6 @@ import com.saurav.pixelmusic.presentation.library.LibraryTabId
 import com.saurav.pixelmusic.presentation.utils.LocalAppHapticsConfig
 import com.saurav.pixelmusic.presentation.utils.performAppCompatHapticFeedback
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
@@ -125,7 +124,6 @@ fun ReorderTabsSheet(
     val listState = rememberLazyListState()
     val view = LocalView.current
     val appHapticsConfig = LocalAppHapticsConfig.current
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
 
     val reorderableState = rememberReorderableLazyListState(
         onMove = { from, to ->
@@ -217,7 +215,7 @@ fun ReorderTabsSheet(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(CircleShape),
-                                    shadowElevation = if (isLiquidGlass) 0.dp else (if (isDragging) 4.dp else 0.dp),
+                                    shadowElevation = if (isDragging) 4.dp else 0.dp,
                                     color = MaterialTheme.colorScheme.surfaceContainerLowest
                                 ) {
                                     Row(
@@ -249,20 +247,6 @@ fun FloatingToolBar(
     onDismiss: () -> Unit,
     onClick: () -> Unit,
 ){
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
     val backgroundShape = AbsoluteSmoothCornerShape(
         cornerRadiusTR = 22.dp,
         smoothnessAsPercentTL = 60,
@@ -276,22 +260,9 @@ fun FloatingToolBar(
     Box(
         modifier = modifier
             .padding(8.dp)
-            .then(
-                if (isLiquidGlass) {
-                    Modifier
-                        .graphicsLayer { shadowElevation = 0f }
-                        .background(
-                            shape = backgroundShape,
-                            color = if (isDark) Color(0xD91E1E22) else Color(0xEBFFFFFF)
-                        )
-                        .border(BorderStroke(0.75.dp, glassBorderBrush), backgroundShape)
-                        .clip(backgroundShape)
-                } else {
-                    Modifier.background(
-                        shape = backgroundShape,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
-                }
+            .background(
+                shape = backgroundShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
             )
     ){
         Row(
@@ -317,8 +288,8 @@ fun FloatingToolBar(
                     .align(Alignment.CenterVertically),
                 shape = CircleShape,
                 elevation = FloatingActionButtonDefaults.elevation(
-                    defaultElevation = if (isLiquidGlass) 0.dp else 4.dp,
-                    pressedElevation = if (isLiquidGlass) 0.dp else 6.dp
+                    defaultElevation = 4.dp,
+                    pressedElevation = 6.dp
                 ),
                 onClick = onClick,
                 icon = { Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.action_done)) },

@@ -61,7 +61,6 @@ import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.preferences.QuickPicksDisplayMode
 import com.saurav.pixelmusic.data.preferences.QuickPicksSectionStyle
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.ui.graphics.luminance
 
 private val QuickPicksPillHeight = 56.dp
@@ -117,9 +116,7 @@ fun QuickPicksSection(
             )
             if (onSeeAllClick != null) {
                 IconButton(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .liquidGlassInteractiveSurface(isCircle = true),
+                    modifier = Modifier.size(40.dp),
                     onClick = onSeeAllClick
                 ) {
                     Icon(

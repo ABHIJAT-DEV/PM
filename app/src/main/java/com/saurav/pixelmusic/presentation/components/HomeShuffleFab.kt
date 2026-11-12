@@ -78,18 +78,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassBlurIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionIntensity
-import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
-import android.os.Build
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.Animatable
@@ -122,9 +110,7 @@ fun HomeShuffleFab(
     isSessionActive: Boolean = false,
     onLongClick: (() -> Unit)? = null,
     onSwipeUp: (() -> Unit)? = null,
-    onListenTogetherClick: (() -> Unit)? = null,
-    isLiquidGlass: Boolean = true,
-    backdrop: Backdrop? = null
+    onListenTogetherClick: (() -> Unit)? = null
 ) {
     val systemNavBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
@@ -270,21 +256,6 @@ fun HomeShuffleFab(
             .padding(bottom = animatedBottomOffset.coerceAtLeast(0.dp), end = dynamicEndPadding),
         contentAlignment = Alignment.BottomEnd
     ) {
-        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-        val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
-        val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
-        val glassBorderBrush = remember(isDark) {
-            Brush.verticalGradient(
-                colors = if (isDark) listOf(
-                    Color.White.copy(alpha = 0.07f),
-                    Color.White.copy(alpha = 0.02f)
-                ) else listOf(
-                    Color.White.copy(alpha = 0.14f),
-                    Color.White.copy(alpha = 0.04f)
-                )
-            )
-        }
-
         // ── Dynamic Hint / Confirmation Pill with Shooting Upward Arrow ─────────────
         val isPillVisible = (onSwipeUp != null && isDragging && dragOffsetY < -8f) || showColdLaunchHint
         // Only a real drag crossing the threshold may show the ready-to-release state.
@@ -296,11 +267,7 @@ fun HomeShuffleFab(
         } else {
             MaterialTheme.colorScheme.surfaceContainerHigh
         }
-        val pillContentColor = if (isLiquidGlass) {
-            if (isDark) Color.White else Color(0xFF1C1C1E)
-        } else {
-            if (isRecognizeActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-        }
+        val pillContentColor = if (isRecognizeActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
         AnimatedVisibility(
             visible = isPillVisible,
@@ -311,77 +278,15 @@ fun HomeShuffleFab(
             exit = fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.82f)
         ) {
             val pillShape = CircleShape
-            val pillModifier = if (isLiquidGlass) {
-                Modifier
-                    .height(44.dp)
-                    .then(
-                        if (backdrop != null) {
-                            Modifier.drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { pillShape },
-                                effects = {
-                                    vibrancy()
-                                    val blurRadius = (10.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                    blur(blurRadius)
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                        lens(
-                                            refractionHeight = (10.dp.toPx() * glassRefractionIntensity).coerceAtMost(16.dp.toPx()),
-                                            refractionAmount = (22.dp.toPx() * glassRefractionIntensity).coerceAtMost(30.dp.toPx())
-                                        )
-                                    }
-                                },
-                                onDrawSurface = {
-                                    val bg = if (isRecognizeActive) {
-                                        primaryColor.copy(alpha = if (isDark) 0.65f else 0.80f)
-                                    } else {
-                                        if (isDark) Color(0x351E1E22) else Color(0x40FFFFFF)
-                                    }
-                                    drawRect(bg)
-                                }
-                            )
-                        } else {
-                            Modifier
-                                .clip(pillShape)
-                                .background(
-                                    if (isRecognizeActive) {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.65f else 0.80f)
-                                    } else {
-                                        if (isDark) Color(0x351E1E22) else Color(0x40FFFFFF)
-                                    },
-                                    pillShape
-                                )
-                        }
-                    )
-                    .border(BorderStroke(0.75.dp, glassBorderBrush), pillShape)
-            } else {
-                Modifier
-                    .height(44.dp)
-                    .clip(pillShape)
-                    .background(pillContainerColor, pillShape)
-            }
+            val pillModifier = Modifier
+                .height(44.dp)
+                .clip(pillShape)
+                .background(pillContainerColor, pillShape)
 
             Box(
                 modifier = pillModifier,
                 contentAlignment = Alignment.Center
             ) {
-                if (isLiquidGlass) {
-                    // Top highlight sheen reflection
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .fillMaxHeight(0.5f)
-                            .align(Alignment.TopCenter)
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.White.copy(alpha = if (isDark) 0.18f else 0.32f),
-                                        Color.Transparent
-                                    )
-                                )
-                            )
-                    )
-                }
-
                 Crossfade(
                     targetState = isRecognizeActive,
                     animationSpec = tween(220),
@@ -436,85 +341,26 @@ fun HomeShuffleFab(
         val ltPress = remember { Animatable(0f) }
         val ltJiggle = remember { Animatable(0f) }
 
-        val fabShape = CircleShape
-        val fabContentColor = if (isLiquidGlass) (if (isDark) Color.White else Color(0xFF1C1C1E)) else animatedContentColor
+        val fabContentColor = animatedContentColor
 
-        val dualFabModifier = if (isLiquidGlass) {
-            Modifier
-                .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
-                .height(64.dp)
-                .then(
-                    if (backdrop != null) {
-                        Modifier.drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { fabShape },
-                            effects = {
-                                vibrancy()
-                                val blurRadius = (10.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                blur(blurRadius)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                    lens(
-                                        refractionHeight = (12.dp.toPx() * glassRefractionIntensity).coerceAtMost(18.dp.toPx()),
-                                        refractionAmount = (28.dp.toPx() * glassRefractionIntensity).coerceAtMost(36.dp.toPx())
-                                    )
-                                }
-                            },
-                            onDrawSurface = {
-                                drawRect(if (isDark) Color(0x351E1E22) else Color(0x40FFFFFF))
-                            }
-                        )
-                    } else {
-                        Modifier
-                            .clip(fabShape)
-                            .background(if (isDark) Color(0x351E1E22) else Color(0x40FFFFFF), fabShape)
-                    }
+        val dualFabModifier = Modifier
+            .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
+            .height(64.dp)
+            .clip(CircleShape)
+            .background(animatedContainerColor)
+            .then(fabDragModifier)
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
                 )
-                .border(BorderStroke(0.75.dp, glassBorderBrush), fabShape)
-                .then(fabDragModifier)
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    )
-                )
-        } else {
-            Modifier
-                .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
-                .height(64.dp)
-                .clip(CircleShape)
-                .background(animatedContainerColor)
-                .then(fabDragModifier)
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    )
-                )
-        }
+            )
 
         // ── Single FAB with wave when pulling up / Dual FAB when resting ─────────────
         Box(
             modifier = dualFabModifier,
             contentAlignment = Alignment.Center
         ) {
-            if (isLiquidGlass) {
-                // Top gloss reflection across the top half of the pill
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .fillMaxHeight(0.5f)
-                        .align(Alignment.TopCenter)
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = if (isDark) 0.15f else 0.30f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-            }
-
             Crossfade(
                 targetState = isDragging,
                 animationSpec = tween(180),
@@ -588,7 +434,7 @@ fun HomeShuffleFab(
                             VerticalDivider(
                                 modifier = Modifier.height(32.dp),
                                 thickness = 1.dp,
-                                color = if (isLiquidGlass) (if (isDark) Color.White else Color.Black).copy(alpha = 0.20f) else animatedContentColor.copy(alpha = 0.35f)
+                                color = animatedContentColor.copy(alpha = 0.35f)
                             )
                             Box(
                                 modifier = Modifier

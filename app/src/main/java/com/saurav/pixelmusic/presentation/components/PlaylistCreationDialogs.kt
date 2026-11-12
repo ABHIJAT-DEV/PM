@@ -217,7 +217,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import com.saurav.pixelmusic.utils.shapes.RoundedStarShape
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -316,28 +315,6 @@ fun PlaylistCreationTypeDialog(
         smoothnessAsPercentBR = 60
     )
 
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-    val sheenBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                Color.Transparent
-            )
-        )
-    }
-
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = true)
@@ -345,16 +322,8 @@ fun PlaylistCreationTypeDialog(
         Surface(
             shape = dialogShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = if (isLiquidGlass) 0.dp else 6.dp,
-            shadowElevation = if (isLiquidGlass) 0.dp else 6.dp,
-            modifier = Modifier.then(
-                if (isLiquidGlass) {
-                    Modifier
-                        .graphicsLayer { shadowElevation = 0f }
-                        .border(BorderStroke(0.75.dp, glassBorderBrush), dialogShape)
-                        .clip(dialogShape)
-                } else Modifier
-            )
+            tonalElevation = 6.dp,
+            shadowElevation = 6.dp
         ) {
             Column(
                 modifier = Modifier
@@ -445,13 +414,11 @@ fun PlaylistCreationTypeDialog(
                             onDismiss()
                             onSetupAiClick?.invoke()
                         },
-                        elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                        elevation = ButtonDefaults.filledTonalButtonElevation(),
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
                         ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .liquidGlassInteractiveSurface(shape = CircleShape),
+                        modifier = Modifier.fillMaxWidth(),
                         contentPadding = PaddingValues(vertical = 12.dp)
                     ) {
                         Icon(Icons.Rounded.Key, contentDescription = null)
@@ -474,27 +441,6 @@ private fun CreationModeCard(
     containerColor: Color,
     contentColor: Color
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-    val sheenBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                Color.Transparent
-            )
-        )
-    }
     val cardShape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = 22.dp,
         smoothnessAsPercentTL = 60,
@@ -509,10 +455,9 @@ private fun CreationModeCard(
     Card(
         onClick = onClick,
         enabled = enabled,
-        colors = CardDefaults.cardColors(containerColor = if (isLiquidGlass) containerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isLiquidGlass) 0.dp else 2.dp),
-        shape = cardShape,
-        modifier = Modifier.liquidGlassInteractiveSurface(shape = cardShape)
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = cardShape
     ) {
         Row(
             modifier = Modifier
@@ -1908,8 +1853,6 @@ fun AiMixCookieButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isLiquidGlassGen = LocalLiquidGlassEnabled.current
-    val isDarkGen = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val starShape = remember {
         RoundedStarShape(
             sides = 8,
@@ -1919,19 +1862,11 @@ fun AiMixCookieButton(
     }
 
     LargeExtendedFloatingActionButton(
-        modifier = modifier.liquidGlassInteractiveSurface(shape = starShape),
+        modifier = modifier,
         onClick = onClick,
         shape = starShape,
-        containerColor = if (isLiquidGlassGen) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDarkGen) 0.55f else 0.70f)
-        } else {
-            MaterialTheme.colorScheme.primaryContainer
-        },
-        elevation = if (isLiquidGlassGen) {
-            FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
-        } else {
-            FloatingActionButtonDefaults.elevation()
-        }
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        elevation = FloatingActionButtonDefaults.elevation()
     ) {
         Icon(
             imageVector = Icons.Rounded.AutoAwesome,

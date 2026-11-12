@@ -46,11 +46,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import androidx.media3.common.util.UnstableApi
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.preferences.FullPlayerLoadingTweaks
@@ -61,8 +56,6 @@ import com.saurav.pixelmusic.presentation.components.scoped.rememberFullPlayerRu
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerSheetState
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.StablePlayerState
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassBlurIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionIntensity
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -87,17 +80,12 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
     currentPositionProvider: () -> Long,
     isFavorite: Boolean,
     shouldRenderFullPlayer: Boolean = true,
-    isLiquidGlass: Boolean = false,
-    backdrop: Backdrop? = null,
     onShowQueueClicked: () -> Unit,
     onQueueDragStart: () -> Unit,
     onQueueDrag: (Float) -> Unit,
     onQueueRelease: (Float, Float) -> Unit,
     onShowCastClicked: () -> Unit
 ) {
-    val isLiquidGlassActive = isLiquidGlass && backdrop != null
-    val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
-    val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
     val sharedAodSourceBounds = remember { AodSourceBounds() }
 
     currentSong?.let { currentSongNonNull ->
@@ -110,19 +98,6 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         if (playerContentExpansionFraction.value < 0.5f) 1f else 0f
                     }
                 }
-                val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                val miniShape = remember { RoundedCornerShape(32.dp) }
-                val miniBorderBrush = remember(isDark) {
-                    Brush.verticalGradient(
-                        colors = if (isDark) listOf(
-                            Color.White.copy(alpha = 0.08f),
-                            Color.White.copy(alpha = 0.02f)
-                        ) else listOf(
-                            Color.White.copy(alpha = 0.16f),
-                            Color.White.copy(alpha = 0.04f)
-                        )
-                    )
-                }
 
                 // Keep MiniPlayer composed at all times and move it off-screen while the sheet
                 // is transitioning so its controls/text never render over the morphing FullPlayer.
@@ -132,69 +107,39 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         .fillMaxWidth()
                         .height(MiniPlayerHeight)
                         .offset {
-                            val threshold = if (isLiquidGlassActive) 0.45f else 0.004f
-                            if (playerContentExpansionFraction.value > threshold) IntOffset(0, 10000)
+                            if (playerContentExpansionFraction.value > 0.004f) IntOffset(0, 10000)
                             else IntOffset.Zero
                         }
                         .graphicsLayer {
-                            alpha = if (isLiquidGlassActive) {
-                                (1f - playerContentExpansionFraction.value * 2.5f).coerceIn(0f, 1f)
-                            } else {
-                                if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
-                            }
+                            alpha = if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
                         }
-                            .then(
-                                if (isLiquidGlassActive) {
-                                    Modifier
-                                        .drawBackdrop(
-                                            backdrop = backdrop,
-                                            shape = { miniShape },
-                                            effects = {
-                                                vibrancy()
-                                                val blurRadius = (10.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                                blur(blurRadius)
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                                    lens(
-                                                        refractionHeight = (12.dp.toPx() * glassRefractionIntensity).coerceAtMost(16.dp.toPx()),
-                                                        refractionAmount = (28.dp.toPx() * glassRefractionIntensity).coerceAtMost(32.dp.toPx())
-                                                    )
-                                                }
-                                            },
-                                            onDrawSurface = {
-                                                drawRect(if (isDark) Color(0x301C1C1E) else Color(0x25F5F5F7))
-                                            }
-                                        )
-                                        .border(BorderStroke(0.75.dp, miniBorderBrush), miniShape)
-                                } else Modifier
-                            )
-                            .zIndex(miniPlayerZIndex)
-                    ) {
-                        val miniAlbumCornerRadius by remember(overallSheetTopCornerRadiusProvider) {
-                            derivedStateOf {
-                                (overallSheetTopCornerRadiusProvider().value * 0.5f).dp
-                            }
+                        .zIndex(miniPlayerZIndex)
+                ) {
+                    val miniAlbumCornerRadius by remember(overallSheetTopCornerRadiusProvider) {
+                        derivedStateOf {
+                            (overallSheetTopCornerRadiusProvider().value * 0.5f).dp
                         }
-                        MiniPlayerContentInternal(
-                            song = currentSongNonNull,
-                            cornerRadiusAlb = miniAlbumCornerRadius,
-                            isPlaying = infrequentPlayerState.isPlaying,
-                            isCastConnecting = isCastConnecting,
-                            isPreparingPlayback = isPreparingPlayback,
-                            isBuffering = infrequentPlayerState.isBuffering,
-                            onPlayPause = { playerViewModel.playPause() },
-                            onPrevious = { playerViewModel.previousSong() },
-                            onNext = { playerViewModel.nextSong() },
-                            isLiquidGlass = isLiquidGlassActive,
-                            albumArtAlphaProvider = {
-                                if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
-                            },
-                            aodSourceBounds = sharedAodSourceBounds,
-                            shouldRunMarqueeProvider = {
-                                playerContentExpansionFraction.value <= 0.004f
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
                     }
+                    MiniPlayerContentInternal(
+                        song = currentSongNonNull,
+                        cornerRadiusAlb = miniAlbumCornerRadius,
+                        isPlaying = infrequentPlayerState.isPlaying,
+                        isCastConnecting = isCastConnecting,
+                        isPreparingPlayback = isPreparingPlayback,
+                        isBuffering = infrequentPlayerState.isBuffering,
+                        onPlayPause = { playerViewModel.playPause() },
+                        onPrevious = { playerViewModel.previousSong() },
+                        onNext = { playerViewModel.nextSong() },
+                        albumArtAlphaProvider = {
+                            if (playerContentExpansionFraction.value > 0.004f) 0f else 1f
+                        },
+                        aodSourceBounds = sharedAodSourceBounds,
+                        shouldRunMarqueeProvider = {
+                            playerContentExpansionFraction.value <= 0.004f
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
 
@@ -311,8 +256,6 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         onShuffleToggle = onShuffleToggle,
                         onRepeatToggle = onRepeatToggle,
                         onFavoriteToggle = onFavoriteToggle,
-                        isLiquidGlass = isLiquidGlassActive,
-                        backdrop = null,
                         sharedAodSourceBounds = sharedAodSourceBounds
                     )
                 }
@@ -410,9 +353,7 @@ internal fun UnifiedPlayerPrewarmLayer(
                     onShowCastClicked = {},
                     onShuffleToggle = onShuffleToggle,
                     onRepeatToggle = onRepeatToggle,
-                    onFavoriteToggle = onFavoriteToggle,
-                    isLiquidGlass = false,
-                    backdrop = null
+                    onFavoriteToggle = onFavoriteToggle
                 )
             }
         }

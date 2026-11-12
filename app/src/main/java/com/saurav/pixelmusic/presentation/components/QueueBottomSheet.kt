@@ -51,8 +51,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.Icons
@@ -944,16 +942,14 @@ fun QueueBottomSheet(
                         cornerRadiusBL = 8.dp,
                         smoothnessAsPercentBL = 60
                     )
-                    val isLiquidGlassFab = LocalLiquidGlassEnabled.current
                     MediumFloatingActionButton(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .aspectRatio(1f)
-                            .liquidGlassInteractiveSurface(shape = fabShape),
+                            .aspectRatio(1f),
                         onClick = { isFabExpanded = !isFabExpanded },
                         shape = fabShape,
-                        elevation = if (isLiquidGlassFab) FloatingActionButtonDefaults.elevation(0.dp, 0.dp) else FloatingActionButtonDefaults.elevation(),
-                        containerColor = if (isLiquidGlassFab) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.88f else 0.94f) else MaterialTheme.colorScheme.tertiaryContainer,
+                        elevation = FloatingActionButtonDefaults.elevation(),
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                     ) {
                         Icon(
@@ -1172,8 +1168,6 @@ private fun QueueToolbarMenuButton(
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val buttonShape = RoundedCornerShape(18.dp)
 
     Surface(
@@ -1181,7 +1175,6 @@ private fun QueueToolbarMenuButton(
             .widthIn(min = 184.dp, max = 260.dp)
             .heightIn(min = 48.dp)
             .wrapContentWidth()
-            .liquidGlassInteractiveSurface(shape = buttonShape)
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
@@ -1190,9 +1183,9 @@ private fun QueueToolbarMenuButton(
                 onClick()
             },
         shape = buttonShape,
-        color = if (isLiquidGlass) containerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else containerColor,
-        tonalElevation = if (isLiquidGlass) 0.dp else 8.dp,
-        shadowElevation = if (isLiquidGlass) 0.dp else 8.dp
+        color = containerColor,
+        tonalElevation = 8.dp,
+        shadowElevation = 8.dp
     ) {
         Row(
             modifier = Modifier
@@ -1221,8 +1214,6 @@ private fun ExpressiveAutoplayButton(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     val targetCornerRadius = if (autoQueueEnabled) 24.dp else 12.dp
     val animatedCornerRadius by animateDpAsState(
@@ -1244,11 +1235,11 @@ private fun ExpressiveAutoplayButton(
     Surface(
         onClick = onToggle,
         shape = shape,
-        color = if (isLiquidGlass) (if (autoQueueEnabled) colors.primaryContainer.copy(alpha = if (isDark) 0.60f else 0.75f) else (if (isDark) Color(0x301E1E22) else Color(0x45FFFFFF))) else animatedBgColor,
+        color = animatedBgColor,
         contentColor = animatedContentColor,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
-        modifier = modifier.liquidGlassInteractiveSurface(shape = shape)
+        modifier = modifier
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1384,14 +1375,10 @@ private fun QueueSourceBadge(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     Surface(
-        modifier = modifier
-            .widthIn(max = 190.dp)
-            .liquidGlassInteractiveSurface(shape = CircleShape),
+        modifier = modifier.widthIn(max = 190.dp),
         shape = CircleShape,
-        color = if (isLiquidGlass) (if (isDark) Color(0x301E1E22) else Color(0x45FFFFFF)) else colors.surfaceContainerHighest.copy(alpha = 0.88f),
+        color = colors.surfaceContainerHighest.copy(alpha = 0.88f),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
     ) {
@@ -1434,8 +1421,6 @@ private fun QueueControlsToolbar(
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val toolbarShape = AbsoluteSmoothCornerShape(
         cornerRadiusTR = 8.dp,
         smoothnessAsPercentTR = 60,
@@ -1447,11 +1432,9 @@ private fun QueueControlsToolbar(
         smoothnessAsPercentBL = 60
     )
     Surface(
-        modifier = modifier
-            .fillMaxHeight()
-            .liquidGlassInteractiveSurface(shape = toolbarShape),
+        modifier = modifier.fillMaxHeight(),
         shape = toolbarShape,
-        color = if (isLiquidGlass) (if (isDark) Color(0xDD1E1E22) else Color(0xEEFFFFFF)) else MaterialTheme.colorScheme.surfaceContainerHighest,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
         shadowElevation = 0.dp
     ) {
         Row(
@@ -1462,9 +1445,7 @@ private fun QueueControlsToolbar(
             FilledTonalIconButton(
                 onClick = onToggleShuffle,
                 colors = if (isShuffleOn) activeColors else inactiveColors,
-                modifier = Modifier
-                    .size(48.dp)
-                    .liquidGlassInteractiveSurface(isCircle = true)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Shuffle,
@@ -1475,9 +1456,7 @@ private fun QueueControlsToolbar(
             FilledTonalIconButton(
                 onClick = onToggleRepeat,
                 colors = if (repeatMode != Player.REPEAT_MODE_OFF) activeColors else inactiveColors,
-                modifier = Modifier
-                    .size(48.dp)
-                    .liquidGlassInteractiveSurface(isCircle = true)
+                modifier = Modifier.size(48.dp)
             ) {
                 val repeatIcon = when (repeatMode) {
                     Player.REPEAT_MODE_ONE -> Icons.Rounded.RepeatOne

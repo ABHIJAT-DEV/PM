@@ -34,8 +34,6 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.material3.FloatingActionButtonDefaults
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -378,8 +376,6 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
                 Spacer(modifier = Modifier.height(104.dp))
             }
         }
-        val isLiquidGlass = LocalLiquidGlassEnabled.current
-        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
         val fabShape = AbsoluteSmoothCornerShape(
             cornerRadiusTR = fabCornerRadius,
             cornerRadiusTL = fabCornerRadius,
@@ -393,9 +389,9 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
         ExtendedFloatingActionButton(
             onClick = { launchUrl(context, reportUrl) },
             shape = fabShape,
-            containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.65f else 0.80f) else MaterialTheme.colorScheme.primaryContainer,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            elevation = if (isLiquidGlass) FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp) else FloatingActionButtonDefaults.elevation(),
+            elevation = FloatingActionButtonDefaults.elevation(),
             icon = {
                 Icon(
                     painter = painterResource(id = R.drawable.github),
@@ -408,7 +404,6 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(horizontal = 24.dp, vertical = 24.dp)
-                .liquidGlassInteractiveSurface(shape = fabShape)
         )
         Box(
             modifier = Modifier

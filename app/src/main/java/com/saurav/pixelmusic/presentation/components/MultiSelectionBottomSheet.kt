@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -218,28 +217,6 @@ fun MultiSelectionBottomSheet(
                 Spacer(modifier = Modifier.height(20.dp))
                 
                 // Actions list
-                val isLiquidGlass = LocalLiquidGlassEnabled.current
-                val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                val glassBorderBrush = remember(isDark) {
-                    Brush.verticalGradient(
-                        colors = if (isDark) listOf(
-                            Color.White.copy(alpha = 0.07f),
-                            Color.White.copy(alpha = 0.02f)
-                        ) else listOf(
-                            Color.White.copy(alpha = 0.14f),
-                            Color.White.copy(alpha = 0.04f)
-                        )
-                    )
-                }
-                val sheenBrush = remember(isDark) {
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                            Color.Transparent
-                        )
-                    )
-                }
-
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -257,13 +234,12 @@ fun MultiSelectionBottomSheet(
                         MediumExtendedFloatingActionButton(
                             modifier = Modifier
                                 .weight(0.5f)
-                                .fillMaxHeight()
-                                .liquidGlassInteractiveSurface(shape = buttonShape),
+                                .fillMaxHeight(),
                             onClick = {
                                 onPlayAll()
                                 onDismiss()
                             },
-                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp, pressedElevation = if (isLiquidGlass) 0.dp else 4.dp),
+                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp, pressedElevation = 4.dp),
                             shape = buttonShape,
                             icon = {
                                 Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.cd_play_all))
@@ -280,15 +256,14 @@ fun MultiSelectionBottomSheet(
                         FilledIconButton(
                             modifier = Modifier
                                 .weight(0.25f)
-                                .fillMaxHeight()
-                                .liquidGlassInteractiveSurface(shape = favoriteButtonShape),
+                                .fillMaxHeight(),
                             onClick = {
                                 onToggleLikeAll(!allAreLiked)
                                 onDismiss()
                             },
                             shape = favoriteButtonShape,
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = if (isLiquidGlass) favoriteButtonContainerColor.copy(alpha = if (isDark) 0.55f else 0.70f) else favoriteButtonContainerColor,
+                                containerColor = favoriteButtonContainerColor,
                                 contentColor = favoriteButtonContentColor
                             )
                         ) {
@@ -307,10 +282,9 @@ fun MultiSelectionBottomSheet(
                         FilledTonalIconButton(
                             modifier = Modifier
                                 .weight(0.25f)
-                                .fillMaxHeight()
-                                .liquidGlassInteractiveSurface(shape = CircleShape, isCircle = true),
+                                .fillMaxHeight(),
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondary,
+                                containerColor = MaterialTheme.colorScheme.secondary,
                                 contentColor = MaterialTheme.colorScheme.onSecondary
                             ),
                             onClick = {
@@ -338,11 +312,10 @@ fun MultiSelectionBottomSheet(
                         FilledTonalButton(
                             modifier = Modifier
                                 .weight(0.6f)
-                                .heightIn(min = 66.dp)
-                                .liquidGlassInteractiveSurface(shape = CircleShape),
-                            elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                                .heightIn(min = 66.dp),
+                            elevation = ButtonDefaults.filledTonalButtonElevation(),
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.tertiaryContainer,
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                             ),
                             contentPadding = PaddingValues(horizontal = 0.dp),
@@ -363,11 +336,10 @@ fun MultiSelectionBottomSheet(
                         FilledTonalButton(
                             modifier = Modifier
                                 .weight(0.4f)
-                                .heightIn(min = 66.dp)
-                                .liquidGlassInteractiveSurface(shape = CircleShape),
-                            elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                                .heightIn(min = 66.dp),
+                            elevation = ButtonDefaults.filledTonalButtonElevation(),
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.tertiary,
+                                containerColor = MaterialTheme.colorScheme.tertiary,
                                 contentColor = MaterialTheme.colorScheme.onTertiary
                             ),
                             contentPadding = PaddingValues(horizontal = 0.dp),
@@ -397,11 +369,10 @@ fun MultiSelectionBottomSheet(
                         FilledTonalButton(
                             modifier = Modifier
                                 .weight(0.5f)
-                                .heightIn(min = 66.dp)
-                                .liquidGlassInteractiveSurface(shape = CircleShape),
-                            elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                                .heightIn(min = 66.dp),
+                            elevation = ButtonDefaults.filledTonalButtonElevation(),
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer,
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                             ),
                             shape = CircleShape,
@@ -421,11 +392,10 @@ fun MultiSelectionBottomSheet(
                         FilledTonalButton(
                             modifier = Modifier
                                 .weight(0.5f)
-                                .heightIn(min = 66.dp)
-                                .liquidGlassInteractiveSurface(shape = CircleShape),
-                            elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                                .heightIn(min = 66.dp),
+                            elevation = ButtonDefaults.filledTonalButtonElevation(),
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.errorContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.errorContainer,
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer
                             ),
                             shape = CircleShape,

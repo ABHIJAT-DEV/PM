@@ -65,7 +65,6 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -349,16 +348,13 @@ fun SongInfoBottomSheet(
                                         verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
                                         run {
-                                            val isLiquidGlass = LocalLiquidGlassEnabled.current
-                                            val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                                             FilledTonalButton(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .heightIn(min = 66.dp)
-                                                    .liquidGlassInteractiveSurface(shape = CircleShape),
-                                                elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation(),
+                                                    .heightIn(min = 66.dp),
+                                                elevation = ButtonDefaults.filledTonalButtonElevation(),
                                                 colors = ButtonDefaults.filledTonalButtonColors(
-                                                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                                 ),
                                                 shape = CircleShape,

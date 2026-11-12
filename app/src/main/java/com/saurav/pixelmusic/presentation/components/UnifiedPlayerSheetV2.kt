@@ -51,11 +51,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
-import android.os.Build
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -66,11 +61,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.kyant.backdrop.Backdrop
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.preferences.sanitizeNavBarCornerRadius
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassBlurIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionIntensity
 import com.saurav.pixelmusic.presentation.components.scoped.PlayerAlbumNavigationEffect
 import com.saurav.pixelmusic.presentation.components.scoped.PlayerArtistNavigationEffect
 import kotlinx.coroutines.flow.collectLatest
@@ -128,15 +120,11 @@ fun UnifiedPlayerSheetV2(
     collapsedStateHorizontalPadding: Dp = 24.dp,
     navController: NavHostController,
     hideMiniPlayer: Boolean = false,
-    isNavBarHidden: Boolean = false,
-    isLiquidGlass: Boolean = false,
-    backdrop: Backdrop? = null
+    isNavBarHidden: Boolean = false
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestContext by rememberUpdatedState(context)
-    val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
-    val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
     var showNoInternetDialog by remember { mutableStateOf(false) }
 
     // MediaStore write-permission launcher (for metadata editing without MANAGE_EXTERNAL_STORAGE)
@@ -639,32 +627,20 @@ fun UnifiedPlayerSheetV2(
                                 handler = miniDismissGestureHandler
                             )
                             .graphicsLayer {
-                                val dismissProgress = if (dismissThresholdPx == 0f) 0f
-                                    else (abs(offsetAnimatable.value) / dismissThresholdPx).coerceIn(0f, 1f)
-                                val dismissStretchX = if (isLiquidGlass && backdrop != null) 1f + (dismissProgress * 0.06f) else 1f
-                                val dismissStretchY = if (isLiquidGlass && backdrop != null) 1f - (dismissProgress * 0.03f) else 1f
                                 translationX = offsetAnimatable.value
-                                scaleX = miniAppearScale * dismissStretchX
-                                scaleY = miniAppearScale * dismissStretchY
+                                scaleX = miniAppearScale
+                                scaleY = miniAppearScale
                                 alpha = miniReadyAlpha
                                 transformOrigin = TransformOrigin(0.5f, 1f)
                             }
                             .drawBehind {
-                                val fraction = playerContentExpansionFraction.value.coerceIn(0f, 1f)
-                                val solidAlpha = if (isLiquidGlass && backdrop != null) {
-                                    (fraction * 2.8f).coerceIn(0f, 1f)
+                                val outline = dynamicPlayerShape.createOutline(size, layoutDirection, this)
+                                if (outline is Outline.Rounded) {
+                                    reusableOutlinePath.reset()
+                                    reusableOutlinePath.addRoundRect(outline.roundRect)
+                                    drawPath(reusableOutlinePath, color = playerAreaBackground)
                                 } else {
-                                    1f
-                                }
-                                if (solidAlpha > 0.005f) {
-                                    val outline = dynamicPlayerShape.createOutline(size, layoutDirection, this)
-                                    if (outline is Outline.Rounded) {
-                                        reusableOutlinePath.reset()
-                                        reusableOutlinePath.addRoundRect(outline.roundRect)
-                                        drawPath(reusableOutlinePath, color = playerAreaBackground.copy(alpha = solidAlpha))
-                                    } else {
-                                        drawRect(color = playerAreaBackground.copy(alpha = solidAlpha))
-                                    }
+                                    drawRect(color = playerAreaBackground)
                                 }
                             }
                             .clip(dynamicPlayerShape)
@@ -704,8 +680,6 @@ fun UnifiedPlayerSheetV2(
                             currentPositionProvider = positionToDisplayProvider,
                             isFavorite = isFavorite,
                             shouldRenderFullPlayer = shouldRenderFullPlayer,
-                            isLiquidGlass = isLiquidGlass,
-                            backdrop = backdrop,
                             onShowQueueClicked = sheetActionHandlers.openQueueSheet,
                             onQueueDragStart = sheetActionHandlers.beginQueueDrag,
                             onQueueDrag = sheetActionHandlers.dragQueueBy,

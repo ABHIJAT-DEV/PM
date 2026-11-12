@@ -63,15 +63,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import androidx.compose.ui.draw.drawBehind
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassBlurIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionIntensity
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
@@ -104,8 +97,6 @@ fun AnimatedPlaybackControls(
     tintNextIcon: Color = tintOtherIcons,
     playPauseIconSize: Dp = 36.dp,
     iconSize: Dp = 32.dp,
-    isLiquidGlass: Boolean = false,
-    backdrop: Backdrop? = null,
     morphTracker: ArtworkMorphTracker? = null,
     expansionFractionProvider: (() -> Float)? = null,
     rootCoordsHolder: LayoutCoordsHolder? = null,
@@ -173,23 +164,6 @@ fun AnimatedPlaybackControls(
                 pendingPlayPauseState = null
             }
         }
-    }
-
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val isGlassActive = isLiquidGlass && backdrop != null
-    val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
-    val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
-    val glassRimBorder = remember(isLiquidGlass, isDark) {
-        if (!isLiquidGlass) null
-        else BorderStroke(
-            0.75.dp,
-            Brush.verticalGradient(
-                listOf(
-                    Color.White.copy(alpha = if (isDark) 0.28f else 0.45f),
-                    Color.White.copy(alpha = 0.08f)
-                )
-            )
-        )
     }
 
     Box(
@@ -285,46 +259,21 @@ fun AnimatedPlaybackControls(
                             rx = (targetVisualR / sx).coerceIn(0f, size.width * 0.5f)
                             ry = (targetVisualR / sy).coerceIn(0f, size.height * 0.5f)
                         }
-                        if (!isGlassActive) {
-                            clip = true
-                            shape = DynamicTransportButtonShape(
-                                rxPx = (rx * 4f).roundToInt() / 4f,
-                                ryPx = (ry * 4f).roundToInt() / 4f
-                            )
-                        }
+                        clip = true
+                        shape = DynamicTransportButtonShape(
+                            rxPx = (rx * 4f).roundToInt() / 4f,
+                            ryPx = (ry * 4f).roundToInt() / 4f
+                        )
                     }
-                    .then(
-                        if (isGlassActive) {
-                            Modifier
-                                .clip(prevShape)
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { prevShape },
-                                    effects = {
-                                        vibrancy()
-                                        val blurRadius = (12.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                        blur(blurRadius)
-                                    },
-                                    onDrawSurface = {
-                                        drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                        drawRect(colorPreviousButton, blendMode = BlendMode.Hue)
-                                        drawRect(colorPreviousButton.copy(alpha = 0.95f))
-                                    }
-                                )
+                    .drawBehind {
+                        val baseColor = if (sourceMorphProgressProvider != null && sourceColorOtherButtons != Color.Unspecified) {
+                            val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                            androidx.compose.ui.graphics.lerp(sourceColorOtherButtons, colorPreviousButton, f)
                         } else {
-                            Modifier
-                                .drawBehind {
-                                    val baseColor = if (sourceMorphProgressProvider != null && sourceColorOtherButtons != Color.Unspecified) {
-                                        val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                                        androidx.compose.ui.graphics.lerp(sourceColorOtherButtons, colorPreviousButton, f)
-                                    } else {
-                                        colorPreviousButton
-                                    }
-                                    drawRect(if (isLiquidGlass) baseColor.copy(alpha = 0.94f) else baseColor)
-                                }
-                                .then(if (glassRimBorder != null) Modifier.border(glassRimBorder, prevShape) else Modifier)
+                            colorPreviousButton
                         }
-                    )
+                        drawRect(baseColor)
+                    }
                     .clickable {
                         lastClicked = PlaybackButtonType.PREVIOUS
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -448,46 +397,21 @@ fun AnimatedPlaybackControls(
                             rx = (targetVisualR / sx).coerceIn(0f, size.width * 0.5f)
                             ry = (targetVisualR / sy).coerceIn(0f, size.height * 0.5f)
                         }
-                        if (!isGlassActive) {
-                            clip = true
-                            shape = DynamicTransportButtonShape(
-                                rxPx = (rx * 4f).roundToInt() / 4f,
-                                ryPx = (ry * 4f).roundToInt() / 4f
-                            )
-                        }
+                        clip = true
+                        shape = DynamicTransportButtonShape(
+                            rxPx = (rx * 4f).roundToInt() / 4f,
+                            ryPx = (ry * 4f).roundToInt() / 4f
+                        )
                     }
-                    .then(
-                        if (isGlassActive) {
-                            Modifier
-                                .clip(playGlassCornerShape)
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { playGlassCornerShape },
-                                    effects = {
-                                        vibrancy()
-                                        val blurRadius = (12.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                        blur(blurRadius)
-                                    },
-                                    onDrawSurface = {
-                                        drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                        drawRect(colorPlayPause, blendMode = BlendMode.Hue)
-                                        drawRect(colorPlayPause.copy(alpha = 0.95f))
-                                    }
-                                )
+                    .drawBehind {
+                        val baseColor = if (sourceMorphProgressProvider != null && sourceColorPlayPause != Color.Unspecified) {
+                            val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                            androidx.compose.ui.graphics.lerp(sourceColorPlayPause, colorPlayPause, f)
                         } else {
-                            Modifier
-                                .drawBehind {
-                                    val baseColor = if (sourceMorphProgressProvider != null && sourceColorPlayPause != Color.Unspecified) {
-                                        val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                                        androidx.compose.ui.graphics.lerp(sourceColorPlayPause, colorPlayPause, f)
-                                    } else {
-                                        colorPlayPause
-                                    }
-                                    drawRect(if (isLiquidGlass) baseColor.copy(alpha = 0.95f) else baseColor)
-                                }
-                                .then(if (glassRimBorder != null) Modifier.border(glassRimBorder, playShape) else Modifier)
+                            colorPlayPause
                         }
-                    )
+                        drawRect(baseColor)
+                    }
                     .clickable {
                         lastClicked = PlaybackButtonType.PLAY_PAUSE
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -604,46 +528,21 @@ fun AnimatedPlaybackControls(
                             rx = (targetVisualR / sx).coerceIn(0f, size.width * 0.5f)
                             ry = (targetVisualR / sy).coerceIn(0f, size.height * 0.5f)
                         }
-                        if (!isGlassActive) {
-                            clip = true
-                            shape = DynamicTransportButtonShape(
-                                rxPx = (rx * 4f).roundToInt() / 4f,
-                                ryPx = (ry * 4f).roundToInt() / 4f
-                            )
-                        }
+                        clip = true
+                        shape = DynamicTransportButtonShape(
+                            rxPx = (rx * 4f).roundToInt() / 4f,
+                            ryPx = (ry * 4f).roundToInt() / 4f
+                        )
                     }
-                    .then(
-                        if (isGlassActive) {
-                            Modifier
-                                .clip(nextShape)
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { nextShape },
-                                    effects = {
-                                        vibrancy()
-                                        val blurRadius = (12.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                        blur(blurRadius)
-                                    },
-                                    onDrawSurface = {
-                                        drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                        drawRect(colorNextButton, blendMode = BlendMode.Hue)
-                                        drawRect(colorNextButton.copy(alpha = 0.95f))
-                                    }
-                                )
+                    .drawBehind {
+                        val baseColor = if (sourceMorphProgressProvider != null && sourceColorOtherButtons != Color.Unspecified) {
+                            val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
+                            androidx.compose.ui.graphics.lerp(sourceColorOtherButtons, colorNextButton, f)
                         } else {
-                            Modifier
-                                .drawBehind {
-                                    val baseColor = if (sourceMorphProgressProvider != null && sourceColorOtherButtons != Color.Unspecified) {
-                                        val f = sourceMorphProgressProvider().coerceIn(0f, 1f)
-                                        androidx.compose.ui.graphics.lerp(sourceColorOtherButtons, colorNextButton, f)
-                                    } else {
-                                        colorNextButton
-                                    }
-                                    drawRect(if (isLiquidGlass) baseColor.copy(alpha = 0.94f) else baseColor)
-                                }
-                                .then(if (glassRimBorder != null) Modifier.border(glassRimBorder, nextShape) else Modifier)
+                            colorNextButton
                         }
-                    )
+                        drawRect(baseColor)
+                    }
                     .clickable {
                         lastClicked = PlaybackButtonType.NEXT
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)

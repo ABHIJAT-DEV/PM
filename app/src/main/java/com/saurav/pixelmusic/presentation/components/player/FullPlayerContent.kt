@@ -4,15 +4,6 @@ import android.annotation.SuppressLint
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
-import com.saurav.pixelmusic.presentation.components.LiquidGlassSlider
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassBackdrop
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassBlurIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassRefractionIntensity
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -85,7 +76,6 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.CircularProgressIndicator
@@ -301,8 +291,6 @@ fun FullPlayerContent(
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
-    isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null,
     sharedAodSourceBounds: AodSourceBounds? = null
 ) {
     var retainedSong by remember { mutableStateOf(currentSong) }
@@ -460,14 +448,7 @@ fun FullPlayerContent(
     val isLandscape =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val isLiquidGlassGlobal = LocalLiquidGlassEnabled.current
-    val isLiquidGlassActive = isLiquidGlass || isLiquidGlassGlobal
-    val activeBackdrop = backdrop ?: LocalLiquidGlassBackdrop.current
-    val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
-    val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
-    val isDark = LocalPixelMusicDarkTheme.current
     val coroutineScope = rememberCoroutineScope()
-    val hapticFeedback = LocalHapticFeedback.current
 
     // Lógica para el botón de Lyrics en el reproductor expandido
     val onLyricsClick = {
@@ -716,8 +697,6 @@ fun FullPlayerContent(
             allowRealtimeUpdates = allowRealtimeUpdates,
             isSheetDragGestureActive = isSheetDragGestureActive,
             loadingTweaks = loadingTweaks,
-            isLiquidGlass = isLiquidGlassActive,
-            backdrop = activeBackdrop,
             rootCoordsHolder = rootCoordsHolder,
             aodSourceBounds = aodSourceBounds,
             aodTransitionProgressProvider = aodTransitionProgressProvider
@@ -727,8 +706,6 @@ fun FullPlayerContent(
     val controlsSection: @Composable () -> Unit = {
         FullPlayerControlsSection(
             loadingTweaks = loadingTweaks,
-            isLiquidGlass = isLiquidGlassActive,
-            backdrop = activeBackdrop,
             isSheetDragGestureActive = isSheetDragGestureActive,
             expansionFractionProvider = expansionFractionProvider,
             currentSheetState = currentSheetState,
@@ -796,8 +773,6 @@ fun FullPlayerContent(
             chipContentColor = chipContentColor,
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
-            isLiquidGlass = isLiquidGlassActive,
-            backdrop = activeBackdrop,
             morphTracker = artworkMorphTracker,
             rootCoordsHolder = rootCoordsHolder,
             aodSourceBounds = aodSourceBounds,
@@ -825,8 +800,6 @@ fun FullPlayerContent(
             chipContentColor = chipContentColor,
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
-            isLiquidGlass = isLiquidGlassActive,
-            backdrop = activeBackdrop,
             morphTracker = artworkMorphTracker,
             rootCoordsHolder = rootCoordsHolder,
             aodSourceBounds = aodSourceBounds,
@@ -984,111 +957,27 @@ fun FullPlayerContent(
                                 .height(48.dp),
                             contentAlignment = Alignment.CenterEnd
                         ) {
-                            if (isLiquidGlassActive) {
-                                val collapsePress = remember { Animatable(0f) }
-                                val collapseJiggle = remember { Animatable(0f) }
-                                val collapseShape = CircleShape
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .graphicsLayer {
-                                            scaleX = 1f + (collapsePress.value * 0.10f) + (collapseJiggle.value * 0.15f)
-                                            scaleY = 1f - (collapsePress.value * 0.08f) - (collapseJiggle.value * 0.13f)
-                                        }
-                                        .clip(collapseShape)
-                                        .then(
-                                            if (activeBackdrop != null) {
-                                                Modifier.drawBackdrop(
-                                                    backdrop = activeBackdrop,
-                                                    shape = { collapseShape },
-                                                    effects = {
-                                                        vibrancy()
-                                                        val blurRadius = (8.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                                        blur(blurRadius)
-                                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                                            lens(
-                                                                refractionHeight = 10.dp.toPx() * glassRefractionIntensity,
-                                                                refractionAmount = 24.dp.toPx() * glassRefractionIntensity
-                                                            )
-                                                        }
-                                                    },
-                                                    onDrawSurface = {
-                                                        drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                                    }
-                                                )
-                                            } else {
-                                                Modifier.background(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF), collapseShape)
-                                            }
-                                        )
-                                        .border(
-                                            BorderStroke(
-                                                0.75.dp,
-                                                Brush.verticalGradient(
-                                                    listOf(
-                                                        Color.White.copy(alpha = if (isDark) 0.35f else 0.6f),
-                                                        Color.White.copy(alpha = 0.1f)
-                                                    )
-                                                )
-                                            ),
-                                            collapseShape
-                                        )
-                                        .pointerInput(Unit) {
-                                            val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
-                                            val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
-                                            awaitEachGesture {
-                                                val down = awaitFirstDown(requireUnconsumed = false)
-                                                down.consume()
-                                                coroutineScope.launch {
-                                                    collapseJiggle.snapTo(1f)
-                                                    collapseJiggle.animateTo(0f, jiggleSpec)
-                                                }
-                                                coroutineScope.launch { collapsePress.animateTo(1f, pressSpec) }
-                                                val up = waitForUpOrCancellation()
-                                                up?.consume()
-                                                coroutineScope.launch { collapsePress.animateTo(0f, pressSpec) }
-                                                if (up != null) {
-                                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    animateCollapseIcon()
-                                                    onCollapse()
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_keyboard_arrow_down_24),
-                                        contentDescription = stringResource(R.string.presentation_batch_g_player_cd_collapse),
-                                        tint = if (isDark) Color.White else Color(0xFF1C1C1E),
-                                        modifier = Modifier.graphicsLayer {
-                                            translationY = collapseIconOffsetY.value
-                                            scaleX = collapseIconScale.value
-                                            scaleY = collapseIconScale.value
-                                        }
-                                    )
-                                }
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(topBarButtonBg)
-                                        .clickable {
-                                            animateCollapseIcon()
-                                            onCollapse()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_keyboard_arrow_down_24),
-                                        contentDescription = stringResource(R.string.presentation_batch_g_player_cd_collapse),
-                                        tint = topBarIconColor,
-                                        modifier = Modifier.graphicsLayer {
-                                            translationY = collapseIconOffsetY.value
-                                            scaleX = collapseIconScale.value
-                                            scaleY = collapseIconScale.value
-                                        }
-                                    )
-                                }
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(topBarButtonBg)
+                                    .clickable {
+                                        animateCollapseIcon()
+                                        onCollapse()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_keyboard_arrow_down_24),
+                                    contentDescription = stringResource(R.string.presentation_batch_g_player_cd_collapse),
+                                    tint = topBarIconColor,
+                                    modifier = Modifier.graphicsLayer {
+                                        translationY = collapseIconOffsetY.value
+                                        scaleX = collapseIconScale.value
+                                        scaleY = collapseIconScale.value
+                                    }
+                                )
                             }
                         }
                     },
@@ -1101,8 +990,6 @@ fun FullPlayerContent(
                             isBluetoothActive -> painterResource(R.drawable.rounded_bluetooth_24)
                             else -> painterResource(R.drawable.rounded_mobile_speaker_24)
                         }
-
-
 
                         val topCastShape = remember {
                             RoundedCornerShape(
@@ -1126,20 +1013,6 @@ fun FullPlayerContent(
                         val ltUiState by playerViewModel.listenTogetherUiState.collectAsStateWithLifecycle()
                         val ltActive = ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Hosting ||
                             ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Guest
-                        val ltMemberCount = when (val s = ltUiState) {
-                            is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Hosting -> s.members.size
-                            is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Guest -> s.members.size
-                            else -> 0
-                        }
-
-                        val glassBorderBrush = remember(isDark) {
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.White.copy(alpha = if (isDark) 0.35f else 0.6f),
-                                    Color.White.copy(alpha = 0.1f)
-                                )
-                            )
-                        }
 
                         Row(
                             modifier = Modifier.padding(end = 14.dp),
@@ -1147,445 +1020,89 @@ fun FullPlayerContent(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // 1. Output / Cast Button (Reversed D shape ᗡ)
-                            if (isLiquidGlassActive) {
-                                val castPress = remember { Animatable(0f) }
-                                val castJiggle = remember { Animatable(0f) }
-
-                                Box(
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .then(if (showCastLabel) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
-                                        .animateContentSize(
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
+                            Box(
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .then(if (showCastLabel) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
+                                    .animateContentSize()
+                                    .clip(topCastShape)
+                                    .background(topBarButtonBg, topCastShape)
+                                    .clickable {
+                                        onShowCastClicked()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        painter = castIconPainter,
+                                        contentDescription = when {
+                                            isCastConnecting || isRemotePlaybackActive -> stringResource(R.string.presentation_batch_g_player_cd_cast)
+                                            isBluetoothActive -> stringResource(R.string.presentation_batch_g_player_cd_bluetooth)
+                                            else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
+                                        },
+                                        tint = topBarIconColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    AnimatedVisibility(visible = showCastLabel) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = when {
+                                                    isCastConnecting -> stringResource(R.string.presentation_batch_g_player_connecting)
+                                                    isRemotePlaybackActive && selectedRouteName != null -> selectedRouteName
+                                                    else -> ""
+                                                },
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = topBarIconColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
-                                        )
-                                        .graphicsLayer {
-                                            scaleX = 1f + (castPress.value * 0.10f) + (castJiggle.value * 0.15f)
-                                            scaleY = 1f - (castPress.value * 0.08f) - (castJiggle.value * 0.13f)
-                                        }
-                                        .clip(topCastShape)
-                                        .then(
-                                            if (activeBackdrop != null) {
-                                                Modifier.drawBackdrop(
-                                                    backdrop = activeBackdrop,
-                                                    shape = { topCastShape },
-                                                    effects = {
-                                                        vibrancy()
-                                                        val blurRadius = (8.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                                        blur(blurRadius)
-                                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                                            lens(
-                                                                refractionHeight = 8.dp.toPx() * glassRefractionIntensity,
-                                                                refractionAmount = 18.dp.toPx() * glassRefractionIntensity
-                                                            )
-                                                        }
-                                                    },
-                                                    onDrawSurface = {
-                                                        drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                                    }
-                                                )
-                                            } else {
-                                                Modifier.background(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF), topCastShape)
-                                            }
-                                        )
-                                        .border(BorderStroke(0.75.dp, glassBorderBrush), topCastShape)
-                                        .pointerInput(Unit) {
-                                            val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
-                                            val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
-                                            awaitEachGesture {
-                                                val down = awaitFirstDown(requireUnconsumed = false)
-                                                down.consume()
-                                                coroutineScope.launch {
-                                                    castJiggle.snapTo(1f)
-                                                    castJiggle.animateTo(0f, jiggleSpec)
-                                                }
-                                                coroutineScope.launch { castPress.animateTo(1f, pressSpec) }
-                                                val up = waitForUpOrCancellation()
-                                                up?.consume()
-                                                coroutineScope.launch { castPress.animateTo(0f, pressSpec) }
-                                                if (up != null) {
-                                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    onShowCastClicked()
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            painter = castIconPainter,
-                                            contentDescription = when {
-                                                isCastConnecting || isRemotePlaybackActive -> stringResource(R.string.presentation_batch_g_player_cd_cast)
-                                                isBluetoothActive -> stringResource(R.string.presentation_batch_g_player_cd_bluetooth)
-                                                else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
-                                            },
-                                            tint = topBarIconColor,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                        AnimatedVisibility(visible = showCastLabel) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Spacer(Modifier.width(8.dp))
-                                                AnimatedContent(
-                                                    targetState = when {
-                                                        isCastConnecting -> stringResource(R.string.presentation_batch_g_player_connecting)
-                                                        isRemotePlaybackActive && selectedRouteName != null -> selectedRouteName
-                                                        else -> ""
-                                                    },
-                                                    transitionSpec = {
-                                                        fadeIn(animationSpec = tween(150)) togetherWith fadeOut(animationSpec = tween(120))
-                                                    },
-                                                    label = "castButtonLabel"
-                                                ) { label ->
-                                                    Row(
-                                                        modifier = Modifier.padding(end = 4.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                                    ) {
-                                                        Text(
-                                                            text = label,
-                                                            style = MaterialTheme.typography.labelMedium,
-                                                            color = topBarIconColor,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            modifier = Modifier.weight(1f, fill = false)
-                                                        )
-                                                        AnimatedVisibility(visible = isCastConnecting) {
-                                                            CircularProgressIndicator(
-                                                                modifier = Modifier.size(14.dp),
-                                                                strokeWidth = 2.dp,
-                                                                color = topBarIconColor
-                                                            )
-                                                        }
-                                                        if (isRemotePlaybackActive && !isCastConnecting) {
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .size(8.dp)
-                                                                    .clip(CircleShape)
-                                                                    .background(topBarIconColor)
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                // Default mode Cast button
-                                Box(
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .then(if (showCastLabel) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
-                                        .animateContentSize()
-                                        .clip(topCastShape)
-                                        .background(topBarButtonBg, topCastShape)
-                                        .clickable {
-                                            onShowCastClicked()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            painter = castIconPainter,
-                                            contentDescription = when {
-                                                isCastConnecting || isRemotePlaybackActive -> stringResource(R.string.presentation_batch_g_player_cd_cast)
-                                                isBluetoothActive -> stringResource(R.string.presentation_batch_g_player_cd_bluetooth)
-                                                else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
-                                            },
-                                            tint = topBarIconColor,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                        AnimatedVisibility(visible = showCastLabel) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Spacer(Modifier.width(8.dp))
-                                                Text(
-                                                    text = when {
-                                                        isCastConnecting -> stringResource(R.string.presentation_batch_g_player_connecting)
-                                                        isRemotePlaybackActive && selectedRouteName != null -> selectedRouteName
-                                                        else -> ""
-                                                    },
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = topBarIconColor,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
                                         }
                                     }
                                 }
                             }
 
                             // 2. Listen Together Button (Rounded Box shape ◼️)
-                            if (isLiquidGlassActive) {
-                                val ltPress = remember { Animatable(0f) }
-                                val ltJiggle = remember { Animatable(0f) }
-
-                                Box(
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .then(if (ltActive) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
-                                        .animateContentSize()
-                                        .graphicsLayer {
-                                            scaleX = 1f + (ltPress.value * 0.10f) + (ltJiggle.value * 0.15f)
-                                            scaleY = 1f - (ltPress.value * 0.08f) - (ltJiggle.value * 0.13f)
-                                        }
-                                        .clip(topLtShape)
-                                        .then(
-                                            if (activeBackdrop != null) {
-                                                Modifier.drawBackdrop(
-                                                    backdrop = activeBackdrop,
-                                                    shape = { topLtShape },
-                                                    effects = {
-                                                        vibrancy()
-                                                        val blurRadius = (8.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                                        blur(blurRadius)
-                                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                                            lens(
-                                                                refractionHeight = 8.dp.toPx() * glassRefractionIntensity,
-                                                                refractionAmount = 18.dp.toPx() * glassRefractionIntensity
-                                                            )
-                                                        }
-                                                    },
-                                                    onDrawSurface = {
-                                                        drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                                    }
-                                                )
-                                            } else {
-                                                Modifier.background(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF), topLtShape)
-                                            }
-                                        )
-                                        .border(BorderStroke(0.75.dp, glassBorderBrush), topLtShape)
-                                        .pointerInput(Unit) {
-                                            val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
-                                            val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
-                                            awaitEachGesture {
-                                                val down = awaitFirstDown(requireUnconsumed = false)
-                                                down.consume()
-                                                coroutineScope.launch {
-                                                    ltJiggle.snapTo(1f)
-                                                    ltJiggle.animateTo(0f, jiggleSpec)
-                                                }
-                                                coroutineScope.launch { ltPress.animateTo(1f, pressSpec) }
-                                                val up = waitForUpOrCancellation()
-                                                up?.consume()
-                                                coroutineScope.launch { ltPress.animateTo(0f, pressSpec) }
-                                                if (up != null) {
-                                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    playerViewModel.openListenTogetherSheet()
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (!ltActive) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Group,
-                                            contentDescription = stringResource(R.string.listen_together),
-                                            tint = topBarIconColor,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    } else {
-                                        val ltInfiniteTransition = rememberInfiniteTransition(label = "ltPillPulse")
-                                        val pulseAlpha by ltInfiniteTransition.animateFloat(
-                                            initialValue = 0.4f,
-                                            targetValue = 1f,
-                                            animationSpec = infiniteRepeatable(
-                                                animation = tween(1800, easing = LinearEasing),
-                                                repeatMode = RepeatMode.Reverse
-                                            ),
-                                            label = "pulseAlpha"
-                                        )
-                                        val eqBar1 by ltInfiniteTransition.animateFloat(
-                                            initialValue = 4f,
-                                            targetValue = 12f,
-                                            animationSpec = infiniteRepeatable(
-                                                animation = tween(1200, easing = FastOutSlowInEasing),
-                                                repeatMode = RepeatMode.Reverse
-                                            ),
-                                            label = "eqBar1"
-                                        )
-                                        val eqBar2 by ltInfiniteTransition.animateFloat(
-                                            initialValue = 12f,
-                                            targetValue = 5f,
-                                            animationSpec = infiniteRepeatable(
-                                                animation = tween(1500, easing = FastOutSlowInEasing),
-                                                repeatMode = RepeatMode.Reverse
-                                            ),
-                                            label = "eqBar2"
-                                        )
-                                        val eqBar3 by ltInfiniteTransition.animateFloat(
-                                            initialValue = 6f,
-                                            targetValue = 14f,
-                                            animationSpec = infiniteRepeatable(
-                                                animation = tween(1350, easing = FastOutSlowInEasing),
-                                                repeatMode = RepeatMode.Reverse
-                                            ),
-                                            label = "eqBar3"
-                                        )
-
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(8.dp)
-                                                    .alpha(pulseAlpha)
-                                                    .clip(CircleShape)
-                                                    .background(Color(0xFF4CAF50))
-                                            )
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                                verticalAlignment = Alignment.Bottom,
-                                                modifier = Modifier.height(14.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .width(2.dp)
-                                                        .height(eqBar1.dp)
-                                                        .background(topBarIconColor, RoundedCornerShape(1.dp))
-                                                )
-                                                Box(
-                                                    modifier = Modifier
-                                                        .width(2.dp)
-                                                        .height(eqBar2.dp)
-                                                        .background(topBarIconColor, RoundedCornerShape(1.dp))
-                                                )
-                                                Box(
-                                                    modifier = Modifier
-                                                        .width(2.dp)
-                                                        .height(eqBar3.dp)
-                                                        .background(topBarIconColor, RoundedCornerShape(1.dp))
-                                                )
-                                            }
-                                            if (ltMemberCount > 1) {
-                                                Text(
-                                                    text = "$ltMemberCount",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = topBarIconColor
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                // Default mode Listen Together button
-                                Box(
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .then(if (ltActive) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
-                                        .animateContentSize()
-                                        .clip(topLtShape)
-                                        .background(topBarButtonBg, topLtShape)
-                                        .clickable {
-                                            playerViewModel.openListenTogetherSheet()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Group,
-                                        contentDescription = stringResource(R.string.listen_together),
-                                        tint = topBarIconColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
+                            Box(
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .then(if (ltActive) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
+                                    .animateContentSize()
+                                    .clip(topLtShape)
+                                    .background(topBarButtonBg, topLtShape)
+                                    .clickable {
+                                        playerViewModel.openListenTogetherSheet()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Group,
+                                    contentDescription = stringResource(R.string.listen_together),
+                                    tint = topBarIconColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
 
                             // 3. Queue Button (D shape D)
-                            if (isLiquidGlassActive) {
-                                val queuePress = remember { Animatable(0f) }
-                                val queueJiggle = remember { Animatable(0f) }
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(width = 44.dp, height = 48.dp)
-                                        .graphicsLayer {
-                                            scaleX = 1f + (queuePress.value * 0.10f) + (queueJiggle.value * 0.15f)
-                                            scaleY = 1f - (queuePress.value * 0.08f) - (queueJiggle.value * 0.13f)
-                                        }
-                                        .clip(topQueueShape)
-                                        .then(
-                                            if (activeBackdrop != null) {
-                                                Modifier.drawBackdrop(
-                                                    backdrop = activeBackdrop,
-                                                    shape = { topQueueShape },
-                                                    effects = {
-                                                        vibrancy()
-                                                        val blurRadius = (8.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                                        blur(blurRadius)
-                                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                                            lens(
-                                                                refractionHeight = 8.dp.toPx() * glassRefractionIntensity,
-                                                                refractionAmount = 18.dp.toPx() * glassRefractionIntensity
-                                                            )
-                                                        }
-                                                    },
-                                                    onDrawSurface = {
-                                                        drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                                    }
-                                                )
-                                            } else {
-                                                Modifier.background(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF), topQueueShape)
-                                            }
-                                        )
-                                        .border(BorderStroke(0.75.dp, glassBorderBrush), topQueueShape)
-                                        .pointerInput(Unit) {
-                                            val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
-                                            val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
-                                            awaitEachGesture {
-                                                val down = awaitFirstDown(requireUnconsumed = false)
-                                                down.consume()
-                                                coroutineScope.launch {
-                                                    queueJiggle.snapTo(1f)
-                                                    queueJiggle.animateTo(0f, jiggleSpec)
-                                                }
-                                                coroutineScope.launch { queuePress.animateTo(1f, pressSpec) }
-                                                val up = waitForUpOrCancellation()
-                                                up?.consume()
-                                                coroutineScope.launch { queuePress.animateTo(0f, pressSpec) }
-                                                if (up != null) {
-                                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    onShowQueueClicked()
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_queue_music_24),
-                                        contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
-                                        tint = topBarIconColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            } else {
-                                // Default mode Queue button
-                                Box(
-                                    modifier = Modifier
-                                        .size(width = 44.dp, height = 48.dp)
-                                        .clip(topQueueShape)
-                                        .background(topBarButtonBg, topQueueShape)
-                                        .clickable {
-                                            onShowQueueClicked()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_queue_music_24),
-                                        contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
-                                        tint = topBarIconColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 44.dp, height = 48.dp)
+                                    .clip(topQueueShape)
+                                    .background(topBarButtonBg, topQueueShape)
+                                    .clickable {
+                                        onShowQueueClicked()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_queue_music_24),
+                                    contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
+                                    tint = topBarIconColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
                         }
                     }
@@ -2721,8 +2238,6 @@ private fun FullPlayerAlbumCoverSection(
 @Composable
 private fun FullPlayerControlsSection(
     loadingTweaks: FullPlayerLoadingTweaks,
-    isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null,
     isSheetDragGestureActive: Boolean,
     expansionFractionProvider: () -> Float,
     currentSheetState: PlayerSheetState,
@@ -2796,8 +2311,6 @@ private fun FullPlayerControlsSection(
                 colorNextButton = transportSkipColors.container,
                 tintPreviousIcon = transportSkipColors.content,
                 tintNextIcon = transportSkipColors.content,
-                isLiquidGlass = isLiquidGlass,
-                backdrop = backdrop,
                 morphTracker = morphTracker,
                 expansionFractionProvider = expansionFractionProvider,
                 rootCoordsHolder = rootCoordsHolder,
@@ -2826,9 +2339,7 @@ private fun FullPlayerControlsSection(
                 onShuffleToggle = onShuffleToggle,
                 onRepeatToggle = onRepeatToggle,
                 onFavoriteToggle = onFavoriteToggle,
-                isFullScreenArt = isFullScreenArt,
-                isLiquidGlass = isLiquidGlass,
-                backdrop = backdrop
+                isFullScreenArt = isFullScreenArt
             )
         }
     }
@@ -2854,8 +2365,6 @@ private fun FullPlayerProgressSection(
     allowRealtimeUpdates: Boolean,
     isSheetDragGestureActive: Boolean,
     loadingTweaks: FullPlayerLoadingTweaks,
-    isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null,
     rootCoordsHolder: LayoutCoordsHolder? = null,
     aodSourceBounds: AodSourceBounds? = null,
     aodTransitionProgressProvider: () -> Float = { 0f }
@@ -2897,8 +2406,6 @@ private fun FullPlayerProgressSection(
         allowRealtimeUpdates = allowRealtimeUpdates,
         isSheetDragGestureActive = isSheetDragGestureActive,
         loadingTweaks = loadingTweaks,
-        isLiquidGlass = isLiquidGlass,
-        backdrop = backdrop,
         rootCoordsHolder = rootCoordsHolder,
         aodSourceBounds = aodSourceBounds,
         aodTransitionProgressProvider = aodTransitionProgressProvider
@@ -3019,8 +2526,6 @@ private fun FullPlayerSongMetadataSection(
     chipContentColor: Color,
     onQueueClick: () -> Unit,
     onArtistClick: () -> Unit,
-    isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
     rootCoordsHolder: LayoutCoordsHolder? = null,
     aodSourceBounds: AodSourceBounds? = null,
@@ -3068,8 +2573,6 @@ private fun FullPlayerSongMetadataSection(
             showQueueButton = isLandscape,
             onClickQueue = onQueueClick,
             onClickArtist = onArtistClick,
-            isLiquidGlass = isLiquidGlass,
-            backdrop = backdrop,
             morphTracker = morphTracker,
             rootCoordsHolder = rootCoordsHolder,
             aodSourceBounds = aodSourceBounds,
@@ -3183,8 +2686,6 @@ private fun SongMetadataDisplaySection(
     onClickQueue: () -> Unit,
     onClickArtist: () -> Unit,
     modifier: Modifier = Modifier,
-    isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
     rootCoordsHolder: LayoutCoordsHolder? = null,
     aodSourceBounds: AodSourceBounds? = null,
@@ -3203,11 +2704,6 @@ private fun SongMetadataDisplaySection(
         with(density) { (configuration.screenHeightDp.dp * 0.56f).toPx() }
     }
     val songInfoBounds = aodSourceBounds?.songInfoBounds ?: remember { MorphElementBounds() }
-    val isDark = LocalPixelMusicDarkTheme.current
-    val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
-    val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
-    val coroutineScope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
     Row(
         modifier
             .fillMaxWidth()
@@ -3391,190 +2887,34 @@ private fun SongMetadataDisplaySection(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isLiquidGlass) {
-                    val lyricsPress = remember { Animatable(0f) }
-                    val lyricsJiggle = remember { Animatable(0f) }
-
-                    val morePress = remember { Animatable(0f) }
-                    val moreJiggle = remember { Animatable(0f) }
-
-                    // Lyrics button (left liquid glass pill)
-                    Box(
-                        modifier = Modifier
-                            .size(width = 44.dp, height = 48.dp)
-                            .graphicsLayer {
-                                scaleX = 1f + (lyricsPress.value * 0.10f) + (lyricsJiggle.value * 0.15f)
-                                scaleY = 1f - (lyricsPress.value * 0.08f) - (lyricsJiggle.value * 0.13f)
-                            }
-                            .clip(lyricsShape)
-                            .then(
-                                if (backdrop != null) {
-                                    Modifier.drawBackdrop(
-                                        backdrop = backdrop,
-                                        shape = { lyricsShape },
-                                        effects = {
-                                            vibrancy()
-                                            val blurRadius = (10.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                            blur(blurRadius)
-                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                                lens(
-                                                    refractionHeight = 8.dp.toPx() * glassRefractionIntensity,
-                                                    refractionAmount = 18.dp.toPx() * glassRefractionIntensity
-                                                )
-                                            }
-                                        },
-                                        onDrawSurface = {
-                                            drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                        }
-                                    )
-                                } else {
-                                    Modifier.background(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF), lyricsShape)
-                                }
-                            )
-                            .border(
-                                BorderStroke(
-                                    0.75.dp,
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            Color.White.copy(alpha = if (isDark) 0.35f else 0.6f),
-                                            Color.White.copy(alpha = 0.1f)
-                                        )
-                                    )
-                                ),
-                                lyricsShape
-                            )
-                            .pointerInput(Unit) {
-                                val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
-                                val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
-                                awaitEachGesture {
-                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                    down.consume()
-                                    coroutineScope.launch {
-                                        lyricsJiggle.snapTo(1f)
-                                        lyricsJiggle.animateTo(0f, jiggleSpec)
-                                    }
-                                    coroutineScope.launch { lyricsPress.animateTo(1f, pressSpec) }
-                                    val up = waitForUpOrCancellation()
-                                    up?.consume()
-                                    coroutineScope.launch { lyricsPress.animateTo(0f, pressSpec) }
-                                    if (up != null) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        onClickLyrics()
-                                    }
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_lyrics_24),
-                            contentDescription = stringResource(R.string.presentation_batch_g_player_cd_lyrics),
-                            tint = if (isDark) Color.White else Color(0xFF1C1C1E)
-                        )
-                    }
-
-                    // More options button (right liquid glass pill)
-                    Box(
-                        modifier = Modifier
-                            .size(width = 44.dp, height = 48.dp)
-                            .graphicsLayer {
-                                scaleX = 1f + (morePress.value * 0.10f) + (moreJiggle.value * 0.15f)
-                                scaleY = 1f - (morePress.value * 0.08f) - (moreJiggle.value * 0.13f)
-                            }
-                            .clip(moreShape)
-                            .then(
-                                if (backdrop != null) {
-                                    Modifier.drawBackdrop(
-                                        backdrop = backdrop,
-                                        shape = { moreShape },
-                                        effects = {
-                                            vibrancy()
-                                            val blurRadius = (10.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                                            blur(blurRadius)
-                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                                                lens(
-                                                    refractionHeight = 8.dp.toPx() * glassRefractionIntensity,
-                                                    refractionAmount = 18.dp.toPx() * glassRefractionIntensity
-                                                )
-                                            }
-                                        },
-                                        onDrawSurface = {
-                                            drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                                        }
-                                    )
-                                } else {
-                                    Modifier.background(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF), moreShape)
-                                }
-                            )
-                            .border(
-                                BorderStroke(
-                                    0.75.dp,
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            Color.White.copy(alpha = if (isDark) 0.35f else 0.6f),
-                                            Color.White.copy(alpha = 0.1f)
-                                        )
-                                    )
-                                ),
-                                moreShape
-                            )
-                            .pointerInput(Unit) {
-                                val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
-                                val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
-                                awaitEachGesture {
-                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                    down.consume()
-                                    coroutineScope.launch {
-                                        moreJiggle.snapTo(1f)
-                                        moreJiggle.animateTo(0f, jiggleSpec)
-                                    }
-                                    coroutineScope.launch { morePress.animateTo(1f, pressSpec) }
-                                    val up = waitForUpOrCancellation()
-                                    up?.consume()
-                                    coroutineScope.launch { morePress.animateTo(0f, pressSpec) }
-                                    if (up != null) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        onClickShare()
-                                    }
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_more_vert_24),
-                            contentDescription = stringResource(R.string.cd_player_more_options),
-                            tint = if (isDark) Color.White else Color(0xFF1C1C1E)
-                        )
-                    }
-                } else {
-                    // Default FilledIconButton
-                    FilledIconButton(
-                        modifier = Modifier.size(width = 44.dp, height = 48.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = chipColor,
-                            contentColor = chipContentColor
-                        ),
-                        shape = lyricsShape,
-                        onClick = onClickLyrics,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_lyrics_24),
-                            contentDescription = stringResource(R.string.presentation_batch_g_player_cd_lyrics)
-                        )
-                    }
-                    FilledIconButton(
-                        modifier = Modifier.size(width = 44.dp, height = 48.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = chipColor,
-                            contentColor = chipContentColor
-                        ),
-                        shape = moreShape,
-                        onClick = onClickShare,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_more_vert_24),
-                            contentDescription = stringResource(R.string.cd_player_more_options)
-                        )
-                    }
+                // Default FilledIconButton
+                FilledIconButton(
+                    modifier = Modifier.size(width = 44.dp, height = 48.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = chipColor,
+                        contentColor = chipContentColor
+                    ),
+                    shape = lyricsShape,
+                    onClick = onClickLyrics,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_lyrics_24),
+                        contentDescription = stringResource(R.string.presentation_batch_g_player_cd_lyrics)
+                    )
+                }
+                FilledIconButton(
+                    modifier = Modifier.size(width = 44.dp, height = 48.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = chipColor,
+                        contentColor = chipContentColor
+                    ),
+                    shape = moreShape,
+                    onClick = onClickShare,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_more_vert_24),
+                        contentDescription = stringResource(R.string.cd_player_more_options)
+                    )
                 }
             }
         }
@@ -3621,8 +2961,6 @@ private fun PlayerProgressBarSection(
     allowRealtimeUpdates: Boolean = true,
     isSheetDragGestureActive: Boolean = false,
     loadingTweaks: FullPlayerLoadingTweaks? = null,
-    isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null,
     rootCoordsHolder: LayoutCoordsHolder? = null,
     aodSourceBounds: AodSourceBounds? = null,
     aodTransitionProgressProvider: () -> Float = { 0f },
@@ -3791,41 +3129,23 @@ private fun PlayerProgressBarSection(
                 Box(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (isLiquidGlass) {
-                        EfficientLiquidGlassSlider(
-                            valueState = animatedProgressState,
-                            sliderDragValue = sliderDragValue,
-                            onValueChange = { sliderDragValue = it },
-                            onValueCommit = { finalValue ->
-                                val targetMs = (finalValue * durationForCalc).roundToLong()
-                                targetSeekFraction = finalValue
-                                lastSeekFinishedTime = System.currentTimeMillis()
-                                onSeek(targetMs)
-                                sliderDragValue = null
-                            },
-                            activeTrackColor = activeTrackColor,
-                            backdrop = backdrop,
-                            trackEdgePadding = progressSectionHorizontalInset
-                        )
-                    } else {
-                        EfficientSlider(
-                            valueState = animatedProgressState,
-                            onValueChange = { sliderDragValue = it },
-                            onValueCommit = { finalValue ->
-                                val targetMs = (finalValue * durationForCalc).roundToLong()
-                                targetSeekFraction = finalValue
-                                lastSeekFinishedTime = System.currentTimeMillis()
-                                onSeek(targetMs)
-                                sliderDragValue = null
-                            },
-                            thumbColor = thumbColor,
-                            activeTrackColor = activeTrackColor,
-                            inactiveTrackColor = inactiveTrackColor,
-                            interactionSource = interactionSource,
-                            isPlaying = shouldAnimateWavyProgress,
-                            trackEdgePadding = progressSectionHorizontalInset
-                        )
-                    }
+                    EfficientSlider(
+                        valueState = animatedProgressState,
+                        onValueChange = { sliderDragValue = it },
+                        onValueCommit = { finalValue ->
+                            val targetMs = (finalValue * durationForCalc).roundToLong()
+                            targetSeekFraction = finalValue
+                            lastSeekFinishedTime = System.currentTimeMillis()
+                            onSeek(targetMs)
+                            sliderDragValue = null
+                        },
+                        thumbColor = thumbColor,
+                        activeTrackColor = activeTrackColor,
+                        inactiveTrackColor = inactiveTrackColor,
+                        interactionSource = interactionSource,
+                        isPlaying = shouldAnimateWavyProgress,
+                        trackEdgePadding = progressSectionHorizontalInset
+                    )
                 }
             }
 
@@ -3840,32 +3160,6 @@ private fun PlayerProgressBarSection(
             )
         }
     }
-}
-
-@Composable
-private fun EfficientLiquidGlassSlider(
-    valueState: androidx.compose.runtime.State<Float>,
-    sliderDragValue: Float?,
-    onValueChange: (Float) -> Unit,
-    onValueCommit: (Float) -> Unit,
-    activeTrackColor: Color,
-    backdrop: com.kyant.backdrop.Backdrop?,
-    trackEdgePadding: Dp
-) {
-    val currentValue = sliderDragValue ?: valueState.value
-    LiquidGlassSlider(
-        value = currentValue,
-        onValueChange = onValueChange,
-        onValueChangeFinished = {
-            onValueCommit(sliderDragValue ?: valueState.value)
-        },
-        valueRange = 0f..1f,
-        activeColor = activeTrackColor,
-        backdrop = backdrop,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = trackEdgePadding)
-    )
 }
 
 @Composable
@@ -4614,30 +3908,15 @@ private fun BottomToggleRow(
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
-    isFullScreenArt: Boolean = false,
-    isLiquidGlass: Boolean = false,
-    backdrop: com.kyant.backdrop.Backdrop? = null
+    isFullScreenArt: Boolean = false
 ) {
     val isFavorite = isFavoriteProvider()
     val rowCorners = 60.dp
     val rowShape = RoundedCornerShape(rowCorners)
     val isDark = LocalPixelMusicDarkTheme.current
-    val glassBlurIntensity = LocalLiquidGlassBlurIntensity.current
-    val glassRefractionIntensity = LocalLiquidGlassRefractionIntensity.current
 
-    val isLiquidGlassGlobal = LocalLiquidGlassEnabled.current
-    val isGlass = isLiquidGlass || isLiquidGlassGlobal
-
-    val inactiveBg = if (isGlass) {
-        if (isDark) Color(0x33FFFFFF) else Color(0x22000000)
-    } else {
-        LocalMaterialTheme.current.onSurface.copy(alpha = 0.07f)
-    }
-    val inactiveContentColor = if (isGlass) {
-        if (isDark) Color.White else Color(0xFF1C1C1E)
-    } else {
-        LocalMaterialTheme.current.onSurface
-    }
+    val inactiveBg = LocalMaterialTheme.current.onSurface.copy(alpha = 0.07f)
+    val inactiveContentColor = LocalMaterialTheme.current.onSurface
 
     val activeColor1 = LocalMaterialTheme.current.primary
     val activeContent1 = LocalMaterialTheme.current.onPrimary
@@ -4646,52 +3925,14 @@ private fun BottomToggleRow(
     val activeColor3 = LocalMaterialTheme.current.tertiary
     val activeContent3 = LocalMaterialTheme.current.onTertiary
 
-    val pillTint = LocalMaterialTheme.current.surfaceContainer
-    val activeBackdrop = backdrop ?: LocalLiquidGlassBackdrop.current
-    val containerModifier = if (isGlass && activeBackdrop != null) {
-        modifier
-            .clip(rowShape)
-            .background(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF), rowShape)
-            .drawBackdrop(
-                backdrop = activeBackdrop,
-                shape = { rowShape },
-                effects = {
-                    vibrancy()
-                    val blurRadius = (10.dp.toPx() * glassBlurIntensity).coerceAtLeast(1f)
-                    blur(blurRadius)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && glassRefractionIntensity > 0.01f) {
-                        lens(
-                            refractionHeight = 14.dp.toPx() * glassRefractionIntensity,
-                            refractionAmount = 32.dp.toPx() * glassRefractionIntensity
-                        )
-                    }
-                },
-                onDrawSurface = {
-                    drawRect(if (isDark) Color(0xEE1E1E22) else Color(0xEEFFFFFF))
-                    drawRect(pillTint, blendMode = BlendMode.Hue)
-                    drawRect(pillTint.copy(alpha = if (isDark) 0.65f else 0.40f))
-                }
-            )
-            .border(
-                width = 0.75.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        Color.White.copy(alpha = if (isDark) 0.45f else 0.75f),
-                        Color.White.copy(alpha = if (isDark) 0.08f else 0.20f)
-                    )
-                ),
-                shape = rowShape
-            )
+    val containerBg = if (isDark) {
+        LocalMaterialTheme.current.surfaceContainer.copy(alpha = 0.5f)
     } else {
-        val containerBg = if (isDark) {
-            LocalMaterialTheme.current.surfaceContainer.copy(alpha = 0.5f)
-        } else {
-            Color.White.copy(alpha = 0.85f)
-        }
-        modifier
-            .clip(rowShape)
-            .background(color = containerBg, shape = rowShape)
+        Color.White.copy(alpha = 0.85f)
     }
+    val containerModifier = modifier
+        .clip(rowShape)
+        .background(color = containerBg, shape = rowShape)
 
     Box(
         modifier = containerModifier

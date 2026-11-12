@@ -97,7 +97,6 @@ internal fun MiniPlayerContentInternal(
     onPrevious: () -> Unit,
     cornerRadiusAlb: Dp,
     onNext: () -> Unit,
-    isLiquidGlass: Boolean = false,
     albumArtAlphaProvider: () -> Float = { 1f },
     aodSourceBounds: AodSourceBounds? = null,
     shouldRunMarqueeProvider: () -> Boolean = { true },
@@ -149,7 +148,6 @@ internal fun MiniPlayerContentInternal(
         }
         Spacer(modifier = Modifier.width(12.dp))
         val coroutineScope = rememberCoroutineScope()
-        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
         val fallbackTitleMarquee = remember { MarqueeSyncState() }
         val fallbackArtistMarquee = remember { MarqueeSyncState() }
@@ -166,8 +164,8 @@ internal fun MiniPlayerContentInternal(
                 },
             verticalArrangement = Arrangement.Center
         ) {
-            val titleColor = if (isLiquidGlass) (if (isDark) Color.White else Color(0xFF1C1C1E)) else LocalMaterialTheme.current.onPrimaryContainer
-            val artistColor = if (isLiquidGlass) (if (isDark) Color.White else Color(0xFF1C1C1E)).copy(alpha = 0.75f) else LocalMaterialTheme.current.onPrimaryContainer.copy(alpha = 0.7f)
+            val titleColor = LocalMaterialTheme.current.onPrimaryContainer
+            val artistColor = LocalMaterialTheme.current.onPrimaryContainer.copy(alpha = 0.7f)
 
             val titleStyle = MaterialTheme.typography.headlineSmall.copy(
                 fontSize = 15.sp,
@@ -234,22 +232,7 @@ internal fun MiniPlayerContentInternal(
                     scaleY = 1f - (prevPress.value * 0.08f) - (prevJiggle.value * 0.14f)
                 }
                 .clip(prevShape)
-                .background(
-                    if (isLiquidGlass) {
-                        (if (isDark) Color.White else Color.Black).copy(alpha = 0.10f)
-                    } else {
-                        LocalMaterialTheme.current.onPrimary
-                    }
-                )
-                .then(
-                    if (isLiquidGlass) {
-                        Modifier.border(
-                            0.75.dp,
-                            Color.White.copy(alpha = if (isDark) 0.06f else 0.12f),
-                            prevShape
-                        )
-                    } else Modifier
-                )
+                .background(LocalMaterialTheme.current.onPrimary)
                 .pointerInput(controlsEnabled) {
                     if (!controlsEnabled) return@pointerInput
                     val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
@@ -278,7 +261,7 @@ internal fun MiniPlayerContentInternal(
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = "Anterior",
-                tint = if (isLiquidGlass) (if (isDark) Color.White else Color(0xFF1C1C1E)) else LocalMaterialTheme.current.primary,
+                tint = LocalMaterialTheme.current.primary,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -304,27 +287,7 @@ internal fun MiniPlayerContentInternal(
                     scaleY = 1f - (playPausePress.value * 0.08f) - (playPauseJiggle.value * 0.14f)
                 }
                 .clip(playPauseShape)
-                .background(
-                    if (isLiquidGlass) {
-                        LocalMaterialTheme.current.primary.copy(alpha = 0.88f)
-                    } else {
-                        LocalMaterialTheme.current.primary
-                    }
-                )
-                .then(
-                    if (isLiquidGlass) {
-                        Modifier.border(
-                            0.75.dp,
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.White.copy(alpha = 0.12f),
-                                    Color.White.copy(alpha = 0.04f)
-                                )
-                            ),
-                            playPauseShape
-                        )
-                    } else Modifier
-                )
+                .background(LocalMaterialTheme.current.primary)
                 .pointerInput(controlsEnabled) {
                     if (!controlsEnabled) return@pointerInput
                     val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
@@ -381,22 +344,7 @@ internal fun MiniPlayerContentInternal(
                     scaleY = 1f - (nextPress.value * 0.08f) - (nextJiggle.value * 0.14f)
                 }
                 .clip(nextShape)
-                .background(
-                    if (isLiquidGlass) {
-                        (if (isDark) Color.White else Color.Black).copy(alpha = 0.10f)
-                    } else {
-                        LocalMaterialTheme.current.onPrimary
-                    }
-                )
-                .then(
-                    if (isLiquidGlass) {
-                        Modifier.border(
-                            0.75.dp,
-                            Color.White.copy(alpha = if (isDark) 0.06f else 0.12f),
-                            nextShape
-                        )
-                    } else Modifier
-                )
+                .background(LocalMaterialTheme.current.onPrimary)
                 .pointerInput(controlsEnabled) {
                     if (!controlsEnabled) return@pointerInput
                     val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
@@ -425,7 +373,7 @@ internal fun MiniPlayerContentInternal(
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = "Siguiente",
-                tint = if (isLiquidGlass) (if (isDark) Color.White else Color(0xFF1C1C1E)) else LocalMaterialTheme.current.primary,
+                tint = LocalMaterialTheme.current.primary,
                 modifier = Modifier.size(22.dp)
             )
         }
