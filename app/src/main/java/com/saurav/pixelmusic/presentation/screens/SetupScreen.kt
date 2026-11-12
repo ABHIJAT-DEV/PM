@@ -66,17 +66,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.RoundedCorner
-import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -87,7 +80,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LoadingIndicator
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -173,7 +165,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.rounded.CheckCircle
 import com.saurav.pixelmusic.presentation.screens.AdvancedTokenLoginDialog
 import com.saurav.pixelmusic.presentation.screens.youtube.AuthViewModel
-import androidx.compose.material.icons.rounded.VpnKey
 import com.saurav.pixelmusic.ui.effects.successSweepEffect
 
 @OptIn(ExperimentalPermissionsApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -1273,7 +1264,7 @@ private data class ThemeOptionItem(
     val mode: String,
     val title: String,
     val description: String,
-    val icon: ImageVector,
+    val iconRes: Int,
     val recommended: Boolean = false
 )
 
@@ -1288,20 +1279,20 @@ fun ThemeSelectionPage(
             mode = AppThemeMode.DARK,
             title = stringResource(R.string.setup_theme_dark_title),
             description = stringResource(R.string.setup_theme_dark_description),
-            icon = Icons.Rounded.DarkMode,
+            iconRes = R.drawable.rounded_dark_mode_24,
             recommended = true
         ),
         ThemeOptionItem(
             mode = AppThemeMode.LIGHT,
             title = stringResource(R.string.setup_theme_light_title),
             description = stringResource(R.string.setup_theme_light_description),
-            icon = Icons.Outlined.LightMode
+            iconRes = R.drawable.rounded_light_mode_24
         ),
         ThemeOptionItem(
             mode = AppThemeMode.FOLLOW_SYSTEM,
             title = stringResource(R.string.setup_theme_follow_title),
             description = stringResource(R.string.setup_theme_follow_description),
-            icon = Icons.Rounded.PhoneAndroid
+            iconRes = R.drawable.rounded_phone_android_24
         )
     )
 
@@ -1369,7 +1360,7 @@ fun PaletteSelectionPage(
                     mode = "DYNAMIC",
                     title = "Dynamic (System)",
                     description = "Extracts accent colors directly from your wallpaper.",
-                    icon = Icons.Outlined.Palette,
+                    iconRes = R.drawable.rounded_palette_24,
                     recommended = true
                 )
             )
@@ -1379,7 +1370,7 @@ fun PaletteSelectionPage(
                 mode = "ALBUM_ART",
                 title = "Live (Album Art)",
                 description = "Adapts accent colors live to the currently playing song's album art.",
-                icon = Icons.Outlined.Palette,
+                iconRes = R.drawable.rounded_palette_24,
                 recommended = !com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsDynamicColor
             )
         )
@@ -1388,7 +1379,7 @@ fun PaletteSelectionPage(
                 mode = "BLACK_AND_WHITE",
                 title = "Black and White",
                 description = "Monochrome palette with pure white, pure black, and sleek gray accents.",
-                icon = Icons.Outlined.Palette,
+                iconRes = R.drawable.rounded_palette_24,
                 recommended = false
             )
         )
@@ -1397,7 +1388,7 @@ fun PaletteSelectionPage(
                 mode = "YELLOW",
                 title = "Monochrome Yellow",
                 description = "Minimalist pitch black, crisp white, and electric cyber yellow.",
-                icon = Icons.Outlined.Palette,
+                iconRes = R.drawable.rounded_palette_24,
                 recommended = false
             )
         )
@@ -1504,7 +1495,7 @@ private fun ThemeModeOptionCard(
                         )
                     } else {
                         Icon(
-                            imageVector = option.icon,
+                            painter = painterResource(option.iconRes),
                             contentDescription = null,
                             tint = if (selected) {
                                 MaterialTheme.colorScheme.onPrimary

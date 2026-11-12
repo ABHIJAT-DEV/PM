@@ -22,8 +22,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -171,7 +174,7 @@ private fun LastfmLoggedOutState(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
+                    painter = painterResource(R.drawable.rounded_auto_awesome_24),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(64.dp)
@@ -200,7 +203,7 @@ private fun LastfmLoggedOutState(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Rounded.Link, contentDescription = null)
+                    Icon(painterResource(R.drawable.rounded_link_24), contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Go to Linked Accounts", fontWeight = FontWeight.Bold)
                 }
@@ -279,14 +282,14 @@ private fun SmartMixConfigurator(
 
             // 2. Mode items — same expressive list style as Settings
             val modes = listOf(
-                ModeItemData("top",             "Top Tracks",       "Your most played tracks of all time",      Icons.Rounded.Leaderboard),
-                ModeItemData("recent",          "Recent Tracks",    "What you've been listening to lately",     Icons.Rounded.History),
-                ModeItemData("similar-tracks",  "Similar Tracks",   "Tracks similar to one you love",           Icons.Rounded.MusicNote),
-                ModeItemData("similar-artists", "Similar Artists",  "Discover artists like your favourites",    Icons.Rounded.People),
-                ModeItemData("tag",             "By Tag / Genre",   "Browse by genre like rock, lofi, jazz",    Icons.Rounded.Sell),
-                ModeItemData("mix",             "My Mix",           "Smart blend of top, recent & similar",     Icons.Rounded.Shuffle),
-                ModeItemData("recommendations", "My Recommendations","30 fresh tracks tailored for you",       Icons.Rounded.AutoAwesome),
-                ModeItemData("library",         "My Library",       "Re-discover the sounds of your past",      Icons.Rounded.LibraryMusic)
+                ModeItemData("top",             "Top Tracks",       "Your most played tracks of all time",      R.drawable.rounded_leaderboard_24),
+                ModeItemData("recent",          "Recent Tracks",    "What you've been listening to lately",     R.drawable.rounded_history_24),
+                ModeItemData("similar-tracks",  "Similar Tracks",   "Tracks similar to one you love",           R.drawable.rounded_music_note_24),
+                ModeItemData("similar-artists", "Similar Artists",  "Discover artists like your favourites",    R.drawable.rounded_people_24),
+                ModeItemData("tag",             "By Tag / Genre",   "Browse by genre like rock, lofi, jazz",    R.drawable.rounded_sell_24),
+                ModeItemData("mix",             "My Mix",           "Smart blend of top, recent & similar",     R.drawable.rounded_shuffle_24),
+                ModeItemData("recommendations", "My Recommendations","30 fresh tracks tailored for you",       R.drawable.rounded_auto_awesome_24),
+                ModeItemData("library",         "My Library",       "Re-discover the sounds of your past",      R.drawable.rounded_library_music_24)
             )
 
             val total = modes.size
@@ -384,7 +387,7 @@ private fun SmartMixConfigurator(
                                         )
                                 ) {
                                     Icon(
-                                        imageVector = mode.icon,
+                                        painter = painterResource(mode.iconRes),
                                         contentDescription = null,
                                         modifier = Modifier.size(24.dp),
                                         tint = if (isSelected) colors.first
@@ -422,7 +425,7 @@ private fun SmartMixConfigurator(
                                     label = "chevron_rotation"
                                 )
                                 Icon(
-                                    imageVector = Icons.Rounded.ChevronRight,
+                                    imageVector = Icons.Rounded.KeyboardArrowRight,
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(22.dp)
@@ -559,7 +562,7 @@ private fun SmartMixConfigurator(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
+                        painter = painterResource(R.drawable.rounded_auto_awesome_24),
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -776,7 +779,7 @@ private fun SimilarTracksInputs(
             shape = AbsoluteSmoothCornerShape(16.dp, 60),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Rounded.LibraryMusic, contentDescription = null, tint = colors.first)
+            Icon(painterResource(R.drawable.rounded_library_music_24), contentDescription = null, tint = colors.first)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Pick From My Top Tracks", fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
         }
@@ -893,7 +896,7 @@ private fun SimilarArtistsInputs(
             shape = AbsoluteSmoothCornerShape(16.dp, 60),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Rounded.People, contentDescription = null, tint = colors.first)
+            Icon(painterResource(R.drawable.rounded_people_24), contentDescription = null, tint = colors.first)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Pick From My Top Artists", fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
         }
@@ -1037,7 +1040,7 @@ private fun SeedSearchResultItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Rounded.MusicNote,
+                painter = painterResource(R.drawable.rounded_music_note_24),
                 contentDescription = null,
                 tint = colors.second,
                 modifier = Modifier.size(20.dp)
@@ -1168,5 +1171,5 @@ private data class ModeItemData(
     val id: String,
     val title: String,
     val desc: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val iconRes: Int
 )

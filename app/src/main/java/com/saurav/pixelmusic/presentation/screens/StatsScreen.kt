@@ -41,12 +41,9 @@ import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoGraph
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Hearing
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -134,10 +131,7 @@ import androidx.compose.ui.unit.sp
 import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
 import com.saurav.pixelmusic.presentation.stats.displayNameRes
-import androidx.compose.material.icons.outlined.Album
 import com.saurav.pixelmusic.utils.shapes.RoundedStarShape
-import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.PlayCircleOutline
 import com.saurav.pixelmusic.ui.theme.ExpTitleTypography
 
 private const val PULL_TO_REFRESH_MIN_DURATION_MS = 3500L
@@ -468,7 +462,7 @@ private fun HeroCard(
 // Empty state component with M3 Expressive styling
 @Composable
 private fun StatsEmptyState(
-    icon: ImageVector,
+    icon: Painter,
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier
@@ -493,7 +487,7 @@ private fun StatsEmptyState(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = icon,
+                    painter = icon,
                     contentDescription = null,
                     modifier = Modifier.size(32.dp),
                     tint = MaterialTheme.colorScheme.primary
@@ -719,7 +713,7 @@ private fun ListeningHabitsCard(
             )
             if (summary == null) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.History,
+                    icon = painterResource(R.drawable.rounded_history_24),
                     title = stringResource(R.string.presentation_batch_g_stats_empty_no_habits_title),
                     subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_habits_subtitle)
                 )
@@ -730,17 +724,17 @@ private fun ListeningHabitsCard(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     HabitMetric(
-                        icon = Icons.Outlined.History,
+                        icon = painterResource(R.drawable.rounded_history_24),
                         label = stringResource(R.string.presentation_batch_g_stats_habit_total_sessions),
                         value = summary.totalSessions.toString()
                     )
                     HabitMetric(
-                        icon = Icons.Outlined.Hearing,
+                        icon = painterResource(R.drawable.rounded_hearing_24),
                         label = stringResource(R.string.presentation_batch_g_stats_habit_avg_session),
                         value = formatListeningDurationCompact(summary.averageSessionDurationMs)
                     )
                     HabitMetric(
-                        icon = Icons.Outlined.Bolt,
+                        icon = painterResource(R.drawable.rounded_bolt_24),
                         label = stringResource(R.string.presentation_batch_g_stats_habit_longest_session),
                         value = if (summary.longestSessionDurationMs > 0L) {
                             formatListeningDurationCompact(summary.longestSessionDurationMs)
@@ -749,7 +743,7 @@ private fun ListeningHabitsCard(
                         }
                     )
                     HabitMetric(
-                        icon = Icons.Outlined.AutoGraph,
+                        icon = painterResource(R.drawable.rounded_auto_graph_24),
                         label = stringResource(R.string.presentation_batch_g_stats_habit_sessions_per_day),
                         value = String.format(Locale.US, "%.1f", summary.averageSessionsPerDay)
                     )
@@ -763,14 +757,14 @@ private fun ListeningHabitsCard(
                     } else {
                         stringResource(R.string.presentation_batch_g_stats_habit_no_playback_yet)
                     },
-                    icon = Icons.Outlined.CalendarMonth
+                    icon = painterResource(R.drawable.rounded_calendar_month_24)
                 )
                 summary.peakTimeline?.let { peak ->
                     HighlightRow(
                         title = stringResource(R.string.presentation_batch_g_stats_habit_peak_timeline_slot),
                         value = peak.label,
                         supporting = formatListeningDurationCompact(peak.totalDurationMs),
-                        icon = Icons.Outlined.AutoGraph
+                        icon = painterResource(R.drawable.rounded_auto_graph_24)
                     )
                 }
             }
@@ -780,7 +774,7 @@ private fun ListeningHabitsCard(
 
 @Composable
 private fun HabitMetric(
-    icon: ImageVector,
+    icon: Painter,
     label: String,
     value: String
 ) {
@@ -794,7 +788,7 @@ private fun HabitMetric(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
-            imageVector = icon,
+            painter = icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary
         )
@@ -832,7 +826,7 @@ private fun HighlightRow(
     title: String,
     value: String,
     supporting: String,
-    icon: ImageVector
+    icon: Painter
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -847,7 +841,7 @@ private fun HighlightRow(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = icon,
+                painter = icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary
             )
@@ -1105,7 +1099,7 @@ private fun ListeningTimelineSection(
 
         if (!hasTimeline) {
             StatsEmptyState(
-                icon = Icons.Outlined.PlayCircleOutline,
+                icon = painterResource(R.drawable.rounded_play_circle_24),
                 title = stringResource(R.string.presentation_batch_g_stats_empty_no_timeline_title),
                 subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_timeline_subtitle)
             )
@@ -1183,7 +1177,7 @@ private fun ListeningTimelineSection(
                             formatListeningDurationCompact(average)
                         }
                     },
-                    icon = Icons.Outlined.AutoGraph
+                    icon = painterResource(R.drawable.rounded_auto_graph_24)
                 )
             }
         }
@@ -1314,7 +1308,7 @@ private fun CategoryMetricsSection(
 
         if (entries.isEmpty()) {
             StatsEmptyState(
-                icon = Icons.Outlined.MusicNote,
+                icon = painterResource(R.drawable.rounded_music_note_24),
                 title = stringResource(R.string.presentation_batch_g_stats_empty_no_category_title),
                 subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_category_subtitle)
             )
@@ -1862,7 +1856,7 @@ private fun TopArtistsCard(
             val artists = summary?.topArtists.orEmpty()
             if (artists.isEmpty()) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.MusicNote,
+                    icon = painterResource(R.drawable.rounded_music_note_24),
                     title = stringResource(R.string.presentation_batch_g_stats_empty_no_artists_title),
                     subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_artists_subtitle)
                 )
@@ -1979,7 +1973,7 @@ private fun TopAlbumsCard(
             val albums = summary?.topAlbums.orEmpty()
             if (albums.isEmpty()) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.Album,
+                    icon = painterResource(R.drawable.rounded_album_24),
                     title = stringResource(R.string.presentation_batch_g_stats_empty_no_albums_title),
                     subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_albums_subtitle)
                 )
@@ -2087,7 +2081,7 @@ private fun SongStatsCard(
 
             if (songs.isEmpty()) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.MusicNote,
+                    icon = painterResource(R.drawable.rounded_music_note_24),
                     title = stringResource(R.string.presentation_batch_g_stats_empty_no_tracks_title),
                     subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_tracks_subtitle)
                 )
@@ -2247,7 +2241,7 @@ private fun TrackConcentrationCard(
 
             if (songs.isEmpty()) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.AutoGraph,
+                    icon = painterResource(R.drawable.rounded_auto_graph_24),
                     title = stringResource(R.string.presentation_batch_g_stats_empty_no_concentration_title),
                     subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_concentration_subtitle)
                 )

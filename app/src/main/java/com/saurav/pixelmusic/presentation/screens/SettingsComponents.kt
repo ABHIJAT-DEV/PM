@@ -37,11 +37,9 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteForever
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -82,9 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.saurav.pixelmusic.R
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material.icons.outlined.AutoAwesome
+
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -92,7 +88,7 @@ import com.saurav.pixelmusic.data.preferences.AppThemeMode
 import com.saurav.pixelmusic.ui.theme.LocalThemeTransitionController
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.outlined.Palette
+
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import com.saurav.pixelmusic.data.worker.SyncProgress
@@ -396,7 +392,7 @@ fun ThemeModeSelectorCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Palette,
+                        painter = painterResource(R.drawable.rounded_palette_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.secondary
                     )
@@ -471,7 +467,7 @@ fun ThemeModeSelectorCard(
                                         )
                                     }
                                     Icon(
-                                        imageVector = Icons.Outlined.DarkMode,
+                                        painter = painterResource(R.drawable.rounded_dark_mode_24),
                                         contentDescription = stringResource(R.string.setcat_theme_dark),
                                         modifier = Modifier
                                             .size(24.dp)
@@ -490,7 +486,7 @@ fun ThemeModeSelectorCard(
                                         )
                                     }
                                     Icon(
-                                        imageVector = Icons.Outlined.LightMode,
+                                        painter = painterResource(R.drawable.rounded_light_mode_24),
                                         contentDescription = stringResource(R.string.setcat_theme_light),
                                         modifier = Modifier
                                             .size(24.dp)
@@ -521,7 +517,7 @@ fun ThemeModeSelectorCard(
                                         }
                                     }
                                     Icon(
-                                        imageVector = Icons.Outlined.AutoAwesome,
+                                        painter = painterResource(R.drawable.rounded_auto_awesome_24),
                                         contentDescription = stringResource(R.string.setcat_theme_follow_system),
                                         modifier = Modifier
                                             .size(24.dp)
@@ -893,7 +889,7 @@ fun ColorPaletteSelectorCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Palette,
+                        painter = painterResource(R.drawable.rounded_palette_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.secondary
                     )
@@ -1331,7 +1327,7 @@ fun RefreshLibraryItem(
                         contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                            imageVector = Icons.Outlined.Sync,
+                            painter = painterResource(R.drawable.rounded_sync_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.secondary
                     )
@@ -1368,7 +1364,7 @@ fun RefreshLibraryItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Refresh,
+                        imageVector = Icons.Rounded.Refresh,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -1395,7 +1391,7 @@ fun RefreshLibraryItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.DeleteForever,
+                        painter = painterResource(R.drawable.rounded_delete_forever_24),
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -1512,7 +1508,7 @@ fun RefreshLyricsItem(
                                 )
                 ) {
                     Icon(
-                            imageVector = Icons.Outlined.Sync,
+                            painter = painterResource(R.drawable.rounded_sync_24),
                             contentDescription = stringResource(R.string.presentation_batch_f_cd_refresh_lyrics),
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )

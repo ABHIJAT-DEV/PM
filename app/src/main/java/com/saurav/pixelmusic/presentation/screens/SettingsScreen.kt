@@ -35,15 +35,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -339,7 +335,7 @@ fun SettingsScreen(
                                         onClick = { navController.navigateSafely(Screen.Equalizer.route) }
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.Tune,
+                                            painter = painterResource(R.drawable.rounded_tune_24),
                                             contentDescription = "Configure Equalizer",
                                             tint = colors.second
                                         )
@@ -562,7 +558,7 @@ fun SettingsScreen(
                                             .background(MaterialTheme.colorScheme.secondaryContainer)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.VpnKey,
+                                            painter = painterResource(R.drawable.rounded_vpn_key_24),
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                             modifier = Modifier.size(22.dp)
