@@ -24,11 +24,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -561,7 +561,7 @@ fun BrickBreakerOverlay(
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            Icons.Outlined.Close,
+                            Icons.Rounded.Close,
                             contentDescription = stringResource(R.string.presentation_batch_g_brick_cd_close),
                             modifier = Modifier.size(18.dp)
                         )
@@ -807,7 +807,7 @@ fun BrickBreakerOverlay(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Shuffle,
+                            painter = painterResource(R.drawable.rounded_shuffle_24),
                             contentDescription = null,
                             tint = colorScheme.onPrimaryContainer
                         )

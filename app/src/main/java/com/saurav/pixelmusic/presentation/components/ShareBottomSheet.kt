@@ -28,8 +28,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -584,7 +585,9 @@ fun ShareBottomSheet(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Icon(
-                                        imageVector = if (format == com.saurav.pixelmusic.data.preferences.ShareCardFormat.PHOTO) Icons.Rounded.Image else Icons.Rounded.Videocam,
+                                        painter = painterResource(
+                                            if (format == com.saurav.pixelmusic.data.preferences.ShareCardFormat.PHOTO) R.drawable.rounded_imagesmode_24 else R.drawable.rounded_videocam_24
+                                        ),
                                         contentDescription = null,
                                         tint = contentColor,
                                         modifier = Modifier.size(16.dp)
@@ -897,7 +900,9 @@ fun ShareBottomSheet(
                         ShareActionChip(
                             icon = {
                                 Icon(
-                                    imageVector = if (isVideoMode) Icons.Rounded.VideoFile else Icons.Rounded.Download,
+                                    painter = painterResource(
+                                        if (isVideoMode) R.drawable.rounded_videocam_24 else R.drawable.rounded_download_24
+                                    ),
                                     contentDescription = null,
                                     modifier = Modifier.size(22.dp)
                                 )
@@ -983,7 +988,7 @@ fun ShareBottomSheet(
                             ShareActionChip(
                                 icon = {
                                     Icon(
-                                        imageVector = Icons.Rounded.MusicNote,
+                                        painter = painterResource(R.drawable.rounded_music_note_24),
                                         contentDescription = null,
                                         modifier = Modifier.size(22.dp)
                                     )
@@ -1281,7 +1286,7 @@ private fun VideoGenerationProgressSheetContent(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Videocam,
+                                    painter = painterResource(R.drawable.rounded_videocam_24),
                                     contentDescription = null,
                                     tint = colors.onPrimary,
                                     modifier = Modifier.size(12.dp)
@@ -1323,7 +1328,7 @@ private fun VideoGenerationProgressSheetContent(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Schedule,
+                                painter = painterResource(R.drawable.rounded_schedule_24),
                                 contentDescription = null,
                                 tint = colors.onSurfaceVariant,
                                 modifier = Modifier.size(13.dp)
@@ -1364,11 +1369,13 @@ private fun VideoGenerationProgressSheetContent(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = when (currentStageIndex) {
-                                        0 -> Icons.Rounded.GraphicEq
-                                        1 -> Icons.Rounded.AutoAwesome
-                                        else -> Icons.Rounded.MovieFilter
-                                    },
+                                    painter = painterResource(
+                                        when (currentStageIndex) {
+                                            0 -> R.drawable.rounded_graphic_eq_24
+                                            1 -> R.drawable.rounded_auto_awesome_24
+                                            else -> R.drawable.rounded_auto_awesome_motion_24
+                                        }
+                                    ),
                                     contentDescription = null,
                                     tint = colors.onSecondaryContainer,
                                     modifier = Modifier.size(17.dp)
@@ -1765,7 +1772,7 @@ private fun ShareableCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.MusicNote,
+                        painter = painterResource(R.drawable.rounded_music_note_24),
                         contentDescription = null,
                         tint = pillText,
                         modifier = Modifier.size(13.dp)
@@ -1778,7 +1785,7 @@ private fun ShareableCard(
                         color = pillText
                     )
                     Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
+                        painter = painterResource(R.drawable.rounded_chevron_right_24),
                         contentDescription = null,
                         tint = pillText.copy(alpha = 0.7f),
                         modifier = Modifier.size(13.dp)

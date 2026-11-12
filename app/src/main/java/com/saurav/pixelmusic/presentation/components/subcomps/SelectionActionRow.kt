@@ -31,9 +31,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Deselect
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.SelectAll
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -138,7 +137,7 @@ fun SelectionActionRow(
                 modifier = Modifier.height(buttonHeight)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.SelectAll,
+                    painter = painterResource(R.drawable.round_select_all_24),
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
@@ -164,7 +163,7 @@ fun SelectionActionRow(
                 modifier = Modifier.height(buttonHeight)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Deselect,
+                    painter = painterResource(R.drawable.baseline_deselect_24),
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )

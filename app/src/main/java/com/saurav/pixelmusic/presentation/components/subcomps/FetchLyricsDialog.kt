@@ -23,14 +23,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.EditNote
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -302,7 +297,7 @@ private fun SongTildeArtistInputSection(
                         label = { Text("Cleaned", maxLines = 1) },
                         leadingIcon = {
                             Icon(
-                                imageVector = Icons.Rounded.AutoFixHigh,
+                                painter = painterResource(R.drawable.rounded_auto_awesome_24),
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -369,7 +364,7 @@ private fun IdleContent(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = if (manualModeEnabled) Icons.Rounded.EditNote else Icons.Rounded.MusicNote,
+            painter = painterResource(if (manualModeEnabled) R.drawable.rounded_edit_24 else R.drawable.rounded_music_note_24),
             contentDescription = null,
             modifier = Modifier.size(34.dp),
             tint = MaterialTheme.colorScheme.onSecondaryContainer
@@ -529,7 +524,7 @@ private fun IdleContent(
                 contentColor = MaterialTheme.colorScheme.onSecondary
             )
         ) {
-            Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(painter = painterResource(R.drawable.rounded_upload_file_24), contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.import_file))
         }
@@ -595,7 +590,7 @@ private fun PickResultContent(
         modifier = Modifier.fillMaxWidth().height(48.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Icon(Icons.Rounded.EditNote, contentDescription = null, modifier = Modifier.size(20.dp))
+        Icon(painter = painterResource(R.drawable.rounded_edit_24), contentDescription = null, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(8.dp))
         Text("Search manually (Song ~ Artist)", maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
@@ -640,7 +635,7 @@ private fun ResultItemCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.MusicNote,
+                    painter = painterResource(R.drawable.rounded_music_note_24),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = if (hasSyncedLyrics) MaterialTheme.colorScheme.onPrimaryContainer
@@ -746,7 +741,7 @@ fun NotFoundContent(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.SearchOff,
+            painter = painterResource(R.drawable.rounded_search_off_24),
             contentDescription = null,
             modifier = Modifier.size(34.dp),
             tint = MaterialTheme.colorScheme.onSecondaryContainer
@@ -861,7 +856,7 @@ private fun ErrorContent(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.ErrorOutline,
+            painter = painterResource(R.drawable.rounded_error_outline_24),
             contentDescription = null,
             modifier = Modifier.size(36.dp),
             tint = MaterialTheme.colorScheme.onErrorContainer
@@ -892,7 +887,7 @@ private fun ErrorContent(
         modifier = Modifier.fillMaxWidth().height(48.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Icon(Icons.Rounded.EditNote, contentDescription = null, modifier = Modifier.size(20.dp))
+        Icon(painter = painterResource(R.drawable.rounded_edit_24), contentDescription = null, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(8.dp))
         Text("Search manually (Song ~ Artist)", maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

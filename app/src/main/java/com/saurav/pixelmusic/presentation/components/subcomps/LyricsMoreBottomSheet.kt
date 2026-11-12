@@ -15,17 +15,9 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.FormatAlignLeft
-import androidx.compose.material.icons.automirrored.rounded.FormatAlignRight
-import androidx.compose.material.icons.rounded.Abc
-import androidx.compose.material.icons.rounded.FormatAlignCenter
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material.icons.rounded.BrightnessHigh
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -280,7 +272,7 @@ fun LyricsMoreBottomSheet(
                             inactiveContentColor = contentColor.copy(alpha = 0.78f),
                             activeCornerRadius = 50.dp,
                             onClick = { onLyricsAlignmentChange("left") },
-                            imageVector = Icons.AutoMirrored.Rounded.FormatAlignLeft,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_format_align_left_24),
                             contentDesc = stringResource(R.string.cd_lyrics_align_left)
                         )
 
@@ -295,7 +287,7 @@ fun LyricsMoreBottomSheet(
                             inactiveContentColor = contentColor.copy(alpha = 0.78f),
                             activeCornerRadius = 50.dp,
                             onClick = { onLyricsAlignmentChange("center") },
-                            imageVector = Icons.Rounded.FormatAlignCenter,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_align_justify_space_even_24),
                             contentDesc = stringResource(R.string.cd_lyrics_align_center)
                         )
 
@@ -310,7 +302,7 @@ fun LyricsMoreBottomSheet(
                             inactiveContentColor = contentColor.copy(alpha = 0.78f),
                             activeCornerRadius = 50.dp,
                             onClick = { onLyricsAlignmentChange("right") },
-                            imageVector = Icons.AutoMirrored.Rounded.FormatAlignRight,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_format_align_right_24),
                             contentDesc = stringResource(R.string.cd_lyrics_align_right)
                         )
                     }
@@ -359,7 +351,7 @@ fun LyricsMoreBottomSheet(
                             },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Tune,
+                                    painter = painterResource(R.drawable.rounded_tune_24),
                                     contentDescription = null
                                 )
                             },
@@ -391,7 +383,7 @@ fun LyricsMoreBottomSheet(
                             headlineContent = { Text(stringResource(R.string.lyrics_more_show_romanization)) },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Abc,
+                                    painter = painterResource(R.drawable.rounded_text_format_24),
                                     contentDescription = null
                                 )
                             },
@@ -432,7 +424,7 @@ fun LyricsMoreBottomSheet(
                             headlineContent = { Text(stringResource(R.string.lyrics_more_show_translations)) },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Translate,
+                                    painter = painterResource(R.drawable.rounded_translate_24),
                                     contentDescription = null
                                 )
                             },
@@ -474,7 +466,7 @@ fun LyricsMoreBottomSheet(
                             headlineContent = { Text(stringResource(R.string.lyrics_more_disable_immersive_once)) },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.VisibilityOff,
+                                    painter = painterResource(R.drawable.rounded_visibility_off_24),
                                     contentDescription = null
                                 )
                             },
@@ -518,7 +510,7 @@ fun LyricsMoreBottomSheet(
                             headlineContent = { Text(stringResource(R.string.lyrics_more_keep_screen_on)) },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.BrightnessHigh,
+                                    painter = painterResource(R.drawable.rounded_light_mode_24),
                                     contentDescription = null
                                 )
                             },

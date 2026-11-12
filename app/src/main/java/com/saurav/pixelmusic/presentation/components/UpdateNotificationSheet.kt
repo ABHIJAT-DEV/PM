@@ -29,8 +29,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -897,12 +900,21 @@ private fun ExpressiveUpdateActionArea(
                                 animationSpec = tween(durationMillis = 280, easing = MinimalSlowEasing),
                                 label = "PauseResumeIconCrossfade"
                             ) { paused ->
-                                Icon(
-                                    imageVector = if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
-                                    contentDescription = if (paused) "Resume" else "Pause",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(22.dp)
-                                )
+                                if (paused) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = "Resume",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_pause_24),
+                                        contentDescription = "Pause",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -957,7 +969,7 @@ private fun ExpressiveUpdateActionArea(
                             .fillMaxHeight()
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.DownloadDone,
+                            painter = painterResource(R.drawable.rounded_done_all_24),
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
@@ -981,7 +993,7 @@ private fun ExpressiveUpdateActionArea(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = Icons.Rounded.DeleteOutline,
+                                painter = painterResource(R.drawable.rounded_delete_outline_24),
                                 contentDescription = "Delete downloaded APK",
                                 tint = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.size(22.dp)
@@ -1010,7 +1022,7 @@ private fun ExpressiveUpdateActionArea(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.ErrorOutline,
+                                painter = painterResource(R.drawable.rounded_error_outline_24),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.size(18.dp)
@@ -1100,7 +1112,7 @@ private fun ExpressiveUpdateActionArea(
                     elevation = ButtonDefaults.buttonElevation()
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Download,
+                        painter = painterResource(R.drawable.rounded_download_24),
                         contentDescription = null,
                         tint = buttonContentColor,
                         modifier = Modifier.size(20.dp)
@@ -1297,7 +1309,7 @@ private fun LinkButtonView(button: ChangelogItem.LinkButton) {
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+            painter = painterResource(R.drawable.rounded_open_in_new_24),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.size(18.dp)

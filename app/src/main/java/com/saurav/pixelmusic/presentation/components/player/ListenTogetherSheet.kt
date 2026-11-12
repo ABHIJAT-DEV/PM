@@ -49,19 +49,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -382,7 +376,7 @@ private fun SetupContent(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Icon(
-            imageVector = Icons.Rounded.Group,
+            painter = painterResource(R.drawable.rounded_group_24),
             contentDescription = null,
             tint = colors.primary,
             modifier = Modifier.size(44.dp)
@@ -1226,11 +1220,19 @@ private fun HeroCodeDisplayCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Icon(
-                        imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    if (copied) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_content_copy_24),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                     Spacer(Modifier.width(6.dp))
                     Text(if (copied) "Copied!" else stringResource(R.string.listen_together_copy_code))
                 }
@@ -1703,7 +1705,7 @@ private fun HostControlBar(
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
+                        painter = painterResource(R.drawable.rounded_skip_previous_24),
                         contentDescription = "Previous",
                         modifier = Modifier.size(26.dp)
                     )
@@ -1723,11 +1725,19 @@ private fun HostControlBar(
                         },
                         label = "playPauseToggle"
                     ) { playing ->
-                        Icon(
-                            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (playing) "Pause" else "Play",
-                            modifier = Modifier.size(30.dp)
-                        )
+                        if (playing) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_pause_24),
+                                contentDescription = "Pause",
+                                modifier = Modifier.size(30.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.PlayArrow,
+                                contentDescription = "Play",
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
                     }
                 }
 
@@ -1738,7 +1748,7 @@ private fun HostControlBar(
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.SkipNext,
+                        painter = painterResource(R.drawable.rounded_skip_next_24),
                         contentDescription = "Next",
                         modifier = Modifier.size(26.dp)
                     )
@@ -1777,7 +1787,7 @@ private fun GuestSyncActionBar(
             shape = RoundedCornerShape(14.dp)
         ) {
             Icon(
-                imageVector = Icons.Rounded.Sync,
+                painter = painterResource(R.drawable.rounded_sync_24),
                 contentDescription = null,
                 modifier = Modifier
                     .size(18.dp)
@@ -1941,7 +1951,7 @@ private fun SongRequestsSection(
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                painter = painterResource(R.drawable.rounded_queue_music_24),
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -2218,7 +2228,7 @@ private fun RoomCodeChip(
                 color = colors.onSurface
             )
             Icon(
-                imageVector = Icons.Rounded.ContentCopy,
+                painter = painterResource(R.drawable.rounded_content_copy_24),
                 contentDescription = stringResource(R.string.listen_together_copy_code),
                 tint = colors.primary,
                 modifier = Modifier.size(16.dp)

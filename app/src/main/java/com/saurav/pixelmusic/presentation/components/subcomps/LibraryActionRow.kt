@@ -44,16 +44,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.MyLocation
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.FilterList
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.Dataset
-import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
@@ -222,7 +212,7 @@ fun LibraryActionRow(
                                 },
                                 label = "mainActionLabel"
                             ) { isPlaylist ->
-                                val icon = if (isPlaylist) Icons.AutoMirrored.Rounded.PlaylistAdd else Icons.Rounded.Shuffle
+                                val iconRes = if (isPlaylist) R.drawable.rounded_playlist_add_24 else R.drawable.rounded_shuffle_24
                                 val text = if (isPlaylist) {
                                     stringResource(R.string.library_action_new)
                                 } else {
@@ -239,7 +229,7 @@ fun LibraryActionRow(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Icon(
-                                        imageVector = icon,
+                                        painter = painterResource(iconRes),
                                         contentDescription = contentDesc,
                                         modifier = Modifier.size(20.dp).rotate(iconRotation)
                                     )
@@ -357,7 +347,7 @@ fun LibraryActionRow(
                             modifier = Modifier.size(genHeight)
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.MyLocation,
+                                painter = painterResource(R.drawable.rounded_my_location_24),
                                 contentDescription = stringResource(R.string.cd_locate_current_song)
                             )
                         }
@@ -371,11 +361,11 @@ fun LibraryActionRow(
                         enter = slideInHorizontally(initialOffsetX = { it / 2 }) + fadeIn(),
                         exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut()
                     ) {
-                         val finalIcon = when(currentStorageFilter) {
-                             com.saurav.pixelmusic.data.model.StorageFilter.ALL -> Icons.Rounded.Dataset
-                             com.saurav.pixelmusic.data.model.StorageFilter.ONLINE -> Icons.Rounded.Cloud
-                             com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE -> Icons.Rounded.PhoneAndroid
-                             com.saurav.pixelmusic.data.model.StorageFilter.DOWNLOADED_ONLY -> Icons.Rounded.Download
+                         val finalIconRes = when(currentStorageFilter) {
+                             com.saurav.pixelmusic.data.model.StorageFilter.ALL -> R.drawable.rounded_category_24
+                             com.saurav.pixelmusic.data.model.StorageFilter.ONLINE -> R.drawable.rounded_cloud_24
+                             com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE -> R.drawable.rounded_phone_android_24
+                             com.saurav.pixelmusic.data.model.StorageFilter.DOWNLOADED_ONLY -> R.drawable.rounded_download_24
                          }
                          val tooltipText = when(currentStorageFilter) {
                              com.saurav.pixelmusic.data.model.StorageFilter.ALL -> stringResource(R.string.library_storage_filter_all_songs)
@@ -408,7 +398,7 @@ fun LibraryActionRow(
                                 modifier = Modifier.size(genHeight)
                             ) {
                                  Icon(
-                                    imageVector = finalIcon,
+                                    painter = painterResource(finalIconRes),
                                     contentDescription = tooltipText
                                 )
                             }
@@ -432,7 +422,7 @@ fun LibraryActionRow(
                         modifier = Modifier.size(genHeight)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Sort,
+                            painter = painterResource(R.drawable.rounded_sort_24),
                             contentDescription = stringResource(R.string.cd_sort_options),
                         )
                     }
@@ -557,7 +547,7 @@ fun Breadcrumbs(
                 )
                 if (!isLast) {
                     Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
+                        painter = painterResource(R.drawable.rounded_chevron_right_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.size(20.dp)
