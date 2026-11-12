@@ -37,17 +37,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LinearScale
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.ui.res.painterResource
 import com.saurav.pixelmusic.utils.AndroidVersionCompat
-import androidx.compose.material.icons.outlined.PlayCircle
-import androidx.compose.material.icons.outlined.Style
-import androidx.compose.material.icons.rounded.LinearScale
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Rectangle
-import androidx.compose.material.icons.rounded.Title
-import androidx.compose.material.icons.rounded.ViewCarousel
-import androidx.compose.material.icons.rounded.BlurOn
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -84,9 +76,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Wallpaper
+
 import com.saurav.pixelmusic.presentation.model.SettingsCategory
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
@@ -202,7 +192,7 @@ fun ExperimentalSettingsScreen(
                     title = stringResource(R.string.music_live_wallpaper_title),
                     icon = {
                         Icon(
-                            imageVector = Icons.Rounded.Wallpaper,
+                            painter = painterResource(R.drawable.rounded_wallpaper_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -217,14 +207,14 @@ fun ExperimentalSettingsScreen(
                             subtitle = stringResource(R.string.music_live_wallpaper_subtitle),
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Wallpaper,
+                                    painter = painterResource(R.drawable.rounded_wallpaper_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.secondary
                                 )
                             },
                             trailingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.ChevronRight,
+                                    imageVector = Icons.Rounded.KeyboardArrowRight,
                                     contentDescription = stringResource(R.string.cd_open),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -242,7 +232,7 @@ fun ExperimentalSettingsScreen(
                     title = stringResource(R.string.presentation_batch_f_exp_player_ui_tweaks_section),
                     icon = {
                         Icon(
-                            imageVector = Icons.Outlined.Style,
+                            painter = painterResource(R.drawable.rounded_style_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -276,7 +266,7 @@ fun ExperimentalSettingsScreen(
                                 onCheckedChange = settingsViewModel::setUseAnimatedLyrics,
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Rounded.MusicNote,
+                                        painter = painterResource(R.drawable.rounded_music_note_24),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.secondary
                                     )
@@ -292,7 +282,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setAnimatedLyricsBlurEnabled,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.BlurOn,
+                                                painter = painterResource(R.drawable.rounded_blur_on_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -317,7 +307,7 @@ fun ExperimentalSettingsScreen(
                                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Outlined.LinearScale,
+                                                        painter = painterResource(R.drawable.rounded_linear_scale_24),
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.secondary
                                                     )
@@ -388,7 +378,7 @@ fun ExperimentalSettingsScreen(
                                 onCheckedChange = settingsViewModel::setDelayAllFullPlayerContent,
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Rounded.Visibility,
+                                        painter = painterResource(R.drawable.rounded_visibility_24),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.secondary
                                     )
@@ -408,7 +398,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setDelayAlbumCarousel,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.ViewCarousel,
+                                                painter = painterResource(R.drawable.rounded_view_carousel_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -422,7 +412,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setDelaySongMetadata,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.LinearScale,
+                                                painter = painterResource(R.drawable.rounded_linear_scale_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -436,7 +426,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setDelayProgressBar,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Outlined.LinearScale,
+                                                painter = painterResource(R.drawable.rounded_linear_scale_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -450,7 +440,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setDelayControls,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Outlined.PlayCircle,
+                                                painter = painterResource(R.drawable.rounded_play_circle_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -500,7 +490,7 @@ fun ExperimentalSettingsScreen(
                                 onCheckedChange = settingsViewModel::setFullPlayerPlaceholders,
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Rounded.Rectangle,
+                                        painter = painterResource(R.drawable.rounded_rectangle_24),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.secondary
                                     )
@@ -587,7 +577,7 @@ fun ExperimentalSettingsScreen(
                                                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                                                     ) {
                                                         Icon(
-                                                            imageVector = Icons.Rounded.LinearScale,
+                                                            painter = painterResource(R.drawable.rounded_linear_scale_24),
                                                             contentDescription = null,
                                                             tint = MaterialTheme.colorScheme.secondary
                                                         )
@@ -633,7 +623,7 @@ fun ExperimentalSettingsScreen(
                                                 enabled = isAnyDelayEnabled,
                                                 leadingIcon = {
                                                     Icon(
-                                                        imageVector = Icons.Rounded.Rectangle,
+                                                        painter = painterResource(R.drawable.rounded_rectangle_24),
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.secondary
                                                     )
@@ -662,7 +652,7 @@ fun ExperimentalSettingsScreen(
                                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                                         ) {
                                                             Icon(
-                                                                imageVector = Icons.Outlined.LinearScale,
+                                                                painter = painterResource(R.drawable.rounded_linear_scale_24),
                                                                 contentDescription = null,
                                                                 tint = MaterialTheme.colorScheme.secondary
                                                             )
@@ -730,7 +720,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setTransparentPlaceholders,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.Visibility,
+                                                painter = painterResource(R.drawable.rounded_visibility_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )

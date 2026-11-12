@@ -31,12 +31,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AutoAwesomeMotion
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Save
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -155,7 +150,7 @@ fun EditTransitionScreen(
                         enabled = !uiState.isLoading,
                         colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer)
                     ){
-                        Icon(Icons.Rounded.Save, contentDescription = stringResource(R.string.presentation_batch_d_transition_save_cd))
+                        Icon(painterResource(R.drawable.outline_save_24), contentDescription = stringResource(R.string.presentation_batch_d_transition_save_cd))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -284,7 +279,7 @@ private fun TransitionSummaryCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Rounded.AutoAwesomeMotion,
+                        painterResource(R.drawable.rounded_auto_awesome_motion_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -356,7 +351,7 @@ private fun TransitionModeSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(painterResource(R.drawable.rounded_graphic_eq_24), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column {
                 Text(stringResource(R.string.presentation_batch_d_transition_style_title), style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -481,7 +476,7 @@ private fun TransitionDurationSection(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
-                Icon(Icons.Rounded.Tune, contentDescription = stringResource(R.string.presentation_batch_d_transition_reset_cd))
+                Icon(painterResource(R.drawable.rounded_tune_24), contentDescription = stringResource(R.string.presentation_batch_d_transition_reset_cd))
             }
         }
 
@@ -632,7 +627,7 @@ private fun CrossfadeVisualizer(durationMs: Int) {
                 }
                 // Icono central
                 Icon(
-                    Icons.Rounded.AutoAwesomeMotion,
+                    painterResource(R.drawable.rounded_auto_awesome_motion_24),
                     contentDescription = null,
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -664,7 +659,7 @@ private fun TransitionCurvesSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(painterResource(R.drawable.rounded_tune_24), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column {
                 Text(stringResource(R.string.presentation_batch_d_transition_curves_title), style = MaterialTheme.typography.titleMedium)
                 Text(

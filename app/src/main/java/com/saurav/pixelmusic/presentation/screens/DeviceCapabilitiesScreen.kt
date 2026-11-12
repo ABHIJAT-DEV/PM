@@ -34,22 +34,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Videocam
-import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Warning
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Memory
-import androidx.compose.material.icons.rounded.Speaker
-import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -70,7 +61,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -315,7 +308,7 @@ private fun VideoSharingEngineCard(
 
     CapabilityCard(
         title = "Video Sharing Engine",
-        icon = Icons.Rounded.Videocam,
+        icon = painterResource(R.drawable.rounded_videocam_24),
         modifier = modifier
     ) {
         Text(
@@ -350,10 +343,10 @@ private fun VideoSharingEngineCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     StatusIcon(
-                        icon = when {
-                            isEnabled -> Icons.Rounded.CheckCircle
-                            isInstalling -> Icons.Rounded.Download
-                            else -> Icons.Rounded.Download
+                        icon = if (isEnabled) {
+                            rememberVectorPainter(Icons.Rounded.CheckCircle)
+                        } else {
+                            painterResource(R.drawable.rounded_download_24)
                         },
                         containerColor = if (isEnabled) {
                             contentColor.copy(alpha = 0.15f)
@@ -444,7 +437,7 @@ private fun VideoSharingEngineCard(
                         shape = AbsoluteSmoothCornerShape(14.dp, 60)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Download,
+                            painter = painterResource(R.drawable.rounded_download_24),
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
@@ -513,7 +506,7 @@ private fun PlaybackReadinessCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 StatusIcon(
-                    icon = if (needsReview) Icons.Rounded.Warning else Icons.Rounded.CheckCircle,
+                    icon = rememberVectorPainter(if (needsReview) Icons.Rounded.Warning else Icons.Rounded.CheckCircle),
                     containerColor = contentColor.copy(alpha = 0.12f),
                     contentColor = contentColor
                 )
@@ -591,7 +584,7 @@ private fun LocalMusicStorageCard(
 
     CapabilityCard(
         title = stringResource(R.string.device_capabilities_storage_title),
-        icon = Icons.Rounded.Storage,
+        icon = painterResource(R.drawable.rounded_storage_24),
         modifier = modifier
     ) {
         Row(
@@ -674,7 +667,7 @@ private fun PlaybackPathCard(
 
     CapabilityCard(
         title = stringResource(R.string.device_capabilities_playback_path_title),
-        icon = Icons.Rounded.Speaker,
+        icon = painterResource(R.drawable.rounded_speaker_24),
         modifier = modifier
     ) {
         Row(
@@ -751,7 +744,7 @@ private fun PlaybackPathCard(
                     label = stringResource(R.string.presentation_batch_g_device_section_exoplayer),
                     value = exo.version,
                     supporting = stringResource(R.string.device_capabilities_renderers_count, exo.renderers),
-                    icon = Icons.Rounded.Memory,
+                    icon = painterResource(R.drawable.rounded_memory_24),
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -767,7 +760,7 @@ private fun FormatCompatibilityCard(
 ) {
     CapabilityCard(
         title = stringResource(R.string.device_capabilities_formats_title),
-        icon = Icons.Rounded.GraphicEq,
+        icon = painterResource(R.drawable.rounded_graphic_eq_24),
         verticalSpacing = 0.dp,
         modifier = modifier
     ) {
@@ -806,7 +799,7 @@ private fun FormatCompatibilityCard(
                         R.string.device_capabilities_formats_supported_count,
                         compatibility.supportedLibrarySongCount
                     ),
-                    leadingIcon = Icons.Rounded.CheckCircle
+                    leadingIcon = rememberVectorPainter(Icons.Rounded.CheckCircle)
                 )
                 if (compatibility.unknownFormatSongCount > 0) {
                     TonalChip(
@@ -814,7 +807,7 @@ private fun FormatCompatibilityCard(
                             R.string.device_capabilities_formats_unknown_count,
                             compatibility.unknownFormatSongCount
                         ),
-                        leadingIcon = Icons.Rounded.Info
+                        leadingIcon = rememberVectorPainter(Icons.Rounded.Info)
                     )
                 }
             }
@@ -833,12 +826,12 @@ private fun PlaybackFindingsCard(
 
     CapabilityCard(
         title = stringResource(R.string.device_capabilities_findings_title),
-        icon = if (hasFindings) Icons.Rounded.Warning else Icons.Rounded.CheckCircle,
+        icon = rememberVectorPainter(if (hasFindings) Icons.Rounded.Warning else Icons.Rounded.CheckCircle),
         modifier = modifier
     ) {
         if (!hasFindings) {
             FindingRow(
-                icon = Icons.Rounded.CheckCircle,
+                icon = rememberVectorPainter(Icons.Rounded.CheckCircle),
                 title = stringResource(R.string.device_capabilities_finding_clear_title),
                 body = stringResource(R.string.device_capabilities_finding_clear_body),
                 tone = FindingTone.Success
@@ -848,7 +841,7 @@ private fun PlaybackFindingsCard(
 
         if (compatibility.unsupportedLibrarySongCount > 0) {
             FindingRow(
-                icon = Icons.Rounded.ErrorOutline,
+                icon = painterResource(R.drawable.rounded_error_outline_24),
                 title = stringResource(
                     R.string.device_capabilities_finding_unsupported_title,
                     compatibility.unsupportedLibrarySongCount
@@ -864,7 +857,7 @@ private fun PlaybackFindingsCard(
         if (compatibility.resampledLocalSongCount > 0) {
             Spacer(Modifier.height(8.dp))
             FindingRow(
-                icon = Icons.Rounded.Warning,
+                icon = rememberVectorPainter(Icons.Rounded.Warning),
                 title = stringResource(
                     R.string.device_capabilities_finding_resample_title,
                     compatibility.resampledLocalSongCount
@@ -880,7 +873,7 @@ private fun PlaybackFindingsCard(
         if (compatibility.unknownFormatSongCount > 0) {
             Spacer(Modifier.height(8.dp))
             FindingRow(
-                icon = Icons.Rounded.Info,
+                icon = rememberVectorPainter(Icons.Rounded.Info),
                 title = stringResource(
                     R.string.device_capabilities_finding_unknown_title,
                     compatibility.unknownFormatSongCount
@@ -902,7 +895,7 @@ private fun DeviceInfoPanel(
 
     CapabilityCard(
         title = stringResource(R.string.presentation_batch_g_device_info_title),
-        icon = Icons.Rounded.Info,
+        icon = rememberVectorPainter(Icons.Rounded.Info),
         verticalSpacing = 0.dp,
         enableTopSpacer = true,
         modifier = modifier
@@ -942,7 +935,7 @@ private fun FeatureCompatibilitySummaryCard(
 
     CapabilityCard(
         title = "OS & Feature Compatibility",
-        icon = Icons.Rounded.Shield,
+        icon = painterResource(R.drawable.rounded_shield_24),
         modifier = modifier
     ) {
         Text(
@@ -1024,7 +1017,7 @@ private fun FeatureCompatibilitySummaryCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
+                    imageVector = Icons.Rounded.KeyboardArrowRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )
@@ -1037,7 +1030,7 @@ private fun FeatureCompatibilitySummaryCard(
 private fun CapabilityCard(
     modifier: Modifier = Modifier,
     title: String,
-    icon: ImageVector,
+    icon: Painter,
     enableTopSpacer: Boolean = false,
     verticalSpacing: Dp = 10.dp,
     content: @Composable ColumnScope.() -> Unit
@@ -1085,7 +1078,7 @@ private fun CapabilityCard(
 
 @Composable
 private fun StatusIcon(
-    icon: ImageVector,
+    icon: Painter,
     containerColor: Color,
     contentColor: Color,
     modifier: Modifier = Modifier
@@ -1097,7 +1090,7 @@ private fun StatusIcon(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = icon,
+                painter = icon,
                 contentDescription = null,
                 tint = contentColor,
                 modifier = Modifier.size(24.dp)
@@ -1152,7 +1145,7 @@ private fun InfoTile(
     value: String,
     modifier: Modifier = Modifier,
     supporting: String? = null,
-    icon: ImageVector? = null
+    icon: Painter? = null
 ) {
     Surface(
         modifier = modifier
@@ -1171,7 +1164,7 @@ private fun InfoTile(
             ) {
                 icon?.let {
                     Icon(
-                        imageVector = it,
+                        painter = it,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
@@ -1252,7 +1245,7 @@ private fun FormatSupportTile(
                     color = statusColor
                 ) {
                     Icon(
-                        imageVector = if (format.isDecoderAvailable) Icons.Rounded.CheckCircle else Icons.Rounded.ErrorOutline,
+                        painter = if (format.isDecoderAvailable) rememberVectorPainter(Icons.Rounded.CheckCircle) else painterResource(R.drawable.rounded_error_outline_24),
                         contentDescription = null,
                         tint = statusContentColor,
                         modifier = Modifier
@@ -1358,7 +1351,7 @@ private fun OutputRouteRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = if (category == AudioOutputCategory.BuiltIn) Icons.Rounded.Speaker else Icons.Rounded.Headphones,
+                painter = painterResource(if (category == AudioOutputCategory.BuiltIn) R.drawable.rounded_speaker_24 else R.drawable.rounded_headphones_24),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
@@ -1390,7 +1383,7 @@ private enum class FindingTone {
 
 @Composable
 private fun FindingRow(
-    icon: ImageVector,
+    icon: Painter,
     title: String,
     body: String,
     tone: FindingTone,
@@ -1420,7 +1413,7 @@ private fun FindingRow(
             verticalAlignment = Alignment.Top
         ) {
             Icon(
-                imageVector = icon,
+                painter = icon,
                 contentDescription = null,
                 tint = contentColor,
                 modifier = Modifier.size(22.dp)
@@ -1446,7 +1439,7 @@ private fun FindingRow(
 private fun TonalChip(
     text: String,
     modifier: Modifier = Modifier,
-    leadingIcon: ImageVector? = null,
+    leadingIcon: Painter? = null,
     compact: Boolean = false,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
     contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1466,7 +1459,7 @@ private fun TonalChip(
         ) {
             leadingIcon?.let {
                 Icon(
-                    imageVector = it,
+                    painter = it,
                     contentDescription = null,
                     tint = contentColor,
                     modifier = Modifier.size(if (compact) 14.dp else 16.dp)

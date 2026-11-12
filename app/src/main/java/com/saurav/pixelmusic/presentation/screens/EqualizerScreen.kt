@@ -39,7 +39,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -107,10 +106,6 @@ import kotlin.math.roundToInt
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material.icons.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material.icons.rounded.Check
@@ -119,10 +114,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -131,8 +123,6 @@ import com.saurav.pixelmusic.presentation.components.WavyArcSlider
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Surface
 import com.saurav.pixelmusic.presentation.components.CustomPresetsSheet
@@ -140,16 +130,10 @@ import com.saurav.pixelmusic.presentation.components.ReorderPresetsSheet
 import com.saurav.pixelmusic.presentation.components.SavePresetDialog
 import com.saurav.pixelmusic.presentation.components.RenamePresetDialog
 import com.saurav.pixelmusic.data.equalizer.EqualizerType
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.EqualizerViewMode
-import androidx.compose.material.icons.rounded.ViewQuilt
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.material.icons.automirrored.rounded.ShowChart
-import androidx.compose.material.icons.automirrored.rounded.ViewQuilt
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -327,7 +311,7 @@ fun EqualizerScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Tune,
+                                    painter = painterResource(R.drawable.rounded_tune_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(28.dp)
@@ -370,7 +354,7 @@ fun EqualizerScreen(
                                     .height(48.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                    painter = painterResource(R.drawable.rounded_open_in_new_24),
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -469,11 +453,13 @@ fun EqualizerScreen(
                         )
                     ) {
                         Icon(
-                            imageVector = when(uiState.viewMode) {
-                                EqualizerViewMode.SLIDERS -> Icons.Rounded.GraphicEq
-                                EqualizerViewMode.GRAPH -> Icons.AutoMirrored.Rounded.ShowChart
-                                EqualizerViewMode.HYBRID -> Icons.AutoMirrored.Rounded.ViewQuilt
-                            },
+                            painter = painterResource(
+                                when(uiState.viewMode) {
+                                    EqualizerViewMode.SLIDERS -> R.drawable.rounded_graphic_eq_24
+                                    EqualizerViewMode.GRAPH -> R.drawable.rounded_show_chart_24
+                                    EqualizerViewMode.HYBRID -> R.drawable.rounded_view_quilt_24
+                                }
+                            ),
                             contentDescription = stringResource(R.string.presentation_batch_d_eq_change_view_mode_cd)
                         )
                     }
@@ -498,7 +484,7 @@ fun EqualizerScreen(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.PowerSettingsNew,
+                            painter = painterResource(R.drawable.rounded_power_settings_new_24),
                             contentDescription = if (isEnabled) {
                                 stringResource(R.string.presentation_batch_d_eq_disable_cd)
                             } else {
@@ -654,7 +640,7 @@ private fun BandSlidersSection(
                         if (isCustomOrSaved) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
-                                imageVector = Icons.Rounded.ExpandMore,
+                                painter = painterResource(R.drawable.rounded_expand_more_24),
                                 contentDescription = stringResource(R.string.presentation_batch_d_eq_presets_cd),
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -673,7 +659,7 @@ private fun BandSlidersSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                              Icon(
-                                 imageVector = Icons.Rounded.Save,
+                                 painter = painterResource(R.drawable.outline_save_24),
                                  contentDescription = null,
                                  modifier = Modifier.size(20.dp),
                                  tint = MaterialTheme.colorScheme.onTertiaryContainer
@@ -699,7 +685,7 @@ private fun BandSlidersSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Save,
+                                painter = painterResource(R.drawable.outline_save_24),
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer
@@ -723,7 +709,7 @@ private fun BandSlidersSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Save,
+                                painter = painterResource(R.drawable.outline_save_24),
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onTertiaryContainer
@@ -1381,7 +1367,7 @@ private fun UnsupportedEffectCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Block,
+                    painter = painterResource(R.drawable.rounded_block_24),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(32.dp)
@@ -1427,7 +1413,7 @@ private fun UnsupportedEffectRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Rounded.Block,
+                painter = painterResource(R.drawable.rounded_block_24),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(24.dp)
@@ -1554,7 +1540,7 @@ private fun VolumeControlCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                    painter = painterResource(R.drawable.rounded_volume_up_24),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )

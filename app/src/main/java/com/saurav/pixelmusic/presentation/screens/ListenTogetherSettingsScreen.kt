@@ -8,13 +8,7 @@ import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudSync
-import androidx.compose.material.icons.outlined.Forum
-import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Mood
-import androidx.compose.material.icons.outlined.ViewDay
-import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -177,7 +171,7 @@ fun ListenTogetherSettingsScreen(
                     title = "Session Experience",
                     icon = {
                         Icon(
-                            imageVector = Icons.Outlined.Group,
+                            painter = painterResource(R.drawable.rounded_group_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -194,7 +188,7 @@ fun ListenTogetherSettingsScreen(
                             onCheckedChange = { vm.setCompact(it) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Outlined.ViewDay,
+                                    painter = painterResource(R.drawable.rounded_view_day_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -207,7 +201,7 @@ fun ListenTogetherSettingsScreen(
                             onCheckedChange = { vm.setAnimations(it) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Outlined.Mood,
+                                    painter = painterResource(R.drawable.rounded_mood_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -220,7 +214,7 @@ fun ListenTogetherSettingsScreen(
                             onCheckedChange = { vm.setSocial(it) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Outlined.Forum,
+                                    painter = painterResource(R.drawable.rounded_forum_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -236,7 +230,7 @@ fun ListenTogetherSettingsScreen(
                     title = "Connection & Sync",
                     icon = {
                         Icon(
-                            imageVector = Icons.Outlined.CloudSync,
+                            painter = painterResource(R.drawable.rounded_cloud_sync_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -253,7 +247,7 @@ fun ListenTogetherSettingsScreen(
                             onCheckedChange = { vm.setKeepAlive(it) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Outlined.CloudSync,
+                                    painter = painterResource(R.drawable.rounded_cloud_sync_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -264,7 +258,7 @@ fun ListenTogetherSettingsScreen(
                             subtitle = "Dynamic playback rate adjustment ensures all listeners stay in frame-accurate sync",
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Groups,
+                                    painter = painterResource(R.drawable.rounded_groups_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )

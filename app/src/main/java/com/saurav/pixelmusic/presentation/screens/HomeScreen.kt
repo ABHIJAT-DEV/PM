@@ -45,7 +45,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -148,7 +147,6 @@ import com.saurav.pixelmusic.presentation.components.subcomps.SineWaveLine
 import com.saurav.pixelmusic.presentation.model.collectRecentlyPlayedSongIds
 import com.saurav.pixelmusic.presentation.model.mapRecentlyPlayedSongs
 import android.widget.Toast
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.ButtonDefaults
 import com.saurav.pixelmusic.presentation.components.AiMixCookieButton
 import com.saurav.pixelmusic.presentation.components.CreateAiPlaylistDialog
@@ -1198,7 +1196,7 @@ private fun YourMixEmptyPlaceholder(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Rounded.MusicNote,
+                        painter = painterResource(R.drawable.rounded_music_note_24),
                         contentDescription = null,
                         modifier = Modifier.size(34.dp)
                     )

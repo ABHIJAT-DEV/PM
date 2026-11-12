@@ -59,22 +59,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.BlurOn
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.PhotoLibrary
-import androidx.compose.material.icons.outlined.SlowMotionVideo
-import androidx.compose.material.icons.outlined.TouchApp
-import androidx.compose.material.icons.outlined.Wallpaper
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CropPortrait
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.PhotoLibrary
-import androidx.compose.material.icons.rounded.TouchApp
-import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -422,7 +410,7 @@ fun MusicLiveWallpaperScreen(
                     title = "Live Preview",
                     icon = {
                         Icon(
-                            imageVector = Icons.Rounded.Wallpaper,
+                            painter = painterResource(R.drawable.rounded_wallpaper_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -498,7 +486,7 @@ fun MusicLiveWallpaperScreen(
                     title = "Activation",
                     icon = {
                         Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
+                            painter = painterResource(R.drawable.rounded_auto_awesome_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -523,16 +511,21 @@ fun MusicLiveWallpaperScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Icon(
-                                    imageVector = if (isWallpaperActive) Icons.Rounded.CheckCircle else Icons.Outlined.Wallpaper,
-                                    contentDescription = null,
-                                    tint = if (isWallpaperActive) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.secondary
-                                    },
-                                    modifier = Modifier.size(26.dp)
-                                )
+                                if (isWallpaperActive) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_wallpaper_24),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                }
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = if (isWallpaperActive) {
@@ -627,7 +620,7 @@ fun MusicLiveWallpaperScreen(
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Wallpaper,
+                                        painter = painterResource(R.drawable.rounded_wallpaper_24),
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -678,7 +671,7 @@ fun MusicLiveWallpaperScreen(
                     title = "Default / Fallback Wallpaper",
                     icon = {
                         Icon(
-                            imageVector = Icons.Outlined.PhotoLibrary,
+                            painter = painterResource(R.drawable.rounded_photo_library_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -718,7 +711,7 @@ fun MusicLiveWallpaperScreen(
                                         )
                                     } else {
                                         Icon(
-                                            imageVector = Icons.Rounded.PhotoLibrary,
+                                            painter = painterResource(R.drawable.rounded_photo_library_24),
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary
                                         )
@@ -755,7 +748,7 @@ fun MusicLiveWallpaperScreen(
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.Image,
+                                        painter = painterResource(R.drawable.rounded_imagesmode_24),
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -787,7 +780,7 @@ fun MusicLiveWallpaperScreen(
                                         shape = RoundedCornerShape(12.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.DeleteOutline,
+                                            painter = painterResource(R.drawable.rounded_delete_outline_24),
                                             contentDescription = "Clear fallback wallpaper",
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -807,7 +800,7 @@ fun MusicLiveWallpaperScreen(
                     title = "Wallpaper Styles & Blur",
                     icon = {
                         Icon(
-                            imageVector = Icons.Outlined.AutoAwesome,
+                            painter = painterResource(R.drawable.rounded_auto_awesome_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -1035,7 +1028,7 @@ fun MusicLiveWallpaperScreen(
                     title = "Overlay & Smooth Transitions",
                     icon = {
                         Icon(
-                            imageVector = Icons.Outlined.MusicNote,
+                            painter = painterResource(R.drawable.rounded_music_note_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -1053,7 +1046,7 @@ fun MusicLiveWallpaperScreen(
                             },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Outlined.MusicNote,
+                                    painter = painterResource(R.drawable.rounded_music_note_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.secondary
                                 )

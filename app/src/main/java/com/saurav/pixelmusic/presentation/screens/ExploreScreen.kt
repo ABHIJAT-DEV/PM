@@ -48,10 +48,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
@@ -2300,7 +2297,7 @@ fun ExploreDiscoverCardsCarousel(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Rounded.AutoAwesome,
+                                    painter = painterResource(R.drawable.rounded_auto_awesome_24),
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -2343,7 +2340,7 @@ fun ExploreDiscoverCardsCarousel(
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = if (isCurrentPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                        imageVector = Icons.Rounded.PlayArrow,
                                         contentDescription = "Play",
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -2634,7 +2631,7 @@ fun ExploreNostalgiaVinylCarousel(
                                             )
                                         } else {
                                             Icon(
-                                                imageVector = if (isCurrentPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                                imageVector = Icons.Rounded.PlayArrow,
                                                 contentDescription = "Play",
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -3191,11 +3188,19 @@ private fun SongBigBoxItem(
                     contentColor = colorScheme.onPrimary
                 )
             ) {
-                Icon(
-                    imageVector = if (isThisSongPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (isThisSongPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(22.dp)
-                )
+                if (isThisSongPlaying) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_pause_24),
+                        contentDescription = "Pause",
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = "Play",
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     }
@@ -3300,12 +3305,21 @@ fun MixedStationCarousel(
                                 .size(36.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = if (isPlayingThis) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    contentDescription = if (isPlayingThis) "Pause" else "Play",
-                                    tint = colorScheme.onPrimary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                if (isPlayingThis) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_pause_24),
+                                        contentDescription = "Pause",
+                                        tint = colorScheme.onPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = "Play",
+                                        tint = colorScheme.onPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -3476,7 +3490,7 @@ fun AnimatedSparklesIconButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.AutoAwesome,
+            painter = painterResource(R.drawable.rounded_auto_awesome_24),
             contentDescription = "Smart Mix",
             modifier = Modifier.size(20.dp),
             tint = colors.onPrimary
