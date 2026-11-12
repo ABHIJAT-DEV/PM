@@ -1892,6 +1892,28 @@ fun FullPlayerContent(
             }
 
             if (isComplex) {
+                val isComplexMetadataForCurrent = playbackAudioMetadata.mediaId == null || playbackAudioMetadata.mediaId == song.id
+                val complexAudioMetaLabel = remember(
+                    showPlayerFileInfo,
+                    song.id,
+                    song.mimeType,
+                    song.bitrate,
+                    song.sampleRate,
+                    isComplexMetadataForCurrent,
+                    playbackAudioMetadata.mimeType,
+                    playbackAudioMetadata.bitrate,
+                    playbackAudioMetadata.sampleRate
+                ) {
+                    if (showPlayerFileInfo) {
+                        formatAudioMetaLabel(
+                            mimeType = if (isComplexMetadataForCurrent) playbackAudioMetadata.mimeType ?: song.mimeType else song.mimeType,
+                            bitrate = if (isComplexMetadataForCurrent) playbackAudioMetadata.bitrate ?: song.bitrate else song.bitrate,
+                            sampleRate = if (isComplexMetadataForCurrent) playbackAudioMetadata.sampleRate ?: song.sampleRate else song.sampleRate
+                        )
+                    } else {
+                        null
+                    }
+                }
                 ComplexPlayerLayout(
                     song = song,
                     currentSongArtists = currentSongArtists,
@@ -1917,6 +1939,7 @@ fun FullPlayerContent(
                     onLyricsClick = onLyricsClick,
                     onArtistClick = onSongMetadataArtistClick,
                     onMoreOptionsClick = { showSongInfoBottomSheet = true },
+                    audioMetaLabel = complexAudioMetaLabel,
                     aodSourceBounds = aodSourceBounds,
                     aodTransitionProgressProvider = aodTransitionProgressProvider
                 )
@@ -2330,7 +2353,7 @@ fun FullPlayerContent(
                                 }
                             }
 
-                            // Grouped Actions Card
+                            // Material You Expressive Separated Action Cards
                             var isDownloaded by remember(song.id) { mutableStateOf(false) }
                             LaunchedEffect(song.id) {
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -2343,52 +2366,62 @@ fun FullPlayerContent(
                                 }
                             }
 
-                            val actionsCardShape = remember { RoundedCornerShape(24.dp) }
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                shape = actionsCardShape,
-                                color = LocalMaterialTheme.current.surfaceContainerLowest,
-                                tonalElevation = if (isLiquidGlass) 0.dp else 1.dp,
-                                shadowElevation = 0.dp
+                            val cardShape = remember { AbsoluteSmoothCornerShape(22.dp, 60) }
+                            val cardColor = if (isLiquidGlass) {
+                                LocalMaterialTheme.current.surfaceContainerLowest.copy(alpha = if (isDark) 0.55f else 0.72f)
+                            } else {
+                                LocalMaterialTheme.current.surfaceContainerLowest
+                            }
+                            val defaultIconBg = if (isLiquidGlass) {
+                                LocalMaterialTheme.current.surfaceContainerHighest.copy(alpha = if (isDark) 0.45f else 0.65f)
+                            } else {
+                                LocalMaterialTheme.current.secondaryContainer.copy(alpha = 0.75f)
+                            }
+                            val defaultIconTint = LocalMaterialTheme.current.onSecondaryContainer
+
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    // Row 1: Add to Playlist
+                                // Card 1: Add to Playlist
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
+                                    shape = cardShape,
+                                    color = cardColor,
+                                    tonalElevation = 0.dp,
+                                    shadowElevation = 0.dp
+                                ) {
                                     SongActionRow(
                                         icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
                                         title = "Add to playlist",
-                                        iconBgColor = if (isLiquidGlass) {
-                                            LocalMaterialTheme.current.surfaceContainerHighest.copy(alpha = if (isDark) 0.45f else 0.65f)
-                                        } else {
-                                            LocalMaterialTheme.current.surfaceVariant
-                                        },
-                                        iconTint = LocalMaterialTheme.current.primary,
+                                        iconBgColor = LocalMaterialTheme.current.primaryContainer,
+                                        iconTint = LocalMaterialTheme.current.onPrimaryContainer,
                                         onClick = {
                                             smoothDismiss {
                                                 showPlaylistBottomSheet = true
                                             }
                                         }
                                     )
+                                }
 
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 72.dp, end = 16.dp),
-                                        color = LocalMaterialTheme.current.outlineVariant.copy(alpha = 0.35f),
-                                        thickness = 0.75.dp
-                                    )
-
-                                    // Row 2: Download
+                                // Card 2: Download
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
+                                    shape = cardShape,
+                                    color = cardColor,
+                                    tonalElevation = 0.dp,
+                                    shadowElevation = 0.dp
+                                ) {
                                     SongActionRow(
                                         icon = if (isDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download,
                                         title = if (isDownloaded) "Downloaded" else "Download",
                                         subtitle = if (isDownloaded) "Saved to device storage" else null,
-                                        iconTint = if (isDownloaded) LocalMaterialTheme.current.primary else LocalMaterialTheme.current.onSurfaceVariant,
-                                        iconBgColor = if (isDownloaded) {
-                                            LocalMaterialTheme.current.primary.copy(alpha = 0.15f)
-                                        } else if (isLiquidGlass) {
-                                            LocalMaterialTheme.current.surfaceContainerHighest.copy(alpha = if (isDark) 0.45f else 0.65f)
-                                        } else {
-                                            LocalMaterialTheme.current.surfaceVariant
-                                        },
+                                        iconTint = if (isDownloaded) LocalMaterialTheme.current.onPrimaryContainer else defaultIconTint,
+                                        iconBgColor = if (isDownloaded) LocalMaterialTheme.current.primaryContainer else defaultIconBg,
                                         onClick = {
                                             if (!isDownloaded) {
                                                 smoothDismiss(null)
@@ -2419,49 +2452,47 @@ fun FullPlayerContent(
                                             }
                                         }
                                     )
+                                }
 
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 72.dp, end = 16.dp),
-                                        color = LocalMaterialTheme.current.outlineVariant.copy(alpha = 0.35f),
-                                        thickness = 0.75.dp
-                                    )
-
-                                    // Row 3: Share to Stories
+                                // Card 3: Share to Stories
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
+                                    shape = cardShape,
+                                    color = cardColor,
+                                    tonalElevation = 0.dp,
+                                    shadowElevation = 0.dp
+                                ) {
                                     SongActionRow(
                                         icon = Icons.Rounded.Share,
                                         title = "Share to Stories",
-                                        iconBgColor = if (isLiquidGlass) {
-                                            LocalMaterialTheme.current.surfaceContainerHighest.copy(alpha = if (isDark) 0.45f else 0.65f)
-                                        } else {
-                                            LocalMaterialTheme.current.surfaceVariant
-                                        },
-                                        iconTint = LocalMaterialTheme.current.onSurfaceVariant,
+                                        iconBgColor = defaultIconBg,
+                                        iconTint = defaultIconTint,
                                         onClick = {
                                             smoothDismiss {
                                                 showShareSheet = true
                                             }
                                         }
                                     )
+                                }
 
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 72.dp, end = 16.dp),
-                                        color = LocalMaterialTheme.current.outlineVariant.copy(alpha = 0.35f),
-                                        thickness = 0.75.dp
-                                    )
-
-                                    // Row 4: Sleep Timer
-                                    val isSleepTimerActive = activeTimerValueDisplay != null
+                                // Card 4: Sleep Timer
+                                val isSleepTimerActive = activeTimerValueDisplay != null
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
+                                    shape = cardShape,
+                                    color = cardColor,
+                                    tonalElevation = 0.dp,
+                                    shadowElevation = 0.dp
+                                ) {
                                     SongActionRow(
                                         icon = Icons.Rounded.Timer,
                                         title = "Sleep timer",
-                                        iconBgColor = if (isSleepTimerActive) {
-                                            LocalMaterialTheme.current.primary.copy(alpha = 0.15f)
-                                        } else if (isLiquidGlass) {
-                                            LocalMaterialTheme.current.surfaceContainerHighest.copy(alpha = if (isDark) 0.45f else 0.65f)
-                                        } else {
-                                            LocalMaterialTheme.current.surfaceVariant
-                                        },
-                                        iconTint = if (isSleepTimerActive) LocalMaterialTheme.current.primary else LocalMaterialTheme.current.onSurfaceVariant,
+                                        iconBgColor = if (isSleepTimerActive) LocalMaterialTheme.current.primaryContainer else defaultIconBg,
+                                        iconTint = if (isSleepTimerActive) LocalMaterialTheme.current.onPrimaryContainer else defaultIconTint,
                                         trailingContent = {
                                             if (isSleepTimerActive) {
                                                 Surface(
@@ -2477,12 +2508,20 @@ fun FullPlayerContent(
                                                     )
                                                 }
                                             } else {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.ChevronRight,
-                                                    contentDescription = null,
-                                                    tint = LocalMaterialTheme.current.onSurfaceVariant.copy(alpha = 0.4f),
-                                                    modifier = Modifier.size(20.dp)
-                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(30.dp)
+                                                        .clip(CircleShape)
+                                                        .background(LocalMaterialTheme.current.surfaceContainerHigh),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.ChevronRight,
+                                                        contentDescription = null,
+                                                        tint = LocalMaterialTheme.current.onSurfaceVariant,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
                                             }
                                         },
                                         onClick = {
@@ -2491,54 +2530,62 @@ fun FullPlayerContent(
                                             }
                                         }
                                     )
+                                }
 
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 72.dp, end = 16.dp),
-                                        color = LocalMaterialTheme.current.outlineVariant.copy(alpha = 0.35f),
-                                        thickness = 0.75.dp
-                                    )
-
-                                    // Row 5: Equalizer Shortcut
+                                // Card 5: Equalizer Shortcut
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
+                                    shape = cardShape,
+                                    color = cardColor,
+                                    tonalElevation = 0.dp,
+                                    shadowElevation = 0.dp
+                                ) {
                                     SongActionRow(
                                         icon = Icons.Rounded.GraphicEq,
                                         title = "Equalizer",
                                         subtitle = "Audio effects & tuning",
-                                        iconBgColor = if (isLiquidGlass) {
-                                            LocalMaterialTheme.current.surfaceContainerHighest.copy(alpha = if (isDark) 0.45f else 0.65f)
-                                        } else {
-                                            LocalMaterialTheme.current.surfaceVariant
-                                        },
-                                        iconTint = LocalMaterialTheme.current.onSurfaceVariant,
+                                        iconBgColor = defaultIconBg,
+                                        iconTint = defaultIconTint,
                                         trailingContent = {
-                                            Icon(
-                                                imageVector = Icons.Rounded.ChevronRight,
-                                                contentDescription = null,
-                                                tint = LocalMaterialTheme.current.onSurfaceVariant.copy(alpha = 0.4f),
-                                                modifier = Modifier.size(20.dp)
-                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(30.dp)
+                                                    .clip(CircleShape)
+                                                    .background(LocalMaterialTheme.current.surfaceContainerHigh),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.ChevronRight,
+                                                    contentDescription = null,
+                                                    tint = LocalMaterialTheme.current.onSurfaceVariant,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
                                         },
                                         onClick = {
                                             smoothDismiss {
-                                            coroutineScope.launch {
-                                                val selectedType = playerViewModel.userPreferencesRepository.equalizerTypeFlow.first()
-                                                if (selectedType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
-                                                    val audioSessionId = playerViewModel.activeAudioSessionId.value
-                                                    val intent = android.content.Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-                                                        putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-                                                        putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
-                                                        if (audioSessionId != 0) {
-                                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
+                                                coroutineScope.launch {
+                                                    val selectedType = playerViewModel.userPreferencesRepository.equalizerTypeFlow.first()
+                                                    if (selectedType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
+                                                        val audioSessionId = playerViewModel.activeAudioSessionId.value
+                                                        val intent = android.content.Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
+                                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
+                                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
+                                                            if (audioSessionId != 0) {
+                                                                putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
+                                                            }
                                                         }
+                                                        try {
+                                                            context.startActivity(intent)
+                                                        } catch (e: Exception) {
+                                                            android.widget.Toast.makeText(context, "System equalizer not available", android.widget.Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    } else {
+                                                        playerViewModel.triggerEqualizerNavigation()
                                                     }
-                                                    try {
-                                                        context.startActivity(intent)
-                                                    } catch (e: Exception) {
-                                                        android.widget.Toast.makeText(context, "System equalizer not available", android.widget.Toast.LENGTH_SHORT).show()
-                                                    }
-                                                } else {
-                                                    playerViewModel.triggerEqualizerNavigation()
                                                 }
-                                            }
                                             }
                                         }
                                     )
@@ -4769,12 +4816,20 @@ private fun SongActionRow(
         if (trailingContent != null) {
             trailingContent()
         } else {
-            Icon(
-                imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = LocalMaterialTheme.current.onSurfaceVariant.copy(alpha = 0.35f),
-                modifier = Modifier.size(20.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(LocalMaterialTheme.current.surfaceContainerHigh),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = LocalMaterialTheme.current.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

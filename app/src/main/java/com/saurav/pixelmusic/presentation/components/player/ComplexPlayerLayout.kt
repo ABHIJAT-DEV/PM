@@ -404,6 +404,7 @@ fun ComplexPlayerLayout(
     onLyricsClick: () -> Unit,
     onArtistClick: () -> Unit,
     onMoreOptionsClick: () -> Unit,
+    audioMetaLabel: String? = null,
     aodSourceBounds: AodSourceBounds? = null,
     aodTransitionProgressProvider: () -> Float = { 0f },
     modifier: Modifier = Modifier
@@ -738,6 +739,37 @@ fun ComplexPlayerLayout(
                                 onClick = onArtistClick
                             )
                     )
+                }
+
+                if (!audioMetaLabel.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .padding(top = 8.dp)
+                            .graphicsLayer {
+                                val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                                val a = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
+                                alpha = a
+                                translationY = (1f - a) * (slideOffsetPx * 0.6f)
+                            }
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = contentColor.copy(alpha = 0.14f),
+                            contentColor = contentColor.copy(alpha = 0.96f)
+                        ) {
+                            Text(
+                                text = audioMetaLabel,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 11.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
                 }
 
                 // Glowing Word-by-Word Karaoke Lyrics Stage (UNCLIPPED so glow radiates freely)
