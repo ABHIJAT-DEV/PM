@@ -6,10 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.rounded.*
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -21,7 +19,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
+
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -103,7 +101,7 @@ fun PlaylistCover(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = getIconByName(playlist.coverIconName) ?: Icons.Filled.MusicNote,
+                    painter = painterResource(getIconResByName(playlist.coverIconName)),
                     contentDescription = null,
                     tint = resolvePlaylistCoverContentColor(
                         playlist.coverColorArgb,
@@ -121,16 +119,16 @@ fun PlaylistCover(
     }
 }
 
-private fun getIconByName(name: String?): ImageVector? {
+private fun getIconResByName(name: String?): Int {
     return when (name) {
-        "MusicNote" -> Icons.Rounded.MusicNote
-        "Headphones" -> Icons.Rounded.Headphones
-        "Album" -> Icons.Rounded.Album
-        "Mic" -> Icons.Rounded.MicExternalOn
-        "Speaker" -> Icons.Rounded.Speaker
-        "Favorite" -> Icons.Rounded.Favorite
-        "Piano" -> Icons.Rounded.Piano
-        "Queue" -> Icons.AutoMirrored.Rounded.QueueMusic
-        else -> Icons.Rounded.MusicNote
+        "MusicNote" -> R.drawable.rounded_music_note_24
+        "Headphones" -> R.drawable.rounded_headphones_24
+        "Album" -> R.drawable.rounded_album_24
+        "Mic" -> R.drawable.rounded_mic_external_on_24
+        "Speaker" -> R.drawable.rounded_speaker_24
+        "Favorite" -> R.drawable.rounded_favorite_24
+        "Piano" -> R.drawable.rounded_piano_24
+        "Queue" -> R.drawable.rounded_queue_music_24
+        else -> R.drawable.rounded_music_note_24
     }
 }

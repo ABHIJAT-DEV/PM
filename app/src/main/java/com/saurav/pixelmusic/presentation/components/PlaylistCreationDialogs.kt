@@ -84,32 +84,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.Celebration
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DirectionsCar
-import androidx.compose.material.icons.rounded.FitnessCenter
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.NightsStay
-import androidx.compose.material.icons.rounded.Piano
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.material.icons.rounded.Whatshot
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -358,7 +338,7 @@ fun PlaylistCreationTypeDialog(
                     subtitle = stringResource(R.string.presentation_batch_e_creation_mode_manual_subtitle),
                     icon = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            painter = painterResource(R.drawable.rounded_playlist_add_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -378,7 +358,7 @@ fun PlaylistCreationTypeDialog(
                     },
                     icon = {
                         Icon(
-                            imageVector = if (isAiEnabled) Icons.Rounded.AutoAwesome else Icons.Rounded.Key,
+                            painter = painterResource(if (isAiEnabled) R.drawable.rounded_auto_awesome_24 else R.drawable.rounded_key_24),
                             contentDescription = null,
                             tint = if (isAiEnabled) {
                                 MaterialTheme.colorScheme.onTertiaryContainer
@@ -421,7 +401,7 @@ fun PlaylistCreationTypeDialog(
                         modifier = Modifier.fillMaxWidth(),
                         contentPadding = PaddingValues(vertical = 12.dp)
                     ) {
-                        Icon(Icons.Rounded.Key, contentDescription = null)
+                        Icon(painter = painterResource(R.drawable.rounded_key_24), contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(R.string.presentation_batch_e_setup_api_key))
                     }
@@ -1244,7 +1224,7 @@ private fun AiPlaylistMainTuneView(
                 ) {
                     Box(modifier = Modifier.padding(8.dp)) {
                         Icon(
-                            imageVector = Icons.Rounded.Tune,
+                            painter = painterResource(R.drawable.rounded_tune_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(20.dp)
@@ -1272,7 +1252,7 @@ private fun AiPlaylistMainTuneView(
                 }
 
                 Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
+                    painter = painterResource(R.drawable.rounded_chevron_right_24),
                     contentDescription = "Refine options",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1869,7 +1849,7 @@ fun AiMixCookieButton(
         elevation = FloatingActionButtonDefaults.elevation()
     ) {
         Icon(
-            imageVector = Icons.Rounded.AutoAwesome,
+            painter = painterResource(R.drawable.rounded_auto_awesome_24),
             contentDescription = "Create AI Playlist",
             modifier = Modifier.size(20.dp)
         )
@@ -2740,7 +2720,7 @@ private fun AiLibraryIndicatorsAnimation(
  */
 private data class VibeItem(
     val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    @DrawableRes val iconRes: Int,
     val baseShape: AiExpressiveShapeType,
     val morphedShape: AiExpressiveShapeType
 )
@@ -2756,73 +2736,73 @@ private fun ExpressiveQuickSelectRow(
         listOf(
             VibeItem(
                 label = "Feel good",
-                icon = Icons.Rounded.Whatshot,
+                iconRes = R.drawable.rounded_whatshot_24,
                 baseShape = AiExpressiveShapeType.COOKIE,
                 morphedShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE
             ),
             VibeItem(
                 label = "Upbeat morning",
-                icon = Icons.Rounded.WbSunny,
+                iconRes = R.drawable.rounded_wb_sunny_24,
                 baseShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
                 morphedShape = AiExpressiveShapeType.SUNNY_COOKIE
             ),
             VibeItem(
                 label = "Workout energy",
-                icon = Icons.Rounded.FitnessCenter,
+                iconRes = R.drawable.rounded_fitness_center_24,
                 baseShape = AiExpressiveShapeType.ROUNDED_TRIANGLE,
                 morphedShape = AiExpressiveShapeType.SIX_COOKIE
             ),
             VibeItem(
                 label = "Chill evening",
-                icon = Icons.Rounded.NightsStay,
+                iconRes = R.drawable.rounded_nights_stay_24,
                 baseShape = AiExpressiveShapeType.CIRCLE,
                 morphedShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE
             ),
             VibeItem(
                 label = "Late night drive",
-                icon = Icons.Rounded.DirectionsCar,
+                iconRes = R.drawable.rounded_directions_car_24,
                 baseShape = AiExpressiveShapeType.ROUNDED_SQUARE,
                 morphedShape = AiExpressiveShapeType.COOKIE
             ),
             VibeItem(
                 label = "Music to study",
-                icon = Icons.Rounded.Headphones,
+                iconRes = R.drawable.rounded_headphones_24,
                 baseShape = AiExpressiveShapeType.SIX_COOKIE,
                 morphedShape = AiExpressiveShapeType.ROUNDED_TRIANGLE
             ),
             VibeItem(
                 label = "Party hype",
-                icon = Icons.Rounded.Celebration,
+                iconRes = R.drawable.rounded_celebration_24,
                 baseShape = AiExpressiveShapeType.SUNNY_COOKIE,
                 morphedShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE
             ),
             VibeItem(
                 label = "Acoustic coffee",
-                icon = Icons.Rounded.MusicNote,
+                iconRes = R.drawable.rounded_music_note_24,
                 baseShape = AiExpressiveShapeType.COOKIE,
                 morphedShape = AiExpressiveShapeType.ROUNDED_SQUARE
             ),
             VibeItem(
                 label = "Nostalgic 2000s",
-                icon = Icons.Rounded.History,
+                iconRes = R.drawable.rounded_history_24,
                 baseShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
                 morphedShape = AiExpressiveShapeType.CIRCLE
             ),
             VibeItem(
                 label = "Piano peaceful",
-                icon = Icons.Rounded.Piano,
+                iconRes = R.drawable.rounded_piano_24,
                 baseShape = AiExpressiveShapeType.ROUNDED_SQUARE,
                 morphedShape = AiExpressiveShapeType.SIX_COOKIE
             ),
             VibeItem(
                 label = "Deep focus",
-                icon = Icons.Rounded.Star,
+                iconRes = R.drawable.rounded_whatshot_24,
                 baseShape = AiExpressiveShapeType.ROUNDED_TRIANGLE,
                 morphedShape = AiExpressiveShapeType.COOKIE
             ),
             VibeItem(
                 label = "Radio hits",
-                icon = Icons.Rounded.GraphicEq,
+                iconRes = R.drawable.rounded_graphic_eq_24,
                 baseShape = AiExpressiveShapeType.CIRCLE,
                 morphedShape = AiExpressiveShapeType.SUNNY_COOKIE
             )
@@ -3045,7 +3025,7 @@ private fun ExpressiveQuickSelectPill(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = vibe.icon,
+                    painter = painterResource(vibe.iconRes),
                     contentDescription = null,
                     tint = iconTint,
                     modifier = Modifier

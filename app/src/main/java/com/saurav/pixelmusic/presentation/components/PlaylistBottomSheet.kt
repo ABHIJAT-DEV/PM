@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.rounded.Save
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -272,7 +272,7 @@ fun PlaylistBottomSheet(
                     playerViewModel.sendToast(if (songs.size > 1) "Songs added to playlists" else "Saved")
                     playerViewModel.multiSelectionStateHolder.clearSelection()
                 },
-                icon = { Icon(Icons.Rounded.Save, "Save") },
+                icon = { Icon(painter = painterResource(R.drawable.outline_save_24), "Save") },
                 text = { Text(if (songs.size > 1) "Add" else "Save") },
             )
         }

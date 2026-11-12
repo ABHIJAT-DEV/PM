@@ -52,20 +52,12 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AllInclusive
-import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DoneAll
-import androidx.compose.material.icons.rounded.RemoveDone
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -75,9 +67,6 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.FloatingToolbarExitDirection
 import androidx.compose.material3.HorizontalFloatingToolbar
@@ -96,13 +85,7 @@ import androidx.compose.material3.MediumExtendedFloatingActionButton
 import androidx.compose.material3.MediumFloatingActionButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.ClearAll
-import androidx.compose.material.icons.filled.LibraryAdd
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -186,9 +169,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.MyLocation
+
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -877,7 +858,7 @@ fun QueueBottomSheet(
                                                     .size(40.dp)
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.DragIndicator,
+                                                    painter = painterResource(R.drawable.rounded_drag_indicator_24),
                                                     contentDescription = stringResource(R.string.presentation_batch_b_reorder_song),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -953,7 +934,7 @@ fun QueueBottomSheet(
                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.MoreHoriz,
+                            painter = painterResource(R.drawable.rounded_more_horiz_24),
                             contentDescription = stringResource(R.string.presentation_batch_e_cd_queue_actions),
                         )
                     }
@@ -1010,7 +991,7 @@ fun QueueBottomSheet(
                             if (currentSongDisplayIndex >= 0 && currentSongDisplayIndex < displaySongCount) {
                                 QueueToolbarMenuButton(
                                     text = stringResource(R.string.presentation_batch_e_action_locate_current_song),
-                                    icon = Icons.Rounded.MyLocation,
+                                    icon = ImageVector.vectorResource(R.drawable.rounded_my_location_24),
                                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                                     onClick = {
@@ -1028,7 +1009,7 @@ fun QueueBottomSheet(
                             }
                             QueueToolbarMenuButton(
                                 text = stringResource(R.string.presentation_batch_e_action_clear_queue),
-                                icon = Icons.Filled.ClearAll,
+                                icon = ImageVector.vectorResource(R.drawable.rounded_clear_all_24),
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
                                 onClick = {
@@ -1038,7 +1019,7 @@ fun QueueBottomSheet(
                             )
                             QueueToolbarMenuButton(
                                 text = stringResource(R.string.presentation_batch_e_action_save_as_playlist),
-                                icon = Icons.Filled.LibraryAdd,
+                                icon = ImageVector.vectorResource(R.drawable.rounded_library_add_24),
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
@@ -1246,7 +1227,7 @@ private fun ExpressiveAutoplayButton(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.AllInclusive,
+                painter = painterResource(R.drawable.rounded_all_inclusive_24),
                 contentDescription = stringResource(R.string.autoplay),
                 modifier = Modifier.size(18.dp)
             )
@@ -1388,7 +1369,7 @@ private fun QueueSourceBadge(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                painter = painterResource(R.drawable.rounded_queue_music_24),
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
                 tint = colors.onSurfaceVariant
@@ -1448,7 +1429,7 @@ private fun QueueControlsToolbar(
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Shuffle,
+                    painter = painterResource(R.drawable.rounded_shuffle_24),
                     contentDescription = stringResource(R.string.presentation_batch_e_cd_toggle_shuffle),
                 )
             }
@@ -1458,12 +1439,12 @@ private fun QueueControlsToolbar(
                 colors = if (repeatMode != Player.REPEAT_MODE_OFF) activeColors else inactiveColors,
                 modifier = Modifier.size(48.dp)
             ) {
-                val repeatIcon = when (repeatMode) {
-                    Player.REPEAT_MODE_ONE -> Icons.Rounded.RepeatOne
-                    else -> Icons.Rounded.Repeat
+                val repeatIconRes = when (repeatMode) {
+                    Player.REPEAT_MODE_ONE -> R.drawable.rounded_repeat_one_24
+                    else -> R.drawable.rounded_repeat_24
                 }
                 Icon(
-                    imageVector = repeatIcon,
+                    painter = painterResource(repeatIconRes),
                     contentDescription = stringResource(R.string.presentation_batch_e_cd_toggle_repeat),
                 )
             }
@@ -1605,7 +1586,7 @@ fun SaveQueueAsPlaylistSheet(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Icon(
-                                            imageVector = if (allSelected) Icons.Rounded.RemoveDone else Icons.Rounded.DoneAll,
+                                            painter = painterResource(if (allSelected) R.drawable.rounded_remove_done_24 else R.drawable.rounded_done_all_24),
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -1696,15 +1677,19 @@ fun SaveQueueAsPlaylistSheet(
                                             onClick = { privacyStatus = status },
                                             label = { Text(label) },
                                             leadingIcon = {
-                                                Icon(
-                                                    imageVector = when(status) {
-                                                        "PRIVATE" -> Icons.Rounded.Lock
-                                                        "UNLISTED" -> Icons.Rounded.Link
-                                                        else -> Icons.Rounded.Public
-                                                    },
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
+                                                if (status == "PRIVATE") {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.Lock,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        painter = painterResource(if (status == "UNLISTED") R.drawable.rounded_link_24 else R.drawable.rounded_public_24),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
                                             },
                                             colors = FilterChipDefaults.filterChipColors(
                                                 selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,

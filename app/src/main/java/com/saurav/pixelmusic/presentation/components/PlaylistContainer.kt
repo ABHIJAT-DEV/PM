@@ -32,16 +32,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Topic
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
@@ -61,7 +53,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.material.icons.rounded.Sync
+
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.FilledTonalButton
@@ -179,7 +171,7 @@ fun PlaylistContainer(
                     )
                     Spacer(Modifier.height(16.dp))
                     Icon(
-                        Icons.AutoMirrored.Rounded.PlaylistPlay,
+                        painter = painterResource(R.drawable.rounded_playlist_play_24),
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -505,7 +497,7 @@ fun PlaylistItem(
                     if (playlist.isPinned) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Icon(
-                            imageVector = Icons.Rounded.PushPin,
+                            painter = painterResource(R.drawable.rounded_push_pin_24),
                             contentDescription = "Pinned",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
@@ -676,15 +668,21 @@ fun CreatePlaylistDialogRedesigned(
                                 onClick = { privacyStatus = status },
                                 label = { Text(label) },
                                 leadingIcon = {
-                                    Icon(
-                                        imageVector = when(status) {
-                                            "PRIVATE" -> Icons.Rounded.Lock
-                                            "UNLISTED" -> Icons.Rounded.Link
-                                            else -> Icons.Rounded.Public
-                                        },
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    if (status == "PRIVATE") {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Lock,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            painter = painterResource(
+                                                if (status == "UNLISTED") R.drawable.rounded_link_24 else R.drawable.rounded_public_24
+                                            ),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,

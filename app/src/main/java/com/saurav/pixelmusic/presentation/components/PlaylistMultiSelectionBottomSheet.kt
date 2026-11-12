@@ -23,19 +23,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Merge
-import androidx.compose.material.icons.rounded.MicExternalOn
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Piano
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Speaker
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -210,7 +200,7 @@ fun PlaylistMultiSelectionBottomSheet(
                             }
                         ) {
                             Icon(
-                                Icons.Rounded.FileDownload,
+                                painter = painterResource(R.drawable.rounded_file_download_24),
                                 contentDescription = stringResource(R.string.cd_export_all)
                             )
                             Spacer(Modifier.width(8.dp))
@@ -241,7 +231,7 @@ fun PlaylistMultiSelectionBottomSheet(
                             }
                         ) {
                             Icon(
-                                Icons.Rounded.Merge,
+                                painter = painterResource(R.drawable.rounded_merge_24),
                                 contentDescription = stringResource(R.string.cd_merge_all)
                             )
                             Spacer(Modifier.width(8.dp))
@@ -334,7 +324,7 @@ private fun StackedPlaylistCovers(
                             
                             if (playlist.coverIconName != null) {
                                 Icon(
-                                    imageVector = getPlaylistIconByName(playlist.coverIconName) ?: androidx.compose.material.icons.Icons.Filled.MusicNote,
+                                    painter = painterResource(getPlaylistIconResByName(playlist.coverIconName)),
                                     contentDescription = null,
                                     tint = contentColor,
                                     modifier = Modifier.size(24.dp)
@@ -370,16 +360,16 @@ private fun StackedPlaylistCovers(
     }
 }
 
-private fun getPlaylistIconByName(name: String?): androidx.compose.ui.graphics.vector.ImageVector? {
+private fun getPlaylistIconResByName(name: String?): Int {
     return when (name) {
-        "MusicNote" -> Icons.Rounded.MusicNote
-        "Headphones" -> Icons.Rounded.Headphones
-        "Album" -> Icons.Rounded.Album
-        "Mic" -> Icons.Rounded.MicExternalOn
-        "Speaker" -> Icons.Rounded.Speaker
-        "Favorite" -> Icons.Rounded.Favorite
-        "Piano" -> Icons.Rounded.Piano
-        "Queue" -> Icons.AutoMirrored.Rounded.QueueMusic
-        else -> Icons.Rounded.MusicNote
+        "MusicNote" -> R.drawable.rounded_music_note_24
+        "Headphones" -> R.drawable.rounded_headphones_24
+        "Album" -> R.drawable.rounded_album_24
+        "Mic" -> R.drawable.rounded_mic_external_on_24
+        "Speaker" -> R.drawable.rounded_speaker_24
+        "Favorite" -> R.drawable.rounded_favorite_24
+        "Piano" -> R.drawable.rounded_piano_24
+        "Queue" -> R.drawable.rounded_queue_music_24
+        else -> R.drawable.rounded_music_note_24
     }
 }
