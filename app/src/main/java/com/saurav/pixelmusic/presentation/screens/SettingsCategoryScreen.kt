@@ -10,8 +10,7 @@ import java.util.Locale
 import java.util.Date
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.outlined.DarkMode
+
 import android.content.Context
 import android.content.Intent
 import android.app.Activity
@@ -69,41 +68,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ClearAll
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PlayCircle
-import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.outlined.Translate
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
-import androidx.compose.material.icons.outlined.Explicit
-import androidx.compose.material.icons.outlined.VideoLibrary
-import androidx.compose.material.icons.automirrored.outlined.TrendingUp
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.BatteryChargingFull
-import androidx.compose.material.icons.rounded.DeveloperBoard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ButtonDefaults
@@ -457,10 +431,10 @@ fun SettingsCategoryScreen(
                                         title = stringResource(R.string.setcat_excluded_directories_title),
                                         subtitle = stringResource(R.string.setcat_excluded_directories_subtitle),
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_folder_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = {
                                             showExplorerSheet = true
@@ -474,7 +448,7 @@ fun SettingsCategoryScreen(
                                             Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.ArtistSettings.route) }
                                     )
@@ -490,7 +464,7 @@ fun SettingsCategoryScreen(
                                             settingsViewModel.setContentLanguage(key)
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Translate, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_translate_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     ThemeSelectorItem(
@@ -502,7 +476,7 @@ fun SettingsCategoryScreen(
                                             settingsViewModel.setContentCountry(key)
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Public, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_public_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     ThemeSelectorItem(
@@ -520,7 +494,7 @@ fun SettingsCategoryScreen(
                                             )
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.AutoMirrored.Outlined.QueueMusic, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_queue_music_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SwitchSettingItem(
@@ -529,7 +503,7 @@ fun SettingsCategoryScreen(
                                         checked = uiState.hideExplicit,
                                         onCheckedChange = { settingsViewModel.setHideExplicit(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Explicit, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_explicit_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SwitchSettingItem(
@@ -538,7 +512,7 @@ fun SettingsCategoryScreen(
                                         checked = uiState.hideVideo,
                                         onCheckedChange = { settingsViewModel.setHideVideo(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.VideoLibrary, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_videocam_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     ThemeSelectorItem(
@@ -554,7 +528,7 @@ fun SettingsCategoryScreen(
                                             settingsViewModel.setTopSize(key)
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.AutoMirrored.Outlined.TrendingUp, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_trending_up_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     ThemeSelectorItem(
@@ -572,7 +546,7 @@ fun SettingsCategoryScreen(
                                             )
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     ThemeSelectorItem(
@@ -589,7 +563,7 @@ fun SettingsCategoryScreen(
                                             )
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.GridView, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_grid_view_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                 }
@@ -693,7 +667,7 @@ fun SettingsCategoryScreen(
                                         checked = uiState.autoScanLrcFiles,
                                         onCheckedChange = { settingsViewModel.setAutoScanLrcFiles(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_folder_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                 }
@@ -730,7 +704,7 @@ fun SettingsCategoryScreen(
                                             }
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Palette, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_palette_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     AnimatedVisibility(
@@ -770,7 +744,7 @@ fun SettingsCategoryScreen(
                                             (context as? Activity)?.recreate()
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Language, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_language_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     ThemeModeSelectorCard(
@@ -808,7 +782,7 @@ fun SettingsCategoryScreen(
                                             }
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.LightMode, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_light_mode_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     ThemeSelectorItem(
@@ -821,7 +795,7 @@ fun SettingsCategoryScreen(
                                         selectedKey = uiState.appFontMode,
                                         onSelectionChanged = { settingsViewModel.setAppFontMode(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_style_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     val colorPaletteOptions = buildMap {
@@ -876,7 +850,7 @@ fun SettingsCategoryScreen(
                                         selectedKey = uiState.playerThemePreference,
                                         onSelectionChanged = { settingsViewModel.setPlayerThemePreference(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.PlayCircle, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_play_circle_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     ThemeSelectorItem(
@@ -955,10 +929,10 @@ fun SettingsCategoryScreen(
                                         title = stringResource(R.string.setcat_album_art_palette_title),
                                         subtitle = stringResource(R.string.setcat_album_art_palette_subtitle, uiState.albumArtPaletteStyle.label),
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_style_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.PaletteStyle.route) }
                                     )
@@ -1044,7 +1018,7 @@ fun SettingsCategoryScreen(
                                             selectedKey = uiState.immersiveLyricsTimeout.toString(),
                                             onSelectionChanged = { settingsViewModel.setImmersiveLyricsTimeout(it.toLong()) },
                                             leadingIcon = {
-                                                Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.secondary)
+                                                Icon(painterResource(R.drawable.rounded_timer_24), null, tint = MaterialTheme.colorScheme.secondary)
                                             }
                                         )
                                     }
@@ -1089,7 +1063,7 @@ fun SettingsCategoryScreen(
                                             checked = uiState.isUiMotionBlurEnabled,
                                             onCheckedChange = { settingsViewModel.setUiMotionBlurEnabled(it) },
                                             leadingIcon = {
-                                                Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary)
+                                                Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
                                             }
                                         )
                                         if (uiState.isUiMotionBlurEnabled) {
@@ -1120,7 +1094,7 @@ fun SettingsCategoryScreen(
                                         checked = uiState.performanceModeEnabled,
                                         onCheckedChange = { settingsViewModel.setPerformanceModeEnabled(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_speed_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SwitchSettingItem(
@@ -1129,7 +1103,7 @@ fun SettingsCategoryScreen(
                                         checked = uiState.audioOffloadEnabled,
                                         onCheckedChange = { settingsViewModel.setAudioOffloadEnabled(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.BatteryChargingFull, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_battery_charging_full_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                 }
@@ -1143,7 +1117,7 @@ fun SettingsCategoryScreen(
                                         checked = uiState.keepPlayingInBackground,
                                         onCheckedChange = { settingsViewModel.setKeepPlayingInBackground(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.PlayCircle, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_play_circle_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     if (AndroidVersionCompat.supportsLiveNotificationOrIsland()) {
@@ -1160,7 +1134,7 @@ fun SettingsCategoryScreen(
                                                 }
                                             },
                                             leadingIcon = {
-                                                Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary)
+                                                Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
                                             }
                                         )
 
@@ -1182,7 +1156,7 @@ fun SettingsCategoryScreen(
                                                     }
                                                 },
                                                 leadingIcon = {
-                                                    Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.secondary)
+                                                    Icon(painterResource(R.drawable.rounded_music_note_24), null, tint = MaterialTheme.colorScheme.secondary)
                                                 }
                                             )
                                         }
@@ -1210,7 +1184,7 @@ fun SettingsCategoryScreen(
                                             }
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.DarkMode, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_dark_mode_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
 
@@ -1465,7 +1439,7 @@ fun SettingsCategoryScreen(
                                         checked = uiState.pureYtMusicOnly,
                                         onCheckedChange = { settingsViewModel.setPureYtMusicOnly(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_music_note_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                 }
@@ -1508,14 +1482,14 @@ fun SettingsCategoryScreen(
                                             }
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SettingsItem(
                                         title = stringResource(R.string.setcat_reset_imported_lyrics_title),
                                         subtitle = stringResource(R.string.setcat_reset_imported_lyrics_subtitle),
                                         leadingIcon = {
-                                            Icon(Icons.Outlined.ClearAll, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_clear_all_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         onClick = { showClearLyricsDialog = true }
                                     )
@@ -1564,7 +1538,7 @@ fun SettingsCategoryScreen(
                                             settingsViewModel.setDownloadAudioQuality(StreamingAudioQuality.valueOf(key))
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_download_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SwitchSettingItem(
@@ -1606,7 +1580,7 @@ fun SettingsCategoryScreen(
                                         selectedKey = aiProvider,
                                         onSelectionChanged = { settingsViewModel.onAiProviderChange(it) },
                                         leadingIcon = {
-                                            Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_science_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SwitchSettingItem(
@@ -1710,7 +1684,7 @@ fun SettingsCategoryScreen(
                                                 },
                                                 onSelectionChanged = { settingsViewModel.onAiModelChange(it) },
                                                 leadingIcon = {
-                                                    Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary)
+                                                    Icon(painterResource(R.drawable.rounded_science_24), null, tint = MaterialTheme.colorScheme.secondary)
                                                 }
                                             )
                                         }
@@ -1795,7 +1769,7 @@ fun SettingsCategoryScreen(
                                                     )
                                                 }
                                                 Icon(
-                                                    imageVector = Icons.Rounded.ExpandMore,
+                                                    painter = painterResource(R.drawable.rounded_expand_more_24),
                                                     contentDescription = if (expanded) stringResource(R.string.cd_hide) else stringResource(R.string.cd_show),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     modifier = Modifier.rotate(rotation)
@@ -1867,7 +1841,7 @@ fun SettingsCategoryScreen(
                                         subtitle = stringResource(R.string.setcat_import_backup_subtitle),
                                         icon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.Restore,
+                                                painter = painterResource(R.drawable.rounded_restore_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -1885,10 +1859,10 @@ fun SettingsCategoryScreen(
                                         title = stringResource(R.string.setcat_experimental_title),
                                         subtitle = stringResource(R.string.setcat_experimental_subtitle),
                                         leadingIcon = {
-                                            Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_science_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.Experimental.route) }
                                     )
@@ -1896,7 +1870,7 @@ fun SettingsCategoryScreen(
                                         title = stringResource(R.string.setcat_test_setup_title),
                                         subtitle = stringResource(R.string.setcat_test_setup_subtitle),
                                         leadingIcon = {
-                                            Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.tertiary)
+                                            Icon(painterResource(R.drawable.rounded_science_24), null, tint = MaterialTheme.colorScheme.tertiary)
                                         },
                                         onClick = {
                                             settingsViewModel.resetSetupFlow()
@@ -1931,7 +1905,7 @@ fun SettingsCategoryScreen(
                                             stringResource(R.string.setcat_force_palette_subtitle)
                                         },
                                         icon = {
-                                            Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_style_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         primaryActionLabel = if (isPaletteBulkRegenerateRunning) stringResource(R.string.setcat_regenerating) else stringResource(R.string.setcat_regenerate_all),
                                         onPrimaryAction = { showRegenerateAllPalettesDialog = true },
@@ -1949,10 +1923,10 @@ fun SettingsCategoryScreen(
                                         title = stringResource(R.string.settings_category_device_capabilities_title),
                                         subtitle = stringResource(R.string.settings_category_device_capabilities_subtitle),
                                         leadingIcon = {
-                                            Icon(Icons.Rounded.DeveloperBoard, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_developer_board_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.DeviceCapabilities.route) }
                                     )
@@ -2033,7 +2007,7 @@ fun SettingsCategoryScreen(
                                             Icon(Icons.Outlined.Info, null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely("about") }
                                     )
@@ -2120,7 +2094,7 @@ fun SettingsCategoryScreen(
                                                 )
                                             } else {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.ChevronRight,
+                                                    imageVector = Icons.Rounded.KeyboardArrowRight,
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -2176,7 +2150,7 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setLastfmScrobblingEnabled(it) },
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.MusicNote,
+                                                painter = painterResource(R.drawable.rounded_music_note_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -2213,7 +2187,7 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.Timer,
+                                                painter = painterResource(R.drawable.rounded_timer_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -2368,7 +2342,7 @@ fun SettingsCategoryScreen(
         AlertDialog(
             icon = {
                 Icon(
-                    Icons.Outlined.Style,
+                    painterResource(R.drawable.rounded_style_24),
                     null,
                     tint = if (isPaletteBulkRegenerateRunning) {
                         MaterialTheme.colorScheme.primary
@@ -3430,7 +3404,7 @@ private fun ImportFileSelectionDialog(
                                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.Restore,
+                                                    painter = painterResource(R.drawable.rounded_restore_24),
                                                     contentDescription = null,
                                                     modifier = Modifier.size(36.dp),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -3631,7 +3605,7 @@ private fun PaletteRegenerateSongSheetContent(
                         onClick = onClearSearch,
                         enabled = !isRunning
                     ) {
-                        Icon(Icons.Outlined.ClearAll, contentDescription = stringResource(R.string.cd_clear_search))
+                        Icon(painterResource(R.drawable.rounded_clear_all_24), contentDescription = stringResource(R.string.cd_clear_search))
                     }
                 }
             },
