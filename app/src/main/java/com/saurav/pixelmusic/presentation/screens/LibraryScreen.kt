@@ -62,18 +62,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.SelectAll
-import androidx.compose.material.icons.rounded.Deselect
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Close
@@ -86,7 +78,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material.icons.rounded.ViewModule
+
 import com.saurav.pixelmusic.presentation.components.ToggleSegmentButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -246,7 +238,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDp
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+
 import androidx.compose.material3.ModalBottomSheet
 import com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -1175,7 +1167,7 @@ onViewToggleChange = { isChecked ->
                                                 activeCornerRadius = 32.dp,
                                                 onClick = { playerViewModel.setAlbumsListView(false) },
                                                 text = stringResource(R.string.presentation_batch_d_view_grid),
-                                                imageVector = Icons.Rounded.ViewModule
+                                                painter = painterResource(R.drawable.rounded_view_module_24)
                                             )
 
                                             // List Item
@@ -1189,7 +1181,7 @@ onViewToggleChange = { isChecked ->
                                                 activeCornerRadius = 32.dp,
                                                 onClick = { playerViewModel.setAlbumsListView(true) },
                                                 text = stringResource(R.string.presentation_batch_d_view_list),
-                                                imageVector = Icons.AutoMirrored.Rounded.ViewList
+                                                painter = painterResource(R.drawable.rounded_view_list_24)
                                             )
                                         }
                                     }
@@ -1756,7 +1748,7 @@ onViewToggleChange = { isChecked ->
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.PushPin,
+                            painter = painterResource(R.drawable.rounded_push_pin_24),
                             contentDescription = if (isPinned) "Unpin" else "Pin",
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -1793,7 +1785,7 @@ onViewToggleChange = { isChecked ->
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                            painter = painterResource(R.drawable.rounded_queue_music_24),
                             contentDescription = stringResource(R.string.cd_add_all_to_queue),
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -2298,7 +2290,7 @@ private fun ImportPlaylistProgressOverlay(
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                painter = painterResource(R.drawable.rounded_queue_music_24),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(44.dp)
@@ -2468,7 +2460,7 @@ private fun ImportPlaylistSheet(
                 badgeColor = MaterialTheme.colorScheme.primaryContainer,
                 icon = {
                     Icon(
-                        imageVector = Icons.Rounded.Link,
+                        painter = painterResource(R.drawable.rounded_link_24),
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.primary
@@ -2535,7 +2527,7 @@ private fun ImportPlaylistSheet(
                 badgeColor = MaterialTheme.colorScheme.secondaryContainer,
                 icon = {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                        painter = painterResource(R.drawable.rounded_queue_music_24),
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.secondary
@@ -4450,7 +4442,7 @@ private fun ImportPlaylistLinkBottomSheet(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Link,
+                                    painter = painterResource(R.drawable.rounded_link_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)
@@ -4481,7 +4473,7 @@ private fun ImportPlaylistLinkBottomSheet(
                             shape = RoundedCornerShape(16.dp),
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Link,
+                                    painter = painterResource(R.drawable.rounded_link_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -4632,7 +4624,7 @@ private fun ImportPlaylistLinkBottomSheet(
                                 label = { Text("Playlist Name") },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                        painter = painterResource(R.drawable.rounded_queue_music_24),
                                         contentDescription = null
                                     )
                                 },

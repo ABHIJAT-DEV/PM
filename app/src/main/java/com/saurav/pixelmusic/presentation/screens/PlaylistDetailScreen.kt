@@ -40,21 +40,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.MusicOff
-import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -368,7 +358,7 @@ fun PlaylistDetailScreen(
                                 }
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.Sort,
+                                    painter = painterResource(R.drawable.rounded_sort_24),
                                     contentDescription = sortSongsLabel
                                 )
                             }
@@ -504,7 +494,7 @@ fun PlaylistDetailScreen(
                         elevation = ButtonDefaults.filledTonalButtonElevation()
                     ) {
                         Icon(
-                            Icons.Rounded.Shuffle,
+                            painterResource(R.drawable.rounded_shuffle_24),
                             contentDescription = shuffleLabel,
                             modifier = Modifier.size(ButtonDefaults.IconSize)
                         )
@@ -585,7 +575,7 @@ fun PlaylistDetailScreen(
                             ) {
                                 Icon(
                                     modifier = Modifier.size(18.dp),
-                                    imageVector = Icons.Default.RemoveCircleOutline,
+                                    painter = painterResource(R.drawable.rounded_remove_circle_outline_24),
                                     contentDescription = removeSongsCd,
                                     tint = removeIconColor
                                 )
@@ -635,7 +625,7 @@ fun PlaylistDetailScreen(
                         .fillMaxSize()
                         .weight(1f), Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.MusicOff, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(painterResource(R.drawable.rounded_music_off_24), null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(8.dp))
                             Text(playlistEmptyTitle, style = MaterialTheme.typography.titleMedium)
                             val emptyMessage = if (isFolderPlaylist) {
@@ -746,7 +736,7 @@ fun PlaylistDetailScreen(
                                                     .size(40.dp)
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.DragIndicator,
+                                                    painter = painterResource(R.drawable.rounded_drag_indicator_24),
                                                     contentDescription = reorderSongCd,
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -821,7 +811,7 @@ fun PlaylistDetailScreen(
                     }
                 }
                 PlaylistActionItem(
-                    icon = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
+                    icon = painterResource(R.drawable.rounded_queue_music_24),
                     label = stringResource(R.string.cd_add_all_to_queue),
                     onClick = {
                         showPlaylistOptionsSheet = false
@@ -831,7 +821,7 @@ fun PlaylistDetailScreen(
 
                 if (currentPlaylist != null) {
                     PlaylistActionItem(
-                        icon = rememberVectorPainter(if (isPlaylistFullyDownloaded) Icons.Rounded.Check else Icons.Rounded.Download),
+                        icon = if (isPlaylistFullyDownloaded) rememberVectorPainter(Icons.Rounded.Check) else painterResource(R.drawable.rounded_download_24),
                         label = if (isPlaylistFullyDownloaded) "Playlist downloaded" else downloadPlaylistLabel,
                         onClick = {
                             showPlaylistOptionsSheet = false
@@ -845,7 +835,7 @@ fun PlaylistDetailScreen(
                 // Only show local editing options if the playlist is saved in the local database
                 if (isSavedLocally && currentPlaylist != null) {
                     PlaylistActionItem(
-                        icon = rememberVectorPainter(Icons.Rounded.PushPin),
+                        icon = painterResource(R.drawable.rounded_push_pin_24),
                         label = if (currentPlaylist.isPinned) "Unpin Playlist" else "Pin Playlist",
                         onClick = {
                             showPlaylistOptionsSheet = false
@@ -1373,7 +1363,7 @@ private fun ExportPlaylistSheet(
             )
 
             FormatTile(
-                icon = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
+                icon = painterResource(R.drawable.rounded_queue_music_24),
                 label = exportAsM3uLabel,
                 description = exportAsM3uDesc,
                 selected = !selectedCsv,
@@ -1406,7 +1396,7 @@ private fun ExportPlaylistSheet(
                         cornerRadiusBR = 14.dp, smoothnessAsPercentBR = 60
                     )
                 ) {
-                    Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(painterResource(R.drawable.rounded_download_24), contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(saveLabel, style = MaterialTheme.typography.labelLarge)
                 }

@@ -47,20 +47,13 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.material.icons.automirrored.rounded.TrendingUp
-import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DeleteForever
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.SentimentSatisfied
 import androidx.compose.foundation.border
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -836,7 +829,7 @@ fun SearchHistoryList(
                     ExploreCategoryCard(
                         title = "New releases",
                         subtitle = "Fresh albums & singles",
-                        icon = Icons.Rounded.Album,
+                        icon = painterResource(R.drawable.rounded_album_24),
                         accentColor = colorScheme.primaryContainer,
                         onAccentColor = colorScheme.onPrimaryContainer,
                         modifier = Modifier.weight(1f),
@@ -845,7 +838,7 @@ fun SearchHistoryList(
                     ExploreCategoryCard(
                         title = "Charts",
                         subtitle = "Top trending tracks",
-                        icon = Icons.AutoMirrored.Rounded.TrendingUp,
+                        icon = painterResource(R.drawable.rounded_trending_up_24),
                         accentColor = colorScheme.tertiaryContainer,
                         onAccentColor = colorScheme.onTertiaryContainer,
                         modifier = Modifier.weight(1f),
@@ -859,7 +852,7 @@ fun SearchHistoryList(
                     ExploreCategoryCard(
                         title = "Moods & genres",
                         subtitle = "Vibes for every moment",
-                        icon = Icons.Rounded.SentimentSatisfied,
+                        icon = painterResource(R.drawable.rounded_sentiment_satisfied_24),
                         accentColor = colorScheme.secondaryContainer,
                         onAccentColor = colorScheme.onSecondaryContainer,
                         modifier = Modifier.weight(1f),
@@ -868,7 +861,7 @@ fun SearchHistoryList(
                     ExploreCategoryCard(
                         title = "Podcasts",
                         subtitle = "Shows & episodes",
-                        icon = Icons.Rounded.Podcasts,
+                        icon = painterResource(R.drawable.rounded_podcasts_24),
                         accentColor = colorScheme.surfaceContainerHighest,
                         onAccentColor = colorScheme.primary,
                         modifier = Modifier.weight(1f),
@@ -922,7 +915,7 @@ fun SearchHistoryList(
 private fun ExploreCategoryCard(
     title: String,
     subtitle: String,
-    icon: ImageVector,
+    icon: Painter,
     accentColor: Color,
     onAccentColor: Color,
     modifier: Modifier = Modifier,
@@ -968,7 +961,7 @@ private fun ExploreCategoryCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = icon,
+                            painter = icon,
                             contentDescription = null,
                             tint = onAccentColor,
                             modifier = Modifier.size(18.dp)
@@ -1022,7 +1015,7 @@ fun SearchHistoryListItem(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Rounded.History,
+                        painter = painterResource(R.drawable.rounded_history_24),
                         contentDescription = stringResource(R.string.cd_search_history_icon),
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.size(18.dp)
@@ -1043,7 +1036,7 @@ fun SearchHistoryListItem(
                 modifier = Modifier.size(38.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.DeleteForever,
+                    painter = painterResource(R.drawable.rounded_delete_forever_24),
                     contentDescription = stringResource(R.string.cd_delete_search_history_item),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.size(19.dp)
@@ -1552,7 +1545,7 @@ private fun SearchTopResultSpotlightCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.MusicNote,
+                            painter = painterResource(R.drawable.rounded_music_note_24),
                             contentDescription = null,
                             tint = colorScheme.primary,
                             modifier = Modifier.size(12.dp)
@@ -1937,7 +1930,7 @@ fun SwipeActionWrapper(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                    painter = painterResource(R.drawable.rounded_playlist_play_24),
                     contentDescription = "Add to Queue",
                     tint = colorScheme.onSecondaryContainer,
                     modifier = Modifier.size(24.dp)

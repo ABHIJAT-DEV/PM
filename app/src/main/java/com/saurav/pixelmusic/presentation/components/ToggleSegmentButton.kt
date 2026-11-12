@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
@@ -168,6 +169,51 @@ fun ToggleSegmentButton(
         ) {
             Icon(
                 imageVector = imageVector,
+                contentDescription = null,
+                tint = if (active) activeContentColor else inactiveContentColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = text,
+                color = if (active) activeContentColor else inactiveContentColor,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun ToggleSegmentButton(
+    modifier: Modifier,
+    active: Boolean,
+    enabled: Boolean = true,
+    activeColor: Color,
+    inactiveColor: Color = Color.Gray,
+    activeContentColor: Color = LocalMaterialTheme.current.onPrimary,
+    inactiveContentColor: Color = LocalMaterialTheme.current.onSurfaceVariant,
+    activeCornerRadius: Dp = 8.dp,
+    onClick: () -> Unit,
+    text: String,
+    painter: Painter
+) {
+    ToggleSegmentButtonContainer(
+        modifier = modifier,
+        active = active,
+        enabled = enabled,
+        activeColor = activeColor,
+        inactiveColor = inactiveColor,
+        activeCornerRadius = activeCornerRadius,
+        onClick = onClick
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        ) {
+            Icon(
+                painter = painter,
                 contentDescription = null,
                 tint = if (active) activeContentColor else inactiveContentColor,
                 modifier = Modifier.size(18.dp)

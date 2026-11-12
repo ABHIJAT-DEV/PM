@@ -29,7 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -596,7 +596,7 @@ private fun RecentlyPlayedActions(
             elevation = ButtonDefaults.filledTonalButtonElevation()
         ) {
             Icon(
-                imageVector = Icons.Rounded.Shuffle,
+                painter = painterResource(R.drawable.rounded_shuffle_24),
                 contentDescription = null,
                 modifier = Modifier.size(ButtonDefaults.IconSize)
             )
