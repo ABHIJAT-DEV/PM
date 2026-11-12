@@ -8,8 +8,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -134,7 +134,7 @@ fun ArtistSongsAllScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            Icons.Rounded.MusicNote,
+                            painter = painterResource(R.drawable.rounded_music_note_24),
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -179,7 +179,7 @@ fun ArtistSongsAllScreen(
                             )
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Shuffle,
+                                painter = painterResource(R.drawable.rounded_shuffle_24),
                                 contentDescription = "Shuffle",
                                 modifier = Modifier.size(22.dp)
                             )

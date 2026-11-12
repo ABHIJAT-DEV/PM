@@ -21,11 +21,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -282,7 +280,7 @@ fun AnimatedPlaybackControls(
                 contentAlignment = Alignment.Center
             ) {
                 TransportSkipIcon(
-                    imageVector = Icons.Rounded.SkipPrevious,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_previous_24),
                     contentDescription = "Anterior",
                     targetTint = tintPreviousIcon,
                     sourceTint = sourceTintOtherIcons,
@@ -551,7 +549,7 @@ fun AnimatedPlaybackControls(
                 contentAlignment = Alignment.Center
             ) {
                 TransportSkipIcon(
-                    imageVector = Icons.Rounded.SkipNext,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_next_24),
                     contentDescription = "Siguiente",
                     targetTint = tintNextIcon,
                     sourceTint = sourceTintOtherIcons,
@@ -689,7 +687,7 @@ private fun MorphingPlayPauseIcon(
         label = "playPauseCrossfade"
     ) { playing ->
         Icon(
-            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            imageVector = ImageVector.vectorResource(if (playing) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24),
             contentDescription = if (playing) "Pausar" else "Reproducir",
             tint = effectiveTint,
             modifier = Modifier.size(size)

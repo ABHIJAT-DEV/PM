@@ -19,11 +19,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ColorScheme
@@ -259,7 +256,7 @@ internal fun MiniPlayerContentInternal(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.SkipPrevious,
+                painter = painterResource(R.drawable.rounded_skip_previous_24),
                 contentDescription = "Anterior",
                 tint = LocalMaterialTheme.current.primary,
                 modifier = Modifier.size(22.dp)
@@ -320,7 +317,7 @@ internal fun MiniPlayerContentInternal(
                 )
             } else {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    painter = painterResource(if (isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24),
                     contentDescription = if (isPlaying) "Pausar" else "Reproducir",
                     tint = LocalMaterialTheme.current.onPrimary,
                     modifier = Modifier.size(22.dp)
@@ -371,7 +368,7 @@ internal fun MiniPlayerContentInternal(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.SkipNext,
+                painter = painterResource(R.drawable.rounded_skip_next_24),
                 contentDescription = "Siguiente",
                 tint = LocalMaterialTheme.current.primary,
                 modifier = Modifier.size(22.dp)
