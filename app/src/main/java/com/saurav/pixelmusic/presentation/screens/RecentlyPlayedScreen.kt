@@ -1,7 +1,5 @@
 package com.saurav.pixelmusic.presentation.screens
 
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
-
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 
 import android.os.Trace
@@ -64,7 +62,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.luminance
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -548,30 +545,6 @@ private fun RecentlyPlayedActions(
     shuffleLabel: String,
     modifier: Modifier = Modifier
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
-    val sheenBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                Color.Transparent
-            )
-        )
-    }
-
     val playShape = RoundedCornerShape(
         topStart = 52.dp,
         topEnd = 14.dp,
@@ -595,13 +568,12 @@ private fun RecentlyPlayedActions(
             onClick = onPlay,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxSize()
-                .liquidGlassInteractiveSurface(shape = playShape),
+                .fillMaxSize(),
             shape = playShape,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.primary
             ),
-            elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
+            elevation = ButtonDefaults.buttonElevation()
         ) {
             Icon(
                 imageVector = Icons.Rounded.PlayArrow,
@@ -616,13 +588,12 @@ private fun RecentlyPlayedActions(
             onClick = onShuffle,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxSize()
-                .liquidGlassInteractiveSurface(shape = shuffleShape),
+                .fillMaxSize(),
             shape = shuffleShape,
             colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
             ),
-            elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation()
+            elevation = ButtonDefaults.filledTonalButtonElevation()
         ) {
             Icon(
                 imageVector = Icons.Rounded.Shuffle,

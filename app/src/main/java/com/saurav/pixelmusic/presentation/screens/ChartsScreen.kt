@@ -19,7 +19,6 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Pause
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -45,8 +44,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import com.saurav.pixelmusic.presentation.components.LiquidGlassDropdownMenu
 import kotlinx.coroutines.launch
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -222,35 +219,7 @@ fun ChartsScreen(
 
                     // Country Selector Pill (matches screenshot 249611.jpg)
                     item(key = "country_selector") {
-                        val isLiquidGlass = LocalLiquidGlassEnabled.current
-                        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                         val countryPillInteractionSource = remember { MutableInteractionSource() }
-                        val isCountryPillPressed by countryPillInteractionSource.collectIsPressedAsState()
-                        val countryPillPress = remember { Animatable(0f) }
-                        val countryPillJiggle = remember { Animatable(0f) }
-
-                        LaunchedEffect(isCountryPillPressed) {
-                            if (isCountryPillPressed) {
-                                countryPillJiggle.snapTo(1f)
-                                launch { countryPillJiggle.animateTo(0f, spring(0.32f, 280f)) }
-                                countryPillPress.animateTo(1f, spring(0.5f, 450f))
-                            } else {
-                                countryPillPress.animateTo(0f, spring(0.5f, 450f))
-                            }
-                        }
-
-                        val countryBorder = remember(isLiquidGlass, isDark) {
-                            if (!isLiquidGlass) null
-                            else BorderStroke(
-                                0.75.dp,
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color.White.copy(alpha = if (isDark) 0.12f else 0.22f),
-                                        Color.White.copy(alpha = if (isDark) 0.03f else 0.06f)
-                                    )
-                                )
-                            )
-                        }
 
                         CompositionLocalProvider(
                             LocalMinimumInteractiveComponentSize provides 0.dp
@@ -260,16 +229,10 @@ fun ChartsScreen(
                                     onClick = { showCountryMenu = true },
                                     interactionSource = countryPillInteractionSource,
                                     shape = RoundedCornerShape(18.dp),
-                                    color = if (isLiquidGlass) {
-                                        if (isDark) Color(0x24FFFFFF) else Color(0x55FFFFFF)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHigh
-                                    },
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp,
-                                    modifier = Modifier
-                                        .liquidGlassInteractiveSurface(shape = RoundedCornerShape(18.dp))
-                                        .clip(RoundedCornerShape(18.dp))
+                                    modifier = Modifier.clip(RoundedCornerShape(18.dp))
                                 ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -290,10 +253,14 @@ fun ChartsScreen(
                                 }
                             }
 
-                            LiquidGlassDropdownMenu(
+                            DropdownMenu(
                                 expanded = showCountryMenu,
                                 onDismissRequest = { showCountryMenu = false },
-                                offset = DpOffset(0.dp, 4.dp)
+                                offset = DpOffset(0.dp, 4.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                tonalElevation = 3.dp,
+                                shadowElevation = 3.dp
                             ) {
                                 CHART_COUNTRIES.forEach { (name, code) ->
                                     val isSelected = selectedCountryCode == code
@@ -351,20 +318,6 @@ fun ChartsScreen(
                                 ) {
                                     items(columns.size, key = { "chart_col_${index}_$it" }) { colIdx ->
                                         val colSongs = columns[colIdx]
-                                        val isLiquidGlassSong = LocalLiquidGlassEnabled.current
-                                        val isDarkSong = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                                        val songCardBorder = remember(isLiquidGlassSong, isDarkSong) {
-                                            if (!isLiquidGlassSong) null
-                                            else BorderStroke(
-                                                0.75.dp,
-                                                Brush.verticalGradient(
-                                                    listOf(
-                                                        Color.White.copy(alpha = if (isDarkSong) 0.08f else 0.16f),
-                                                        Color.White.copy(alpha = if (isDarkSong) 0.02f else 0.04f)
-                                                    )
-                                                )
-                                            )
-                                        }
                                         Column(
                                             modifier = Modifier.width(300.dp),
                                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -380,12 +333,7 @@ fun ChartsScreen(
                                                         )
                                                     },
                                                     shape = RoundedCornerShape(16.dp),
-                                                    color = if (isLiquidGlassSong) {
-                                                        if (isDarkSong) Color(0x1EFFFFFF) else Color(0x45FFFFFF)
-                                                    } else {
-                                                        MaterialTheme.colorScheme.surfaceContainerLow
-                                                    },
-                                                    border = songCardBorder
+                                                    color = MaterialTheme.colorScheme.surfaceContainerLow
                                                 ) {
                                                     Row(
                                                         modifier = Modifier
@@ -520,8 +468,6 @@ private fun ChartCardItem(
     onClick: () -> Unit,
     onPlayPauseClick: () -> Unit = onClick
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
@@ -541,18 +487,16 @@ private fun ChartCardItem(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-                // Interactive play/pause button with liquid glass effect & spring physics
                 Surface(
                     onClick = onPlayPauseClick,
                     shape = CircleShape,
-                    color = if (isLiquidGlass) androidx.compose.ui.graphics.Color.Transparent else colorScheme.primary,
+                    color = colorScheme.primary,
                     tonalElevation = 0.dp,
-                    shadowElevation = if (isLiquidGlass) 0.dp else 2.dp,
+                    shadowElevation = 2.dp,
                     modifier = Modifier
                         .padding(8.dp)
                         .size(36.dp)
                         .align(Alignment.BottomEnd)
-                        .liquidGlassInteractiveSurface(isCircle = true)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(

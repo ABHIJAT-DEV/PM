@@ -3,7 +3,6 @@
 package com.saurav.pixelmusic.presentation.screens
 
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
 import com.saurav.pixelmusic.presentation.navigation.navigateSafelyReplacing
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import android.os.Trace
@@ -38,7 +37,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.grid.GridCells
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.animation.core.Animatable
@@ -765,51 +763,18 @@ fun LibraryScreen(
                                 onArrowClick = { showTabSwitcherSheet = true }
                             )
                         } else {
-                            val isLiquidGlassHeader = LocalLiquidGlassEnabled.current
-                            val isDarkHeader = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                            if (isLiquidGlassHeader) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isDarkHeader) Color(0x351E1E22) else Color(0x40FFFFFF),
-                                    tonalElevation = 0.dp,
-                                    shadowElevation = 0.dp,
-                                    modifier = Modifier
-                                        .padding(start = 4.dp)
-                                        .height(56.dp)
-                                        .liquidGlassInteractiveSurface(shape = CircleShape)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 22.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.presentation_batch_d_library_title),
-                                            fontFamily = GoogleSansRounded,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontSize = 34.sp,
-                                            letterSpacing = 0.5.sp
-                                        )
-                                    }
-                                }
-                            } else {
-                                Text(
-                                    text = stringResource(R.string.presentation_batch_d_library_title),
-                                    fontFamily = GoogleSansRounded,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 34.sp,
-                                    letterSpacing = 0.5.sp,
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
-                            }
+                            Text(
+                                text = stringResource(R.string.presentation_batch_d_library_title),
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 34.sp,
+                                letterSpacing = 0.5.sp,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
                         }
                     },
                     actions = {
-                        val isLiquidGlass = LocalLiquidGlassEnabled.current
-                        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                         CompositionLocalProvider(
                             LocalMinimumInteractiveComponentSize provides 0.dp
                         ) {
@@ -828,12 +793,10 @@ fun LibraryScreen(
                                         navController.navigateSafely(Screen.Settings.route)
                                     },
                                     shape = CircleShape,
-                                    color = if (isLiquidGlass) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primaryContainer,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp,
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .liquidGlassInteractiveSurface(isCircle = true)
+                                    modifier = Modifier.size(44.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
@@ -2807,38 +2770,6 @@ fun LibraryNavigationPill(
 ) {
     data class PillState(val pageIndex: Int, val iconRes: Int, val title: String)
 
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val coroutineScope = rememberCoroutineScope()
-    val pressSpec = remember { spring<Float>(dampingRatio = 0.5f, stiffness = 450f) }
-    val jiggleSpec = remember { spring<Float>(dampingRatio = 0.32f, stiffness = 280f) }
-
-    val pillPress = remember { Animatable(0f) }
-    val pillJiggle = remember { Animatable(0f) }
-    val arrowPress = remember { Animatable(0f) }
-    val arrowJiggle = remember { Animatable(0f) }
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
-    val sheenBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                Color.Transparent
-            )
-        )
-    }
-
     val pillRadius = 50.dp
     val innerRadius = 4.dp
     val titleHorizontalPadding = 14.dp
@@ -2939,37 +2870,11 @@ fun LibraryNavigationPill(
             )
             Surface(
                 shape = titlePillShape,
-                tonalElevation = if (isLiquidGlass) 0.dp else 8.dp,
-                color = if (isLiquidGlass) {
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.60f else 0.75f)
-                } else {
-                    MaterialTheme.colorScheme.primaryContainer
-                },
+                tonalElevation = 8.dp,
+                color = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier
                     .width(animatedTitleWidth)
                     .height(pillHeight)
-                    .then(
-                        if (isLiquidGlass) {
-                            Modifier
-                                .graphicsLayer {
-                                    scaleX = 1f + (pillPress.value * 0.08f) + (pillJiggle.value * 0.12f)
-                                    scaleY = 1f - (pillPress.value * 0.06f) - (pillJiggle.value * 0.10f)
-                                }
-                                .pointerInput(Unit) {
-                                    awaitEachGesture {
-                                        awaitFirstDown(requireUnconsumed = false)
-                                        coroutineScope.launch {
-                                            pillJiggle.snapTo(1f)
-                                            pillJiggle.animateTo(0f, jiggleSpec)
-                                        }
-                                        coroutineScope.launch { pillPress.animateTo(1f, pressSpec) }
-                                        waitForUpOrCancellation()
-                                        coroutineScope.launch { pillPress.animateTo(0f, pressSpec) }
-                                    }
-                                }
-                                .border(BorderStroke(0.75.dp, glassBorderBrush), titlePillShape)
-                        } else Modifier
-                    )
                     .clip(titlePillShape)
                     .clickable(onClick = onClick)
             ) {
@@ -3053,36 +2958,10 @@ fun LibraryNavigationPill(
             )
             Surface(
                 shape = arrowPillShape,
-                tonalElevation = if (isLiquidGlass) 0.dp else 8.dp,
-                color = if (isLiquidGlass) {
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.60f else 0.75f)
-                } else {
-                    MaterialTheme.colorScheme.primaryContainer
-                },
+                tonalElevation = 8.dp,
+                color = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier
                     .height(pillHeight)
-                    .then(
-                        if (isLiquidGlass) {
-                            Modifier
-                                .graphicsLayer {
-                                    scaleX = 1f + (arrowPress.value * 0.10f) + (arrowJiggle.value * 0.15f)
-                                    scaleY = 1f - (arrowPress.value * 0.08f) - (arrowJiggle.value * 0.13f)
-                                }
-                                .pointerInput(Unit) {
-                                    awaitEachGesture {
-                                        awaitFirstDown(requireUnconsumed = false)
-                                        coroutineScope.launch {
-                                            arrowJiggle.snapTo(1f)
-                                            arrowJiggle.animateTo(0f, jiggleSpec)
-                                        }
-                                        coroutineScope.launch { arrowPress.animateTo(1f, pressSpec) }
-                                        waitForUpOrCancellation()
-                                        coroutineScope.launch { arrowPress.animateTo(0f, pressSpec) }
-                                    }
-                                }
-                                .border(BorderStroke(0.75.dp, glassBorderBrush), arrowPillShape)
-                        } else Modifier
-                    )
                     .clip(arrowPillShape)
                     .clickable(
                         indication = ripple(),

@@ -32,9 +32,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import com.saurav.pixelmusic.presentation.components.LiquidGlassSlider
-import com.saurav.pixelmusic.presentation.components.LiquidGlassToggle
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -306,62 +303,42 @@ fun SwitchSettingItem(
                     )
                 }
 
-                val isLiquidGlass = LocalLiquidGlassEnabled.current
-
-                if (isLiquidGlass) {
-                    LiquidGlassToggle(
-                        checked = checked,
-                        onCheckedChange = { newValue ->
-                            if (enabled) {
-                                performAppCompatHapticFeedback(
-                                    view,
-                                    appHapticsConfig,
-                                    HapticFeedbackConstantsCompat.GESTURE_START
-                                )
-                                themeTransitionController?.lastTouchOffset = switchCenter
-                                onCheckedChange(newValue)
-                            }
-                        },
-                        enabled = enabled
+                Switch(
+                    checked = checked,
+                    onCheckedChange = { newValue ->
+                        if (enabled) {
+                            performAppCompatHapticFeedback(
+                                view,
+                                appHapticsConfig,
+                                HapticFeedbackConstantsCompat.GESTURE_START
+                            )
+                            themeTransitionController?.lastTouchOffset = switchCenter
+                            onCheckedChange(newValue)
+                        }
+                    },
+                    enabled = enabled,
+                    thumbContent = {
+                        AnimatedContent(
+                            targetState = checked,
+                            transitionSpec = { fadeIn(tween(100)) togetherWith fadeOut(tween(100)) },
+                            label = "switch_thumb_icon"
+                        ) { isChecked ->
+                            Icon(
+                                imageVector = if (isChecked) Icons.Rounded.Check else Icons.Rounded.Close,
+                                contentDescription = null,
+                                modifier = Modifier.size(SwitchDefaults.IconSize)
+                            )
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                        checkedIconColor = MaterialTheme.colorScheme.primary,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        uncheckedIconColor = MaterialTheme.colorScheme.surfaceVariant
                     )
-                } else {
-                    Switch(
-                        checked = checked,
-                        onCheckedChange = { newValue ->
-                            if (enabled) {
-                                performAppCompatHapticFeedback(
-                                    view,
-                                    appHapticsConfig,
-                                    HapticFeedbackConstantsCompat.GESTURE_START
-                                )
-                                themeTransitionController?.lastTouchOffset = switchCenter
-                                onCheckedChange(newValue)
-                            }
-                        },
-                        enabled = enabled,
-                        thumbContent = {
-                            AnimatedContent(
-                                targetState = checked,
-                                transitionSpec = { fadeIn(tween(100)) togetherWith fadeOut(tween(100)) },
-                                label = "switch_thumb_icon"
-                            ) { isChecked ->
-                                Icon(
-                                    imageVector = if (isChecked) Icons.Rounded.Check else Icons.Rounded.Close,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
-                                )
-                            }
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedIconColor = MaterialTheme.colorScheme.primary,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                            uncheckedIconColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    )
-                }
+                )
             }
         }
         if (highlighted) {
@@ -1321,25 +1298,13 @@ fun SliderSettingsItem(
                         softWrap = false
                 )
             }
-            val isLiquidGlass = LocalLiquidGlassEnabled.current
-
-            if (isLiquidGlass) {
-                LiquidGlassSlider(
-                    value = value,
-                    onValueChange = onValueChange,
-                    onValueChangeFinished = onValueChangeFinished,
-                    valueRange = valueRange,
-                    steps = steps
-                )
-            } else {
-                Slider(
-                    value = value,
-                    onValueChange = onValueChange,
-                    onValueChangeFinished = onValueChangeFinished,
-                    valueRange = valueRange,
-                    steps = steps
-                )
-            }
+            Slider(
+                value = value,
+                onValueChange = onValueChange,
+                onValueChangeFinished = onValueChangeFinished,
+                valueRange = valueRange,
+                steps = steps
+            )
         }
     }
 }

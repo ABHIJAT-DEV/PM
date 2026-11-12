@@ -36,7 +36,6 @@ import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 
 data class MoodCategoryItem(
     val name: String,
@@ -315,39 +314,15 @@ private fun MoodPillCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
-    val glassBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            colors = if (isDark) listOf(
-                Color.White.copy(alpha = 0.07f),
-                Color.White.copy(alpha = 0.02f)
-            ) else listOf(
-                Color.White.copy(alpha = 0.14f),
-                Color.White.copy(alpha = 0.04f)
-            )
-        )
-    }
-
     val cardShape = RoundedCornerShape(12.dp)
 
     Surface(
         onClick = onClick,
         shape = cardShape,
-        color = if (isLiquidGlass) (if (isDark) Color(0x351E1E22) else Color(0x55FFFFFF)) else MaterialTheme.colorScheme.surfaceContainer,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         shadowElevation = 0.dp,
         tonalElevation = 0.dp,
-        modifier = modifier
-            .height(52.dp)
-            .then(
-                if (isLiquidGlass) {
-                    Modifier
-                        .graphicsLayer { shadowElevation = 0f }
-                        .border(BorderStroke(0.75.dp, glassBorderBrush), cardShape)
-                        .clip(cardShape)
-                } else Modifier
-            )
+        modifier = modifier.height(52.dp)
     ) {
         Row(
             modifier = Modifier

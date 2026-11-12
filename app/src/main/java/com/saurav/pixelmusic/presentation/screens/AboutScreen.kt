@@ -36,8 +36,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
+
 import kotlinx.coroutines.flow.collectLatest
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import androidx.compose.foundation.background
@@ -575,7 +574,6 @@ private fun AboutHeroCard(
                             }
                             is UpdateState.Available -> {
                                 Column(modifier = Modifier.fillMaxWidth()) {
-                                    val isLiquidGlass = LocalLiquidGlassEnabled.current
                                     val isBwTheme = LocalIsBlackAndWhiteTheme.current
                                     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                                     val downloadShape = AbsoluteSmoothCornerShape(16.dp, 60)
@@ -721,17 +719,13 @@ private fun AboutHeroCard(
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(52.dp)
-                                            .liquidGlassInteractiveSurface(
-                                                shape = downloadShape,
-                                                surfaceTint = if (isLiquidGlass) primaryButtonColor.copy(alpha = if (isDark) 0.65f else 0.80f) else null
-                                            ),
+                                            .height(52.dp),
                                         shape = downloadShape,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isLiquidGlass) Color.Transparent else primaryButtonColor,
+                                            containerColor = primaryButtonColor,
                                             contentColor = buttonContentColor
                                         ),
-                                        elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
+                                        elevation = ButtonDefaults.buttonElevation()
                                     ) {
                                         Icon(
                                             Icons.Rounded.Download, 

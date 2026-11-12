@@ -197,50 +197,6 @@ fun ExperimentalSettingsScreen(
                     enabled = uiState.isUiMotionBlurEnabled
                 )
         ) {
-            if (AndroidVersionCompat.supportsLiquidGlass) {
-                item(key = "liquid_glass_nav_card") {
-                    SettingsSection(
-                        title = stringResource(R.string.settings_category_liquid_glass_title),
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Rounded.AutoAwesome,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(24.dp),
-                            color = Color.Transparent
-                        ) {
-                            SettingsItem(
-                                title = stringResource(R.string.settings_category_liquid_glass_title),
-                                subtitle = stringResource(R.string.settings_category_liquid_glass_subtitle),
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.secondary
-                                    )
-                                },
-                                trailingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ChevronRight,
-                                        contentDescription = stringResource(R.string.cd_open),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
-                                onClick = {
-                                    navController.navigateSafely(
-                                        Screen.SettingsCategory.createRoute(SettingsCategory.LIQUID_GLASS.id)
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
             if (com.saurav.pixelmusic.utils.AndroidVersionCompat.supportsMusicLiveWallpaper) item(key = "music_live_wallpaper_nav_card") {
                 SettingsSection(
                     title = stringResource(R.string.music_live_wallpaper_title),

@@ -145,8 +145,6 @@ import kotlinx.coroutines.launch
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.luminance
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(
@@ -333,18 +331,15 @@ fun PlaylistDetailScreen(
                     )
                 },
                 navigationIcon = {
-                    val isLiquidGlass = LocalLiquidGlassEnabled.current
-                    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                     CompositionLocalProvider(
                         LocalMinimumInteractiveComponentSize provides 0.dp
                     ) {
                         FilledTonalIconButton(
                             modifier = Modifier
                                 .padding(start = 10.dp)
-                                .size(44.dp)
-                                .liquidGlassInteractiveSurface(isCircle = true),
+                                .size(44.dp),
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 contentColor = MaterialTheme.colorScheme.onSurface
                             ),
                             onClick = onBackClick
@@ -354,8 +349,6 @@ fun PlaylistDetailScreen(
                     }
                 },
                 actions = {
-                    val isLiquidGlass = LocalLiquidGlassEnabled.current
-                    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                     CompositionLocalProvider(
                         LocalMinimumInteractiveComponentSize provides 0.dp
                     ) {
@@ -365,11 +358,9 @@ fun PlaylistDetailScreen(
                             modifier = Modifier.padding(end = 10.dp)
                         ) {
                             FilledTonalIconButton(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .liquidGlassInteractiveSurface(isCircle = true),
+                                modifier = Modifier.size(44.dp),
                                 colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 onClick = {
@@ -382,11 +373,9 @@ fun PlaylistDetailScreen(
                                 )
                             }
                             FilledTonalIconButton(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .liquidGlassInteractiveSurface(isCircle = true),
+                                modifier = Modifier.size(44.dp),
                                 colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     contentColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 onClick = { showPlaylistOptionsSheet = true }
@@ -422,8 +411,6 @@ fun PlaylistDetailScreen(
                     .fillMaxSize()
                     .padding(top = innerPadding.calculateTopPadding())
             ) {
-                val isLiquidGlass = LocalLiquidGlassEnabled.current
-                val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 val actionButtonsHeight = 42.dp
                 val playbackControlBottomPadding = if (isFolderPlaylist) 8.dp else 6.dp
 
@@ -479,14 +466,13 @@ fun PlaylistDetailScreen(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(76.dp)
-                            .liquidGlassInteractiveSurface(shape = playButtonShape),
+                            .height(76.dp),
                         enabled = currentPlaylist.source == "YOUTUBE" || localReorderableSongs.isNotEmpty(),
                         shape = playButtonShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary
+                            containerColor = MaterialTheme.colorScheme.primary
                         ),
-                        elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
+                        elevation = ButtonDefaults.buttonElevation()
                     ) {
                         Icon(
                             Icons.Rounded.PlayArrow,
@@ -509,14 +495,13 @@ fun PlaylistDetailScreen(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(76.dp)
-                            .liquidGlassInteractiveSurface(shape = shuffleButtonShape),
+                            .height(76.dp),
                         enabled = localReorderableSongs.isNotEmpty(),
                         shape = shuffleButtonShape,
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
                         ),
-                        elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation()
+                        elevation = ButtonDefaults.filledTonalButtonElevation()
                     ) {
                         Icon(
                             Icons.Rounded.Shuffle,
@@ -564,13 +549,12 @@ fun PlaylistDetailScreen(
                                 shape = actionPillShape,
                                 contentPadding = PaddingValues(horizontal = 14.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.tertiaryContainer,
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                 ),
-                                elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation(),
+                                elevation = ButtonDefaults.buttonElevation(),
                                 modifier = Modifier
                                     .height(actionButtonsHeight)
-                                    .liquidGlassInteractiveSurface(shape = actionPillShape)
                                     .animateContentSize()
                             ) {
                                 Icon(
@@ -590,13 +574,12 @@ fun PlaylistDetailScreen(
                                 shape = actionPillShape,
                                 contentPadding = PaddingValues(horizontal = 12.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isLiquidGlass) (if (isRemoveModeEnabled) MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.75f else 0.85f) else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.55f else 0.70f)) else removeButtonColor,
+                                    containerColor = removeButtonColor,
                                     contentColor = removeIconColor
                                 ),
-                                elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation(),
+                                elevation = ButtonDefaults.buttonElevation(),
                                 modifier = Modifier
                                     .height(actionButtonsHeight)
-                                    .liquidGlassInteractiveSurface(shape = actionPillShape)
                                     .animateContentSize()
                                     .clip(actionPillShape)
                             ) {
@@ -620,13 +603,12 @@ fun PlaylistDetailScreen(
                                 shape = actionPillShape,
                                 contentPadding = PaddingValues(horizontal = 12.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isLiquidGlass) (if (isReorderModeEnabled) MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.75f else 0.85f) else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.55f else 0.70f)) else reorderButtonColor,
+                                    containerColor = reorderButtonColor,
                                     contentColor = reorderIconColor
                                 ),
-                                elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation(),
+                                elevation = ButtonDefaults.buttonElevation(),
                                 modifier = Modifier
                                     .height(actionButtonsHeight)
-                                    .liquidGlassInteractiveSurface(shape = actionPillShape)
                                     .animateContentSize()
                                     .clip(actionPillShape)
                             ) {
@@ -1210,16 +1192,13 @@ private fun PlaylistActionItem(
     label: String,
     onClick: () -> Unit
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val itemShape = remember { RoundedCornerShape(18.dp) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .liquidGlassInteractiveSurface(shape = itemShape)
             .clip(itemShape)
-            .background(if (isLiquidGlass) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1228,7 +1207,7 @@ private fun PlaylistActionItem(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (isLiquidGlass) MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.surfaceContainerHighest),
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center
         ) {
             Icon(

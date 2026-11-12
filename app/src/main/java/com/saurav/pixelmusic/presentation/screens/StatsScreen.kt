@@ -2,8 +2,6 @@
 
 package com.saurav.pixelmusic.presentation.screens
 
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
-
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -64,7 +62,6 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -1223,28 +1220,6 @@ private fun CategoryMetricsSection(
             )
         }
 
-        val isLiquidGlass = LocalLiquidGlassEnabled.current
-        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-        val glassBorderBrush = remember(isDark) {
-            Brush.verticalGradient(
-                colors = if (isDark) listOf(
-                    Color.White.copy(alpha = 0.07f),
-                    Color.White.copy(alpha = 0.02f)
-                ) else listOf(
-                    Color.White.copy(alpha = 0.14f),
-                    Color.White.copy(alpha = 0.04f)
-                )
-            )
-        }
-        val sheenBrush = remember(isDark) {
-            Brush.verticalGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = if (isDark) 0.05f else 0.10f),
-                    Color.Transparent
-                )
-            )
-        }
-
         CompositionLocalProvider(
             LocalMinimumInteractiveComponentSize provides 0.dp
         ) {
@@ -1268,19 +1243,18 @@ private fun CategoryMetricsSection(
                         },
                         shape = chipShape,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = if (isLiquidGlass) chipPalette.accentColor.copy(alpha = if (isDark) 0.60f else 0.75f) else chipPalette.accentColor,
+                            selectedContainerColor = chipPalette.accentColor,
                             selectedLabelColor = chipPalette.accentOnColor,
-                            containerColor = if (isLiquidGlass) (if (isDark) Color(0x301E1E22) else Color(0x45FFFFFF)) else MaterialTheme.colorScheme.surfaceContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             labelColor = MaterialTheme.colorScheme.onSurface
                         ),
                         elevation = FilterChipDefaults.filterChipElevation(elevation = 0.dp),
-                        border = if (isLiquidGlass) null else FilterChipDefaults.filterChipBorder(
+                        border = FilterChipDefaults.filterChipBorder(
                             borderColor = Color.Transparent,
                             selectedBorderColor = Color.Transparent,
                             enabled = true,
                             selected = isSelected
-                        ),
-                        modifier = Modifier.liquidGlassInteractiveSurface(shape = chipShape)
+                        )
                     )
                 }
             }

@@ -140,9 +140,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.abs
 import androidx.compose.ui.graphics.compositeOver
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.saurav.pixelmusic.presentation.components.LiquidGlassHeaderBar
 import com.saurav.pixelmusic.utils.AndroidVersionCompat
 import com.saurav.pixelmusic.presentation.components.subcomps.PlayingEqIcon
 import com.saurav.pixelmusic.presentation.navigation.Screen
@@ -152,8 +149,6 @@ import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.QuickPicksViewModel
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -282,11 +277,6 @@ fun ExploreScreen(
             listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
         }
     }
-
-    val performanceModeEnabled by playerViewModel.userPreferencesRepository.performanceModeEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
-    val liquidGlassEnabled by playerViewModel.userPreferencesRepository.liquidGlassEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-    val liquidGlassHeaderEnabled by playerViewModel.userPreferencesRepository.liquidGlassHeaderEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-    val isLiquidGlassOnHeader = liquidGlassEnabled && liquidGlassHeaderEnabled && !performanceModeEnabled && AndroidVersionCompat.supportsLiquidGlass
 
     val exploreTitleAlpha by animateFloatAsState(
         targetValue = if (isScrolled) 0f else 1f,
@@ -451,8 +441,7 @@ fun ExploreScreen(
                                     selectedFilter = uiState.selectedFilter,
                                     selectedMood = uiState.selectedMood,
                                     onFilterClick = { exploreViewModel.setSelectedFilter(it) },
-                                    onMoodClick = { exploreViewModel.setSelectedMood(it) },
-                                    isLiquidGlass = isLiquidGlassOnHeader
+                                    onMoodClick = { exploreViewModel.setSelectedMood(it) }
                                 )
                             }
 
@@ -818,12 +807,12 @@ fun ExploreScreen(
                 .background(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.00f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.95f)),
-                            0.18f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.86f)),
-                            0.36f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.68f)),
-                            0.54f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.48f)),
-                            0.72f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.28f)),
-                            0.88f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.11f)),
+                            0.00f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.95f)),
+                            0.18f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.86f)),
+                            0.36f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.68f)),
+                            0.54f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.48f)),
+                            0.72f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.28f)),
+                            0.88f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.11f)),
                             1.00f to Color.Transparent
                         )
                     )
@@ -832,27 +821,55 @@ fun ExploreScreen(
 
         // Top bar with Explore text pill on the left and Settings button on the right
         // Both vanish when scrolling (exploreTitleAlpha fades out)
-        LiquidGlassHeaderBar(
-            pillText = "Explore",
-            pillIcon = null,
-            pillTextSize = 34.sp,
-            isLiquidGlass = isLiquidGlassOnHeader,
-            backdrop = null,
-            alpha = exploreTitleAlpha,
-            onPillClick = {
-                scope.launch {
-                    listState.animateScrollToItem(0)
-                }
-            },
-            onSettingsClick = {
-                if (exploreTitleAlpha > 0.05f) {
-                    navController.navigateSafely(Screen.Settings.route)
-                }
-            },
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 20.dp, end = 20.dp, top = statusBarHeight + 14.dp)
-        )
+                .graphicsLayer { alpha = exploreTitleAlpha },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .height(48.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        scope.launch {
+                            listState.animateScrollToItem(0)
+                        }
+                    },
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Text(
+                    text = "Explore",
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 34.sp,
+                    letterSpacing = 0.5.sp
+                )
+            }
+
+            Surface(
+                onClick = {
+                    if (exploreTitleAlpha > 0.05f) {
+                        navController.navigateSafely(Screen.Settings.route)
+                    }
+                },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_settings_24),
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
 
         if (showSongInfoBottomSheet && selectedSongForInfo != null) {
             val song = selectedSongForInfo!!
@@ -938,14 +955,12 @@ fun ExploreScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun LiquidGlassFilterChip(
+private fun ExploreFilterChip(
     text: String,
     isSelected: Boolean,
-    isLiquidGlass: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val colorScheme = MaterialTheme.colorScheme
 
     val animatedHorizontalPadding by animateDpAsState(
@@ -957,46 +972,21 @@ private fun LiquidGlassFilterChip(
     val chipShape = CircleShape
 
     val containerColor by animateColorAsState(
-        targetValue = when {
-            isSelected -> colorScheme.primary
-            isLiquidGlass -> if (isDark) Color(0x20FFFFFF) else Color(0x50FFFFFF)
-            else -> colorScheme.surfaceContainerHigh
-        },
+        targetValue = if (isSelected) colorScheme.primary else colorScheme.surfaceContainerHigh,
         animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
         label = "chip_bg_$text"
     )
 
     val contentColor by animateColorAsState(
-        targetValue = when {
-            isSelected -> colorScheme.onPrimary
-            else -> colorScheme.onSurface
-        },
+        targetValue = if (isSelected) colorScheme.onPrimary else colorScheme.onSurface,
         animationSpec = tween(200),
         label = "chip_content_$text"
     )
-
-    val borderStroke = remember(isLiquidGlass, isSelected, isDark, colorScheme.primary) {
-        if (!isLiquidGlass) null
-        else if (isSelected) {
-            BorderStroke(0.75.dp, colorScheme.primary.copy(alpha = 0.35f))
-        } else {
-            BorderStroke(
-                0.75.dp,
-                Brush.verticalGradient(
-                    listOf(
-                        Color.White.copy(alpha = if (isDark) 0.08f else 0.16f),
-                        Color.White.copy(alpha = if (isDark) 0.02f else 0.04f)
-                    )
-                )
-            )
-        }
-    }
 
     Surface(
         onClick = onClick,
         shape = chipShape,
         color = containerColor,
-        border = borderStroke,
         shadowElevation = 0.dp,
         tonalElevation = 0.dp,
         modifier = modifier.height(38.dp)
@@ -1024,8 +1014,7 @@ private fun ExploreFilterAndMoodDock(
     selectedFilter: String,
     selectedMood: String?,
     onFilterClick: (String) -> Unit,
-    onMoodClick: (String) -> Unit,
-    isLiquidGlass: Boolean = true
+    onMoodClick: (String) -> Unit
 ) {
     val categories = remember {
         listOf("All", "For You", "New Releases", "Charts", "Moods & Genres")
@@ -1047,10 +1036,9 @@ private fun ExploreFilterAndMoodDock(
         ) {
             categories.forEach { category ->
                 val isSelected = selectedFilter == category && selectedMood == null
-                LiquidGlassFilterChip(
+                ExploreFilterChip(
                     text = category,
                     isSelected = isSelected,
-                    isLiquidGlass = isLiquidGlass,
                     onClick = { onFilterClick(category) }
                 )
             }
@@ -1066,10 +1054,9 @@ private fun ExploreFilterAndMoodDock(
         ) {
             MOOD_CHIPS.forEach { mood ->
                 val isSelected = selectedMood == mood
-                LiquidGlassFilterChip(
+                ExploreFilterChip(
                     text = mood,
                     isSelected = isSelected,
-                    isLiquidGlass = isLiquidGlass,
                     onClick = { onMoodClick(mood) }
                 )
             }
@@ -1811,20 +1798,6 @@ private fun ExploreMoodsAndGenresSection(
 
                 val displayItems = if (isCompactPreview) section.items.take(8) else section.items
                 val pairs = remember(displayItems) { displayItems.chunked(2) }
-                val isLiquidGlassMood = LocalLiquidGlassEnabled.current
-                val isDarkMood = colorScheme.surface.luminance() < 0.5f
-                val moodCardBorder = remember(isLiquidGlassMood, isDarkMood) {
-                    if (!isLiquidGlassMood) null
-                    else BorderStroke(
-                        0.75.dp,
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = if (isDarkMood) 0.08f else 0.16f),
-                                Color.White.copy(alpha = if (isDarkMood) 0.02f else 0.04f)
-                            )
-                        )
-                    )
-                }
 
                 Column(
                     modifier = Modifier
@@ -1851,12 +1824,7 @@ private fun ExploreMoodsAndGenresSection(
                                         )
                                     },
                                     shape = RoundedCornerShape(14.dp),
-                                    color = if (isLiquidGlassMood) {
-                                        if (isDarkMood) Color(0x20FFFFFF) else Color(0x50FFFFFF)
-                                    } else {
-                                        colorScheme.surfaceContainer
-                                    },
-                                    border = moodCardBorder,
+                                    color = colorScheme.surfaceContainer,
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(54.dp)
@@ -3214,16 +3182,13 @@ private fun SongBigBoxItem(
                     color = colorScheme.onSurfaceVariant
                 )
             }
-            val isLiquidGlass = LocalLiquidGlassEnabled.current
             FilledIconButton(
                 onClick = onPlayPauseClick,
-                modifier = Modifier
-                    .size(44.dp)
-                    .liquidGlassInteractiveSurface(isCircle = true),
+                modifier = Modifier.size(44.dp),
                 shape = CircleShape,
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = if (isLiquidGlass) androidx.compose.ui.graphics.Color.Transparent else colorScheme.primary,
-                    contentColor = if (isLiquidGlass) colorScheme.primary else colorScheme.onPrimary
+                    containerColor = colorScheme.primary,
+                    contentColor = colorScheme.onPrimary
                 )
             ) {
                 Icon(
@@ -3308,8 +3273,6 @@ fun MixedStationCarousel(
                                 .clip(RoundedCornerShape(16.dp)),
                             contentScale = ContentScale.Crop
                         )
-                        val isLiquidGlass = LocalLiquidGlassEnabled.current
-                        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                         val isPlayingThis = when (item) {
                             is SongItem -> item.id == currentSongId && isPlayingNow
                             else -> false
@@ -3328,14 +3291,13 @@ fun MixedStationCarousel(
                                 }
                             },
                             shape = CircleShape,
-                            color = if (isLiquidGlass) androidx.compose.ui.graphics.Color.Transparent else colorScheme.primary,
+                            color = colorScheme.primary,
                             tonalElevation = 0.dp,
-                            shadowElevation = if (isLiquidGlass) 0.dp else 2.dp,
+                            shadowElevation = 2.dp,
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
                                 .padding(8.dp)
                                 .size(36.dp)
-                                .liquidGlassInteractiveSurface(isCircle = true)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
@@ -3500,7 +3462,6 @@ fun AnimatedSparklesIconButton(
         )
     }
 
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
     Box(
         modifier = modifier
             .size(44.dp)
@@ -3509,7 +3470,6 @@ fun AnimatedSparklesIconButton(
                 scaleY = scale
                 rotationZ = rotation
             }
-            .liquidGlassInteractiveSurface(isCircle = true)
             .clip(CircleShape)
             .background(gradientBrush)
             .clickable(onClick = onClick),

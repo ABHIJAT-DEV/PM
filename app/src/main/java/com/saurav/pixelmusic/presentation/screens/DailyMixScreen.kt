@@ -1,9 +1,6 @@
 package com.saurav.pixelmusic.presentation.screens
 
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.FloatingActionButtonDefaults
 
 import androidx.compose.foundation.background
@@ -328,8 +325,6 @@ fun DailyMixScreen(
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val isLiquidGlass = LocalLiquidGlassEnabled.current
-                        val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                         val playShape = RoundedCornerShape(
                             topStart = 60.dp,
                             topEnd = 14.dp,
@@ -351,14 +346,13 @@ fun DailyMixScreen(
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(76.dp)
-                                .liquidGlassInteractiveSurface(shape = playShape),
+                                .height(76.dp),
                             enabled = dailyMixSongs.isNotEmpty(),
                             shape = playShape,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary
+                                containerColor = MaterialTheme.colorScheme.primary
                             ),
-                            elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
+                            elevation = ButtonDefaults.buttonElevation()
                         ) {
                             Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.cd_play), modifier = Modifier.size(
                                 ButtonDefaults.IconSize))
@@ -377,14 +371,13 @@ fun DailyMixScreen(
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(76.dp)
-                                .liquidGlassInteractiveSurface(shape = shuffleShape),
+                                .height(76.dp),
                             enabled = dailyMixSongs.isNotEmpty(),
                             shape = shuffleShape,
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.secondaryContainer
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
                             ),
-                            elevation = if (isLiquidGlass) ButtonDefaults.filledTonalButtonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.filledTonalButtonElevation()
+                            elevation = ButtonDefaults.filledTonalButtonElevation()
                         ) {
                             Icon(Icons.Rounded.Shuffle, contentDescription = shuffleLabel, modifier = Modifier.size(
                                 ButtonDefaults.IconSize))
@@ -615,19 +608,16 @@ private fun ExpressiveDailyMixHeader(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                 )
             }
-            val isLiquidGlassGen = LocalLiquidGlassEnabled.current
-            val isDarkGen = MaterialTheme.colorScheme.surface.luminance() < 0.5f
             val starShape = RoundedStarShape(
                 sides = 8,
                 curve = 0.05,
                 rotation = 0f
             )
             LargeExtendedFloatingActionButton(
-                modifier = Modifier.liquidGlassInteractiveSurface(shape = starShape),
                 onClick = onShowMenu,
                 shape = starShape,
-                containerColor = if (isLiquidGlassGen) MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDarkGen) 0.55f else 0.70f) else MaterialTheme.colorScheme.primaryContainer,
-                elevation = if (isLiquidGlassGen) FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp) else FloatingActionButtonDefaults.elevation()
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                elevation = FloatingActionButtonDefaults.elevation()
             ) {
                 Icon(
                     modifier = Modifier.size(20.dp),

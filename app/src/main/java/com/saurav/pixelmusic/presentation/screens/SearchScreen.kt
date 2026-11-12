@@ -48,8 +48,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
@@ -66,7 +64,6 @@ import androidx.compose.material.icons.rounded.SentimentSatisfied
 import androidx.compose.foundation.border
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -286,41 +283,6 @@ fun SearchScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             // ── Top Search Header ───────────────────────────────────────────────
-            val isLiquidGlass = LocalLiquidGlassEnabled.current
-            val isDark = colorScheme.surface.luminance() < 0.5f
-            val coroutineScope = rememberCoroutineScope()
-
-            val searchBarPress = remember { Animatable(0f) }
-            val searchBarJiggle = remember { Animatable(0f) }
-
-            val settingsPress = remember { Animatable(0f) }
-            val settingsJiggle = remember { Animatable(0f) }
-
-            val settingsInteractionSource = remember { MutableInteractionSource() }
-            val isSettingsPressed by settingsInteractionSource.collectIsPressedAsState()
-            LaunchedEffect(isSettingsPressed) {
-                if (isSettingsPressed) {
-                    settingsJiggle.snapTo(1f)
-                    launch { settingsJiggle.animateTo(0f, spring(0.32f, 280f)) }
-                    settingsPress.animateTo(1f, spring(0.5f, 450f))
-                } else {
-                    settingsPress.animateTo(0f, spring(0.5f, 450f))
-                }
-            }
-
-            val searchBarBorder = remember(isLiquidGlass, isDark) {
-                if (!isLiquidGlass) null
-                else BorderStroke(
-                    0.75.dp,
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = if (isDark) 0.10f else 0.20f),
-                            Color.White.copy(alpha = if (isDark) 0.02f else 0.05f)
-                        )
-                    )
-                )
-            }
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -336,39 +298,10 @@ fun SearchScreen(
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp)
-                        .graphicsLayer {
-                            if (isLiquidGlass) {
-                                scaleX = 1f + (searchBarPress.value * 0.05f) + (searchBarJiggle.value * 0.08f)
-                                scaleY = 1f - (searchBarPress.value * 0.04f) - (searchBarJiggle.value * 0.06f)
-                            }
-                        }
-                        .then(if (searchBarBorder != null) Modifier.border(searchBarBorder, RoundedCornerShape(28.dp)) else Modifier)
-                        .then(
-                            if (isLiquidGlass) {
-                                Modifier.pointerInput(Unit) {
-                                    val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
-                                    val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
-                                    awaitEachGesture {
-                                        awaitFirstDown(requireUnconsumed = false)
-                                        coroutineScope.launch {
-                                            searchBarJiggle.snapTo(1f)
-                                            searchBarJiggle.animateTo(0f, jiggleSpec)
-                                        }
-                                        coroutineScope.launch { searchBarPress.animateTo(1f, pressSpec) }
-                                        waitForUpOrCancellation()
-                                        coroutineScope.launch { searchBarPress.animateTo(0f, pressSpec) }
-                                    }
-                                }
-                            } else Modifier
-                        ),
+                        .height(56.dp),
                     shape = RoundedCornerShape(28.dp),
-                    color = if (isLiquidGlass) {
-                        if (isDark) Color(0x22FFFFFF) else Color(0x55FFFFFF)
-                    } else {
-                        colorScheme.surfaceContainerHigh
-                    },
-                    tonalElevation = if (isLiquidGlass) 0.dp else 2.dp
+                    color = colorScheme.surfaceContainerHigh,
+                    tonalElevation = 2.dp
                 ) {
                     Row(
                         modifier = Modifier
@@ -454,26 +387,11 @@ fun SearchScreen(
                         Surface(
                             onClick = { playerViewModel.toggleSearchSource() },
                             shape = CircleShape,
-                            color = if (isLiquidGlass) {
-                                if (searchSource == SearchSource.LOCAL) {
-                                    colorScheme.secondary.copy(alpha = if (isDark) 0.35f else 0.25f)
-                                } else {
-                                    colorScheme.primary.copy(alpha = if (isDark) 0.35f else 0.25f)
-                                }
+                            color = if (searchSource == SearchSource.LOCAL) {
+                                colorScheme.secondaryContainer
                             } else {
-                                if (searchSource == SearchSource.LOCAL) {
-                                    colorScheme.secondaryContainer
-                                } else {
-                                    colorScheme.primaryContainer.copy(alpha = 0.75f)
-                                }
+                                colorScheme.primaryContainer.copy(alpha = 0.75f)
                             },
-                            border = if (isLiquidGlass) {
-                                BorderStroke(
-                                    0.75.dp,
-                                    if (searchSource == SearchSource.LOCAL) colorScheme.secondary.copy(alpha = 0.40f)
-                                    else colorScheme.primary.copy(alpha = 0.40f)
-                                )
-                            } else null,
                             modifier = Modifier.height(38.dp)
                         ) {
                             Row(
@@ -513,24 +431,11 @@ fun SearchScreen(
                 }
 
                 FilledIconButton(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .graphicsLayer {
-                            if (isLiquidGlass) {
-                                scaleX = 1f + (settingsPress.value * 0.10f) + (settingsJiggle.value * 0.15f)
-                                scaleY = 1f - (settingsPress.value * 0.08f) - (settingsJiggle.value * 0.13f)
-                            }
-                        }
-                        .then(if (searchBarBorder != null) Modifier.border(searchBarBorder, CircleShape) else Modifier),
-                    interactionSource = settingsInteractionSource,
+                    modifier = Modifier.size(56.dp),
                     shape = CircleShape,
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = if (isLiquidGlass) {
-                            if (isDark) Color(0x22FFFFFF) else Color(0x55FFFFFF)
-                        } else {
-                            colorScheme.primaryContainer
-                        },
-                        contentColor = if (isLiquidGlass) colorScheme.primary else colorScheme.onPrimaryContainer
+                        containerColor = colorScheme.primaryContainer,
+                        contentColor = colorScheme.onPrimaryContainer
                     ),
                     onClick = {
                         navController.navigateSafely(Screen.Settings.route)
@@ -1934,8 +1839,6 @@ fun SearchFilterChip(
     modifier: Modifier = Modifier
 ) {
     val selected = filterType == currentFilter
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     FilterChip(
         selected = selected,
@@ -1946,14 +1849,14 @@ fun SearchFilterChip(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
             )
         },
-        modifier = modifier.liquidGlassInteractiveSurface(shape = CircleShape),
+        modifier = modifier,
         shape = CircleShape,
         elevation = FilterChipDefaults.filterChipElevation(elevation = 0.dp),
-        border = if (isLiquidGlass) null else BorderStroke(width = 0.dp, color = Color.Transparent),
+        border = BorderStroke(width = 0.dp, color = Color.Transparent),
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = if (isLiquidGlass) (if (isDark) Color(0x301E1E22) else Color(0x45FFFFFF)) else MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            selectedContainerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.60f else 0.75f) else MaterialTheme.colorScheme.primary,
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
             selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
             selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
         ),

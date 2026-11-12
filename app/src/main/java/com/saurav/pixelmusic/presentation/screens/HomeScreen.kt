@@ -60,9 +60,6 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.saurav.pixelmusic.presentation.components.LiquidGlassHeaderBar
 import com.saurav.pixelmusic.utils.AndroidVersionCompat
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -597,11 +594,6 @@ fun HomeScreen(
         label = "homeTitleAlpha"
     )
 
-    val performanceModeEnabled by playerViewModel.userPreferencesRepository.performanceModeEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
-    val liquidGlassEnabled by playerViewModel.userPreferencesRepository.liquidGlassEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-    val liquidGlassHeaderEnabled by playerViewModel.userPreferencesRepository.liquidGlassHeaderEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-    val isLiquidGlassOnHeader = liquidGlassEnabled && liquidGlassHeaderEnabled && !performanceModeEnabled && AndroidVersionCompat.supportsLiquidGlass
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -849,12 +841,12 @@ fun HomeScreen(
                 .background(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.00f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.95f)),
-                            0.18f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.86f)),
-                            0.36f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.68f)),
-                            0.54f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.48f)),
-                            0.72f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.28f)),
-                            0.88f to (if (isCustomBackground || isLiquidGlassOnHeader) Color.Transparent else scrimTopColor.copy(alpha = 0.11f)),
+                            0.00f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.95f)),
+                            0.18f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.86f)),
+                            0.36f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.68f)),
+                            0.54f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.48f)),
+                            0.72f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.28f)),
+                            0.88f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.11f)),
                             1.00f to Color.Transparent
                         )
                     )
@@ -863,77 +855,109 @@ fun HomeScreen(
 
         // Top bar with PixelMusic pill on the left and Settings button on the right
         // Both vanish when scrolling (homeTitleAlpha fades out)
-        LiquidGlassHeaderBar(
-            pillText = "PixelMusic",
-            pillIcon = {
-                Icon(
-                    painter = painterResource(R.drawable.pixelmusic_base_monochrome),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .size(26.dp)
-                        .onGloballyPositioned { coordinates ->
-                            if (coordinates.isAttached) {
-                                val pos = coordinates.positionInRoot()
-                                val w = coordinates.size.width.toFloat()
-                                val h = coordinates.size.height.toFloat()
-                                if (w > 0f && h > 0f) {
-                                    com.saurav.pixelmusic.presentation.screens.SplashTransitionState.updateTarget(
-                                        centerInRoot = androidx.compose.ui.geometry.Offset(
-                                            x = pos.x + w * 0.5f,
-                                            y = pos.y + h * 0.5f
-                                        ),
-                                        sizePx = w
-                                    )
-                                }
-                            }
-                        }
-                        .graphicsLayer {
-                            if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) {
-                                val p = com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress
-                                alpha = ((p - 0.82f) / 0.16f).coerceIn(0f, 1f)
-                            } else {
-                                alpha = 1f
-                            }
-                        }
-                )
-            },
-            pillTextModifier = Modifier.graphicsLayer {
-                if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) {
-                    val p = com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress
-                    val raw = ((p - 0.54f) / 0.38f).coerceIn(0f, 1f)
-                    val inv = 1f - raw
-                    val eased = 1f - inv * inv * inv
-                    alpha = eased
-                    translationX = -16.dp.toPx() * (1f - eased)
-                    val s = 0.92f + 0.08f * eased
-                    scaleX = s
-                    scaleY = s
-                } else {
-                    alpha = 1f
-                    translationX = 0f
-                    scaleX = 1f
-                    scaleY = 1f
-                }
-            },
-            pillTextSize = 28.sp,
-            isLiquidGlass = isLiquidGlassOnHeader,
-            backdrop = null,
-            alpha = homeTitleAlpha,
-            onPillClick = {
-                scope.launch {
-                    listState.animateScrollToItem(0)
-                }
-            },
-            onSettingsClick = {
-                if (homeTitleAlpha > 0.05f) {
-                    navController.navigateSafely(Screen.Settings.route)
-                }
-            },
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 20.dp, end = 20.dp, top = statusBarHeight + 14.dp)
-        )
+                .graphicsLayer { alpha = homeTitleAlpha },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .height(48.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        scope.launch {
+                            listState.animateScrollToItem(0)
+                        }
+                    },
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.pixelmusic_base_monochrome),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .size(26.dp)
+                            .onGloballyPositioned { coordinates ->
+                                if (coordinates.isAttached) {
+                                    val pos = coordinates.positionInRoot()
+                                    val w = coordinates.size.width.toFloat()
+                                    val h = coordinates.size.height.toFloat()
+                                    if (w > 0f && h > 0f) {
+                                        com.saurav.pixelmusic.presentation.screens.SplashTransitionState.updateTarget(
+                                            centerInRoot = androidx.compose.ui.geometry.Offset(
+                                                x = pos.x + w * 0.5f,
+                                                y = pos.y + h * 0.5f
+                                            ),
+                                            sizePx = w
+                                        )
+                                    }
+                                }
+                            }
+                            .graphicsLayer {
+                                if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) {
+                                    val p = com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress
+                                    alpha = ((p - 0.82f) / 0.16f).coerceIn(0f, 1f)
+                                } else {
+                                    alpha = 1f
+                                }
+                            }
+                    )
+                    Text(
+                        text = "PixelMusic",
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 28.sp,
+                        letterSpacing = 0.5.sp,
+                        modifier = Modifier.graphicsLayer {
+                            if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) {
+                                val p = com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress
+                                val raw = ((p - 0.54f) / 0.38f).coerceIn(0f, 1f)
+                                val inv = 1f - raw
+                                val eased = 1f - inv * inv * inv
+                                alpha = eased
+                                translationX = -16.dp.toPx() * (1f - eased)
+                                val s = 0.92f + 0.08f * eased
+                                scaleX = s
+                                scaleY = s
+                            } else {
+                                alpha = 1f
+                                translationX = 0f
+                                scaleX = 1f
+                                scaleY = 1f
+                            }
+                        }
+                    )
+                }
+            }
+
+            Surface(
+                onClick = {
+                    if (homeTitleAlpha > 0.05f) {
+                        navController.navigateSafely(Screen.Settings.route)
+                    }
+                },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_settings_24),
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
 
     }
 

@@ -3,9 +3,6 @@
 package com.saurav.pixelmusic.presentation.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import com.saurav.pixelmusic.presentation.components.liquidGlassInteractiveSurface
-import com.saurav.pixelmusic.ui.theme.LocalLiquidGlassEnabled
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
@@ -157,9 +154,6 @@ fun QuickPicksAllScreen(
 
             // Category chips
             item(key = "qp_chips") {
-                val isLiquidGlass = LocalLiquidGlassEnabled.current
-                val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
                 CompositionLocalProvider(
                     LocalMinimumInteractiveComponentSize provides 0.dp
                 ) {
@@ -182,19 +176,18 @@ fun QuickPicksAllScreen(
                                 },
                                 shape = CircleShape,
                                 elevation = FilterChipDefaults.filterChipElevation(elevation = 0.dp),
-                                border = if (isLiquidGlass) null else FilterChipDefaults.filterChipBorder(
+                                border = FilterChipDefaults.filterChipBorder(
                                     borderColor = Color.Transparent,
                                     selectedBorderColor = Color.Transparent,
                                     enabled = true,
                                     selected = isSelected
                                 ),
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.60f else 0.75f) else MaterialTheme.colorScheme.primary,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                                    containerColor = if (isLiquidGlass) (if (isDark) Color(0x301E1E22) else Color(0x45FFFFFF)) else MaterialTheme.colorScheme.surfaceContainer,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
                                     labelColor = MaterialTheme.colorScheme.onSurface
-                                ),
-                                modifier = Modifier.liquidGlassInteractiveSurface(shape = CircleShape)
+                                )
                             )
                         }
                     }
@@ -240,7 +233,6 @@ fun QuickPicksAllScreen(
                 .statusBarsPadding()
                 .padding(start = 10.dp, top = 8.dp)
                 .size(40.dp)
-                .liquidGlassInteractiveSurface(isCircle = true)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -355,9 +347,7 @@ private fun QuickPicksAllHeader(songCount: Int, isLoading: Boolean, onRefresh: (
                 )
                 IconButton(
                     onClick = onRefresh,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .liquidGlassInteractiveSurface(isCircle = true),
+                    modifier = Modifier.size(36.dp),
                     enabled = !isLoading
                 ) {
                     Icon(
@@ -390,8 +380,6 @@ private fun QuickPicksActions(
     onPlay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isLiquidGlass = LocalLiquidGlassEnabled.current
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val playShape = CircleShape
 
     Row(
@@ -402,14 +390,12 @@ private fun QuickPicksActions(
     ) {
         Button(
             onClick = onPlay,
-            modifier = Modifier
-                .fillMaxSize()
-                .liquidGlassInteractiveSurface(shape = playShape),
+            modifier = Modifier.fillMaxSize(),
             shape = playShape,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isLiquidGlass) MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.55f else 0.70f) else MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.primary
             ),
-            elevation = if (isLiquidGlass) ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp) else ButtonDefaults.buttonElevation()
+            elevation = ButtonDefaults.buttonElevation()
         ) {
             Icon(
                 imageVector = Icons.Rounded.PlayArrow,
