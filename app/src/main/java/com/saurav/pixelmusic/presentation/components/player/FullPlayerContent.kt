@@ -134,16 +134,11 @@ import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.material3.HorizontalDivider
 import com.saurav.pixelmusic.presentation.components.TimerOptionsBottomSheet
 import androidx.compose.ui.graphics.Brush
@@ -919,7 +914,7 @@ fun FullPlayerContent(
 
                                     if (currentSong != null && (currentSong.telegramChatId != null || currentSong.contentUriString.startsWith("telegram:"))) {
                                         Icon(
-                                            imageVector = androidx.compose.material.icons.Icons.Rounded.Cloud,
+                                            painter = painterResource(R.drawable.rounded_cloud_24),
                                             contentDescription = stringResource(R.string.presentation_batch_g_player_cd_cloud_stream),
                                             tint = LocalMaterialTheme.current.onPrimaryContainer.copy(alpha = 0.6f),
                                             modifier = Modifier.padding(start = 8.dp).size(16.dp)
@@ -1079,7 +1074,7 @@ fun FullPlayerContent(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Group,
+                                    painter = painterResource(R.drawable.rounded_group_24),
                                     contentDescription = stringResource(R.string.listen_together),
                                     tint = topBarIconColor,
                                     modifier = Modifier.size(24.dp)
@@ -1773,7 +1768,7 @@ fun FullPlayerContent(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.ChevronRight,
+                                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                             contentDescription = null,
                                             tint = LocalMaterialTheme.current.onSurfaceVariant,
                                             modifier = Modifier.size(20.dp)
@@ -1810,7 +1805,7 @@ fun FullPlayerContent(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.Shuffle,
+                                            painter = painterResource(R.drawable.rounded_shuffle_24),
                                             contentDescription = null,
                                             tint = LocalMaterialTheme.current.onPrimary,
                                             modifier = Modifier.size(22.dp)
@@ -1841,7 +1836,7 @@ fun FullPlayerContent(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.ChevronRight,
+                                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                             contentDescription = null,
                                             tint = LocalMaterialTheme.current.onPrimaryContainer,
                                             modifier = Modifier.size(18.dp)
@@ -1883,7 +1878,7 @@ fun FullPlayerContent(
                                     shadowElevation = 0.dp
                                 ) {
                                     SongActionRow(
-                                        icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                        painter = painterResource(R.drawable.rounded_playlist_add_24),
                                         title = "Add to playlist",
                                         iconBgColor = LocalMaterialTheme.current.primaryContainer,
                                         iconTint = LocalMaterialTheme.current.onPrimaryContainer,
@@ -1904,7 +1899,7 @@ fun FullPlayerContent(
                                     shadowElevation = 0.dp
                                 ) {
                                     SongActionRow(
-                                        icon = if (isDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download,
+                                        painter = if (isDownloaded) rememberVectorPainter(Icons.Rounded.CheckCircle) else painterResource(R.drawable.rounded_download_24),
                                         title = if (isDownloaded) "Downloaded" else "Download",
                                         subtitle = if (isDownloaded) "Saved to device storage" else null,
                                         iconTint = if (isDownloaded) LocalMaterialTheme.current.onPrimaryContainer else defaultIconTint,
@@ -1950,7 +1945,7 @@ fun FullPlayerContent(
                                     shadowElevation = 0.dp
                                 ) {
                                     SongActionRow(
-                                        icon = Icons.Rounded.Share,
+                                        painter = rememberVectorPainter(Icons.Rounded.Share),
                                         title = "Share to Stories",
                                         iconBgColor = defaultIconBg,
                                         iconTint = defaultIconTint,
@@ -1972,7 +1967,7 @@ fun FullPlayerContent(
                                     shadowElevation = 0.dp
                                 ) {
                                     SongActionRow(
-                                        icon = Icons.Rounded.Timer,
+                                        painter = painterResource(R.drawable.rounded_timer_24),
                                         title = "Sleep timer",
                                         iconBgColor = if (isSleepTimerActive) LocalMaterialTheme.current.primaryContainer else defaultIconBg,
                                         iconTint = if (isSleepTimerActive) LocalMaterialTheme.current.onPrimaryContainer else defaultIconTint,
@@ -1999,7 +1994,7 @@ fun FullPlayerContent(
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Rounded.ChevronRight,
+                                                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                                         contentDescription = null,
                                                         tint = LocalMaterialTheme.current.onSurfaceVariant,
                                                         modifier = Modifier.size(18.dp)
@@ -2024,7 +2019,7 @@ fun FullPlayerContent(
                                     shadowElevation = 0.dp
                                 ) {
                                     SongActionRow(
-                                        icon = Icons.Rounded.GraphicEq,
+                                        painter = painterResource(R.drawable.rounded_graphic_eq_24),
                                         title = "Equalizer",
                                         subtitle = "Audio effects & tuning",
                                         iconBgColor = defaultIconBg,
@@ -2038,7 +2033,7 @@ fun FullPlayerContent(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.ChevronRight,
+                                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                                     contentDescription = null,
                                                     tint = LocalMaterialTheme.current.onSurfaceVariant,
                                                     modifier = Modifier.size(18.dp)
@@ -3970,7 +3965,7 @@ private fun BottomToggleRow(
 
 @Composable
 private fun SongActionRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    painter: Painter,
     title: String,
     subtitle: String? = null,
     iconTint: Color = LocalMaterialTheme.current.onSurfaceVariant,
@@ -3994,7 +3989,7 @@ private fun SongActionRow(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = icon,
+                painter = painter,
                 contentDescription = null,
                 tint = iconTint,
                 modifier = Modifier.size(20.dp)
@@ -4029,7 +4024,7 @@ private fun SongActionRow(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
+                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                     contentDescription = null,
                     tint = LocalMaterialTheme.current.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)

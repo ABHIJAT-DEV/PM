@@ -23,19 +23,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.AddAPhoto
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.SurroundSound
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -106,8 +98,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 
@@ -338,7 +329,7 @@ fun ArtistDetailScreen(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Icon(
-                                        Icons.AutoMirrored.Rounded.QueueMusic,
+                                        painterResource(R.drawable.rounded_queue_music_24),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(16.dp)
@@ -357,7 +348,7 @@ fun ArtistDetailScreen(
                             item(key = "popular_songs_header", contentType = "section_header") {
                                 ArtistSectionHeaderWithSeeAll(
                                     title = "Popular Songs",
-                                    icon = Icons.Rounded.MusicNote,
+                                    iconRes = R.drawable.rounded_music_note_24,
                                     showSeeAll = uiState.songsMoreEndpoint != null,
                                     onSeeAllClick = {
                                         navController.navigateSafely(
@@ -396,7 +387,7 @@ fun ArtistDetailScreen(
                             item(key = "albums_header", contentType = "section_header") {
                                 ArtistSectionHeaderWithSeeAll(
                                     title = "Albums",
-                                    icon = Icons.Rounded.Album,
+                                    iconRes = R.drawable.rounded_album_24,
                                     showSeeAll = albumSections.size > 5 || uiState.albumsMoreEndpoint != null,
                                     onSeeAllClick = {
                                         navController.navigateSafely(
@@ -440,7 +431,7 @@ fun ArtistDetailScreen(
                             item(key = "singles_header", contentType = "section_header") {
                                 ArtistSectionHeaderWithSeeAll(
                                     title = "Singles & EPs",
-                                    icon = Icons.Rounded.Album,
+                                    iconRes = R.drawable.rounded_album_24,
                                     showSeeAll = singlesAndEPs.size > 5 || uiState.singlesMoreEndpoint != null,
                                     onSeeAllClick = {
                                         navController.navigateSafely(
@@ -733,7 +724,7 @@ private fun ArtistAlbumSection.collapseKey(): String = "artist_album_${albumId}_
 @Composable
 private fun ArtistSectionHeader(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconRes: Int,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -744,7 +735,7 @@ private fun ArtistSectionHeader(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Icon(
-            imageVector = icon,
+            painter = painterResource(iconRes),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp)
@@ -761,7 +752,7 @@ private fun ArtistSectionHeader(
 @Composable
 private fun ArtistSectionHeaderWithSeeAll(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconRes: Int,
     showSeeAll: Boolean,
     onSeeAllClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -778,7 +769,7 @@ private fun ArtistSectionHeaderWithSeeAll(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
-                imageVector = icon,
+                painter = painterResource(iconRes),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
@@ -862,7 +853,7 @@ private fun ArtistPopularSongItem(
             ) {
                 if (isCurrentSong && isPlaying) {
                     Icon(
-                        imageVector = Icons.Default.GraphicEq,
+                        painter = painterResource(R.drawable.rounded_graphic_eq_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
@@ -918,7 +909,7 @@ private fun ArtistPopularSongItem(
                 )
             ) {
                 Icon(
-                    Icons.Rounded.ExpandMore,
+                    painterResource(R.drawable.rounded_expand_more_24),
                     contentDescription = "More options",
                     modifier = Modifier.size(16.dp)
                 )
@@ -1060,7 +1051,7 @@ private fun CollapsibleAlbumSectionHeader(
                 Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.presentation_batch_d_cd_play_title, section.title))
             }
             Icon(
-                imageVector = Icons.Rounded.ExpandMore,
+                painter = painterResource(R.drawable.rounded_expand_more_24),
                 contentDescription = if (isExpanded) {
                     stringResource(R.string.presentation_batch_d_cd_collapse_title, section.title)
                 } else {
@@ -1302,7 +1293,7 @@ private fun SharedArtistTopBarProbe(
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.presentation_batch_d_change_photo)) },
                                 leadingIcon = {
-                                    Icon(Icons.Rounded.AddAPhoto, contentDescription = null)
+                                    Icon(painterResource(R.drawable.rounded_add_a_photo_24), contentDescription = null)
                                 },
                                 onClick = {
                                     showImageMenu = false
@@ -1340,7 +1331,7 @@ private fun SharedArtistTopBarProbe(
                     alpha = expandedContentAlpha
                 }
         ) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.presentation_batch_d_cd_shuffle_play_artist))
+            Icon(painterResource(R.drawable.rounded_shuffle_24), contentDescription = stringResource(R.string.presentation_batch_d_cd_shuffle_play_artist))
         }
     }
 }
@@ -1465,7 +1456,7 @@ private fun CustomCollapsingTopBar(
                     onClick = onBackPressed,
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                 ) {
-                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.auth_cd_back))
+                    Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.auth_cd_back))
                 }
 
                 // Subscribe & Image edit buttons (visible only when header is mostly expanded)
@@ -1509,7 +1500,7 @@ private fun CustomCollapsingTopBar(
                             ) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.presentation_batch_d_change_photo)) },
-                                    leadingIcon = { Icon(Icons.Rounded.AddAPhoto, contentDescription = null) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_add_a_photo_24), contentDescription = null) },
                                     onClick = {
                                         showImageMenu = false
                                         onChangeImage()
@@ -1583,7 +1574,7 @@ private fun CustomCollapsingTopBar(
                             alpha = fabScale
                         }
                 ) {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.cd_shuffle_play_album))
+                    Icon(painterResource(R.drawable.rounded_shuffle_24), contentDescription = stringResource(R.string.cd_shuffle_play_album))
                 }
             }
         }
@@ -1597,7 +1588,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
 
     Box(modifier = modifier.background(MaterialTheme.colorScheme.primaryContainer)) {
         Icon(
-            imageVector = Icons.Rounded.MusicNote,
+            painter = painterResource(R.drawable.rounded_music_note_24),
             contentDescription = null, tint = color1,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -1606,7 +1597,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = -12f }
         )
         Icon(
-            imageVector = Icons.Default.GraphicEq,
+            painter = painterResource(R.drawable.rounded_graphic_eq_24),
             contentDescription = null, tint = color1,
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -1615,7 +1606,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = 18f }
         )
         Icon(
-            imageVector = Icons.Rounded.Album,
+            painter = painterResource(R.drawable.rounded_album_24),
             contentDescription = null, tint = color2,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -1624,7 +1615,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = 12f }
         )
         Icon(
-            imageVector = Icons.Rounded.Mic,
+            painter = painterResource(R.drawable.rounded_mic_24),
             contentDescription = null, tint = color1,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1633,7 +1624,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = 14f }
         )
         Icon(
-            imageVector = Icons.Rounded.SurroundSound,
+            painter = painterResource(R.drawable.rounded_surround_sound_24),
             contentDescription = null, tint = color2,
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -1642,7 +1633,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = 10f }
         )
         Icon(
-            imageVector = Icons.Rounded.MusicNote,
+            painter = painterResource(R.drawable.rounded_music_note_24),
             contentDescription = null, tint = color1,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -1651,7 +1642,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = -18f }
         )
         Icon(
-            imageVector = Icons.Rounded.Headphones,
+            painter = painterResource(R.drawable.rounded_headphones_24),
             contentDescription = null, tint = color2,
             modifier = Modifier
                 .align(Alignment.Center)

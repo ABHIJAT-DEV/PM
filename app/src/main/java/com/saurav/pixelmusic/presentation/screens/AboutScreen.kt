@@ -7,8 +7,7 @@ import android.net.Uri
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.material.icons.automirrored.rounded.Notes
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.animateContentSize
@@ -30,7 +29,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -68,9 +66,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -545,7 +540,7 @@ private fun AboutHeroCard(
                                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                             )
                                         ) {
-                                            Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Icon(painterResource(R.drawable.rounded_download_24), contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(Modifier.width(8.dp))
                                             Text("Download latest version again")
                                         }
@@ -565,7 +560,7 @@ private fun AboutHeroCard(
                                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                             )
                                         ) {
-                                            Icon(Icons.AutoMirrored.Rounded.Notes, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Icon(painterResource(R.drawable.rounded_notes_24), contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(Modifier.width(8.dp))
                                             Text("Changes in the latest version")
                                         }
@@ -627,7 +622,7 @@ private fun AboutHeroCard(
                                                 ) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Icon(
-                                                            imageVector = Icons.Rounded.AutoAwesome,
+                                                            painter = painterResource(R.drawable.rounded_auto_awesome_24),
                                                             contentDescription = null,
                                                             modifier = Modifier.size(16.dp),
                                                             tint = MaterialTheme.colorScheme.primary
@@ -641,7 +636,7 @@ private fun AboutHeroCard(
                                                         )
                                                     }
                                                     Icon(
-                                                        imageVector = Icons.AutoMirrored.Rounded.Notes,
+                                                        painter = painterResource(R.drawable.rounded_notes_24),
                                                         contentDescription = "Read full changelog",
                                                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                                                         modifier = Modifier.size(16.dp)
@@ -728,7 +723,7 @@ private fun AboutHeroCard(
                                         elevation = ButtonDefaults.buttonElevation()
                                     ) {
                                         Icon(
-                                            Icons.Rounded.Download, 
+                                            painterResource(R.drawable.rounded_download_24), 
                                             contentDescription = null, 
                                             tint = buttonContentColor,
                                             modifier = Modifier.size(18.dp)
@@ -938,7 +933,7 @@ private fun SocialLinksRow() {
                     )
                 }
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                    painter = painterResource(R.drawable.rounded_open_in_new_24),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
                     modifier = Modifier.size(16.dp),
@@ -1005,9 +1000,9 @@ private fun SocialLinksRow() {
 @Composable
 private fun CommunitySignalsRow() {
     val labels = listOf(
-        stringResource(R.string.about_signal_open_source) to Icons.Rounded.Public,
-        stringResource(R.string.about_signal_community_first) to Icons.Rounded.AutoAwesome,
-        stringResource(R.string.about_signal_material3) to Icons.Rounded.Palette,
+        stringResource(R.string.about_signal_open_source) to R.drawable.rounded_public_24,
+        stringResource(R.string.about_signal_community_first) to R.drawable.rounded_auto_awesome_24,
+        stringResource(R.string.about_signal_material3) to R.drawable.rounded_palette_24,
     )
 
     FlowRow(
@@ -1015,7 +1010,7 @@ private fun CommunitySignalsRow() {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        labels.forEach { (label, icon) ->
+        labels.forEach { (label, iconRes) ->
             Surface(
                 shape = AbsoluteSmoothCornerShape(16.dp, 60),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
@@ -1026,7 +1021,7 @@ private fun CommunitySignalsRow() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = icon,
+                        painter = painterResource(iconRes),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(15.dp),
@@ -1177,7 +1172,7 @@ private fun CreditsCard(
                             color = androidx.compose.ui.graphics.Color.White
                         )
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                            painter = painterResource(R.drawable.rounded_open_in_new_24),
                             contentDescription = null,
                             tint = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.80f),
                             modifier = Modifier.size(13.dp)

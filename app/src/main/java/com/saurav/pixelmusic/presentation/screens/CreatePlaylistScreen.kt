@@ -44,25 +44,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.rounded.AddPhotoAlternate
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.MicExternalOn
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Piano
-import androidx.compose.material.icons.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -136,9 +120,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.Search
+
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -571,7 +553,7 @@ private fun CreatePlaylistContent(
                                         )
                                     } else {
                                         Icon(
-                                            imageVector = Icons.Rounded.Cloud,
+                                            painter = painterResource(R.drawable.rounded_cloud_24),
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -1026,7 +1008,7 @@ private fun PlaylistFormContent(
                                 contentAlignment = Alignment.Center
                             ) {
                                  Icon(
-                                    Icons.Rounded.GridView,
+                                    painter = painterResource(R.drawable.rounded_grid_view_24),
                                     contentDescription = null,
                                     modifier = Modifier.size(80.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -1078,7 +1060,7 @@ private fun PlaylistFormContent(
                              ) {
                                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                      Icon(
-                                         Icons.Rounded.AddPhotoAlternate,
+                                         painter = painterResource(R.drawable.rounded_add_photo_alternate_24),
                                          contentDescription = stringResource(R.string.presentation_batch_f_cd_add_photo),
                                          modifier = Modifier.size(56.dp),
                                          tint = MaterialTheme.colorScheme.primary
@@ -1141,9 +1123,9 @@ private fun PlaylistFormContent(
                                  contentAlignment = Alignment.Center
                              ) {
                                  if (selectedIconName != null) {
-                                     val icon = getIconByName(selectedIconName) ?: Icons.Rounded.MusicNote
+                                     val iconRes = getIconResByName(selectedIconName) ?: R.drawable.rounded_music_note_24
                                      Icon(
-                                         imageVector = icon,
+                                         painter = painterResource(iconRes),
                                          contentDescription = null,
                                          modifier = Modifier
                                              .size(80.dp)
@@ -1238,15 +1220,23 @@ private fun PlaylistFormContent(
                                 onClick = { onPrivacyStatusChange(status) },
                                 label = { Text(label) },
                                 leadingIcon = {
-                                    Icon(
-                                        imageVector = when(status) {
-                                            "PRIVATE" -> Icons.Rounded.Lock
-                                            "UNLISTED" -> Icons.Rounded.Link
-                                            else -> Icons.Rounded.Public
-                                        },
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    when (status) {
+                                        "PRIVATE" -> Icon(
+                                            imageVector = Icons.Rounded.Lock,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        "UNLISTED" -> Icon(
+                                            painter = painterResource(R.drawable.rounded_link_24),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        else -> Icon(
+                                            painter = painterResource(R.drawable.rounded_public_24),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -1457,7 +1447,7 @@ private fun PlaylistFormContent(
                                  contentAlignment = Alignment.Center
                              ) {
                                  Icon(
-                                     imageVector = getIconByName(iconName) ?: Icons.Rounded.MusicNote,
+                                     painter = painterResource(getIconResByName(iconName) ?: R.drawable.rounded_music_note_24),
                                      contentDescription = null,
                                      tint = if(isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                                  )
@@ -1558,16 +1548,16 @@ private fun PlaylistFormContent(
 
 
 
-fun getIconByName(name: String?): ImageVector? {
+fun getIconResByName(name: String?): Int? {
     return when (name) {
-        "MusicNote" -> Icons.Rounded.MusicNote
-        "Headphones" -> Icons.Rounded.Headphones
-        "Album" -> Icons.Rounded.Album
-        "Mic" -> Icons.Rounded.MicExternalOn 
-        "Speaker" -> Icons.Rounded.Speaker
-        "Favorite" -> Icons.Rounded.Favorite
-        "Piano" -> Icons.Rounded.Piano
-        "Queue" -> Icons.AutoMirrored.Rounded.QueueMusic
+        "MusicNote" -> R.drawable.rounded_music_note_24
+        "Headphones" -> R.drawable.rounded_headphones_24
+        "Album" -> R.drawable.rounded_album_24
+        "Mic" -> R.drawable.rounded_mic_external_on_24
+        "Speaker" -> R.drawable.rounded_speaker_24
+        "Favorite" -> R.drawable.round_favorite_24
+        "Piano" -> R.drawable.rounded_piano_24
+        "Queue" -> R.drawable.rounded_queue_music_24
         else -> null
     }
 }

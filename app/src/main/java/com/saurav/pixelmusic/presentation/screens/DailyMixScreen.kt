@@ -27,7 +27,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,7 +59,6 @@ import android.os.Trace // Import Trace
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
@@ -379,7 +377,7 @@ fun DailyMixScreen(
                             ),
                             elevation = ButtonDefaults.filledTonalButtonElevation()
                         ) {
-                            Icon(Icons.Rounded.Shuffle, contentDescription = shuffleLabel, modifier = Modifier.size(
+                            Icon(painterResource(R.drawable.rounded_shuffle_24), contentDescription = shuffleLabel, modifier = Modifier.size(
                                 ButtonDefaults.IconSize))
                             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                             Text(shuffleLabel)

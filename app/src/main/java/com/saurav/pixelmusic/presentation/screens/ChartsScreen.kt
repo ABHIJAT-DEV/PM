@@ -17,7 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -499,12 +500,21 @@ private fun ChartCardItem(
                         .align(Alignment.BottomEnd)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (isPlayingThis) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (isPlayingThis) "Pause" else "Play",
-                            tint = colorScheme.onPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        if (isPlayingThis) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_pause_24),
+                                contentDescription = "Pause",
+                                tint = colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.PlayArrow,
+                                contentDescription = "Play",
+                                tint = colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }

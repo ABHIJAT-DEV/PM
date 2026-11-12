@@ -33,13 +33,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Logout
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.CloudQueue
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -93,8 +87,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.rounded.Code
+
 import androidx.compose.ui.text.font.FontFamily
 import com.saurav.pixelmusic.presentation.screens.youtube.AuthViewModel
 import androidx.compose.ui.unit.sp
@@ -486,7 +479,7 @@ private fun ConnectedAccountCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Sync,
+                        painter = painterResource(R.drawable.rounded_sync_24),
                         contentDescription = null,
                         tint = palette.iconTint,
                         modifier = Modifier.size(16.dp)
@@ -515,7 +508,7 @@ private fun ConnectedAccountCard(
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                    painter = painterResource(R.drawable.rounded_open_in_new_24),
                     contentDescription = null
                 )
                 Spacer(modifier = Modifier.size(8.dp))
@@ -539,7 +532,7 @@ private fun ConnectedAccountCard(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Logout,
+                        painter = painterResource(R.drawable.rounded_logout_24),
                         contentDescription = null
                     )
                 }
@@ -593,7 +586,7 @@ private fun EmptyAccountsCard(
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
                     Icon(
-                        imageVector = accountIcon(service),
+                        painter = painterResource(accountIcon(service)),
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -638,17 +631,17 @@ private fun servicePalette(service: ExternalServiceAccount): ServicePalette {
     }
 }
 
-private fun accountIcon(service: ExternalServiceAccount): ImageVector {
+private fun accountIcon(service: ExternalServiceAccount): Int {
     return when (service) {
-        ExternalServiceAccount.YOUTUBE -> Icons.Rounded.MusicNote
-        ExternalServiceAccount.LASTFM -> Icons.Rounded.MusicNote
+        ExternalServiceAccount.YOUTUBE -> R.drawable.rounded_music_note_24
+        ExternalServiceAccount.LASTFM -> R.drawable.rounded_music_note_24
     }
 }
 
 @Composable
 private fun ServiceIcon(service: ExternalServiceAccount, tint: Color, modifier: Modifier = Modifier) {
     Icon(
-        imageVector = accountIcon(service),
+        painter = painterResource(accountIcon(service)),
         contentDescription = null,
         tint = tint,
         modifier = modifier
@@ -783,7 +776,7 @@ private fun YouTubeAccountCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Sync,
+                            painter = painterResource(R.drawable.rounded_sync_24),
                             contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(16.dp)
@@ -826,7 +819,7 @@ private fun YouTubeAccountCard(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Rounded.Sync,
+                            painter = painterResource(R.drawable.rounded_sync_24),
                             contentDescription = null
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -851,7 +844,7 @@ private fun YouTubeAccountCard(
                         .height(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Code,
+                        painter = painterResource(R.drawable.rounded_code_24),
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -883,7 +876,7 @@ private fun YouTubeAccountCard(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Logout,
+                            painter = painterResource(R.drawable.rounded_logout_24),
                             contentDescription = null
                         )
                     }
@@ -906,7 +899,7 @@ private fun YouTubeAccountCard(
                         .height(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Link,
+                        painter = painterResource(R.drawable.rounded_link_24),
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -930,7 +923,7 @@ private fun YouTubeAccountCard(
                         .height(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Code,
+                        painter = painterResource(R.drawable.rounded_code_24),
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1011,7 +1004,7 @@ fun AdvancedTokenLoginDialog(
                     verticalAlignment = Alignment.Top
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Info,
+                        imageVector = Icons.Rounded.Info,
                         contentDescription = "Info",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)

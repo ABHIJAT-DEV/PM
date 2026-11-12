@@ -28,10 +28,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -382,7 +380,7 @@ fun DelimiterConfigScreen(
                         shape = androidx.compose.foundation.shape.CircleShape
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.RestartAlt,
+                            painter = painterResource(R.drawable.outline_restart_alt_24),
                             contentDescription = stringResource(R.string.cd_reset_defaults),
                             modifier = Modifier.size(20.dp)
                         )
@@ -410,7 +408,7 @@ fun DelimiterConfigScreen(
                 },
                 icon = {
                     Icon(
-                        imageVector = Icons.Rounded.RestartAlt,
+                        painter = painterResource(R.drawable.outline_restart_alt_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error
                     )

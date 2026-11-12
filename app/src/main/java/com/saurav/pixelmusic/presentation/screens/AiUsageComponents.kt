@@ -17,8 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.database.AiUsageEntity
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.ui.res.painterResource
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -78,7 +77,7 @@ fun AiUsageLogItem(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Schedule,
+                        painter = painterResource(R.drawable.rounded_schedule_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
