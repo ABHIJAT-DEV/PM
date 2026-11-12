@@ -31,16 +31,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.FolderZip
-import androidx.compose.material.icons.rounded.HeartBroken
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -267,16 +263,19 @@ fun MultiSelectionBottomSheet(
                                 contentColor = favoriteButtonContentColor
                             )
                         ) {
-                            Icon(
-                                modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
-                                imageVector = if (allAreLiked) 
-                                    Icons.Rounded.HeartBroken 
-                                else
-                                    Icons.Rounded.FavoriteBorder,
-                                contentDescription = stringResource(
-                                    if (allAreLiked) R.string.cd_unlike_all else R.string.cd_like_all
+                            if (allAreLiked) {
+                                Icon(
+                                    modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
+                                    painter = painterResource(R.drawable.rounded_heart_broken_24),
+                                    contentDescription = stringResource(R.string.cd_unlike_all)
                                 )
-                            )
+                            } else {
+                                Icon(
+                                    modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
+                                    imageVector = Icons.Rounded.FavoriteBorder,
+                                    contentDescription = stringResource(R.string.cd_like_all)
+                                )
+                            }
                         }
                         
                         FilledTonalIconButton(
@@ -326,7 +325,7 @@ fun MultiSelectionBottomSheet(
                             }
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.QueueMusic,
+                                painter = painterResource(R.drawable.rounded_queue_music_24),
                                 contentDescription = stringResource(R.string.cd_add_all_to_queue)
                             )
                             Spacer(Modifier.width(14.dp))
@@ -350,7 +349,7 @@ fun MultiSelectionBottomSheet(
                             }
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Filled.QueueMusic,
+                                painter = painterResource(R.drawable.rounded_queue_music_24),
                                 contentDescription = stringResource(R.string.cd_play_next_in_queue)
                             )
                             Spacer(Modifier.width(8.dp))
@@ -382,7 +381,7 @@ fun MultiSelectionBottomSheet(
                             }
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                painter = painterResource(R.drawable.rounded_playlist_add_24),
                                 contentDescription = stringResource(R.string.cd_add_to_playlist)
                             )
                             Spacer(Modifier.width(8.dp))

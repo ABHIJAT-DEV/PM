@@ -8,8 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.WifiOff
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -35,7 +34,7 @@ fun NoInternetDialog(
         onDismissRequest = onDismiss,
         icon = {
             Icon(
-                imageVector = Icons.Rounded.WifiOff,
+                painter = painterResource(R.drawable.rounded_wifi_off_24),
                 contentDescription = null,
                 modifier = Modifier.size(24.dp)
             )
@@ -79,7 +78,7 @@ fun NoInternetScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
-                imageVector = Icons.Rounded.WifiOff,
+                painter = painterResource(R.drawable.rounded_wifi_off_24),
                 contentDescription = null,
                 modifier = Modifier
                     .size(64.dp)

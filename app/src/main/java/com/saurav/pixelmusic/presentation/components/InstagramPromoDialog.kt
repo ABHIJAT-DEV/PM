@@ -7,8 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -99,7 +98,7 @@ fun InstagramPromoDialog(
                         Text("Follow")
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                            painter = painterResource(R.drawable.rounded_open_in_new_24),
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )

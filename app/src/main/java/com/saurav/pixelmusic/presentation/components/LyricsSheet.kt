@@ -51,15 +51,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -961,7 +959,7 @@ fun LyricsSheet(
                             if (playing) {
                                 Icon(
                                     modifier = Modifier.size(32.dp),
-                                    imageVector = Icons.Rounded.Pause,
+                                    painter = painterResource(R.drawable.rounded_pause_24),
                                     contentDescription = "Pause",
                                     tint = onPlayPauseColor
                                 )
@@ -1133,7 +1131,7 @@ fun LyricsSheet(
        if (isSwipeActive || swipeProgress.value > 0f) {
            val isNext = dragOffset < 0
            val overlayAlignment = if (isNext) Alignment.CenterEnd else Alignment.CenterStart
-           val icon = if (isNext) Icons.Rounded.SkipNext else Icons.Rounded.SkipPrevious
+           val icon = if (isNext) ImageVector.vectorResource(R.drawable.rounded_skip_next_24) else ImageVector.vectorResource(R.drawable.rounded_skip_previous_24)
            
            Box(
                modifier = Modifier

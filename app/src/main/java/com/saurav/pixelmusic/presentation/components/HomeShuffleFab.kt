@@ -22,7 +22,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.rounded.Group
+
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -43,10 +43,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -471,7 +468,7 @@ fun HomeShuffleFab(
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = Icons.Rounded.Group,
+                                        painter = painterResource(R.drawable.rounded_group_24),
                                         contentDescription = stringResource(R.string.listen_together),
                                         tint = fabContentColor,
                                         modifier = Modifier.size(32.dp)
@@ -763,14 +760,14 @@ private fun ShuffleFabIcon(
     ) { (reached, explore) ->
         if (reached) {
             Icon(
-                imageVector = Icons.Rounded.GraphicEq,
+                painter = painterResource(R.drawable.rounded_graphic_eq_24),
                 contentDescription = "Recognize Music",
                 tint = tint,
                 modifier = Modifier.size(32.dp)
             )
         } else if (explore) {
             Icon(
-                imageVector = Icons.Rounded.AutoAwesome,
+                painter = painterResource(R.drawable.rounded_auto_awesome_24),
                 contentDescription = "Smart Mix",
                 tint = tint,
                 modifier = Modifier.size(32.dp)
