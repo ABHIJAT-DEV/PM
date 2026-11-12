@@ -428,7 +428,7 @@ object SettingsSearchCatalog {
             else if (catId.contains(q) || catName.contains(q)) s += 15
         }
 
-        // Multi-word query matching (e.g. "glass battery", "liquid blur", "nav bar corner")
+        // Multi-word query matching (e.g. "battery", "nav bar corner")
         val queryTokens = q.split(' ', '-', ',').filter { it.isNotBlank() }
         if (queryTokens.size > 1) {
             val allTokensMatch = queryTokens.all { token ->

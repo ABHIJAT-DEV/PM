@@ -951,7 +951,7 @@ fun ExploreScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. FILTER & MOOD CHIPS (LIQUID GLASS SURFACES WITH DYNAMIC SPRING SPACING)
+// 1. FILTER & MOOD CHIPS (DYNAMIC SPRING SPACING)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable

@@ -1846,7 +1846,7 @@ private fun AiFloatingAccentShape(
 /**
  * Expressive AI Playlist Creation button copying the exact shape and size
  * of the Daily Mix generator button: RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f)
- * on a LargeExtendedFloatingActionButton with liquid glass support.
+ * on a LargeExtendedFloatingActionButton.
  */
 @Composable
 fun AiMixCookieButton(

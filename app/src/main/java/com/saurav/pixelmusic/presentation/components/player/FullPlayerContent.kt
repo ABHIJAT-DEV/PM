@@ -1642,8 +1642,6 @@ fun FullPlayerContent(
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
         ) {
             val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
-            val isLiquidGlass = LocalLiquidGlassEnabled.current
-            val isDark = LocalPixelMusicDarkTheme.current
 
             MaterialTheme(
                 colorScheme = LocalMaterialTheme.current,
@@ -1700,16 +1698,10 @@ fun FullPlayerContent(
                             // Header Card: Cover + Metadata (Tapping redirects to Origin / Album / Artist)
                             val headerCardShape = remember { RoundedCornerShape(22.dp) }
                             Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .liquidGlassInteractiveSurface(shape = headerCardShape, enabled = isLiquidGlass),
+                                modifier = Modifier.fillMaxWidth(),
                                 shape = headerCardShape,
-                                color = if (isLiquidGlass) {
-                                    LocalMaterialTheme.current.surfaceContainerHigh.copy(alpha = if (isDark) 0.50f else 0.65f)
-                                } else {
-                                    LocalMaterialTheme.current.surfaceContainerHigh
-                                },
-                                tonalElevation = if (isLiquidGlass) 0.dp else 2.dp,
+                                color = LocalMaterialTheme.current.surfaceContainerHigh,
+                                tonalElevation = 2.dp,
                                 shadowElevation = 0.dp,
                                 onClick = { navigateToOrigin() }
                             ) {
@@ -1777,13 +1769,7 @@ fun FullPlayerContent(
                                         modifier = Modifier
                                             .size(36.dp)
                                             .clip(CircleShape)
-                                            .background(
-                                                if (isLiquidGlass) {
-                                                    LocalMaterialTheme.current.surfaceContainerHighest.copy(alpha = if (isDark) 0.4f else 0.6f)
-                                                } else {
-                                                    LocalMaterialTheme.current.surfaceVariant
-                                                }
-                                            ),
+                                            .background(LocalMaterialTheme.current.surfaceVariant),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
@@ -1799,16 +1785,10 @@ fun FullPlayerContent(
                             // FLAGSHIP HERO OPTION: Start Mix from this
                             val heroShape = remember { RoundedCornerShape(22.dp) }
                             Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .liquidGlassInteractiveSurface(shape = heroShape, enabled = isLiquidGlass),
+                                modifier = Modifier.fillMaxWidth(),
                                 shape = heroShape,
-                                color = if (isLiquidGlass) {
-                                    LocalMaterialTheme.current.primaryContainer.copy(alpha = if (isDark) 0.60f else 0.75f)
-                                } else {
-                                    LocalMaterialTheme.current.primaryContainer.copy(alpha = 0.90f)
-                                },
-                                tonalElevation = if (isLiquidGlass) 0.dp else 2.dp,
+                                color = LocalMaterialTheme.current.primaryContainer.copy(alpha = 0.90f),
+                                tonalElevation = 2.dp,
                                 shadowElevation = 0.dp,
                                 onClick = {
                                     playerViewModel.startMixFromSong(song)
@@ -1886,16 +1866,8 @@ fun FullPlayerContent(
                             val topCardShape = remember { RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 4.dp) }
                             val middleCardShape = remember { RoundedCornerShape(4.dp) }
                             val bottomCardShape = remember { RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 24.dp, bottomEnd = 24.dp) }
-                            val cardColor = if (isLiquidGlass) {
-                                LocalMaterialTheme.current.surfaceContainerLowest.copy(alpha = if (isDark) 0.55f else 0.72f)
-                            } else {
-                                LocalMaterialTheme.current.surfaceContainerLowest
-                            }
-                            val defaultIconBg = if (isLiquidGlass) {
-                                LocalMaterialTheme.current.surfaceContainerHighest.copy(alpha = if (isDark) 0.45f else 0.65f)
-                            } else {
-                                LocalMaterialTheme.current.secondaryContainer.copy(alpha = 0.75f)
-                            }
+                            val cardColor = LocalMaterialTheme.current.surfaceContainerLowest
+                            val defaultIconBg = LocalMaterialTheme.current.secondaryContainer.copy(alpha = 0.75f)
                             val defaultIconTint = LocalMaterialTheme.current.onSecondaryContainer
 
                             Column(
@@ -1904,9 +1876,7 @@ fun FullPlayerContent(
                             ) {
                                 // Card 1: Add to Playlist
                                 Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = topCardShape, enabled = isLiquidGlass),
+                                    modifier = Modifier.fillMaxWidth(),
                                     shape = topCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
@@ -1927,9 +1897,7 @@ fun FullPlayerContent(
 
                                 // Card 2: Download
                                 Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = middleCardShape, enabled = isLiquidGlass),
+                                    modifier = Modifier.fillMaxWidth(),
                                     shape = middleCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
@@ -1975,9 +1943,7 @@ fun FullPlayerContent(
 
                                 // Card 3: Share to Stories
                                 Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = middleCardShape, enabled = isLiquidGlass),
+                                    modifier = Modifier.fillMaxWidth(),
                                     shape = middleCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
@@ -1999,9 +1965,7 @@ fun FullPlayerContent(
                                 // Card 4: Sleep Timer
                                 val isSleepTimerActive = activeTimerValueDisplay != null
                                 Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = middleCardShape, enabled = isLiquidGlass),
+                                    modifier = Modifier.fillMaxWidth(),
                                     shape = middleCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
@@ -2053,9 +2017,7 @@ fun FullPlayerContent(
 
                                 // Card 5: Equalizer Shortcut
                                 Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = bottomCardShape, enabled = isLiquidGlass),
+                                    modifier = Modifier.fillMaxWidth(),
                                     shape = bottomCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
