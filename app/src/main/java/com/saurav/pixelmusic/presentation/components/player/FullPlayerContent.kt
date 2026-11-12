@@ -2366,7 +2366,9 @@ fun FullPlayerContent(
                                 }
                             }
 
-                            val cardShape = remember { AbsoluteSmoothCornerShape(22.dp, 60) }
+                            val topCardShape = remember { RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 4.dp) }
+                            val middleCardShape = remember { RoundedCornerShape(4.dp) }
+                            val bottomCardShape = remember { RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 24.dp, bottomEnd = 24.dp) }
                             val cardColor = if (isLiquidGlass) {
                                 LocalMaterialTheme.current.surfaceContainerLowest.copy(alpha = if (isDark) 0.55f else 0.72f)
                             } else {
@@ -2381,14 +2383,14 @@ fun FullPlayerContent(
 
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 // Card 1: Add to Playlist
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
-                                    shape = cardShape,
+                                        .liquidGlassInteractiveSurface(shape = topCardShape, enabled = isLiquidGlass),
+                                    shape = topCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp
@@ -2410,8 +2412,8 @@ fun FullPlayerContent(
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
-                                    shape = cardShape,
+                                        .liquidGlassInteractiveSurface(shape = middleCardShape, enabled = isLiquidGlass),
+                                    shape = middleCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp
@@ -2458,8 +2460,8 @@ fun FullPlayerContent(
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
-                                    shape = cardShape,
+                                        .liquidGlassInteractiveSurface(shape = middleCardShape, enabled = isLiquidGlass),
+                                    shape = middleCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp
@@ -2482,8 +2484,8 @@ fun FullPlayerContent(
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
-                                    shape = cardShape,
+                                        .liquidGlassInteractiveSurface(shape = middleCardShape, enabled = isLiquidGlass),
+                                    shape = middleCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp
@@ -2536,8 +2538,8 @@ fun FullPlayerContent(
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .liquidGlassInteractiveSurface(shape = cardShape, enabled = isLiquidGlass),
-                                    shape = cardShape,
+                                        .liquidGlassInteractiveSurface(shape = bottomCardShape, enabled = isLiquidGlass),
+                                    shape = bottomCardShape,
                                     color = cardColor,
                                     tonalElevation = 0.dp,
                                     shadowElevation = 0.dp
