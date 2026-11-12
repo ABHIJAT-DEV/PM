@@ -232,7 +232,6 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.material.icons.core)
-    implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.animation)
     implementation(libs.androidx.palette.ktx)
