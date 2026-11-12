@@ -327,6 +327,7 @@ private fun AboutHeroCard(
 
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Checking) }
     var showChangelogDialog by remember { mutableStateOf(false) }
+    var isRedownloadSheetMode by remember { mutableStateOf(false) }
     val openUpdateSheetEvent by InAppUpdater.openUpdateSheetEvent.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
@@ -336,6 +337,7 @@ private fun AboutHeroCard(
     LaunchedEffect(openUpdateSheetEvent) {
         if (openUpdateSheetEvent) {
             InAppUpdater.consumeOpenUpdateSheetEvent()
+            isRedownloadSheetMode = true
             showChangelogDialog = true
         }
     }
@@ -347,8 +349,7 @@ private fun AboutHeroCard(
     }
 
     if (showChangelogDialog) {
-        val isUpdate = updateState is UpdateState.Available ||
-            (updateState as? UpdateState.UpToDate)?.downloadUrl != null
+        val isUpdate = (updateState is UpdateState.Available) || isRedownloadSheetMode
         val displayVersion = when (val state = updateState) {
             is UpdateState.Available -> state.versionName
             is UpdateState.UpToDate -> state.versionName ?: versionName
@@ -377,7 +378,10 @@ private fun AboutHeroCard(
             apkName = resolvedApkName,
             apkSizeBytes = resolvedApkSize,
             isTestBuild = context.packageName.endsWith(".test"),
-            onDismiss = { showChangelogDialog = false },
+            onDismiss = {
+                showChangelogDialog = false
+                isRedownloadSheetMode = false
+            },
             onConfirmClick = {
                 if (!resolvedUrl.isNullOrBlank()) {
                     val appContext = context.applicationContext
@@ -533,6 +537,7 @@ private fun AboutHeroCard(
                                                     apkName = state.apkName,
                                                     changelog = state.changelog
                                                 )
+                                                isRedownloadSheetMode = true
                                                 showChangelogDialog = true
                                             },
                                             modifier = Modifier.fillMaxWidth(),
@@ -551,7 +556,10 @@ private fun AboutHeroCard(
                                         Spacer(modifier = Modifier.height(8.dp))
                                         
                                         Button(
-                                            onClick = { showChangelogDialog = true },
+                                            onClick = {
+                                                isRedownloadSheetMode = false
+                                                showChangelogDialog = true
+                                            },
                                             modifier = Modifier.fillMaxWidth(),
                                             colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,

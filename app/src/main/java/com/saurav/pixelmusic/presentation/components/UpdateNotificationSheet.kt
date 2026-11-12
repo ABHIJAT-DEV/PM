@@ -5,11 +5,11 @@ import android.graphics.drawable.AnimatedImageDrawable
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -134,6 +134,9 @@ fun UpdateNotificationSheet(
     )
 
     val downloadState by InAppUpdater.downloadState.collectAsStateWithLifecycle()
+    val hasActiveDownload = downloadState !is InAppUpdater.GlobalDownloadState.Idle
+    val effectiveUpdateMode = isUpdateAvailable || hasActiveDownload
+
     val resolvedDownloadUrl = remember(downloadUrl) {
         downloadUrl?.takeIf { it.isNotBlank() } ?: InAppUpdater.getResolvedDownloadUrl()
     }
@@ -152,7 +155,8 @@ fun UpdateNotificationSheet(
         changelog ?: InAppUpdater.getResolvedChangelog()
     }
 
-    // Never auto-expand the What's New card; only expand when the user taps the dropdown pill
+    // Never auto-expand the What's New card when an update is available;
+    // only expand when the user taps the soft dropdown pill
     var isChangelogExpanded by remember { mutableStateOf(false) }
 
     val isAlreadyDownloading = remember {
@@ -171,7 +175,6 @@ fun UpdateNotificationSheet(
 
     LaunchedEffect(Unit) {
         if (!isAlreadyDownloading) {
-            // Phase 1: Soft, minimal entrance of the monochrome logo in the center
             launch {
                 logoIntroAlpha.animateTo(
                     targetValue = 1f,
@@ -187,7 +190,6 @@ fun UpdateNotificationSheet(
 
             delay(560L)
 
-            // Phase 2: Slow, fluid glide from center to top-left
             launch {
                 logoFlightProgress.animateTo(
                     targetValue = 1f,
@@ -195,7 +197,6 @@ fun UpdateNotificationSheet(
                 )
             }
 
-            // Phase 3: Slow, minimal, overlapping reveal of sheet sections
             delay(540L)
             launch {
                 headerReveal.animateTo(
@@ -252,7 +253,6 @@ fun UpdateNotificationSheet(
                         sheetHeightPx = coords.size.height.toFloat()
                     }
                 }
-                // Soft top & bottom fade mask so scrolled content never clips with a sharp edge
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.Offscreen
                 }
@@ -283,7 +283,7 @@ fun UpdateNotificationSheet(
                         )
                     )
             ) {
-                // Top-Left Monochrome App Logo Slot (Filled, no border)
+                // Top-Left Monochrome App Logo Slot
                 Box(
                     modifier = Modifier
                         .size(64.dp)
@@ -302,7 +302,7 @@ fun UpdateNotificationSheet(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         modifier = Modifier.fillMaxSize()
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -318,7 +318,7 @@ fun UpdateNotificationSheet(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // 1. Greeting & Update Title
+                // 1. Greeting & Status Title ("Update available!" vs "Updated to latest version")
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -328,10 +328,10 @@ fun UpdateNotificationSheet(
                         userName?.trim()?.takeIf { it.isNotEmpty() }?.lowercase(Locale.getDefault())
                     }
                     val headlineText = when {
-                        isUpdateAvailable && greetingName != null -> "Update available, $greetingName!"
-                        isUpdateAvailable -> "Update available!"
-                        greetingName != null -> "What's new, $greetingName!"
-                        else -> "What's new in $cleanVersion"
+                        effectiveUpdateMode && greetingName != null -> "Update available, $greetingName!"
+                        effectiveUpdateMode -> "Update available!"
+                        greetingName != null -> "Updated to latest version, $greetingName!"
+                        else -> "Updated to latest version"
                     }
 
                     Text(
@@ -340,17 +340,17 @@ fun UpdateNotificationSheet(
                             fontSize = 24.sp,
                             letterSpacing = (-0.3).sp
                         ),
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = if (isUpdateAvailable) {
+                        text = if (effectiveUpdateMode) {
                             "PixelMusic $cleanVersion is ready for your device"
                         } else {
-                            "You are running PixelMusic $cleanVersion"
+                            "You are running the latest PixelMusic $cleanVersion"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -359,111 +359,83 @@ fun UpdateNotificationSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 2. Device Architecture Pill + Dropdown Pill to Show Changelog (Solid filled, no borders)
+                // 2. Minimal, Soft, Aesthetic ABI & What's New Pills (No icons, no truncation, soft tonal fill)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .minimalAestheticReveal(pillsReveal.value, slideDp = 16f)
                 ) {
+                    val softPillShape = AbsoluteSmoothCornerShape(20.dp, 60)
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Device Architecture Pill (Filled, no border)
+                        // Soft minimal ABI pill (no icon, soft surface fill)
                         Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest
+                            shape = softPillShape,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .padding(horizontal = 18.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Memory,
-                                    contentDescription = "Device Architecture",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
                                 Text(
                                     text = deviceArch,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
 
-                        // Dropdown Pill to Show / Hide Changelog (Filled, no border)
+                        // Soft minimal "What's new" dropdown pill (no sparkle icon, no truncation)
                         val arrowRotation by animateFloatAsState(
                             targetValue = if (isChangelogExpanded) 180f else 0f,
-                            animationSpec = tween(durationMillis = 520, easing = MinimalSlowEasing),
+                            animationSpec = tween(durationMillis = 560, easing = MinimalSlowEasing),
                             label = "ChangelogChevronRotation"
                         )
                         val dropdownContainerColor by animateColorAsState(
                             targetValue = if (isChangelogExpanded) {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            } else {
                                 MaterialTheme.colorScheme.surfaceContainerHighest
-                            },
-                            animationSpec = tween(durationMillis = 420, easing = MinimalSlowEasing),
-                            label = "DropdownPillColor"
-                        )
-                        val dropdownContentColor by animateColorAsState(
-                            targetValue = if (isChangelogExpanded) {
-                                MaterialTheme.colorScheme.onSecondaryContainer
                             } else {
-                                MaterialTheme.colorScheme.onSurface
+                                MaterialTheme.colorScheme.surfaceContainerHigh
                             },
-                            animationSpec = tween(durationMillis = 420, easing = MinimalSlowEasing),
-                            label = "DropdownContentColor"
+                            animationSpec = tween(durationMillis = 460, easing = MinimalSlowEasing),
+                            label = "DropdownPillColor"
                         )
 
                         Surface(
-                            shape = CircleShape,
+                            shape = softPillShape,
                             color = dropdownContainerColor,
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(CircleShape)
+                                .height(44.dp)
+                                .clip(softPillShape)
                                 .clickable { isChangelogExpanded = !isChangelogExpanded }
                         ) {
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 11.dp),
+                                    .fillMaxSize()
+                                    .padding(horizontal = 18.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = if (isChangelogExpanded) {
-                                            MaterialTheme.colorScheme.onSecondaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.primary
-                                        },
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = "What changed on $cleanVersion",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = dropdownContentColor,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
+                                Text(
+                                    text = "What's new",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
 
                                 Icon(
                                     imageVector = Icons.Rounded.KeyboardArrowDown,
                                     contentDescription = if (isChangelogExpanded) "Hide changelog" else "Show changelog",
-                                    tint = dropdownContentColor.copy(alpha = 0.8f),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
                                         .size(20.dp)
                                         .graphicsLayer { rotationZ = arrowRotation }
@@ -472,7 +444,7 @@ fun UpdateNotificationSheet(
                         }
                     }
 
-                    // Expandable Changelog Card (Solid filled, no border, smooth top/bottom scroll fade)
+                    // Expandable Changelog Card
                     AnimatedVisibility(
                         visible = isChangelogExpanded,
                         enter = expandVertically(
@@ -502,15 +474,15 @@ fun UpdateNotificationSheet(
                             ) {
                                 Text(
                                     text = "What changed on $cleanVersion",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(max = if (isUpdateAvailable) 260.dp else 360.dp)
+                                        .heightIn(max = if (effectiveUpdateMode) 260.dp else 380.dp)
                                         .graphicsLayer {
                                             compositingStrategy = CompositingStrategy.Offscreen
                                         }
@@ -540,8 +512,8 @@ fun UpdateNotificationSheet(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // 3. "To Be Installed -" APK Card (No duplicate ABI text on right, no border)
-                if (isUpdateAvailable || downloadState !is InAppUpdater.GlobalDownloadState.Idle) {
+                // 3. "To Be Installed -" APK Card (Only shown when an update is available or actively downloading)
+                if (effectiveUpdateMode) {
                     val liveTotalBytes = when (val s = downloadState) {
                         is InAppUpdater.GlobalDownloadState.Downloading -> s.totalBytes
                         is InAppUpdater.GlobalDownloadState.Finished -> s.apkFile.length()
@@ -629,55 +601,53 @@ fun UpdateNotificationSheet(
                     Spacer(modifier = Modifier.height(18.dp))
                 }
 
-                // 4. Expressive Download / Single-Line Progress Pill & Secondary Filled Actions (No borders)
+                // 4. Action Area:
+                // - When effectiveUpdateMode is true: shows Download / Progress / Install, Migrate (if test), Open the web, Snooze
+                // - When effectiveUpdateMode is false (already updated, viewing changelog): shows no download/web/migrate buttons, just a clean Done pill
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .minimalAestheticReveal(actionsReveal.value, slideDp = 20f),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    ExpressiveUpdateActionArea(
-                        isUpdateAvailable = isUpdateAvailable,
-                        versionName = versionName,
-                        downloadUrl = resolvedDownloadUrl,
-                        apkName = resolvedApkName,
-                        changelog = resolvedChangelog,
-                        downloadState = downloadState,
-                        onFallbackConfirm = {
-                            onConfirmClick()
-                            smoothDismiss(null)
-                        },
-                        onAwesomeDismiss = {
-                            smoothDismiss(null)
-                        }
-                    )
+                    if (effectiveUpdateMode) {
+                        ExpressiveUpdateActionArea(
+                            versionName = versionName,
+                            downloadUrl = resolvedDownloadUrl,
+                            apkName = resolvedApkName,
+                            changelog = resolvedChangelog,
+                            downloadState = downloadState,
+                            onFallbackConfirm = {
+                                onConfirmClick()
+                                smoothDismiss(null)
+                            }
+                        )
 
-                    if (isTestBuild) {
-                        val migrateShape = AbsoluteSmoothCornerShape(28.dp, 60)
-                        Surface(
-                            shape = migrateShape,
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .clip(migrateShape)
-                                .clickable {
-                                    onMigrateClick()
-                                    smoothDismiss(null)
+                        if (isTestBuild) {
+                            val migrateShape = AbsoluteSmoothCornerShape(28.dp, 60)
+                            Surface(
+                                shape = migrateShape,
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .clip(migrateShape)
+                                    .clickable {
+                                        onMigrateClick()
+                                        smoothDismiss(null)
+                                    }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "Migrate to Stable Release",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
                                 }
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = "Migrate to Stable Release",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
                             }
                         }
-                    }
 
-                    if (isUpdateAvailable) {
                         val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
 
                         Surface(
@@ -726,11 +696,31 @@ fun UpdateNotificationSheet(
                                 }
                             }
                         }
+                    } else {
+                        val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
+                        Surface(
+                            shape = pillShape,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp)
+                                .clip(pillShape)
+                                .clickable { smoothDismiss(null) }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "Close",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // Minimal, Slow, Aesthetic Floating Monochrome Logo (Center -> Top-Left, Solid Filled, No Border)
+            // Minimal, Slow, Aesthetic Floating Monochrome Logo (Center -> Top-Left)
             if (logoFlightProgress.value < 0.985f) {
                 val flight = logoFlightProgress.value
                 val startSizePx = with(density) { 112.dp.toPx() }
@@ -763,7 +753,7 @@ fun UpdateNotificationSheet(
 
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier
                         .offset { IntOffset(topLeftX, topLeftY) }
                         .size(currentSizeDp)
@@ -792,14 +782,12 @@ fun UpdateNotificationSheet(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ExpressiveUpdateActionArea(
-    isUpdateAvailable: Boolean,
     versionName: String,
     downloadUrl: String?,
     apkName: String?,
     changelog: String?,
     downloadState: InAppUpdater.GlobalDownloadState,
-    onFallbackConfirm: () -> Unit,
-    onAwesomeDismiss: () -> Unit
+    onFallbackConfirm: () -> Unit
 ) {
     val context = LocalContext.current
     val uiPhase = remember(downloadState) {
@@ -840,15 +828,8 @@ private fun ExpressiveUpdateActionArea(
                 val pillShape = AbsoluteSmoothCornerShape(28.dp, 60)
                 val percentInt = (animatedProgress * 100f).roundToInt().coerceIn(0, 100)
 
-                val singleFillColor by animateColorAsState(
-                    targetValue = if (isPaused) {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.primaryContainer
-                    },
-                    animationSpec = tween(durationMillis = 400, easing = MinimalSlowEasing),
-                    label = "SingleProgressFillColor"
-                )
+                // Constant single fill color (never changes color when pausing/resuming)
+                val constantFillColor = MaterialTheme.colorScheme.surfaceContainerHighest
 
                 // Single horizontal line: [ Big Single-Color Fill Progress Pill ] [ Pause Circle ] [ Cancel Circle ]
                 Row(
@@ -871,7 +852,7 @@ private fun ExpressiveUpdateActionArea(
                                 modifier = Modifier
                                     .fillMaxHeight()
                                     .fillMaxWidth(fraction = fillFraction)
-                                    .background(singleFillColor)
+                                    .background(constantFillColor)
                             )
                         }
 
@@ -883,12 +864,12 @@ private fun ExpressiveUpdateActionArea(
                         ) {
                             Text(
                                 text = if (isPaused) {
-                                    "Paused... $percentInt%"
+                                    "Paused · $percentInt%"
                                 } else {
                                     "Downloading... $percentInt%"
                                 },
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -896,10 +877,10 @@ private fun ExpressiveUpdateActionArea(
                         }
                     }
 
-                    // Pause / Resume Circle Button (Filled, no border)
+                    // Pause / Resume Circle Button (Constant soft fill, smooth icon transition)
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         modifier = Modifier
                             .size(58.dp)
                             .clip(CircleShape)
@@ -912,16 +893,22 @@ private fun ExpressiveUpdateActionArea(
                             }
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = if (isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
-                                contentDescription = if (isPaused) "Resume" else "Pause",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            Crossfade(
+                                targetState = isPaused,
+                                animationSpec = tween(durationMillis = 280, easing = MinimalSlowEasing),
+                                label = "PauseResumeIconCrossfade"
+                            ) { paused ->
+                                Icon(
+                                    imageVector = if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                                    contentDescription = if (paused) "Resume" else "Pause",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
                     }
 
-                    // Cancel Circle Button (Filled, no border)
+                    // Cancel Circle Button
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -1091,21 +1078,17 @@ private fun ExpressiveUpdateActionArea(
 
                 Button(
                     onClick = {
-                        if (isUpdateAvailable) {
-                            if (!downloadUrl.isNullOrBlank()) {
-                                InAppUpdater.createNotificationChannel(context.applicationContext)
-                                InAppUpdater.startOrResumeDownload(
-                                    context = context.applicationContext,
-                                    url = downloadUrl,
-                                    versionName = versionName,
-                                    apkName = apkName,
-                                    changelog = changelog
-                                )
-                            } else {
-                                onFallbackConfirm()
-                            }
+                        if (!downloadUrl.isNullOrBlank()) {
+                            InAppUpdater.createNotificationChannel(context.applicationContext)
+                            InAppUpdater.startOrResumeDownload(
+                                context = context.applicationContext,
+                                url = downloadUrl,
+                                versionName = versionName,
+                                apkName = apkName,
+                                changelog = changelog
+                            )
                         } else {
-                            onAwesomeDismiss()
+                            onFallbackConfirm()
                         }
                     },
                     modifier = Modifier
@@ -1129,14 +1112,14 @@ private fun ExpressiveUpdateActionArea(
                     }
                 ) {
                     Icon(
-                        imageVector = if (isUpdateAvailable) Icons.Rounded.Download else Icons.Rounded.Check,
+                        imageVector = Icons.Rounded.Download,
                         contentDescription = null,
                         tint = buttonContentColor,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = if (isUpdateAvailable) "Download Update" else "Awesome",
+                        text = "Download Update",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = buttonContentColor
