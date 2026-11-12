@@ -22,15 +22,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -111,7 +105,7 @@ fun EqualizerTypeSelector(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (selectedType == EqualizerType.IN_APP) Icons.Rounded.GraphicEq else Icons.Rounded.Tune,
+                        painter = painterResource(if (selectedType == EqualizerType.IN_APP) R.drawable.rounded_graphic_eq_24 else R.drawable.rounded_tune_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(20.dp)
@@ -142,7 +136,7 @@ fun EqualizerTypeSelector(
                     icon = {
                         SegmentedButtonDefaults.Icon(active = selectedType == EqualizerType.IN_APP) {
                             Icon(
-                                imageVector = Icons.Rounded.GraphicEq,
+                                painter = painterResource(R.drawable.rounded_graphic_eq_24),
                                 contentDescription = null,
                                 modifier = Modifier.size(SegmentedButtonDefaults.IconSize)
                             )
@@ -159,7 +153,7 @@ fun EqualizerTypeSelector(
                     icon = {
                         SegmentedButtonDefaults.Icon(active = selectedType == EqualizerType.SYSTEM) {
                             Icon(
-                                imageVector = Icons.Rounded.Tune,
+                                painter = painterResource(R.drawable.rounded_tune_24),
                                 contentDescription = null,
                                 modifier = Modifier.size(SegmentedButtonDefaults.IconSize)
                             )
@@ -359,7 +353,7 @@ fun CustomPresetsSheet(
 
                                 IconButton(onClick = { onPinToggled(preset) }) {
                                     Icon(
-                                        imageVector = if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                        painter = painterResource(R.drawable.rounded_push_pin_24),
                                         contentDescription = if (isPinned) "Unpin preset" else "Pin preset",
                                         tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -375,7 +369,7 @@ fun CustomPresetsSheet(
 
                                 IconButton(onClick = { onDelete(preset) }) {
                                     Icon(
-                                        imageVector = Icons.Rounded.DeleteOutline,
+                                        painter = painterResource(R.drawable.rounded_delete_outline_24),
                                         contentDescription = "Delete preset",
                                         tint = MaterialTheme.colorScheme.error
                                     )
@@ -496,7 +490,7 @@ fun ReorderPresetsSheet(
                                 }
                             ) {
                                 Icon(
-                                    imageVector = if (isVisible) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                                    painter = painterResource(if (isVisible) R.drawable.rounded_visibility_24 else R.drawable.rounded_visibility_off_24),
                                     contentDescription = if (isVisible) stringResource(R.string.presentation_batch_e_cd_visible) else stringResource(R.string.presentation_batch_e_cd_hidden),
                                     tint = if (isVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )

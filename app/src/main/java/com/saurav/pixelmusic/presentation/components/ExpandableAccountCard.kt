@@ -22,9 +22,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.automirrored.rounded.Logout
-import androidx.compose.material.icons.rounded.ManageAccounts
-import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,8 +39,7 @@ import coil.compose.AsyncImage
 import com.saurav.pixelmusic.presentation.viewmodel.SettingsUiState
 import com.saurav.pixelmusic.data.remote.youtube.MAX_YT_ACCOUNTS
 import com.saurav.pixelmusic.data.remote.youtube.YtAccount
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.SwapHoriz
+
 
 @Composable
 fun ExpandableAccountCard(
@@ -268,7 +266,7 @@ fun ExpandableAccountCard(
                                     )
                                 }
                                 Icon(
-                                    imageVector = if (account.isActive) Icons.Rounded.CheckCircle else Icons.Rounded.SwapHoriz,
+                                    painter = painterResource(if (account.isActive) R.drawable.rounded_check_circle_24 else R.drawable.rounded_swap_horiz_24),
                                     contentDescription = if (account.isActive) "Active account" else "Switch to this account",
                                     tint = if (account.isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(24.dp)
@@ -278,7 +276,7 @@ fun ExpandableAccountCard(
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.Logout,
+                                        painter = painterResource(R.drawable.rounded_logout_24),
                                         contentDescription = "Remove account",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(20.dp)
@@ -305,7 +303,7 @@ fun ExpandableAccountCard(
                                 modifier = Modifier.padding(16.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.PersonAdd,
+                                    painter = painterResource(R.drawable.rounded_person_add_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(24.dp)
@@ -336,7 +334,7 @@ fun ExpandableAccountCard(
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.ManageAccounts,
+                                painter = painterResource(R.drawable.rounded_manage_accounts_24),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(24.dp)

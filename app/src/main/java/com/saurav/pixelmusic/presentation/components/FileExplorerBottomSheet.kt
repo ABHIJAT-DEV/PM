@@ -37,13 +37,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Done
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -463,7 +461,7 @@ private fun ExplorerEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector = Icons.Rounded.FolderOff,
+            painter = painterResource(R.drawable.rounded_folder_off_24),
             contentDescription = null,
             tint = iconColor,
             modifier = Modifier.size(64.dp)
@@ -560,7 +558,7 @@ private fun FileExplorerItem(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.Folder,
+                painter = painterResource(R.drawable.rounded_folder_24),
                 contentDescription = null,
                 tint = contentColor
             )
@@ -609,7 +607,7 @@ private fun FileExplorerItem(
 
         if (navigationEnabled) {
             Icon(
-                imageVector = Icons.Rounded.ChevronRight,
+                painter = painterResource(R.drawable.rounded_chevron_right_24),
                 contentDescription = null,
                 tint = contentColor
             )
@@ -804,7 +802,7 @@ private fun FileExplorerHeader(
                             // Separador (Chevron)
                             if (!isLast) {
                                 Icon(
-                                    imageVector = Icons.Rounded.ChevronRight,
+                                    painter = painterResource(R.drawable.rounded_chevron_right_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 6.dp, end = 2.dp)

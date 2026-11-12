@@ -54,17 +54,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cast
-import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.rounded.Bluetooth
-import androidx.compose.material.icons.rounded.BluetoothDisabled
-import androidx.compose.material.icons.rounded.BatteryFull
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Speaker
-import androidx.compose.material.icons.rounded.Tv
-import androidx.compose.material.icons.rounded.Wifi
-import androidx.compose.material.icons.rounded.WifiOff
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.BottomSheetDefaults
@@ -297,10 +288,10 @@ fun CastBottomSheet(
             subtitle = stringResource(R.string.presentation_batch_g_cast_subtitle_session),
             isRemote = true,
             icon = when (remoteRoute.deviceType) {
-                MediaRouter.RouteInfo.DEVICE_TYPE_TV -> Icons.Rounded.Tv
-                MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER, MediaRouter.RouteInfo.DEVICE_TYPE_BUILTIN_SPEAKER -> Icons.Rounded.Speaker
-                MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH_A2DP -> Icons.Rounded.Bluetooth
-                else -> Icons.Filled.Cast
+                MediaRouter.RouteInfo.DEVICE_TYPE_TV -> ImageVector.vectorResource(R.drawable.rounded_tv_24)
+                MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER, MediaRouter.RouteInfo.DEVICE_TYPE_BUILTIN_SPEAKER -> ImageVector.vectorResource(R.drawable.rounded_speaker_24)
+                MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH_A2DP -> ImageVector.vectorResource(R.drawable.rounded_bluetooth_24)
+                else -> ImageVector.vectorResource(R.drawable.rounded_cast_24)
             },
             isConnecting = isCastConnecting,
             volume = routeVolume.toFloat().coerceAtLeast(0f),
@@ -314,7 +305,7 @@ fun CastBottomSheet(
             title = if (isBluetoothAudio) activeBluetoothName else stringResource(R.string.presentation_batch_g_cast_this_phone),
             subtitle = if (isBluetoothAudio) stringResource(R.string.presentation_batch_g_cast_bluetooth_audio) else stringResource(R.string.presentation_batch_g_cast_local_playback),
             isRemote = false,
-            icon = if (isBluetoothAudio) Icons.Rounded.Bluetooth else Icons.Rounded.Headphones,
+            icon = if (isBluetoothAudio) ImageVector.vectorResource(R.drawable.rounded_bluetooth_24) else ImageVector.vectorResource(R.drawable.rounded_headphones_24),
             isConnecting = false,
             volume = trackVolume,
             volumeRange = 0f..1f,
@@ -491,12 +482,12 @@ private fun CastPermissionStep(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 PermissionHighlight(
-                    icon = Icons.Rounded.Bluetooth,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_bluetooth_24),
                     title = stringResource(R.string.presentation_batch_g_cast_perm_nearby_title),
                     description = stringResource(R.string.presentation_batch_g_cast_perm_nearby_desc)
                 )
                 PermissionHighlight(
-                    icon = Icons.Rounded.Wifi,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_wifi_24),
                     title = stringResource(R.string.presentation_batch_g_cast_perm_location_title),
                     description = stringResource(R.string.presentation_batch_g_cast_perm_location_desc)
                 )
@@ -709,7 +700,7 @@ private fun CastSheetContent(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Rounded.Speaker,
+                        painter = painterResource(R.drawable.rounded_speaker_24),
                         contentDescription = stringResource(R.string.presentation_batch_g_cast_tab_controls),
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
@@ -735,7 +726,7 @@ private fun CastSheetContent(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Filled.Devices,
+                        painter = painterResource(R.drawable.rounded_devices_24),
                         contentDescription = stringResource(R.string.presentation_batch_g_cast_tab_devices),
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
@@ -1497,7 +1488,7 @@ private fun EmptyDeviceState() {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
-                imageVector = Icons.Filled.Devices,
+                painter = painterResource(R.drawable.rounded_devices_24),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(36.dp)
@@ -1551,10 +1542,10 @@ private fun CastDeviceRow(
     )
 
     val deviceIcon = when (device.deviceType) {
-        MediaRouter.RouteInfo.DEVICE_TYPE_TV -> Icons.Rounded.Tv
-        MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER, MediaRouter.RouteInfo.DEVICE_TYPE_BUILTIN_SPEAKER -> Icons.Rounded.Speaker
-        MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH_A2DP -> Icons.Rounded.Bluetooth
-        else -> Icons.Filled.Cast
+        MediaRouter.RouteInfo.DEVICE_TYPE_TV -> ImageVector.vectorResource(R.drawable.rounded_tv_24)
+        MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER, MediaRouter.RouteInfo.DEVICE_TYPE_BUILTIN_SPEAKER -> ImageVector.vectorResource(R.drawable.rounded_speaker_24)
+        MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH_A2DP -> ImageVector.vectorResource(R.drawable.rounded_bluetooth_24)
+        else -> ImageVector.vectorResource(R.drawable.rounded_cast_24)
     }
 
     Surface(
@@ -1685,7 +1676,7 @@ private fun BluetoothMetricIndicator(
     ) {
         if (batteryPercent != null) {
             Icon(
-                imageVector = Icons.Rounded.BatteryFull,
+                painter = painterResource(R.drawable.rounded_battery_full_24),
                 contentDescription = stringResource(R.string.presentation_batch_g_cast_cd_battery),
                 tint = contentColor,
                 modifier = Modifier.size(14.dp)
@@ -1764,7 +1755,7 @@ private fun QuickSettingsRow(
                 wifiConnected -> stringResource(R.string.presentation_batch_g_cast_wifi_connected)
                 else -> stringResource(R.string.presentation_batch_g_cast_wifi_on)
             },
-            icon = if (wifiOn) Icons.Rounded.Wifi else Icons.Rounded.WifiOff,
+            icon = if (wifiOn) ImageVector.vectorResource(R.drawable.rounded_wifi_24) else ImageVector.vectorResource(R.drawable.rounded_wifi_off_24),
             isActive = wifiOn,
             onClick = onWifiClick,
             modifier = Modifier.weight(1f)
@@ -1774,7 +1765,7 @@ private fun QuickSettingsRow(
             subtitle = if (bluetoothEnabled) {
                 if (!bluetoothName.isNullOrEmpty()) stringResource(R.string.presentation_batch_g_cast_bt_connected) else stringResource(R.string.presentation_batch_g_cast_bt_on)
             } else stringResource(R.string.presentation_batch_g_cast_bt_off),
-            icon = if (bluetoothEnabled) Icons.Rounded.Bluetooth else Icons.Rounded.BluetoothDisabled,
+            icon = if (bluetoothEnabled) ImageVector.vectorResource(R.drawable.rounded_bluetooth_24) else ImageVector.vectorResource(R.drawable.rounded_bluetooth_disabled_24),
             isActive = bluetoothEnabled,
             onClick = onBluetoothClick,
             modifier = Modifier.weight(1f)
@@ -1933,7 +1924,7 @@ private fun CastSheetScanningPreview() {
             title = "This phone",
             subtitle = "Local playback",
             isRemote = false,
-            icon = Icons.Rounded.Headphones,
+            icon = ImageVector.vectorResource(R.drawable.rounded_headphones_24),
             isConnecting = false,
             volume = 0.4f,
             volumeRange = 0f..1f,
@@ -1992,7 +1983,7 @@ private fun CastSheetDevicesPreview() {
             title = "Pixel Buds Pro",
             subtitle = "Connected via Bluetooth",
             isRemote = true,
-            icon = Icons.Rounded.Bluetooth,
+            icon = ImageVector.vectorResource(R.drawable.rounded_bluetooth_24),
             isConnecting = false,
             volume = 12f,
             volumeRange = 0f..25f,
@@ -2026,7 +2017,7 @@ private fun CastSheetWifiOffPreview() {
             title = "This phone",
             subtitle = "Local playback",
             isRemote = false,
-            icon = Icons.Rounded.Headphones,
+            icon = ImageVector.vectorResource(R.drawable.rounded_headphones_24),
             isConnecting = false,
             volume = 0.5f,
             volumeRange = 0f..1f,
