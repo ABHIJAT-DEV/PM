@@ -59,6 +59,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -889,7 +890,9 @@ fun FullPlayerContent(
             }
         },
         topBar = {
-            // MD3: TopAppBar 在竖屏时滑入，横屏时向上滑出淡出
+            // Reserve exact TopAppBar height for Scaffold paddingValues; the actual TopAppBar is
+            // drawn above AodScreen so it fades out/in smoothly over the morphing artwork instead
+            // of being covered by AodScreen and popping in after the return transition finishes.
             AnimatedVisibility(
                 visible = !isLandscape,
                 enter = fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
@@ -903,217 +906,11 @@ fun FullPlayerContent(
                            animationSpec = tween(220, easing = FastOutSlowInEasing)
                        )
             ) {
-                TopAppBar(
-                    modifier = Modifier.graphicsLayer {
-                        val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
-                        alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = LocalMaterialTheme.current.onPrimaryContainer,
-                    ),
-                    title = {
-                        if (!isCastConnecting && !isComplex) {
-                            AnimatedVisibility(visible = (!isRemotePlaybackActive)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        modifier = Modifier.padding(start = 18.dp),
-                                        text = stringResource(R.string.setcat_now_playing),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelLargeEmphasized,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-
-                                    if (currentSong != null && (currentSong.telegramChatId != null || currentSong.contentUriString.startsWith("telegram:"))) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.rounded_cloud_24),
-                                            contentDescription = stringResource(R.string.presentation_batch_g_player_cd_cloud_stream),
-                                            tint = LocalMaterialTheme.current.onPrimaryContainer.copy(alpha = 0.6f),
-                                            modifier = Modifier.padding(start = 8.dp).size(16.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    navigationIcon = {
-                        val collapseIconOffsetY = remember { Animatable(0f) }
-                        val collapseIconScale = remember { Animatable(1f) }
-                        val animateCollapseIcon: () -> Unit = {
-                            coroutineScope.launch {
-                                collapseIconOffsetY.snapTo(8f)
-                                collapseIconScale.snapTo(1.18f)
-                                launch {
-                                    collapseIconOffsetY.animateTo(
-                                        0f,
-                                        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-                                    )
-                                }
-                                launch {
-                                    collapseIconScale.animateTo(
-                                        1f,
-                                        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-                                    )
-                                }
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .width(56.dp)
-                                .height(48.dp),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(topBarButtonBg)
-                                    .clickable {
-                                        animateCollapseIcon()
-                                        onCollapse()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_keyboard_arrow_down_24),
-                                    contentDescription = stringResource(R.string.presentation_batch_g_player_cd_collapse),
-                                    tint = topBarIconColor,
-                                    modifier = Modifier.graphicsLayer {
-                                        translationY = collapseIconOffsetY.value
-                                        scaleX = collapseIconScale.value
-                                        scaleY = collapseIconScale.value
-                                    }
-                                )
-                            }
-                        }
-                    },
-                    actions = {
-                        val showCastLabel = isCastConnecting || (isRemotePlaybackActive && selectedRouteName != null)
-                        val isBluetoothActive =
-                            isBluetoothEnabled && !bluetoothName.isNullOrEmpty() && !isRemotePlaybackActive && !isCastConnecting
-                        val castIconPainter = when {
-                            isCastConnecting || isRemotePlaybackActive -> painterResource(R.drawable.rounded_cast_24)
-                            isBluetoothActive -> painterResource(R.drawable.rounded_bluetooth_24)
-                            else -> painterResource(R.drawable.rounded_mobile_speaker_24)
-                        }
-
-                        val topCastShape = remember {
-                            RoundedCornerShape(
-                                topStart = 50.dp, topEnd = 6.dp,
-                                bottomStart = 50.dp, bottomEnd = 6.dp
-                            )
-                        }
-                        val topLtShape = remember {
-                            RoundedCornerShape(
-                                topStart = 6.dp, topEnd = 6.dp,
-                                bottomStart = 6.dp, bottomEnd = 6.dp
-                            )
-                        }
-                        val topQueueShape = remember {
-                            RoundedCornerShape(
-                                topStart = 6.dp, topEnd = 50.dp,
-                                bottomStart = 6.dp, bottomEnd = 50.dp
-                            )
-                        }
-
-                        val ltUiState by playerViewModel.listenTogetherUiState.collectAsStateWithLifecycle()
-                        val ltActive = ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Hosting ||
-                            ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Guest
-
-                        Row(
-                            modifier = Modifier.padding(end = 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // 1. Output / Cast Button (Reversed D shape ᗡ)
-                            Box(
-                                modifier = Modifier
-                                    .height(48.dp)
-                                    .then(if (showCastLabel) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
-                                    .animateContentSize()
-                                    .clip(topCastShape)
-                                    .background(topBarButtonBg, topCastShape)
-                                    .clickable {
-                                        onShowCastClicked()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        painter = castIconPainter,
-                                        contentDescription = when {
-                                            isCastConnecting || isRemotePlaybackActive -> stringResource(R.string.presentation_batch_g_player_cd_cast)
-                                            isBluetoothActive -> stringResource(R.string.presentation_batch_g_player_cd_bluetooth)
-                                            else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
-                                        },
-                                        tint = topBarIconColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    AnimatedVisibility(visible = showCastLabel) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(
-                                                text = when {
-                                                    isCastConnecting -> stringResource(R.string.presentation_batch_g_player_connecting)
-                                                    isRemotePlaybackActive && selectedRouteName != null -> selectedRouteName
-                                                    else -> ""
-                                                },
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = topBarIconColor,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 2. Listen Together Button (Rounded Box shape ◼️)
-                            Box(
-                                modifier = Modifier
-                                    .height(48.dp)
-                                    .then(if (ltActive) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
-                                    .animateContentSize()
-                                    .clip(topLtShape)
-                                    .background(topBarButtonBg, topLtShape)
-                                    .clickable {
-                                        playerViewModel.openListenTogetherSheet()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_group_24),
-                                    contentDescription = stringResource(R.string.listen_together),
-                                    tint = topBarIconColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-
-                            // 3. Queue Button (D shape D)
-                            Box(
-                                modifier = Modifier
-                                    .size(width = 44.dp, height = 48.dp)
-                                    .clip(topQueueShape)
-                                    .background(topBarButtonBg, topQueueShape)
-                                    .clickable {
-                                        onShowQueueClicked()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_queue_music_24),
-                                    contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
-                                    tint = topBarIconColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(TopAppBarDefaults.windowInsets)
+                        .height(TopAppBarDefaults.TopAppBarExpandedHeight)
                 )
             }
         }
@@ -1517,6 +1314,234 @@ fun FullPlayerContent(
             aodStyle = aodScreenStyle,
             lyrics = playerState.lyrics,
             lyricsSyncOffsetMs = lyricsSyncOffset
+        )
+    }
+    // MD3: TopAppBar rendered above AodScreen so its fade-out/in stays visible over the morphing
+    // artwork during AOD enter/exit instead of popping in after AodScreen is removed.
+    AnimatedVisibility(
+        visible = !isLandscape,
+        enter = fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
+                slideInVertically(
+                    initialOffsetY = { -it / 2 },
+                    animationSpec = tween(350, easing = FastOutSlowInEasing)
+                ),
+        exit = fadeOut(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+               slideOutVertically(
+                   targetOffsetY = { -it / 2 },
+                   animationSpec = tween(220, easing = FastOutSlowInEasing)
+               )
+    ) {
+        TopAppBar(
+            modifier = Modifier.graphicsLayer {
+                val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                titleContentColor = LocalMaterialTheme.current.onPrimaryContainer,
+            ),
+            title = {
+                if (!isCastConnecting && !isComplex) {
+                    AnimatedVisibility(visible = (!isRemotePlaybackActive)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                modifier = Modifier.padding(start = 18.dp),
+                                text = stringResource(R.string.setcat_now_playing),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelLargeEmphasized,
+                                fontWeight = FontWeight.SemiBold
+                            )
+
+                            if (currentSong != null && (currentSong.telegramChatId != null || currentSong.contentUriString.startsWith("telegram:"))) {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_cloud_24),
+                                    contentDescription = stringResource(R.string.presentation_batch_g_player_cd_cloud_stream),
+                                    tint = LocalMaterialTheme.current.onPrimaryContainer.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(start = 8.dp).size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            navigationIcon = {
+                val collapseIconOffsetY = remember { Animatable(0f) }
+                val collapseIconScale = remember { Animatable(1f) }
+                val animateCollapseIcon: () -> Unit = {
+                    coroutineScope.launch {
+                        collapseIconOffsetY.snapTo(8f)
+                        collapseIconScale.snapTo(1.18f)
+                        launch {
+                            collapseIconOffsetY.animateTo(
+                                0f,
+                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                            )
+                        }
+                        launch {
+                            collapseIconScale.animateTo(
+                                1f,
+                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                            )
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(48.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(topBarButtonBg)
+                            .clickable(enabled = !aodVisible) {
+                                animateCollapseIcon()
+                                onCollapse()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_keyboard_arrow_down_24),
+                            contentDescription = stringResource(R.string.presentation_batch_g_player_cd_collapse),
+                            tint = topBarIconColor,
+                            modifier = Modifier.graphicsLayer {
+                                translationY = collapseIconOffsetY.value
+                                scaleX = collapseIconScale.value
+                                scaleY = collapseIconScale.value
+                            }
+                        )
+                    }
+                }
+            },
+            actions = {
+                val showCastLabel = isCastConnecting || (isRemotePlaybackActive && selectedRouteName != null)
+                val isBluetoothActive =
+                    isBluetoothEnabled && !bluetoothName.isNullOrEmpty() && !isRemotePlaybackActive && !isCastConnecting
+                val castIconPainter = when {
+                    isCastConnecting || isRemotePlaybackActive -> painterResource(R.drawable.rounded_cast_24)
+                    isBluetoothActive -> painterResource(R.drawable.rounded_bluetooth_24)
+                    else -> painterResource(R.drawable.rounded_mobile_speaker_24)
+                }
+
+                val topCastShape = remember {
+                    RoundedCornerShape(
+                        topStart = 50.dp, topEnd = 6.dp,
+                        bottomStart = 50.dp, bottomEnd = 6.dp
+                    )
+                }
+                val topLtShape = remember {
+                    RoundedCornerShape(
+                        topStart = 6.dp, topEnd = 6.dp,
+                        bottomStart = 6.dp, bottomEnd = 6.dp
+                    )
+                }
+                val topQueueShape = remember {
+                    RoundedCornerShape(
+                        topStart = 6.dp, topEnd = 50.dp,
+                        bottomStart = 6.dp, bottomEnd = 50.dp
+                    )
+                }
+
+                val ltUiState by playerViewModel.listenTogetherUiState.collectAsStateWithLifecycle()
+                val ltActive = ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Hosting ||
+                    ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Guest
+
+                Row(
+                    modifier = Modifier.padding(end = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 1. Output / Cast Button (Reversed D shape ᗡ)
+                    Box(
+                        modifier = Modifier
+                            .height(48.dp)
+                            .then(if (showCastLabel) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
+                            .animateContentSize()
+                            .clip(topCastShape)
+                            .background(topBarButtonBg, topCastShape)
+                            .clickable(enabled = !aodVisible) {
+                                onShowCastClicked()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = castIconPainter,
+                                contentDescription = when {
+                                    isCastConnecting || isRemotePlaybackActive -> stringResource(R.string.presentation_batch_g_player_cd_cast)
+                                    isBluetoothActive -> stringResource(R.string.presentation_batch_g_player_cd_bluetooth)
+                                    else -> stringResource(R.string.presentation_batch_g_player_cd_local_playback)
+                                },
+                                tint = topBarIconColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            AnimatedVisibility(visible = showCastLabel) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = when {
+                                            isCastConnecting -> stringResource(R.string.presentation_batch_g_player_connecting)
+                                            isRemotePlaybackActive && selectedRouteName != null -> selectedRouteName
+                                            else -> ""
+                                        },
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = topBarIconColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Listen Together Button (Rounded Box shape ◼️)
+                    Box(
+                        modifier = Modifier
+                            .height(48.dp)
+                            .then(if (ltActive) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
+                            .animateContentSize()
+                            .clip(topLtShape)
+                            .background(topBarButtonBg, topLtShape)
+                            .clickable(enabled = !aodVisible) {
+                                playerViewModel.openListenTogetherSheet()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_group_24),
+                            contentDescription = stringResource(R.string.listen_together),
+                            tint = topBarIconColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // 3. Queue Button (D shape D)
+                    Box(
+                        modifier = Modifier
+                            .size(width = 44.dp, height = 48.dp)
+                            .clip(topQueueShape)
+                            .background(topBarButtonBg, topQueueShape)
+                            .clickable(enabled = !aodVisible) {
+                                onShowQueueClicked()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_queue_music_24),
+                            contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
+                            tint = topBarIconColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
         )
     }
     AnimatedVisibility(
