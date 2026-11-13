@@ -32,8 +32,7 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -962,7 +961,7 @@ fun AodScreen(
             val now = Date()
             currentClockTime = timeFormatter.format(now)
             currentClockDate = dateFormatter.format(now)
-            delay(if (showLyricsMode && isPlaying) 32L else 150L)
+            delay(if (showLyricsMode && isPlaying) 50L else 150L)
         }
     }
 
@@ -1154,16 +1153,42 @@ fun AodScreen(
     val morphedTitleColor = lerp(baseTheme.onPrimaryContainer, titlePaletteColor, sizeT)
     val morphedArtistColor = lerp(baseTheme.onPrimaryContainer.copy(alpha = 0.76f), subtitlePaletteColor, sizeT)
 
+    val pageCornerDp = if (showLyricsMode) {
+        lerp(42f, 0f, smoothEnter).dp
+    } else {
+        lerp(36f, 0f, smoothEnter).dp
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .captureRootCoords(aodRootCoordsHolder)
+            .graphicsLayer {
+                if (showLyricsMode) {
+                    val pageScale = lerp(0.94f, 1f, smoothEnter)
+                    scaleX = pageScale
+                    scaleY = pageScale
+                    alpha = smoothEnter
+                }
+                if (pageCornerDp > 0.5.dp) {
+                    shape = RoundedCornerShape(pageCornerDp)
+                    clip = true
+                }
+            }
             .drawBehind {
                 val ep = enterProgressProvider().coerceIn(0f, 1f)
                 val sm = ep * ep * (3f - 2f * ep)
                 val bgAlpha = ((ep - 0.01f) / 0.88f).coerceIn(0f, 1f)
                 val bgColor = lerp(targetPalette.sourceBgColor, targetPalette.canvasColor, sm)
-                drawRect(bgColor.copy(alpha = bgAlpha))
+                val cornerPx = pageCornerDp.toPx()
+                if (cornerPx > 0.5f) {
+                    drawRoundRect(
+                        color = bgColor.copy(alpha = bgAlpha),
+                        cornerRadius = CornerRadius(cornerPx, cornerPx)
+                    )
+                } else {
+                    drawRect(bgColor.copy(alpha = bgAlpha))
+                }
             }
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -1800,11 +1825,12 @@ fun AodScreen(
         }
 
         // =====================================================================
-        // LAYER 3: iOS-Style Live Karaoke Line-by-Line Lyrics View (No Controls)
+        // LAYER 3: Smooth Line-by-Line AOD Lyrics View (No Controls)
         // =====================================================================
         if (lyricsModeProgress > 0.005f && syncedLines.isNotEmpty()) {
-            val lyricsEnterT = ((enterProgress - 0.16f) / 0.84f).coerceIn(0f, 1f)
+            val lyricsEnterT = ((enterProgress - 0.12f) / 0.88f).coerceIn(0f, 1f)
             val smoothLyricsEnter = lyricsEnterT * lyricsEnterT * (3f - 2f * lyricsEnterT)
+            val lyricsCornerDp = lerp(42f, 0f, smoothLyricsEnter).dp
             val effectivePositionMs = (positionMs + lyricsSyncOffsetMs.toLong()).coerceAtLeast(0L)
 
             AodLiveLyricsView(
@@ -1821,10 +1847,14 @@ fun AodScreen(
                     .graphicsLayer {
                         val combinedAlpha = smoothLyricsEnter * lyricsModeProgress
                         alpha = combinedAlpha
-                        val scale = lerp(0.93f, 1f, smoothLyricsEnter)
+                        val scale = lerp(0.97f, 1f, smoothLyricsEnter)
                         scaleX = scale
                         scaleY = scale
-                        translationY = (1f - smoothLyricsEnter) * 26.dp.toPx()
+                        translationY = (1f - smoothLyricsEnter) * 18.dp.toPx()
+                        if (lyricsCornerDp > 0.5.dp) {
+                            shape = RoundedCornerShape(lyricsCornerDp)
+                            clip = true
+                        }
                     }
             )
         }
@@ -1833,7 +1863,6 @@ fun AodScreen(
 
 private val IOSLyricsFluidEasing = CubicBezierEasing(0.16f, 1.0f, 0.30f, 1.0f)
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AodLiveLyricsView(
     syncedLines: List<SyncedLine>,
@@ -1863,7 +1892,7 @@ private fun AodLiveLyricsView(
         } else {
             scrollYAnim.animateTo(
                 targetValue = targetScrollY,
-                animationSpec = tween(durationMillis = 860, easing = IOSLyricsFluidEasing)
+                animationSpec = tween(durationMillis = 780, easing = IOSLyricsFluidEasing)
             )
         }
     }
@@ -1920,21 +1949,14 @@ private fun AodLiveLyricsView(
                 .clipToBounds(),
             content = {
                 syncedLines.forEachIndexed { index, line ->
-                    val nextLineTimeMs = if (index < syncedLines.lastIndex) {
-                        syncedLines[index + 1].time.toLong()
-                    } else {
-                        line.time.toLong() + 7000L
-                    }
                     val signedDistance = if (currentLineIndex >= 0) {
                         index - currentLineIndex
                     } else {
                         index
                     }
                     key("${line.time}_$index") {
-                        AodKaraokeLineItem(
+                        AodLineByLineItem(
                             line = line,
-                            nextLineTimeMs = nextLineTimeMs,
-                            effectivePositionMs = effectivePositionMs,
                             isCurrentLine = index == currentLineIndex,
                             signedDistance = signedDistance,
                             titleColor = titleColor,
@@ -2018,31 +2040,25 @@ private fun AodLiveLyricsView(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AodKaraokeLineItem(
+private fun AodLineByLineItem(
     line: SyncedLine,
-    nextLineTimeMs: Long,
-    effectivePositionMs: Long,
     isCurrentLine: Boolean,
     signedDistance: Int,
     titleColor: Color,
     accentColor: Color
 ) {
     val absDistance = abs(signedDistance)
-    val displayWords = remember(line, nextLineTimeMs) {
-        resolveDisplayWords(line, nextLineTimeMs)
-    }
 
     val targetScale = when {
         isCurrentLine -> 1.0f
-        absDistance == 1 -> 0.86f
-        absDistance == 2 -> 0.78f
-        else -> 0.72f
+        absDistance == 1 -> 0.88f
+        absDistance == 2 -> 0.80f
+        else -> 0.74f
     }
     val targetAlpha = when {
         isCurrentLine -> 1.0f
-        signedDistance == -1 -> 0.30f
+        signedDistance == -1 -> 0.32f
         signedDistance == 1 -> 0.48f
         absDistance == 2 -> 0.20f
         absDistance == 3 -> 0.08f
@@ -2050,9 +2066,9 @@ private fun AodKaraokeLineItem(
     }
     val targetBlurDp = when {
         isCurrentLine -> 0.dp
-        absDistance == 1 -> 1.5.dp
-        absDistance == 2 -> 3.4.dp
-        else -> 5.8.dp
+        absDistance == 1 -> 1.2.dp
+        absDistance == 2 -> 2.8.dp
+        else -> 5.0.dp
     }
     val targetWaveOffsetDp = when {
         isCurrentLine -> 0.dp
@@ -2062,31 +2078,41 @@ private fun AodKaraokeLineItem(
 
     val animatedScale by animateFloatAsState(
         targetValue = targetScale,
-        animationSpec = tween(durationMillis = 780, easing = IOSLyricsFluidEasing),
+        animationSpec = tween(durationMillis = 680, easing = IOSLyricsFluidEasing),
         label = "aodLineScale"
     )
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = tween(durationMillis = 720, easing = IOSLyricsFluidEasing),
+        animationSpec = tween(durationMillis = 620, easing = IOSLyricsFluidEasing),
         label = "aodLineAlpha"
     )
     val animatedBlurDp by animateDpAsState(
         targetValue = targetBlurDp,
-        animationSpec = tween(durationMillis = 720, easing = IOSLyricsFluidEasing),
+        animationSpec = tween(durationMillis = 640, easing = IOSLyricsFluidEasing),
         label = "aodLineBlur"
     )
     val animatedWaveOffsetDp by animateDpAsState(
         targetValue = targetWaveOffsetDp,
-        animationSpec = tween(durationMillis = 820, easing = IOSLyricsFluidEasing),
+        animationSpec = tween(durationMillis = 720, easing = IOSLyricsFluidEasing),
         label = "aodLineWaveOffset"
     )
 
     val activeHighlightColor = remember(titleColor, accentColor) {
         lerp(titleColor, accentColor, 0.22f)
     }
-    val unhighlightedWordColor = remember(titleColor, isCurrentLine) {
-        if (isCurrentLine) titleColor.copy(alpha = 0.34f) else titleColor.copy(alpha = 0.86f)
+    val targetLineColor = remember(isCurrentLine, signedDistance, activeHighlightColor, titleColor) {
+        when {
+            isCurrentLine -> activeHighlightColor
+            signedDistance < 0 -> titleColor.copy(alpha = 0.72f)
+            else -> titleColor.copy(alpha = 0.86f)
+        }
     }
+    val animatedLineColor by animateColorAsState(
+        targetValue = targetLineColor,
+        animationSpec = tween(durationMillis = 520, easing = IOSLyricsFluidEasing),
+        label = "aodLineColor"
+    )
+
     val lineTextStyle = remember {
         TextStyle(
             fontFamily = GoogleSansRounded,
@@ -2110,81 +2136,11 @@ private fun AodKaraokeLineItem(
             .then(if (animatedBlurDp > 0.1.dp) Modifier.blur(animatedBlurDp) else Modifier),
         horizontalAlignment = Alignment.Start
     ) {
-        if (displayWords.isEmpty()) {
-            Text(
-                text = line.line,
-                style = lineTextStyle,
-                color = if (isCurrentLine) activeHighlightColor else unhighlightedWordColor
-            )
-        } else {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                displayWords.forEachIndexed { wordIdx, item ->
-                    val rawWordProgress = when {
-                        !isCurrentLine -> if (signedDistance < 0) 1f else 0f
-                        effectivePositionMs >= item.endTimeMs -> 1f
-                        effectivePositionMs <= item.startTimeMs -> 0f
-                        else -> {
-                            val dur = (item.endTimeMs - item.startTimeMs).coerceAtLeast(1L)
-                            ((effectivePositionMs - item.startTimeMs).toFloat() / dur.toFloat()).coerceIn(0f, 1f)
-                        }
-                    }
-                    val isWordActive = isCurrentLine && effectivePositionMs in item.startTimeMs until item.endTimeMs
-                    val isWordSung = isCurrentLine && effectivePositionMs >= item.endTimeMs
-
-                    key("${line.time}_${item.startTimeMs}_$wordIdx") {
-                        val wordFillProgress by animateFloatAsState(
-                            targetValue = rawWordProgress,
-                            animationSpec = if (isCurrentLine) {
-                                tween(durationMillis = 85, easing = LinearEasing)
-                            } else {
-                                tween(durationMillis = 420, easing = IOSLyricsFluidEasing)
-                            },
-                            label = "aodKaraokeWordFill"
-                        )
-                        val wordLiftFraction by animateFloatAsState(
-                            targetValue = when {
-                                isWordActive -> 1f
-                                isWordSung -> 0.32f
-                                else -> 0f
-                            },
-                            animationSpec = tween(durationMillis = 420, easing = IOSLyricsFluidEasing),
-                            label = "aodKaraokeWordLift"
-                        )
-
-                        Box(
-                            modifier = Modifier.graphicsLayer {
-                                val s = 1f + 0.035f * wordLiftFraction
-                                scaleX = s
-                                scaleY = s
-                                translationY = -2.5.dp.toPx() * wordLiftFraction
-                            }
-                        ) {
-                            Text(
-                                text = item.word,
-                                style = lineTextStyle,
-                                color = unhighlightedWordColor
-                            )
-                            if (wordFillProgress > 0.001f) {
-                                Text(
-                                    text = item.word,
-                                    style = lineTextStyle,
-                                    color = if (isCurrentLine) activeHighlightColor else unhighlightedWordColor,
-                                    modifier = Modifier.drawWithContent {
-                                        clipRect(right = size.width * wordFillProgress.coerceIn(0f, 1f)) {
-                                            this@drawWithContent.drawContent()
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        Text(
+            text = line.line,
+            style = lineTextStyle,
+            color = animatedLineColor
+        )
 
         val translation = line.translation?.takeIf { it.isNotBlank() }
         if (translation != null) {
@@ -2197,7 +2153,7 @@ private fun AodKaraokeLineItem(
                     fontSize = 16.sp,
                     lineHeight = 22.sp
                 ),
-                color = (if (isCurrentLine) activeHighlightColor else unhighlightedWordColor).copy(alpha = 0.62f)
+                color = animatedLineColor.copy(alpha = 0.62f)
             )
         }
     }
