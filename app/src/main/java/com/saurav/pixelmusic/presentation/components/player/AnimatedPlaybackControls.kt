@@ -280,7 +280,7 @@ fun AnimatedPlaybackControls(
                 contentAlignment = Alignment.Center
             ) {
                 TransportSkipIcon(
-                    imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_previous_24),
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_previous_filled_24),
                     contentDescription = "Anterior",
                     targetTint = tintPreviousIcon,
                     sourceTint = sourceTintOtherIcons,
@@ -549,7 +549,7 @@ fun AnimatedPlaybackControls(
                 contentAlignment = Alignment.Center
             ) {
                 TransportSkipIcon(
-                    imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_next_24),
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_next_filled_24),
                     contentDescription = "Siguiente",
                     targetTint = tintNextIcon,
                     sourceTint = sourceTintOtherIcons,
@@ -687,7 +687,7 @@ private fun MorphingPlayPauseIcon(
         label = "playPauseCrossfade"
     ) { playing ->
         Icon(
-            imageVector = ImageVector.vectorResource(if (playing) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24),
+            imageVector = ImageVector.vectorResource(if (playing) R.drawable.rounded_pause_filled_24 else R.drawable.rounded_play_arrow_filled_24),
             contentDescription = if (playing) "Pausar" else "Reproducir",
             tint = effectiveTint,
             modifier = Modifier.size(size)

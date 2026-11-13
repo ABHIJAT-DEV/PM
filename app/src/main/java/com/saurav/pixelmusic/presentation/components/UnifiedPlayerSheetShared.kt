@@ -256,7 +256,7 @@ internal fun MiniPlayerContentInternal(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(R.drawable.rounded_skip_previous_24),
+                painter = painterResource(R.drawable.rounded_skip_previous_filled_24),
                 contentDescription = "Anterior",
                 tint = LocalMaterialTheme.current.primary,
                 modifier = Modifier.size(22.dp)
@@ -317,7 +317,7 @@ internal fun MiniPlayerContentInternal(
                 )
             } else {
                 Icon(
-                    painter = painterResource(if (isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24),
+                    painter = painterResource(if (isPlaying) R.drawable.rounded_pause_filled_24 else R.drawable.rounded_play_arrow_filled_24),
                     contentDescription = if (isPlaying) "Pausar" else "Reproducir",
                     tint = LocalMaterialTheme.current.onPrimary,
                     modifier = Modifier.size(22.dp)
@@ -368,7 +368,7 @@ internal fun MiniPlayerContentInternal(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(R.drawable.rounded_skip_next_24),
+                painter = painterResource(R.drawable.rounded_skip_next_filled_24),
                 contentDescription = "Siguiente",
                 tint = LocalMaterialTheme.current.primary,
                 modifier = Modifier.size(22.dp)

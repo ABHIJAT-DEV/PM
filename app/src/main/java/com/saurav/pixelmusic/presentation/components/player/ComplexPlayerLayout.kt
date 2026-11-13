@@ -1807,7 +1807,7 @@ private fun VerticalExpressiveControlStack(
             }
         ) {
             Icon(
-                painter = painterResource(R.drawable.rounded_skip_previous_24),
+                painter = painterResource(R.drawable.rounded_skip_previous_filled_24),
                 contentDescription = "Previous",
                 tint = onSkipContainerColor,
                 modifier = Modifier
@@ -1891,7 +1891,7 @@ private fun VerticalExpressiveControlStack(
                 ) { playing ->
                     Icon(
                         painter = painterResource(
-                            if (playing) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24
+                            if (playing) R.drawable.rounded_pause_filled_24 else R.drawable.rounded_play_arrow_filled_24
                         ),
                         contentDescription = if (playing) "Pause" else "Play",
                         tint = onPlayPauseContainerColor,
@@ -1942,7 +1942,7 @@ private fun VerticalExpressiveControlStack(
             }
         ) {
             Icon(
-                painter = painterResource(R.drawable.rounded_skip_next_24),
+                painter = painterResource(R.drawable.rounded_skip_next_filled_24),
                 contentDescription = "Next",
                 tint = onSkipContainerColor,
                 modifier = Modifier
@@ -2174,7 +2174,7 @@ internal fun MorphingTransportButtonsOverlay(
         endIconColor = targetSkipIconColor,
         startIconSize = 22.dp,
         endIconSize = targetSkipIconSize,
-        icon = ImageVector.vectorResource(R.drawable.rounded_skip_previous_24)
+        icon = ImageVector.vectorResource(R.drawable.rounded_skip_previous_filled_24)
     )
 
     MorphingSingleTransportButton(
@@ -2190,7 +2190,7 @@ internal fun MorphingTransportButtonsOverlay(
         endIconColor = targetPlayIconColor,
         startIconSize = 22.dp,
         endIconSize = targetPlayIconSize,
-        icon = ImageVector.vectorResource(if (isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24)
+        icon = ImageVector.vectorResource(if (isPlaying) R.drawable.rounded_pause_filled_24 else R.drawable.rounded_play_arrow_filled_24)
     )
 
     MorphingSingleTransportButton(
@@ -2206,7 +2206,7 @@ internal fun MorphingTransportButtonsOverlay(
         endIconColor = targetSkipIconColor,
         startIconSize = 22.dp,
         endIconSize = targetSkipIconSize,
-        icon = ImageVector.vectorResource(R.drawable.rounded_skip_next_24)
+        icon = ImageVector.vectorResource(R.drawable.rounded_skip_next_filled_24)
     )
 }
 

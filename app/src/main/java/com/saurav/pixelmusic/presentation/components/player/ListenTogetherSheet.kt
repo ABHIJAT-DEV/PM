@@ -1705,7 +1705,7 @@ private fun HostControlBar(
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.rounded_skip_previous_24),
+                        painter = painterResource(R.drawable.rounded_skip_previous_filled_24),
                         contentDescription = "Previous",
                         modifier = Modifier.size(26.dp)
                     )
@@ -1727,7 +1727,7 @@ private fun HostControlBar(
                     ) { playing ->
                         if (playing) {
                             Icon(
-                                painter = painterResource(R.drawable.rounded_pause_24),
+                                painter = painterResource(R.drawable.rounded_pause_filled_24),
                                 contentDescription = "Pause",
                                 modifier = Modifier.size(30.dp)
                             )
@@ -1748,7 +1748,7 @@ private fun HostControlBar(
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.rounded_skip_next_24),
+                        painter = painterResource(R.drawable.rounded_skip_next_filled_24),
                         contentDescription = "Next",
                         modifier = Modifier.size(26.dp)
                     )
