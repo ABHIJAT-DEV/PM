@@ -88,7 +88,18 @@ jobs:
         # startup overhead twice on every test build.
         # --no-daemon: CI runners are fresh VMs (no daemon reuse benefit), and this
         # bypasses the broken gradle-daemon-jvm.properties toolchain spec entirely.
-        run: ./gradlew :app:assembleRelease -PAPP_VERSION_NAME="test-build-${{ env.NEXT_NUM }}"
+        run: |
+          ./gradlew :app:assembleRelease -PAPP_VERSION_NAME="test-build-${{ env.NEXT_NUM }}" --profile
+          python3 - << 'PY' || true
+          import glob, re
+          files = sorted(glob.glob("build/reports/profile/profile-*.html"))
+          if files:
+              html = open(files[-1], encoding="utf-8", errors="ignore").read()
+              rows = re.findall(r'<tr>\s*<td[^>]*>(:[^<]+)</td>\s*<td[^>]*class="numeric"[^>]*>([^<]+)</td>', html)
+              print("=== TOP 15 SLOWEST GRADLE TASKS ===")
+              for task, dur in rows[:15]:
+                  print(f"  {dur:>10}  {task}")
+          PY
 
       - name: Prepare Release Notes
         run: |
