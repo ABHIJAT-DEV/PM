@@ -905,7 +905,7 @@ fun FullPlayerContent(
             ) {
                 TopAppBar(
                     modifier = Modifier.graphicsLayer {
-                        val aodFade = (1f - nowPlayingAodHideProvider() * 2.2f).coerceIn(0f, 1f)
+                        val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -1492,32 +1492,32 @@ fun FullPlayerContent(
                 }
             }
 
-            if (aodVisible) {
-                AodScreen(
-                    // Hide the AOD overlay in the exact draw frame the real Now Playing art/title/scrim flip
-                    // visible (same 0.001 threshold), so the two are never drawn on top of each other.
-                    modifier = Modifier.graphicsLayer {
-                        alpha = if (aodMorphAnim.value > 0.001f) 1f else 0f
-                    },
-                    songTitle = song.title,
-                    artistName = song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist,
-                    albumArtUriString = song.albumArtUriString,
-                    isPlayingProvider = isPlayingProvider,
-                    currentPositionProvider = currentPositionProvider,
-                    totalDurationProvider = totalDurationProvider,
-                    onPlayPauseClick = { playerViewModel.playPause() },
-                    onSkipNextClick = onNextWithOptimisticCarousel,
-                    onSkipPreviousClick = onPreviousWithOptimisticCarousel,
-                    onDismiss = { showAodScreen = false },
-                    onSeekTo = { playerViewModel.seekTo(it) },
-                    enterProgressProvider = aodTransitionProgressProvider,
-                    sourceBounds = aodSourceBounds,
-                    aodStyle = aodScreenStyle,
-                    lyrics = playerState.lyrics,
-                    lyricsSyncOffsetMs = lyricsSyncOffset
-                )
-            }
         }
+    }
+    if (aodVisible) {
+        AodScreen(
+            // Hide the AOD overlay in the exact draw frame the real Now Playing art/title/scrim flip
+            // visible (same 0.001 threshold), so the two are never drawn on top of each other.
+            modifier = Modifier.graphicsLayer {
+                alpha = if (aodMorphAnim.value > 0.001f) 1f else 0f
+            },
+            songTitle = song.title,
+            artistName = song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist,
+            albumArtUriString = song.albumArtUriString,
+            isPlayingProvider = isPlayingProvider,
+            currentPositionProvider = currentPositionProvider,
+            totalDurationProvider = totalDurationProvider,
+            onPlayPauseClick = { playerViewModel.playPause() },
+            onSkipNextClick = onNextWithOptimisticCarousel,
+            onSkipPreviousClick = onPreviousWithOptimisticCarousel,
+            onDismiss = { showAodScreen = false },
+            onSeekTo = { playerViewModel.seekTo(it) },
+            enterProgressProvider = aodTransitionProgressProvider,
+            sourceBounds = aodSourceBounds,
+            aodStyle = aodScreenStyle,
+            lyrics = playerState.lyrics,
+            lyricsSyncOffsetMs = lyricsSyncOffset
+        )
     }
     AnimatedVisibility(
         visible = showLyricsSheet,
