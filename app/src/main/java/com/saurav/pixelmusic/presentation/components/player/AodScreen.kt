@@ -12,10 +12,13 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -29,6 +32,8 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -51,7 +56,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -62,6 +69,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -106,8 +114,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.saurav.pixelmusic.data.model.Lyrics
+import com.saurav.pixelmusic.data.model.SyncedLine
+import com.saurav.pixelmusic.data.preferences.AodScreenStyle
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.SmartImage
+import com.saurav.pixelmusic.presentation.components.sanitizeLyricLineText
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -799,6 +811,9 @@ fun AodScreen(
     onSeekTo: (Long) -> Unit = {},
     enterProgressProvider: () -> Float = { 1f },
     sourceBounds: AodSourceBounds? = null,
+    aodStyle: AodScreenStyle = AodScreenStyle.DEFAULT,
+    lyrics: Lyrics? = null,
+    lyricsSyncOffsetMs: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -921,19 +936,33 @@ fun AodScreen(
 
     val isPlaying = isPlayingProvider()
 
+    val syncedLines = remember(lyrics) {
+        lyrics?.synced
+            ?.map { it.copy(line = sanitizeLyricLineText(it.line)) }
+            ?.filter { it.line.isNotBlank() }
+            .orEmpty()
+    }
+    val showLyricsMode = aodStyle == AodScreenStyle.LYRICS && syncedLines.isNotEmpty()
+    val lyricsModeProgress by animateFloatAsState(
+        targetValue = if (showLyricsMode) 1f else 0f,
+        animationSpec = tween(durationMillis = 720, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)),
+        label = "aodLyricsModeProgress"
+    )
+    val defaultModeAlpha = (1f - lyricsModeProgress).coerceIn(0f, 1f)
+
     var positionMs by remember { mutableLongStateOf(currentPositionProvider()) }
     val timeFormatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
     var currentClockTime by remember { mutableStateOf(timeFormatter.format(Date())) }
     var currentClockDate by remember { mutableStateOf(dateFormatter.format(Date())) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(showLyricsMode, isPlaying) {
         while (true) {
             positionMs = currentPositionProvider()
             val now = Date()
             currentClockTime = timeFormatter.format(now)
             currentClockDate = dateFormatter.format(now)
-            delay(150)
+            delay(if (showLyricsMode && isPlaying) 32L else 150L)
         }
     }
 
@@ -1150,11 +1179,13 @@ fun AodScreen(
         // =====================================================================
         // LAYER 1: Main Centered AOD Layout (Clock, Album Art Slot, Title, Seekbar, Controls)
         // =====================================================================
+        if (defaultModeAlpha > 0.005f) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer { alpha = defaultModeAlpha }
                 .padding(
                     top = (statusBarTopDp + 18.dp).coerceAtLeast(28.dp),
                     bottom = (navBarBottomDp + 20.dp).coerceAtLeast(24.dp),
@@ -1442,10 +1473,14 @@ fun AodScreen(
                 )
             }
         }
+        }
 
         // =====================================================================
         // LAYER 2: Morphing Album Art (Morphs from Now Playing bounds & shape -> AOD Expressive Shape)
         // =====================================================================
+        val lyricsArtDissolveAlpha = ((1f - enterProgress / 0.62f).coerceIn(0f, 1f))
+        val effectiveArtLayerAlpha = lerp(lyricsArtDissolveAlpha, 1f, defaultModeAlpha)
+        if (effectiveArtLayerAlpha > 0.005f) {
         Box(
             modifier = Modifier
                 .layout { measurable, _ ->
@@ -1495,8 +1530,10 @@ fun AodScreen(
                         aodArtSlotBounds.size.height.toFloat()
                     } else aodArtSizePx
 
-                    val curW = lerp(srcW, destW, sizeT).roundToInt().coerceAtLeast(1)
-                    val curH = lerp(srcH, destH, sizeT).roundToInt().coerceAtLeast(1)
+                    val effectiveSizeT = sizeT * defaultModeAlpha
+                    val effectivePosT = posT * defaultModeAlpha
+                    val curW = lerp(srcW, destW, effectiveSizeT).roundToInt().coerceAtLeast(1)
+                    val curH = lerp(srcH, destH, effectiveSizeT).roundToInt().coerceAtLeast(1)
 
                     val placeable = measurable.measure(Constraints.fixed(curW, curH))
                     layout(curW, curH) {
@@ -1508,19 +1545,23 @@ fun AodScreen(
                         val destY = if (aodArtSlotBounds.hasBounds) {
                             aodArtSlotBounds.offset.y
                         } else (screenHeightPx * 0.24f)
-                        val placeX = lerp(srcX, destX, posT).roundToInt()
-                        val placeY = lerp(srcY, destY, posT).roundToInt()
+                        val placeX = lerp(srcX, destX, effectivePosT).roundToInt()
+                        val placeY = lerp(srcY, destY, effectivePosT).roundToInt()
                         placeable.place(placeX, placeY)
                     }
                 }
                 .graphicsLayer {
-                    alpha = if (slotReady) 1f else 0f
+                    val baseReadyAlpha = if (slotReady || !showLyricsMode.not()) 1f else 0f
+                    alpha = baseReadyAlpha * effectiveArtLayerAlpha
                     val startScale = if (sourceArtStyle == AodSourceArtStyle.STANDARD_ROUNDED) artPlayingScale else 1f
-                    val effectiveScale = lerp(startScale, artPlayingScale, sizeT)
+                    val defaultScale = lerp(startScale, artPlayingScale, sizeT)
+                    val lyricsDissolveScale = lerp(1f, 0.90f, smoothEnter)
+                    val effectiveScale = lerp(lyricsDissolveScale, defaultScale, defaultModeAlpha)
                     scaleX = effectiveScale
                     scaleY = effectiveScale
                 }
-                .pointerInput(Unit) {
+                .pointerInput(showLyricsMode) {
+                    if (showLyricsMode) return@pointerInput
                     var lastTapTimeMs = 0L
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -1755,6 +1796,409 @@ fun AodScreen(
                     )
                 }
             }
+        }
+        }
+
+        // =====================================================================
+        // LAYER 3: iOS-Style Live Karaoke Line-by-Line Lyrics View (No Controls)
+        // =====================================================================
+        if (lyricsModeProgress > 0.005f && syncedLines.isNotEmpty()) {
+            val lyricsEnterT = ((enterProgress - 0.16f) / 0.84f).coerceIn(0f, 1f)
+            val smoothLyricsEnter = lyricsEnterT * lyricsEnterT * (3f - 2f * lyricsEnterT)
+            val effectivePositionMs = (positionMs + lyricsSyncOffsetMs.toLong()).coerceAtLeast(0L)
+
+            AodLiveLyricsView(
+                syncedLines = syncedLines,
+                effectivePositionMs = effectivePositionMs,
+                isPlaying = isPlaying,
+                titleColor = titlePaletteColor,
+                accentColor = accentColor,
+                glowColor = glowColor,
+                topInsetDp = (statusBarTopDp + 24.dp).coerceAtLeast(36.dp),
+                bottomInsetDp = (navBarBottomDp + 24.dp).coerceAtLeast(36.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val combinedAlpha = smoothLyricsEnter * lyricsModeProgress
+                        alpha = combinedAlpha
+                        val scale = lerp(0.93f, 1f, smoothLyricsEnter)
+                        scaleX = scale
+                        scaleY = scale
+                        translationY = (1f - smoothLyricsEnter) * 26.dp.toPx()
+                    }
+            )
+        }
+    }
+}
+
+private val IOSLyricsFluidEasing = CubicBezierEasing(0.16f, 1.0f, 0.30f, 1.0f)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AodLiveLyricsView(
+    syncedLines: List<SyncedLine>,
+    effectivePositionMs: Long,
+    isPlaying: Boolean,
+    titleColor: Color,
+    accentColor: Color,
+    glowColor: Color,
+    topInsetDp: Dp,
+    bottomInsetDp: Dp,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val currentLineIndex = remember(effectivePositionMs, syncedLines) {
+        syncedLines.indexOfLast { it.time.toLong() <= effectivePositionMs }
+    }
+    val activeAnchorIndex = currentLineIndex.coerceAtLeast(0)
+
+    val scrollYAnim = remember { Animatable(0f) }
+    var targetScrollY by remember { mutableFloatStateOf(0f) }
+    var hasAlignedInitialScroll by remember(syncedLines) { mutableStateOf(false) }
+
+    LaunchedEffect(targetScrollY, syncedLines) {
+        if (!hasAlignedInitialScroll) {
+            scrollYAnim.snapTo(targetScrollY)
+            hasAlignedInitialScroll = true
+        } else {
+            scrollYAnim.animateTo(
+                targetValue = targetScrollY,
+                animationSpec = tween(durationMillis = 860, easing = IOSLyricsFluidEasing)
+            )
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "aodLyricsAmbient")
+    val ambientScale by infiniteTransition.animateFloat(
+        initialValue = 0.92f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            tween(5400, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
+        label = "aodLyricsAmbientScale"
+    )
+    val ambientAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.08f,
+        targetValue = 0.16f,
+        animationSpec = infiniteRepeatable(
+            tween(4200, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
+        label = "aodLyricsAmbientAlpha"
+    )
+
+    val lineSpacingPx = with(density) { 28.dp.toPx().roundToInt() }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // Subtle AMOLED-safe ambient glow behind the focal lyric zone
+        Box(
+            modifier = Modifier
+                .requiredSize(420.dp)
+                .align(Alignment.Center)
+                .graphicsLayer {
+                    scaleX = ambientScale
+                    scaleY = ambientScale
+                    translationY = -48.dp.toPx()
+                    alpha = if (isPlaying) ambientAlpha else ambientAlpha * 0.5f
+                }
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor.copy(alpha = 0.55f),
+                            accentColor.copy(alpha = 0.18f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        Layout(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp)
+                .clipToBounds(),
+            content = {
+                syncedLines.forEachIndexed { index, line ->
+                    val nextLineTimeMs = if (index < syncedLines.lastIndex) {
+                        syncedLines[index + 1].time.toLong()
+                    } else {
+                        line.time.toLong() + 7000L
+                    }
+                    val signedDistance = if (currentLineIndex >= 0) {
+                        index - currentLineIndex
+                    } else {
+                        index
+                    }
+                    key("${line.time}_$index") {
+                        AodKaraokeLineItem(
+                            line = line,
+                            nextLineTimeMs = nextLineTimeMs,
+                            effectivePositionMs = effectivePositionMs,
+                            isCurrentLine = index == currentLineIndex,
+                            signedDistance = signedDistance,
+                            titleColor = titleColor,
+                            accentColor = accentColor
+                        )
+                    }
+                }
+            }
+        ) { measurables, constraints ->
+            val width = constraints.maxWidth
+            val height = constraints.maxHeight
+            val itemConstraints = constraints.copy(minWidth = width, maxWidth = width, minHeight = 0)
+            val placeables = measurables.map { it.measure(itemConstraints) }
+
+            val itemTops = IntArray(placeables.size)
+            val itemCenters = FloatArray(placeables.size)
+            var yCursor = 0
+            for (i in placeables.indices) {
+                itemTops[i] = yCursor
+                val h = placeables[i].height
+                itemCenters[i] = yCursor + h * 0.5f
+                yCursor += h + lineSpacingPx
+            }
+
+            if (placeables.isNotEmpty()) {
+                val safeIndex = activeAnchorIndex.coerceIn(0, placeables.lastIndex)
+                val focalY = height * 0.42f
+                val computedTarget = itemCenters[safeIndex] - focalY
+                if (abs(computedTarget - targetScrollY) > 0.5f || !hasAlignedInitialScroll) {
+                    targetScrollY = computedTarget
+                }
+            }
+
+            layout(width, height) {
+                val currentScroll = if (hasAlignedInitialScroll) {
+                    scrollYAnim.value.roundToInt()
+                } else {
+                    targetScrollY.roundToInt()
+                }
+                for (i in placeables.indices) {
+                    val p = placeables[i]
+                    val y = itemTops[i] - currentScroll
+                    if (y + p.height >= -lineSpacingPx * 2 && y <= height + lineSpacingPx * 2) {
+                        p.placeRelative(0, y)
+                    }
+                }
+            }
+        }
+
+        // Top & bottom smooth AMOLED black edge fades so lines glide cleanly in and out
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(topInsetDp + 84.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.Black,
+                            0.45f to Color.Black.copy(alpha = 0.82f),
+                            1.0f to Color.Transparent
+                        )
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(bottomInsetDp + 104.dp)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.Transparent,
+                            0.55f to Color.Black.copy(alpha = 0.82f),
+                            1.0f to Color.Black
+                        )
+                    )
+                )
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AodKaraokeLineItem(
+    line: SyncedLine,
+    nextLineTimeMs: Long,
+    effectivePositionMs: Long,
+    isCurrentLine: Boolean,
+    signedDistance: Int,
+    titleColor: Color,
+    accentColor: Color
+) {
+    val absDistance = abs(signedDistance)
+    val displayWords = remember(line, nextLineTimeMs) {
+        resolveDisplayWords(line, nextLineTimeMs)
+    }
+
+    val targetScale = when {
+        isCurrentLine -> 1.0f
+        absDistance == 1 -> 0.86f
+        absDistance == 2 -> 0.78f
+        else -> 0.72f
+    }
+    val targetAlpha = when {
+        isCurrentLine -> 1.0f
+        signedDistance == -1 -> 0.30f
+        signedDistance == 1 -> 0.48f
+        absDistance == 2 -> 0.20f
+        absDistance == 3 -> 0.08f
+        else -> 0.0f
+    }
+    val targetBlurDp = when {
+        isCurrentLine -> 0.dp
+        absDistance == 1 -> 1.5.dp
+        absDistance == 2 -> 3.4.dp
+        else -> 5.8.dp
+    }
+    val targetWaveOffsetDp = when {
+        isCurrentLine -> 0.dp
+        signedDistance < 0 -> (-4).dp
+        else -> 6.dp
+    }
+
+    val animatedScale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = tween(durationMillis = 780, easing = IOSLyricsFluidEasing),
+        label = "aodLineScale"
+    )
+    val animatedAlpha by animateFloatAsState(
+        targetValue = targetAlpha,
+        animationSpec = tween(durationMillis = 720, easing = IOSLyricsFluidEasing),
+        label = "aodLineAlpha"
+    )
+    val animatedBlurDp by animateDpAsState(
+        targetValue = targetBlurDp,
+        animationSpec = tween(durationMillis = 720, easing = IOSLyricsFluidEasing),
+        label = "aodLineBlur"
+    )
+    val animatedWaveOffsetDp by animateDpAsState(
+        targetValue = targetWaveOffsetDp,
+        animationSpec = tween(durationMillis = 820, easing = IOSLyricsFluidEasing),
+        label = "aodLineWaveOffset"
+    )
+
+    val activeHighlightColor = remember(titleColor, accentColor) {
+        lerp(titleColor, accentColor, 0.22f)
+    }
+    val unhighlightedWordColor = remember(titleColor, isCurrentLine) {
+        if (isCurrentLine) titleColor.copy(alpha = 0.34f) else titleColor.copy(alpha = 0.86f)
+    }
+    val lineTextStyle = remember {
+        TextStyle(
+            fontFamily = GoogleSansRounded,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 28.sp,
+            lineHeight = 36.sp,
+            letterSpacing = (-0.3).sp
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = animatedScale
+                scaleY = animatedScale
+                alpha = animatedAlpha
+                translationY = animatedWaveOffsetDp.toPx()
+                transformOrigin = TransformOrigin(0f, 0.5f)
+            }
+            .then(if (animatedBlurDp > 0.1.dp) Modifier.blur(animatedBlurDp) else Modifier),
+        horizontalAlignment = Alignment.Start
+    ) {
+        if (displayWords.isEmpty()) {
+            Text(
+                text = line.line,
+                style = lineTextStyle,
+                color = if (isCurrentLine) activeHighlightColor else unhighlightedWordColor
+            )
+        } else {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                displayWords.forEachIndexed { wordIdx, item ->
+                    val rawWordProgress = when {
+                        !isCurrentLine -> if (signedDistance < 0) 1f else 0f
+                        effectivePositionMs >= item.endTimeMs -> 1f
+                        effectivePositionMs <= item.startTimeMs -> 0f
+                        else -> {
+                            val dur = (item.endTimeMs - item.startTimeMs).coerceAtLeast(1L)
+                            ((effectivePositionMs - item.startTimeMs).toFloat() / dur.toFloat()).coerceIn(0f, 1f)
+                        }
+                    }
+                    val isWordActive = isCurrentLine && effectivePositionMs in item.startTimeMs until item.endTimeMs
+                    val isWordSung = isCurrentLine && effectivePositionMs >= item.endTimeMs
+
+                    key("${line.time}_${item.startTimeMs}_$wordIdx") {
+                        val wordFillProgress by animateFloatAsState(
+                            targetValue = rawWordProgress,
+                            animationSpec = if (isCurrentLine) {
+                                tween(durationMillis = 85, easing = LinearEasing)
+                            } else {
+                                tween(durationMillis = 420, easing = IOSLyricsFluidEasing)
+                            },
+                            label = "aodKaraokeWordFill"
+                        )
+                        val wordLiftFraction by animateFloatAsState(
+                            targetValue = when {
+                                isWordActive -> 1f
+                                isWordSung -> 0.32f
+                                else -> 0f
+                            },
+                            animationSpec = tween(durationMillis = 420, easing = IOSLyricsFluidEasing),
+                            label = "aodKaraokeWordLift"
+                        )
+
+                        Box(
+                            modifier = Modifier.graphicsLayer {
+                                val s = 1f + 0.035f * wordLiftFraction
+                                scaleX = s
+                                scaleY = s
+                                translationY = -2.5.dp.toPx() * wordLiftFraction
+                            }
+                        ) {
+                            Text(
+                                text = item.word,
+                                style = lineTextStyle,
+                                color = unhighlightedWordColor
+                            )
+                            if (wordFillProgress > 0.001f) {
+                                Text(
+                                    text = item.word,
+                                    style = lineTextStyle,
+                                    color = if (isCurrentLine) activeHighlightColor else unhighlightedWordColor,
+                                    modifier = Modifier.drawWithContent {
+                                        clipRect(right = size.width * wordFillProgress.coerceIn(0f, 1f)) {
+                                            this@drawWithContent.drawContent()
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        val translation = line.translation?.takeIf { it.isNotBlank() }
+        if (translation != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = translation,
+                style = TextStyle(
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp
+                ),
+                color = (if (isCurrentLine) activeHighlightColor else unhighlightedWordColor).copy(alpha = 0.62f)
+            )
         }
     }
 }

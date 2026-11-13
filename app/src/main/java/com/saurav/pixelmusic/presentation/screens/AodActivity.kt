@@ -148,6 +148,7 @@ class AodActivity : ComponentActivity() {
     private fun AodHost(viewModel: PlayerViewModel, onClose: () -> Unit) {
         val state by viewModel.stablePlayerState.collectAsStateWithLifecycle()
         val position by viewModel.currentPlaybackPosition.collectAsStateWithLifecycle()
+        val fullPlayerSlice by viewModel.fullPlayerSlice.collectAsStateWithLifecycle()
         val latestState by rememberUpdatedState(state)
         val latestPosition by rememberUpdatedState(position)
         val latestOnClose by rememberUpdatedState(onClose)
@@ -222,7 +223,10 @@ class AodActivity : ComponentActivity() {
                     onSkipNextClick = { viewModel.nextSong() },
                     onSkipPreviousClick = { viewModel.previousSong() },
                     onDismiss = onClose,
-                    onSeekTo = { viewModel.seekTo(it) }
+                    onSeekTo = { viewModel.seekTo(it) },
+                    aodStyle = fullPlayerSlice.aodScreenStyle,
+                    lyrics = state.lyrics,
+                    lyricsSyncOffsetMs = fullPlayerSlice.lyricsSyncOffset
                 )
             }
 

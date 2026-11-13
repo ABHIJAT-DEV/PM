@@ -190,6 +190,12 @@ enum class DynamicIslandStyle {
     ANIMATED_NOTES, PROGRESS_TIME, STATIC_ICON
 }
 
+enum class AodScreenStyle {
+    DISABLED,
+    DEFAULT,
+    LYRICS
+}
+
 enum class PlayerStreamClient {
     ANDROID_VR,
     WEB_REMIX,
@@ -347,6 +353,7 @@ constructor(
         val FOLDER_BACK_GESTURE_NAVIGATION = booleanPreferencesKey("folder_back_gesture_navigation")
         val USE_SMOOTH_CORNERS = booleanPreferencesKey("use_smooth_corners")
         val AOD_SCREEN_ENABLED = booleanPreferencesKey("aod_screen_enabled")
+        val AOD_SCREEN_STYLE = stringPreferencesKey("aod_screen_style")
         val KEEP_PLAYING_IN_BACKGROUND = booleanPreferencesKey("keep_playing_in_background")
         val IS_CROSSFADE_ENABLED = booleanPreferencesKey("is_crossfade_enabled")
         val CROSSFADE_ON_MANUAL_SKIP = booleanPreferencesKey("crossfade_on_manual_skip")
@@ -1443,10 +1450,25 @@ constructor(
                 preferences[PreferencesKeys.KEEP_PLAYING_IN_BACKGROUND] ?: true
             }
 
-    val aodScreenEnabledFlow: Flow<Boolean> =
+    val aodScreenStyleFlow: Flow<AodScreenStyle> =
             dataStore.data.map { preferences ->
-                preferences[PreferencesKeys.AOD_SCREEN_ENABLED] ?: true
-            }
+                val stored = preferences[PreferencesKeys.AOD_SCREEN_STYLE]
+                if (stored != null) {
+                    try {
+                        AodScreenStyle.valueOf(stored)
+                    } catch (_: Exception) {
+                        AodScreenStyle.DEFAULT
+                    }
+                } else {
+                    val legacyEnabled = preferences[PreferencesKeys.AOD_SCREEN_ENABLED] ?: true
+                    if (legacyEnabled) AodScreenStyle.DEFAULT else AodScreenStyle.DISABLED
+                }
+            }.distinctUntilChanged()
+
+    val aodScreenEnabledFlow: Flow<Boolean> =
+            aodScreenStyleFlow.map { style ->
+                style != AodScreenStyle.DISABLED
+            }.distinctUntilChanged()
         
 
     val disableCastAutoplayFlow: Flow<Boolean> =
@@ -1979,6 +2001,18 @@ constructor(
     suspend fun setAodScreenEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.AOD_SCREEN_ENABLED] = enabled
+            if (!enabled) {
+                preferences[PreferencesKeys.AOD_SCREEN_STYLE] = AodScreenStyle.DISABLED.name
+            } else if (preferences[PreferencesKeys.AOD_SCREEN_STYLE] == AodScreenStyle.DISABLED.name) {
+                preferences[PreferencesKeys.AOD_SCREEN_STYLE] = AodScreenStyle.DEFAULT.name
+            }
+        }
+    }
+
+    suspend fun setAodScreenStyle(style: AodScreenStyle) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AOD_SCREEN_STYLE] = style.name
+            preferences[PreferencesKeys.AOD_SCREEN_ENABLED] = (style != AodScreenStyle.DISABLED)
         }
     }
 

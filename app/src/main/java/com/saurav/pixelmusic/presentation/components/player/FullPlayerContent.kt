@@ -331,6 +331,7 @@ fun FullPlayerContent(
     // actually changed, batching multiple rapid updates into one recomposition.
     val fullPlayerSlice by playerViewModel.fullPlayerSlice.collectAsStateWithLifecycle()
     val aodScreenEnabled = fullPlayerSlice.aodScreenEnabled
+    val aodScreenStyle = fullPlayerSlice.aodScreenStyle
     val currentSongArtists = fullPlayerSlice.currentSongArtists
     val lyricsSyncOffset = fullPlayerSlice.lyricsSyncOffset
     val albumArtQuality = fullPlayerSlice.albumArtQuality
@@ -360,17 +361,23 @@ fun FullPlayerContent(
     var totalDrag by remember { mutableStateOf(0f) }
 
     LaunchedEffect(showAodScreen) {
-        val enterCurve = CubicBezierEasing(0.22f, 0.68f, 0.35f, 1f)
+        val isLyricsAod = aodScreenStyle == com.saurav.pixelmusic.data.preferences.AodScreenStyle.LYRICS &&
+            !playerState.lyrics?.synced.isNullOrEmpty()
+        val enterCurve = if (isLyricsAod) {
+            CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+        } else {
+            CubicBezierEasing(0.22f, 0.68f, 0.35f, 1f)
+        }
         val exitCurve = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
         if (showAodScreen) {
             aodMorphAnim.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 520, easing = enterCurve)
+                animationSpec = tween(durationMillis = if (isLyricsAod) 760 else 520, easing = enterCurve)
             )
         } else if (aodMorphAnim.value > 0f) {
             aodMorphAnim.animateTo(
                 targetValue = 0f,
-                animationSpec = tween(durationMillis = 400, easing = exitCurve)
+                animationSpec = tween(durationMillis = if (isLyricsAod) 560 else 400, easing = exitCurve)
             )
         }
     }
@@ -1498,7 +1505,10 @@ fun FullPlayerContent(
                     onDismiss = { showAodScreen = false },
                     onSeekTo = { playerViewModel.seekTo(it) },
                     enterProgressProvider = aodTransitionProgressProvider,
-                    sourceBounds = aodSourceBounds
+                    sourceBounds = aodSourceBounds,
+                    aodStyle = aodScreenStyle,
+                    lyrics = playerState.lyrics,
+                    lyricsSyncOffsetMs = lyricsSyncOffset
                 )
             }
         }

@@ -90,6 +90,7 @@ data class SettingsUiState(
     val launchTab: String = LaunchTab.HOME,
     val keepPlayingInBackground: Boolean = true,
     val aodScreenEnabled: Boolean = true,
+    val aodScreenStyle: com.saurav.pixelmusic.data.preferences.AodScreenStyle = com.saurav.pixelmusic.data.preferences.AodScreenStyle.DEFAULT,
     val disableCastAutoplay: Boolean = false,
     val resumeOnHeadsetReconnect: Boolean = false,
     val showQueueHistory: Boolean = true,
@@ -578,6 +579,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.dynamicIslandStyleFlow.collect { style ->
                 _uiState.update { it.copy(dynamicIslandStyle = style) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.aodScreenStyleFlow.collect { style ->
+                _uiState.update {
+                    it.copy(
+                        aodScreenStyle = style,
+                        aodScreenEnabled = style != com.saurav.pixelmusic.data.preferences.AodScreenStyle.DISABLED
+                    )
+                }
             }
         }
 
@@ -1452,6 +1464,12 @@ class SettingsViewModel @Inject constructor(
     fun setAodScreenEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setAodScreenEnabled(enabled)
+        }
+    }
+
+    fun setAodScreenStyle(style: com.saurav.pixelmusic.data.preferences.AodScreenStyle) {
+        viewModelScope.launch {
+            userPreferencesRepository.setAodScreenStyle(style)
         }
     }
 

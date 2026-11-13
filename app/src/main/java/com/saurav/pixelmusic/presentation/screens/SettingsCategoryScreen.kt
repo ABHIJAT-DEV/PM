@@ -1162,13 +1162,23 @@ fun SettingsCategoryScreen(
                                         }
                                     }
 
-                                    SwitchSettingItem(
-                                        title = "AOD Screen",
-                                        subtitle = "Long-press the album art in Now Playing for a glowing, AMOLED-friendly ambient view. On high-end devices it also appears over the lockscreen for 15 seconds when the screen turns off while music plays. Double-tap to exit.",
-                                        checked = uiState.aodScreenEnabled,
-                                        onCheckedChange = { enabled ->
-                                            settingsViewModel.setAodScreenEnabled(enabled)
-                                            if (enabled && android.os.Build.VERSION.SDK_INT >= 34) {
+                                    ThemeSelectorItem(
+                                        label = "AOD Screen",
+                                        description = "Long-press the album art in Now Playing for a glowing, AMOLED-friendly ambient view. On high-end devices it also appears over the lockscreen for 15 seconds when the screen turns off while music plays. Double-tap to exit.",
+                                        options = mapOf(
+                                            com.saurav.pixelmusic.data.preferences.AodScreenStyle.DISABLED.name to "Disabled",
+                                            com.saurav.pixelmusic.data.preferences.AodScreenStyle.DEFAULT.name to "Default style",
+                                            com.saurav.pixelmusic.data.preferences.AodScreenStyle.LYRICS.name to "Lyrics view"
+                                        ),
+                                        selectedKey = uiState.aodScreenStyle.name,
+                                        onSelectionChanged = { key ->
+                                            val selectedStyle = runCatching {
+                                                com.saurav.pixelmusic.data.preferences.AodScreenStyle.valueOf(key)
+                                            }.getOrDefault(com.saurav.pixelmusic.data.preferences.AodScreenStyle.DEFAULT)
+                                            settingsViewModel.setAodScreenStyle(selectedStyle)
+                                            if (selectedStyle != com.saurav.pixelmusic.data.preferences.AodScreenStyle.DISABLED &&
+                                                android.os.Build.VERSION.SDK_INT >= 34
+                                            ) {
                                                 try {
                                                     val nm = context.getSystemService(android.app.NotificationManager::class.java)
                                                     if (nm != null && !nm.canUseFullScreenIntent() && !Settings.canDrawOverlays(context)) {

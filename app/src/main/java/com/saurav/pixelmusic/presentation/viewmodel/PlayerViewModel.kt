@@ -788,6 +788,14 @@ class PlayerViewModel @Inject constructor(
     val aodScreenEnabled: StateFlow<Boolean> = userPreferencesRepository.aodScreenEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val aodScreenStyle: StateFlow<com.saurav.pixelmusic.data.preferences.AodScreenStyle> =
+        userPreferencesRepository.aodScreenStyleFlow
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                com.saurav.pixelmusic.data.preferences.AodScreenStyle.DEFAULT
+            )
+
     fun setLyricsSyncOffset(songId: String, offsetMs: Int) {
         lyricsStateHolder.setSyncOffset(songId, offsetMs)
     }
@@ -1951,7 +1959,9 @@ class PlayerViewModel @Inject constructor(
         val selectedRouteName: String? = null,
         val isBluetoothEnabled: Boolean = false,
         val bluetoothName: String? = null,
-        val aodScreenEnabled: Boolean = true
+        val aodScreenEnabled: Boolean = true,
+        val aodScreenStyle: com.saurav.pixelmusic.data.preferences.AodScreenStyle =
+            com.saurav.pixelmusic.data.preferences.AodScreenStyle.DEFAULT
     )
 
     // Intermediate combine #1: 5 settings flows
@@ -2006,8 +2016,8 @@ class PlayerViewModel @Inject constructor(
     val fullPlayerSlice: StateFlow<FullPlayerSlice> = combine(
         fullPlayerSlicePart1,
         fullPlayerSlicePart2,
-        aodScreenEnabled
-    ) { p1, p2, aodEnabled ->
+        aodScreenStyle
+    ) { p1, p2, aodStyle ->
             FullPlayerSlice(
             currentSongArtists = p1.currentSongArtists,
             lyricsSyncOffset = p1.lyricsSyncOffset,
@@ -2021,7 +2031,8 @@ class PlayerViewModel @Inject constructor(
             selectedRouteName = p2.selectedRouteName,
             isBluetoothEnabled = p2.isBluetoothEnabled,
             bluetoothName = p2.bluetoothName,
-            aodScreenEnabled = aodEnabled
+            aodScreenEnabled = aodStyle != com.saurav.pixelmusic.data.preferences.AodScreenStyle.DISABLED,
+            aodScreenStyle = aodStyle
         )
     }
         .distinctUntilChanged()
