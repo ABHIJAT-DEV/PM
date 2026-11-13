@@ -1,6 +1,7 @@
 package com.saurav.pixelmusic.presentation.components
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.MediumExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -122,9 +123,25 @@ fun PlaylistBottomSheet(
 
     val isAnyPlaylistSelected = selectedPlaylists.values.any { it }
 
-    val alpha by animateFloatAsState(
-        targetValue = if (isAnyPlaylistSelected) 1f else 0.4f,
-        label = "fab_alpha"
+    val fabContainerColor by animateColorAsState(
+        targetValue = if (isAnyPlaylistSelected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        label = "fab_container_color"
+    )
+    val fabContentColor by animateColorAsState(
+        targetValue = if (isAnyPlaylistSelected) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+        },
+        label = "fab_content_color"
+    )
+    val fabElevation by animateDpAsState(
+        targetValue = if (isAnyPlaylistSelected) 4.dp else 0.dp,
+        label = "fab_elevation"
     )
 
     SmoothModalBottomSheet(
@@ -244,11 +261,16 @@ fun PlaylistBottomSheet(
             MediumExtendedFloatingActionButton(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(bottom = 18.dp, end = 8.dp)
-                    .graphicsLayer {
-                        this.alpha = alpha
-                    },
+                    .padding(bottom = 18.dp, end = 8.dp),
                 shape = CircleShape,
+                containerColor = fabContainerColor,
+                contentColor = fabContentColor,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = fabElevation,
+                    pressedElevation = if (isAnyPlaylistSelected) 6.dp else 0.dp,
+                    focusedElevation = if (isAnyPlaylistSelected) 4.dp else 0.dp,
+                    hoveredElevation = if (isAnyPlaylistSelected) 4.dp else 0.dp
+                ),
                 onClick = {
                     if (!isAnyPlaylistSelected) return@MediumExtendedFloatingActionButton
 
