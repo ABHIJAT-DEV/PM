@@ -1164,11 +1164,11 @@ fun SettingsCategoryScreen(
 
                                     ThemeSelectorItem(
                                         label = "AOD Screen",
-                                        description = "Long-press the album art in Now Playing for a glowing, AMOLED-friendly ambient view. On high-end devices it also appears over the lockscreen for 15 seconds when the screen turns off while music plays. Double-tap to exit.",
+                                        description = "AMOLED ambient view via long-press on artwork or screen-off. Double-tap to exit.",
                                         options = mapOf(
                                             com.saurav.pixelmusic.data.preferences.AodScreenStyle.DISABLED.name to "Disabled",
-                                            com.saurav.pixelmusic.data.preferences.AodScreenStyle.DEFAULT.name to "Default style",
-                                            com.saurav.pixelmusic.data.preferences.AodScreenStyle.LYRICS.name to "Lyrics view"
+                                            com.saurav.pixelmusic.data.preferences.AodScreenStyle.DEFAULT.name to "Ambient Artwork",
+                                            com.saurav.pixelmusic.data.preferences.AodScreenStyle.LYRICS.name to "Live Lyrics"
                                         ),
                                         selectedKey = uiState.aodScreenStyle.name,
                                         onSelectionChanged = { key ->

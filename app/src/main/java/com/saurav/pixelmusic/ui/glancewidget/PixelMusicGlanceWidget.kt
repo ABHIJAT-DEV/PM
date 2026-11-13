@@ -1260,7 +1260,7 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
             contentAlignment = Alignment.Center
         ) {
             Image(
-                provider = ImageProvider(if (isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24),
+                provider = ImageProvider(if (isPlaying) R.drawable.rounded_pause_filled_24 else R.drawable.rounded_play_arrow_filled_24),
                 contentDescription = context.getString(if (isPlaying) R.string.cd_pause else R.string.cd_play),
                 modifier = GlanceModifier.size(iconSize),
                 colorFilter = ColorFilter.tint(iconColor)
@@ -1274,7 +1274,7 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         width: Dp? = null,
         height: Dp? = null,
         backgroundColor: ColorProvider = GlanceTheme.colors.surfaceVariant,
-        iconProvider: ImageProvider = ImageProvider(R.drawable.rounded_skip_next_24),
+        iconProvider: ImageProvider = ImageProvider(R.drawable.rounded_skip_next_filled_24),
         iconSize: Dp = 24.dp,
         iconColor: ColorProvider = GlanceTheme.colors.onSurfaceVariant,
         topLeftCorner: Dp = 8.dp,
@@ -1339,7 +1339,7 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
             contentAlignment = Alignment.Center
         ) {
             Image(
-                provider = ImageProvider(R.drawable.rounded_skip_next_24),
+                provider = ImageProvider(R.drawable.rounded_skip_next_filled_24),
                 contentDescription = context.getString(R.string.next_track),
                 modifier = GlanceModifier.size(iconSize),
                 colorFilter = ColorFilter.tint(iconColor)
@@ -1365,7 +1365,7 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
             contentAlignment = Alignment.Center
         ) {
             Image(
-                provider = ImageProvider(R.drawable.rounded_skip_previous_24),
+                provider = ImageProvider(R.drawable.rounded_skip_previous_filled_24),
                 contentDescription = context.getString(R.string.previous_track),
                 modifier = GlanceModifier.size(iconSize),
                 colorFilter = ColorFilter.tint(iconColor)

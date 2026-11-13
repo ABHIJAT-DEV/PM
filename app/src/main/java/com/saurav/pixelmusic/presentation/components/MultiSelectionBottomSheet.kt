@@ -238,7 +238,7 @@ fun MultiSelectionBottomSheet(
                             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp, pressedElevation = 4.dp),
                             shape = buttonShape,
                             icon = {
-                                Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.cd_play_all))
+                                Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = stringResource(R.string.cd_play_all))
                             },
                             text = {
                                 Text(

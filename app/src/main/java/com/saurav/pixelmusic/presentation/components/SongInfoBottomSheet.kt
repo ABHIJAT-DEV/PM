@@ -374,7 +374,7 @@ fun SongInfoBottomSheet(
                                                     elevation = FloatingActionButtonDefaults.elevation(0.dp),
                                                     shape = playButtonShape,
                                                     icon = {
-                                                        Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.cd_play_song_action))
+                                                        Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = stringResource(R.string.cd_play_song_action))
                                                     },
                                                     text = {
                                                         Text(

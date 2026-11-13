@@ -502,14 +502,14 @@ private fun ChartCardItem(
                     Box(contentAlignment = Alignment.Center) {
                         if (isPlayingThis) {
                             Icon(
-                                painter = painterResource(R.drawable.rounded_pause_24),
+                                painter = painterResource(R.drawable.rounded_pause_filled_24),
                                 contentDescription = "Pause",
                                 tint = colorScheme.onPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
+                                painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                                 contentDescription = "Play",
                                 tint = colorScheme.onPrimary,
                                 modifier = Modifier.size(20.dp)

@@ -51,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
@@ -397,7 +398,7 @@ private fun QuickPicksActions(
             elevation = ButtonDefaults.buttonElevation()
         ) {
             Icon(
-                imageVector = Icons.Rounded.PlayArrow,
+                painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                 contentDescription = null,
                 modifier = Modifier.size(ButtonDefaults.IconSize)
             )

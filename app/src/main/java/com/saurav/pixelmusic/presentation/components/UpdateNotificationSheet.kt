@@ -902,14 +902,14 @@ private fun ExpressiveUpdateActionArea(
                             ) { paused ->
                                 if (paused) {
                                     Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
+                                        painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                                         contentDescription = "Resume",
                                         tint = MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.size(22.dp)
                                     )
                                 } else {
                                     Icon(
-                                        painter = painterResource(R.drawable.rounded_pause_24),
+                                        painter = painterResource(R.drawable.rounded_pause_filled_24),
                                         contentDescription = "Pause",
                                         tint = MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.size(22.dp)

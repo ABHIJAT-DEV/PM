@@ -1048,7 +1048,7 @@ private fun CollapsibleAlbumSectionHeader(
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                 )
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.presentation_batch_d_cd_play_title, section.title))
+                Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = stringResource(R.string.presentation_batch_d_cd_play_title, section.title))
             }
             Icon(
                 painter = painterResource(R.drawable.rounded_expand_more_24),

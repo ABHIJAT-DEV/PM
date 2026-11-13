@@ -576,7 +576,7 @@ private fun RecentlyPlayedActions(
             elevation = ButtonDefaults.buttonElevation()
         ) {
             Icon(
-                imageVector = Icons.Rounded.PlayArrow,
+                painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                 contentDescription = null,
                 modifier = Modifier.size(ButtonDefaults.IconSize)
             )

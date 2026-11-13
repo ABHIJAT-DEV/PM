@@ -1166,7 +1166,7 @@ private fun ExploreHeroSpotlightPager(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
+                                    painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                                     contentDescription = null,
                                     tint = colorScheme.onPrimary,
                                     modifier = Modifier.size(18.dp)
@@ -1734,7 +1734,7 @@ private fun VideoShowcaseCarousel(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
+                                    painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                                     contentDescription = "Play Video",
                                     tint = colorScheme.onPrimary,
                                     modifier = Modifier.size(18.dp)
@@ -2340,7 +2340,7 @@ fun ExploreDiscoverCardsCarousel(
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
+                                        painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                                         contentDescription = "Play",
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -2631,7 +2631,7 @@ fun ExploreNostalgiaVinylCarousel(
                                             )
                                         } else {
                                             Icon(
-                                                imageVector = Icons.Rounded.PlayArrow,
+                                                painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                                                 contentDescription = "Play",
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -3190,13 +3190,13 @@ private fun SongBigBoxItem(
             ) {
                 if (isThisSongPlaying) {
                     Icon(
-                        painter = painterResource(R.drawable.rounded_pause_24),
+                        painter = painterResource(R.drawable.rounded_pause_filled_24),
                         contentDescription = "Pause",
                         modifier = Modifier.size(22.dp)
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
+                        painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                         contentDescription = "Play",
                         modifier = Modifier.size(22.dp)
                     )
@@ -3307,14 +3307,14 @@ fun MixedStationCarousel(
                             Box(contentAlignment = Alignment.Center) {
                                 if (isPlayingThis) {
                                     Icon(
-                                        painter = painterResource(R.drawable.rounded_pause_24),
+                                        painter = painterResource(R.drawable.rounded_pause_filled_24),
                                         contentDescription = "Pause",
                                         tint = colorScheme.onPrimary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
+                                        painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                                         contentDescription = "Play",
                                         tint = colorScheme.onPrimary,
                                         modifier = Modifier.size(20.dp)

@@ -131,7 +131,7 @@ fun AlbumMultiSelectionOptionSheet(
                 ),
                 icon = {
                     Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
+                        painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                         contentDescription = "Play selected albums"
                     )
                 },

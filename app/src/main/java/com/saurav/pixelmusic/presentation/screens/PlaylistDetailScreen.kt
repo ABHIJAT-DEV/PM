@@ -465,7 +465,7 @@ fun PlaylistDetailScreen(
                         elevation = ButtonDefaults.buttonElevation()
                     ) {
                         Icon(
-                            Icons.Rounded.PlayArrow,
+                            painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                             contentDescription = stringResource(R.string.cd_play),
                             modifier = Modifier.size(20.dp)
                         )

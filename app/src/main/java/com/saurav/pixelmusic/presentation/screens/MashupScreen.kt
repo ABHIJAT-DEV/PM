@@ -248,7 +248,7 @@ private fun DeckUi(
                 ) {
                     OutlinedButton(onClick = { onNudge(-100) }, enabled = deckState.song != null) { Text("<<", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     IconButton(onClick = onPlayPause, enabled = deckState.song != null, modifier = Modifier.size(56.dp)) {
-                        Icon(painter = painterResource(if (deckState.isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24), contentDescription = stringResource(R.string.mashup_cd_play_pause), modifier = Modifier.fillMaxSize())
+                        Icon(painter = painterResource(if (deckState.isPlaying) R.drawable.rounded_pause_filled_24 else R.drawable.rounded_play_arrow_filled_24), contentDescription = stringResource(R.string.mashup_cd_play_pause), modifier = Modifier.fillMaxSize())
                     }
                     OutlinedButton(onClick = { onNudge(100) }, enabled = deckState.song != null) { Text(">>", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }

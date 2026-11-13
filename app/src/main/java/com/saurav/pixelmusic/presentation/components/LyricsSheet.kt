@@ -959,14 +959,14 @@ fun LyricsSheet(
                             if (playing) {
                                 Icon(
                                     modifier = Modifier.size(32.dp),
-                                    painter = painterResource(R.drawable.rounded_pause_24),
+                                    painter = painterResource(R.drawable.rounded_pause_filled_24),
                                     contentDescription = "Pause",
                                     tint = onPlayPauseColor
                                 )
                             } else {
                                 Icon(
                                     modifier = Modifier.size(32.dp),
-                                    imageVector = Icons.Rounded.PlayArrow,
+                                    painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                                     contentDescription = stringResource(R.string.cd_play),
                                     tint = onPlayPauseColor
                                 )
@@ -1131,7 +1131,7 @@ fun LyricsSheet(
        if (isSwipeActive || swipeProgress.value > 0f) {
            val isNext = dragOffset < 0
            val overlayAlignment = if (isNext) Alignment.CenterEnd else Alignment.CenterStart
-           val icon = if (isNext) ImageVector.vectorResource(R.drawable.rounded_skip_next_24) else ImageVector.vectorResource(R.drawable.rounded_skip_previous_24)
+           val icon = if (isNext) ImageVector.vectorResource(R.drawable.rounded_skip_next_filled_24) else ImageVector.vectorResource(R.drawable.rounded_skip_previous_filled_24)
            
            Box(
                modifier = Modifier

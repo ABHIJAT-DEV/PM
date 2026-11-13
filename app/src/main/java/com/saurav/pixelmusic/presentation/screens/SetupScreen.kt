@@ -577,7 +577,7 @@ fun OverlayPermissionPage(
         R.drawable.rounded_music_note_24,
         R.drawable.rounded_search_24,
         R.drawable.rounded_album_24,
-        R.drawable.rounded_play_arrow_24,
+        R.drawable.rounded_play_arrow_filled_24,
         R.drawable.rounded_check_circle_24
     )
 
@@ -1106,10 +1106,10 @@ fun NotificationsPermissionPage(
     val permissionState = rememberMultiplePermissionsState(permissions = listOf(Manifest.permission.POST_NOTIFICATIONS))
     val notificationIcons = persistentListOf(
         R.drawable.rounded_circle_notifications_24,
-        R.drawable.rounded_skip_next_24,
-        R.drawable.rounded_play_arrow_24,
-        R.drawable.rounded_pause_24,
-        R.drawable.rounded_skip_previous_24
+        R.drawable.rounded_skip_next_filled_24,
+        R.drawable.rounded_play_arrow_filled_24,
+        R.drawable.rounded_pause_filled_24,
+        R.drawable.rounded_skip_previous_filled_24
     )
 
     val isGranted = uiState.notificationsPermissionGranted || permissionState.allPermissionsGranted
@@ -1870,9 +1870,9 @@ fun BatteryOptimizationPage(
     
     val batteryIcons = persistentListOf(
         R.drawable.rounded_music_note_24,
-        R.drawable.rounded_play_arrow_24,
+        R.drawable.rounded_play_arrow_filled_24,
         R.drawable.rounded_all_inclusive_24,
-        R.drawable.rounded_pause_24,
+        R.drawable.rounded_pause_filled_24,
         R.drawable.rounded_check_circle_24
     )
 

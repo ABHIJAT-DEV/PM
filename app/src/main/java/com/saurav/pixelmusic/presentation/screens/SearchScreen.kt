@@ -1589,7 +1589,7 @@ private fun SearchTopResultSpotlightCard(
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
+                    painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                     contentDescription = "Play $title",
                     modifier = Modifier.size(26.dp)
                 )
@@ -1669,7 +1669,7 @@ fun SearchResultAlbumItem(
                     contentColor = MaterialTheme.colorScheme.onSecondary
                 )
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.cd_play_album), modifier = Modifier.size(24.dp))
+                Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = stringResource(R.string.cd_play_album), modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -1748,7 +1748,7 @@ fun SearchResultArtistItem(
                     contentColor = MaterialTheme.colorScheme.onTertiary
                 )
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = "Play Artist", modifier = Modifier.size(24.dp))
+                Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = "Play Artist", modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -1817,7 +1817,7 @@ fun SearchResultPlaylistItem(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = "Play Playlist", modifier = Modifier.size(24.dp))
+                Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = "Play Playlist", modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -1901,7 +1901,7 @@ fun SwipeActionWrapper(
                 horizontalArrangement = Arrangement.Start
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
+                    painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
                     contentDescription = "Play Next",
                     tint = colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(24.dp)

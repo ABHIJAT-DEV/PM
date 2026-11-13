@@ -701,7 +701,7 @@ class PlaybackStateHolder @Inject constructor(
                                     if (consecutiveMismatchTicks < 2) {
                                         Timber.tag(TAG).v(
                                             "Resyncing local progress tick due media mismatch (visible=%s, player=%s)",
-                                            visibleSong?.id,
+                                            visibleSong.id,
                                             currentMediaId
                                         )
                                         delay(tickMs)

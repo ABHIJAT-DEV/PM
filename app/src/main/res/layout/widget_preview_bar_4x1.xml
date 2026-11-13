@@ -58,7 +58,7 @@
             android:background="@drawable/widget_button_secondary_background"
             android:contentDescription="Previous"
             android:padding="8dp"
-            android:src="@drawable/rounded_skip_previous_24"
+            android:src="@drawable/rounded_skip_previous_filled_24"
             app:tint="?android:attr/textColorSecondary" />
 
         <ImageView
@@ -68,7 +68,7 @@
             android:background="@drawable/widget_button_primary_background"
             android:contentDescription="Play/Pause"
             android:padding="8dp"
-            android:src="@drawable/rounded_pause_24"
+            android:src="@drawable/rounded_pause_filled_24"
             app:tint="?android:attr/colorBackground" />
 
         <ImageView
@@ -78,7 +78,7 @@
             android:background="@drawable/widget_button_secondary_background"
             android:contentDescription="Next"
             android:padding="8dp"
-            android:src="@drawable/rounded_skip_next_24"
+            android:src="@drawable/rounded_skip_next_filled_24"
             app:tint="?android:attr/textColorSecondary" />
     </LinearLayout>
 

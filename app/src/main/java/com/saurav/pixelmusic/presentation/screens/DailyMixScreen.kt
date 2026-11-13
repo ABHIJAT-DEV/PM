@@ -352,7 +352,7 @@ fun DailyMixScreen(
                             ),
                             elevation = ButtonDefaults.buttonElevation()
                         ) {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.cd_play), modifier = Modifier.size(
+                            Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = stringResource(R.string.cd_play), modifier = Modifier.size(
                                 ButtonDefaults.IconSize))
                             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                             Text(playItLabel)
