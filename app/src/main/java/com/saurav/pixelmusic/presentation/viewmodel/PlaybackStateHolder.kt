@@ -411,15 +411,19 @@ class PlaybackStateHolder @Inject constructor(
                 }
             }
         } else {
-            val controller = mediaController ?: return
-            if (!controller.isConnected) return
-            controller.sendCustomCommand(
-                androidx.media3.session.SessionCommand(
-                    MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE,
+            val controller = mediaController?.takeIf { it.isConnected }
+            if (controller != null) {
+                controller.sendCustomCommand(
+                    androidx.media3.session.SessionCommand(
+                        MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE,
+                        android.os.Bundle.EMPTY
+                    ),
                     android.os.Bundle.EMPTY
-                ),
-                android.os.Bundle.EMPTY
-            )
+                )
+            } else {
+                val player = runCatching { dualPlayerEngine.masterPlayer }.getOrNull() ?: return
+                if (player.isPlaying) player.pause() else player.play()
+            }
         }
     }
 
@@ -443,13 +447,15 @@ class PlaybackStateHolder @Inject constructor(
             remoteSeekUnlockJob?.cancel()
             castStateHolder.setRemotelySeeking(false)
             val targetPosition = position.coerceAtLeast(0L)
-            val currentMediaId = mediaController?.currentMediaItem?.mediaId
+            val controller = mediaController?.takeIf { it.isConnected }
+            val activePlayer: Player? = controller ?: runCatching { dualPlayerEngine.masterPlayer }.getOrNull()
+            val currentMediaId = activePlayer?.currentMediaItem?.mediaId
             rememberPausedPositionOverride(currentMediaId, targetPosition)
             // Mark the seek before dispatching so the engine's HAL-reset heuristic does
             // not misinterpret the resulting STATE_BUFFERING as an audio HAL underflow and
             // rebuild the players (which would race with the in-flight seek command).
             dualPlayerEngine.notifyExternalSeekInitiated()
-            mediaController?.seekTo(targetPosition)
+            activePlayer?.seekTo(targetPosition)
         }
     }
 
@@ -465,8 +471,8 @@ class PlaybackStateHolder @Inject constructor(
             castStateHolder.castPlayer?.previous()
             return
         }
-        val controller = mediaController ?: return
-        if (!controller.isConnected) return
+        val controller = mediaController?.takeIf { it.isConnected }
+        val activePlayer: Player = controller ?: (runCatching { dualPlayerEngine.masterPlayer }.getOrNull() ?: return)
 
         // BUG 4 FIX: Always navigate to the actual previously-played song from the
         // history stack instead of using ExoPlayer's seekToPrevious() which respects
@@ -487,22 +493,26 @@ class PlaybackStateHolder @Inject constructor(
                     val idx = currentQueueMediaIds.indexOf(targetMediaId)
                     if (idx >= 0) idx else null
                 } else {
-                    // Fallback: scan the MediaController timeline via Binder IPC.
-                    (0 until controller.mediaItemCount)
-                        .firstOrNull { controller.getMediaItemAt(it).mediaId == targetMediaId }
+                    // Fallback: scan the player timeline.
+                    (0 until activePlayer.mediaItemCount)
+                        .firstOrNull { activePlayer.getMediaItemAt(it).mediaId == targetMediaId }
                 }
                 if (targetIndex != null) {
-                    controller.seekTo(targetIndex, 0L)
+                    activePlayer.seekTo(targetIndex, 0L)
                     return
                 }
                 // Song no longer in the queue (was removed) — fall through to seekToPrevious
             }
         }
         // Fallback when history is too short or target not found in queue
-        controller.sendCustomCommand(
-            androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_PREVIOUS, android.os.Bundle.EMPTY),
-            android.os.Bundle.EMPTY
-        )
+        if (controller != null) {
+            controller.sendCustomCommand(
+                androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_PREVIOUS, android.os.Bundle.EMPTY),
+                android.os.Bundle.EMPTY
+            )
+        } else {
+            activePlayer.seekToPrevious()
+        }
     }
 
     fun nextSong() {
@@ -510,12 +520,15 @@ class PlaybackStateHolder @Inject constructor(
         if (castSession != null && castSession.remoteMediaClient != null) {
             castStateHolder.castPlayer?.next()
         } else {
-            val controller = mediaController ?: return
-            if (!controller.isConnected) return
-            controller.sendCustomCommand(
-                androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_NEXT, android.os.Bundle.EMPTY),
-                android.os.Bundle.EMPTY
-            )
+            val controller = mediaController?.takeIf { it.isConnected }
+            if (controller != null) {
+                controller.sendCustomCommand(
+                    androidx.media3.session.SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_SKIP_NEXT, android.os.Bundle.EMPTY),
+                    android.os.Bundle.EMPTY
+                )
+            } else {
+                runCatching { dualPlayerEngine.masterPlayer.seekToNext() }
+            }
         }
     }
 

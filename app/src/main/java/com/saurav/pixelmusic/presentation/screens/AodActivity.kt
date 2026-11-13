@@ -7,9 +7,9 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -38,12 +38,15 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.saurav.pixelmusic.data.preferences.AodScreenStyle
 import com.saurav.pixelmusic.data.preferences.ThemePreference
 import com.saurav.pixelmusic.data.preferences.ThemePreferencesRepository
+import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
 import com.saurav.pixelmusic.data.service.AodScreenOffTrigger
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.player.AodScreen
-import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
+import com.saurav.pixelmusic.presentation.viewmodel.LyricsStateHolder
+import com.saurav.pixelmusic.presentation.viewmodel.PlaybackStateHolder
 import com.saurav.pixelmusic.ui.theme.PixelMusicTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -63,7 +66,14 @@ class AodActivity : ComponentActivity() {
     @Inject
     lateinit var themePreferencesRepository: ThemePreferencesRepository
 
-    private val playerViewModel: PlayerViewModel by viewModels()
+    @Inject
+    lateinit var userPreferencesRepository: UserPreferencesRepository
+
+    @Inject
+    lateinit var playbackStateHolder: PlaybackStateHolder
+
+    @Inject
+    lateinit var lyricsStateHolder: LyricsStateHolder
 
     private var screenOffReceiverRegistered = false
     private val screenOffReceiver = object : BroadcastReceiver() {
@@ -99,10 +109,14 @@ class AodActivity : ComponentActivity() {
         ContextCompat.registerReceiver(
             this,
             screenOffReceiver,
-            IntentFilter(Intent.ACTION_SCREEN_OFF),
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_USER_PRESENT)
+            },
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
         screenOffReceiverRegistered = true
+        playbackStateHolder.startProgressUpdates()
 
         setContent {
             val colorPalette by themePreferencesRepository.colorPalettePreferenceFlow
@@ -120,9 +134,18 @@ class AodActivity : ComponentActivity() {
                 isAmoledBlack = true
             ) {
                 CompositionLocalProvider(LocalMaterialTheme provides MaterialTheme.colorScheme) {
-                    AodHost(viewModel = playerViewModel, onClose = { finish() })
+                    AodHost(onClose = { finish() })
                 }
             }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        val pm = getSystemService(PowerManager::class.java)
+        if (pm?.isInteractive == true && !isFinishing) {
+            AodScreenOffTrigger.markAodEnded()
+            finish()
         }
     }
 
@@ -145,10 +168,12 @@ class AodActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun AodHost(viewModel: PlayerViewModel, onClose: () -> Unit) {
-        val state by viewModel.stablePlayerState.collectAsStateWithLifecycle()
-        val position by viewModel.currentPlaybackPosition.collectAsStateWithLifecycle()
-        val fullPlayerSlice by viewModel.fullPlayerSlice.collectAsStateWithLifecycle()
+    private fun AodHost(onClose: () -> Unit) {
+        val state by playbackStateHolder.stablePlayerState.collectAsStateWithLifecycle()
+        val position by playbackStateHolder.currentPosition.collectAsStateWithLifecycle()
+        val aodStyle by userPreferencesRepository.aodScreenStyleFlow
+            .collectAsStateWithLifecycle(initialValue = AodScreenStyle.DEFAULT)
+        val lyricsSyncOffset by lyricsStateHolder.currentSongSyncOffset.collectAsStateWithLifecycle()
         val latestState by rememberUpdatedState(state)
         val latestPosition by rememberUpdatedState(position)
         val latestOnClose by rememberUpdatedState(onClose)
@@ -219,14 +244,14 @@ class AodActivity : ComponentActivity() {
                     isPlayingProvider = { latestState.isPlaying },
                     currentPositionProvider = { latestPosition },
                     totalDurationProvider = { latestState.totalDuration },
-                    onPlayPauseClick = { viewModel.playPause() },
-                    onSkipNextClick = { viewModel.nextSong() },
-                    onSkipPreviousClick = { viewModel.previousSong() },
+                    onPlayPauseClick = { playbackStateHolder.playPause() },
+                    onSkipNextClick = { playbackStateHolder.nextSong() },
+                    onSkipPreviousClick = { playbackStateHolder.previousSong() },
                     onDismiss = onClose,
-                    onSeekTo = { viewModel.seekTo(it) },
-                    aodStyle = fullPlayerSlice.aodScreenStyle,
+                    onSeekTo = { playbackStateHolder.seekTo(it) },
+                    aodStyle = aodStyle,
                     lyrics = state.lyrics,
-                    lyricsSyncOffsetMs = fullPlayerSlice.lyricsSyncOffset
+                    lyricsSyncOffsetMs = lyricsSyncOffset
                 )
             }
 

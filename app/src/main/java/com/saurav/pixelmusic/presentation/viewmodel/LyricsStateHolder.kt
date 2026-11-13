@@ -58,6 +58,7 @@ class LyricsStateHolder @Inject constructor(
 ) {
     private var scope: CoroutineScope? = null
     private var loadingJob: Job? = null
+    private var syncOffsetJob: Job? = null
     private var loadCallback: LyricsLoadCallback? = null
 
     // Sync offset per song in milliseconds
@@ -90,10 +91,13 @@ class LyricsStateHolder @Inject constructor(
         callback: LyricsLoadCallback,
         stablePlayerState: StateFlow<com.saurav.pixelmusic.presentation.viewmodel.StablePlayerState>
     ) {
+        val alreadyObservingOnSameScope = scope === coroutineScope && syncOffsetJob?.isActive == true
         scope = coroutineScope
         loadCallback = callback
+        if (alreadyObservingOnSameScope) return
 
-        coroutineScope.launch {
+        syncOffsetJob?.cancel()
+        syncOffsetJob = coroutineScope.launch {
             stablePlayerState
                 .map { it.currentSong?.id }
                 .distinctUntilChanged()
@@ -529,6 +533,8 @@ class LyricsStateHolder @Inject constructor(
 
     fun onCleared() {
         loadingJob?.cancel()
+        syncOffsetJob?.cancel()
+        syncOffsetJob = null
         scope = null
         loadCallback = null
     }

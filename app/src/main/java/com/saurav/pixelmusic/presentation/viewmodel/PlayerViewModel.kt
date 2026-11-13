@@ -327,6 +327,11 @@ class PlayerViewModel @Inject constructor(
     private val listenTogetherManager: ListenTogetherManager
 ) : ViewModel() {
 
+    companion object {
+        @Volatile
+        private var activeViewModelInstance: PlayerViewModel? = null
+    }
+
     /** MediaIds already retried via JioSaavn (prevents retry loops on persistent failures). */
     private val jioSaavnRetriedIds = mutableSetOf<String>()
     private val http403RetriedIds = mutableSetOf<String>()
@@ -1572,6 +1577,7 @@ class PlayerViewModel @Inject constructor(
     lateinit var imageCacheManager: com.saurav.pixelmusic.data.media.ImageCacheManager
 
     init {
+        activeViewModelInstance = this
         // Initialize helper classes with our coroutine scope
         listeningStatsTracker.initialize(viewModelScope)
         dailyMixStateHolder.initialize(viewModelScope)
@@ -2812,16 +2818,34 @@ class PlayerViewModel @Inject constructor(
     private var lastConnectionAttempt = 0L
 
     fun checkAndReconnectMediaController(action: (() -> Unit)? = null) {
+        activeViewModelInstance = this
+        playbackStateHolder.setOnMediaItemMismatchListener { player ->
+            syncDisplayedMediaItemIfChanged(player)
+        }
+        lyricsStateHolder.initialize(viewModelScope, lyricsLoadCallback, playbackStateHolder.stablePlayerState)
         val currentController = mediaController
         if (currentController != null && currentController.isConnected) {
+            if (playbackStateHolder.mediaController !== currentController) {
+                playbackStateHolder.setMediaController(currentController)
+            }
+            _isMediaControllerReady.value = true
             syncDisplayedMediaItemIfChanged(currentController)
             val currentPos = currentController.currentPosition.coerceAtLeast(0L)
             syncPlaybackPositionFromPlayer(currentController.currentMediaItem?.mediaId, currentPos)
+            val isCurrentlyBuffering = currentController.playbackState == Player.STATE_BUFFERING
+            if (!isCurrentlyBuffering) {
+                clearPreparingSongIfMatching(currentController.currentMediaItem?.mediaId)
+            }
             playbackStateHolder.updateStablePlayerState {
                 it.copy(
                     isPlaying = currentController.isPlaying,
-                    playWhenReady = currentController.playWhenReady
+                    playWhenReady = currentController.playWhenReady,
+                    isBuffering = isCurrentlyBuffering
                 )
+            }
+            val currentState = playbackStateHolder.stablePlayerState.value
+            if (currentState.currentSong != null && currentState.lyrics == null && !currentState.isLoadingLyrics) {
+                loadLyricsForCurrentSong()
             }
             startProgressUpdates()
             action?.invoke()
@@ -6456,17 +6480,22 @@ class PlayerViewModel @Inject constructor(
 
 
     override fun onCleared() {
-        dualPlayerEngine.removePlayerSwapListener(dualEngineSwapListener)
-        playbackStateHolder.setOnMediaItemMismatchListener(null)
+        val isActiveOwner = activeViewModelInstance === this
+        if (isActiveOwner) {
+            activeViewModelInstance = null
+        }
         dualPlayerEngine.removePlayerSwapListener(dualEngineSwapListener)
         dualPlayerEngine.removeTransitionDisplayPlayerListener(dualEngineDisplayListener)
         dualPlayerEngine.removeTransitionFinishedListener(dualEngineFinishedListener)
+        val controllerToRelease = mediaController
         mediaControllerPlaybackListener?.let { listener ->
-            mediaController?.removeListener(listener)
+            controllerToRelease?.removeListener(listener)
             mediaControllerPlaybackListener = null
         }
-        playbackStateHolder.setMediaController(null)
-        mediaController?.release()
+        if (isActiveOwner && playbackStateHolder.mediaController === controllerToRelease) {
+            playbackStateHolder.setMediaController(null)
+        }
+        controllerToRelease?.release()
         mediaController = null
         activeMediaControllerFuture?.let {
             androidx.media3.session.MediaController.releaseFuture(it)
@@ -6474,20 +6503,23 @@ class PlayerViewModel @Inject constructor(
         super.onCleared()
         remoteQueueLoadJob?.cancel()
         castSongUiSyncJob?.cancel()
-        stopProgressUpdates()
-        playbackStateHolder.onCleared()
-        dailyMixStateHolder.onCleared()
-        lyricsStateHolder.onCleared()
-        themeStateHolder.onCleared()
-        castTransferStateHolder.onCleared()
-        castStateHolder.onCleared()
-        searchStateHolder.onCleared()
-        aiStateHolder.onCleared()
-        libraryStateHolder.onCleared()
-        sleepTimerStateHolder.onCleared()
-        connectivityStateHolder.onCleared()
-        queueUndoStateHolder.onCleared()
-        playlistDismissUndoStateHolder.onCleared()
+        if (isActiveOwner) {
+            playbackStateHolder.setOnMediaItemMismatchListener(null)
+            stopProgressUpdates()
+            playbackStateHolder.onCleared()
+            dailyMixStateHolder.onCleared()
+            lyricsStateHolder.onCleared()
+            themeStateHolder.onCleared()
+            castTransferStateHolder.onCleared()
+            castStateHolder.onCleared()
+            searchStateHolder.onCleared()
+            aiStateHolder.onCleared()
+            libraryStateHolder.onCleared()
+            sleepTimerStateHolder.onCleared()
+            connectivityStateHolder.onCleared()
+            queueUndoStateHolder.onCleared()
+            playlistDismissUndoStateHolder.onCleared()
+        }
     }
 
     // Sleep Timer Control Functions - delegated to SleepTimerStateHolder

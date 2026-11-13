@@ -1667,11 +1667,6 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra("is_benchmark", false)) {
             // Benchmark mode no longer loads dummy data - uses real library data instead
         }
-
-        val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
-        mediaControllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
-        mediaControllerFuture?.addListener({
-        }, MoreExecutors.directExecutor())
     }
 
     override fun onStop() {
@@ -1679,11 +1674,13 @@ class MainActivity : ComponentActivity() {
         LogUtils.d(this, "onStop")
         mediaControllerFuture?.let {
             MediaController.releaseFuture(it)
+            mediaControllerFuture = null
         }
     }
 
     override fun onResume() {
         super.onResume()
+        playerViewModel.checkAndReconnectMediaController()
     }
 }
 

@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
@@ -66,6 +67,7 @@ object AodScreenOffTrigger {
     ) {
         if (receiver != null) return
         val app = context.applicationContext
+        val pm = app.getSystemService(PowerManager::class.java)
         val r = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 if (intent.action != Intent.ACTION_SCREEN_OFF) return
@@ -76,7 +78,7 @@ object AodScreenOffTrigger {
                     if (!enabled) return@launch
                     // Let the screen finish turning off before we ask for it to come back on.
                     delay(400L)
-                    if (isAodShowing || !isPlaying()) return@launch
+                    if (isAodShowing || !isPlaying() || pm?.isInteractive == true) return@launch
                     launchAod(app)
                 }
             }
