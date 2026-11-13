@@ -40,10 +40,12 @@ android {
 
     splits {
         abi {
-            isEnable = true
+            isEnable = enableAbiSplits
             reset()
-            include("armeabi-v7a", "arm64-v8a")
-            isUniversalApk = true
+            if (enableAbiSplits) {
+                include("arm64-v8a", "armeabi-v7a")
+                isUniversalApk = true
+            }
         }
     }
 
@@ -51,6 +53,18 @@ android {
         getByName("androidTest") {
             assets.directories.add(file("$projectDir/schemas").path)
         }
+    }
+
+    androidResources {
+        // Keep only the languages we actually ship. Without this the app picks up
+        // every locale our AndroidX dependencies carry, which bloats the APK and
+        // makes the system language picker offer languages we have no strings for.
+        localeFilters.addAll(
+            listOf(
+                "en", "ar", "de", "es", "fr", "in",
+                "it", "ko", "nb", "ru", "tr", "zh-rCN"
+            )
+        )
     }
 
     packaging {

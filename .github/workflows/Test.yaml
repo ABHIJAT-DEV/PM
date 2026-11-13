@@ -57,9 +57,7 @@ jobs:
           # 3. Change App Name to strictly "Test"
           sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Test<\/string>/g' app/src/main/res/values/strings.xml
 
-          # 4. Disable dexLayoutOptimization and R8 Full Mode for faster test builds
-          sed -i 's/dexLayoutOptimization = true/dexLayoutOptimization = false/' app/build.gradle.kts
-          echo "android.enableR8.fullMode=false" >> gradle.properties
+          # Keep R8 Full Mode and dexLayoutOptimization enabled (matching release & origin config)
 
       - name: Calculate Sequential Version
         run: |
