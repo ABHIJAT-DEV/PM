@@ -61,23 +61,21 @@ jobs:
 
       - name: Calculate Sequential Version
         run: |
-          # Fetch the latest release tag from the Test-px repository
-          LATEST_TAG=$(curl -s -H "Authorization: Bearer ${{ secrets.TEST_REPO_PAT }}" https://api.github.com/repos/Test-px/PixelMusic/releases?per_page=1 | jq -r '.[0].tag_name // empty')
-          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" == "null" ]; then
-            LATEST_TAG=$(curl -s -H "Authorization: Bearer ${{ secrets.TEST_REPO_PAT }}" https://api.github.com/repos/Test-px/PixelMusic/releases/latest | jq -r .tag_name)
-          fi
-          
-          # If no releases exist yet, start at 1. Otherwise, extract the number and add 1.
-          if [ "$LATEST_TAG" == "null" ] || [ -z "$LATEST_TAG" ]; then
+          # Fetch all recent releases and pick the highest numeric test-build-N tag
+          LAST_NUM=$(curl -s -H "Authorization: Bearer ${{ secrets.TEST_REPO_PAT }}" "https://api.github.com/repos/Test-px/PixelMusic/releases?per_page=100" \
+            | jq -r '.[].tag_name // empty' \
+            | grep -E '^test-build-[0-9]+$' \
+            | sed 's/[^0-9]*//g' \
+            | sort -nr \
+            | head -n 1)
+
+          if [ -z "$LAST_NUM" ]; then
             NEXT_NUM=1
           else
-            LAST_NUM=$(echo "$LATEST_TAG" | sed 's/[^0-9]*//g')
             NEXT_NUM=$((LAST_NUM + 1))
           fi
-          
-          echo "Next version will be test-build-$NEXT_NUM"
-          
-          # Save the new number to GitHub Environments so the next steps can use it
+
+          echo "Highest existing test build: ${LAST_NUM:-none}, next version: test-build-$NEXT_NUM"
           echo "NEXT_NUM=$NEXT_NUM" >> $GITHUB_ENV
 
       - name: Build Release APK

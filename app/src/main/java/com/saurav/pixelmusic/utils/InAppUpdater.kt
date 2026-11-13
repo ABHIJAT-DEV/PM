@@ -146,6 +146,8 @@ object InAppUpdater {
 
             val request = Request.Builder()
                 .url(targetUrl)
+                .cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
+                .header("Cache-Control", "no-cache")
                 .header("User-Agent", "PixelMusic/$currentVersion (Android)")
                 .header("Accept", "application/json")
                 .build()
