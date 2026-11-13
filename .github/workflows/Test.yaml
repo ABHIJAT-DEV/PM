@@ -63,7 +63,7 @@ jobs:
 
           # 5. Disable dexLayoutOptimization and R8 Full Mode for faster test builds
           sed -i 's/dexLayoutOptimization = true/dexLayoutOptimization = false/' app/build.gradle.kts
-          sed -i 's/proguard-android-optimize.txt/proguard-android.txt/' app/build.gradle.kts
+          echo "-dontoptimize" >> app/proguard-rules.pro
           echo "android.enableR8.fullMode=false" >> gradle.properties
 
       - name: Calculate Sequential Version
