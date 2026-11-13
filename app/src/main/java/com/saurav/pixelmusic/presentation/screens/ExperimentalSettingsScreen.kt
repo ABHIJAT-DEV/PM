@@ -37,7 +37,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.ui.res.painterResource
 import com.saurav.pixelmusic.utils.AndroidVersionCompat
 import androidx.compose.material3.Icon
@@ -214,7 +214,7 @@ fun ExperimentalSettingsScreen(
                             },
                             trailingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.KeyboardArrowRight,
+                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                     contentDescription = stringResource(R.string.cd_open),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

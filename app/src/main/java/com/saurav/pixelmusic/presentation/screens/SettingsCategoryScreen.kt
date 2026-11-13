@@ -75,7 +75,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
@@ -434,7 +434,7 @@ fun SettingsCategoryScreen(
                                             Icon(painterResource(R.drawable.rounded_folder_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = {
                                             showExplorerSheet = true
@@ -448,7 +448,7 @@ fun SettingsCategoryScreen(
                                             Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.ArtistSettings.route) }
                                     )
@@ -932,7 +932,7 @@ fun SettingsCategoryScreen(
                                             Icon(painterResource(R.drawable.rounded_style_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.PaletteStyle.route) }
                                     )
@@ -1862,7 +1862,7 @@ fun SettingsCategoryScreen(
                                             Icon(painterResource(R.drawable.rounded_science_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.Experimental.route) }
                                     )
@@ -1926,7 +1926,7 @@ fun SettingsCategoryScreen(
                                             Icon(painterResource(R.drawable.rounded_developer_board_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.DeviceCapabilities.route) }
                                     )
@@ -2007,7 +2007,7 @@ fun SettingsCategoryScreen(
                                             Icon(Icons.Outlined.Info, null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
-                                            Icon(Icons.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely("about") }
                                     )
@@ -2094,7 +2094,7 @@ fun SettingsCategoryScreen(
                                                 )
                                             } else {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.KeyboardArrowRight,
+                                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
