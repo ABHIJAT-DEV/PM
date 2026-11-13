@@ -355,6 +355,12 @@ fun FullPlayerContent(
     val aodMorphAnim = remember { Animatable(0f) }
     val aodSourceBounds = sharedAodSourceBounds ?: remember { AodSourceBounds() }
     val aodTransitionProgressProvider = remember(aodMorphAnim) { { aodMorphAnim.value } }
+    val isLyricsAodActive = aodScreenStyle == com.saurav.pixelmusic.data.preferences.AodScreenStyle.LYRICS &&
+        !playerState.lyrics?.synced.isNullOrEmpty()
+    val latestIsLyricsAod by rememberUpdatedState(isLyricsAodActive)
+    val nowPlayingAodHideProvider = remember(aodMorphAnim) {
+        { if (latestIsLyricsAod) 0f else aodMorphAnim.value }
+    }
     val aodVisible by remember {
         androidx.compose.runtime.derivedStateOf { showAodScreen || aodMorphAnim.value > 0.001f }
     }
@@ -674,7 +680,7 @@ fun FullPlayerContent(
                     scaleY = if (size.height > 0f) curH / size.height else 1f
                     translationX = (miniArtOffsetPx - destX) * (1f - s.posT)
                     translationY = (miniArtOffsetPx - destY) * (1f - s.posT)
-                    alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
+                    alpha = if (nowPlayingAodHideProvider() > 0.001f) 0f else 1f
                 }
         )
     }
@@ -701,7 +707,7 @@ fun FullPlayerContent(
             loadingTweaks = loadingTweaks,
             rootCoordsHolder = rootCoordsHolder,
             aodSourceBounds = aodSourceBounds,
-            aodTransitionProgressProvider = aodTransitionProgressProvider
+            aodTransitionProgressProvider = nowPlayingAodHideProvider
         )
     }
 
@@ -731,7 +737,7 @@ fun FullPlayerContent(
             rootCoordsHolder = rootCoordsHolder,
             containerWidthPxProvider = { rootCoordsHolder.widthPx },
             aodSourceBounds = aodSourceBounds,
-            aodTransitionProgressProvider = aodTransitionProgressProvider
+            aodTransitionProgressProvider = nowPlayingAodHideProvider
         )
     }
 
@@ -748,7 +754,7 @@ fun FullPlayerContent(
                 lyricsStyle = nowPlayingLyricsStyle,
                 onClick = onLyricsClick,
                 modifier = Modifier.graphicsLayer {
-                    val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                    val aodFade = (1f - nowPlayingAodHideProvider() * 2.2f).coerceIn(0f, 1f)
                     alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                 }
             )
@@ -805,7 +811,7 @@ fun FullPlayerContent(
             morphTracker = artworkMorphTracker,
             rootCoordsHolder = rootCoordsHolder,
             aodSourceBounds = aodSourceBounds,
-            aodTransitionProgressProvider = aodTransitionProgressProvider
+            aodTransitionProgressProvider = nowPlayingAodHideProvider
         )
     }
 
@@ -899,7 +905,7 @@ fun FullPlayerContent(
             ) {
                 TopAppBar(
                     modifier = Modifier.graphicsLayer {
-                        val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                        val aodFade = (1f - nowPlayingAodHideProvider() * 2.2f).coerceIn(0f, 1f)
                         alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -1224,7 +1230,7 @@ fun FullPlayerContent(
                                 }
                             }
                             .graphicsLayer {
-                                alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
+                                alpha = if (nowPlayingAodHideProvider() > 0.001f) 0f else 1f
                             }
                             .clip(morphShape)
                             .combinedClickable(
@@ -1266,7 +1272,7 @@ fun FullPlayerContent(
                             .align(Alignment.TopCenter)
                             .graphicsLayer {
                                 alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha *
-                                    (if (aodTransitionProgressProvider() > 0.001f) 0f else 1f)
+                                    (if (nowPlayingAodHideProvider() > 0.001f) 0f else 1f)
                             }
                             .background(
                                 Brush.verticalGradient(
@@ -1351,7 +1357,7 @@ fun FullPlayerContent(
                                 }
                             }
                             .graphicsLayer {
-                                alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
+                                alpha = if (nowPlayingAodHideProvider() > 0.001f) 0f else 1f
                             }
                             .clip(morphShape)
                             .combinedClickable(
@@ -1396,7 +1402,7 @@ fun FullPlayerContent(
                             .align(Alignment.TopCenter)
                             .graphicsLayer {
                                 alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha *
-                                    (if (aodTransitionProgressProvider() > 0.001f) 0f else 1f)
+                                    (if (nowPlayingAodHideProvider() > 0.001f) 0f else 1f)
                             }
                             .background(
                                 Brush.verticalGradient(
@@ -1460,7 +1466,7 @@ fun FullPlayerContent(
                     onMoreOptionsClick = { showSongInfoBottomSheet = true },
                     audioMetaLabel = complexAudioMetaLabel,
                     aodSourceBounds = aodSourceBounds,
-                    aodTransitionProgressProvider = aodTransitionProgressProvider
+                    aodTransitionProgressProvider = nowPlayingAodHideProvider
                 )
             } else {
                 if (isLandscape) {

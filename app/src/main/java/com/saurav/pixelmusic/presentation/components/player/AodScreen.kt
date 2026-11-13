@@ -1153,40 +1153,39 @@ fun AodScreen(
     val morphedTitleColor = lerp(baseTheme.onPrimaryContainer, titlePaletteColor, sizeT)
     val morphedArtistColor = lerp(baseTheme.onPrimaryContainer.copy(alpha = 0.76f), subtitlePaletteColor, sizeT)
 
-    val pageCornerDp = if (showLyricsMode) {
-        lerp(42f, 0f, smoothEnter).dp
-    } else {
-        lerp(36f, 0f, smoothEnter).dp
-    }
-
     Box(
         modifier = modifier
             .fillMaxSize()
             .captureRootCoords(aodRootCoordsHolder)
             .graphicsLayer {
+                val ep = enterProgressProvider().coerceIn(0f, 1f)
+                val sm = ep * ep * (3f - 2f * ep)
                 if (showLyricsMode) {
-                    val pageScale = lerp(0.94f, 1f, smoothEnter)
+                    val pageScale = lerp(0.88f, 1f, sm)
                     scaleX = pageScale
                     scaleY = pageScale
-                    alpha = smoothEnter
-                }
-                if (pageCornerDp > 0.5.dp) {
-                    shape = RoundedCornerShape(pageCornerDp)
-                    clip = true
+                    alpha = (ep / 0.35f).coerceIn(0f, 1f)
+                    val cornerDp = lerp(44f, 0f, sm).dp
+                    if (cornerDp > 0.5.dp) {
+                        shape = RoundedCornerShape(cornerDp)
+                        clip = true
+                    }
+                } else {
+                    val cornerDp = lerp(36f, 0f, sm).dp
+                    if (cornerDp > 0.5.dp) {
+                        shape = RoundedCornerShape(cornerDp)
+                        clip = true
+                    }
                 }
             }
             .drawBehind {
                 val ep = enterProgressProvider().coerceIn(0f, 1f)
                 val sm = ep * ep * (3f - 2f * ep)
-                val bgAlpha = ((ep - 0.01f) / 0.88f).coerceIn(0f, 1f)
-                val bgColor = lerp(targetPalette.sourceBgColor, targetPalette.canvasColor, sm)
-                val cornerPx = pageCornerDp.toPx()
-                if (cornerPx > 0.5f) {
-                    drawRoundRect(
-                        color = bgColor.copy(alpha = bgAlpha),
-                        cornerRadius = CornerRadius(cornerPx, cornerPx)
-                    )
+                if (showLyricsMode) {
+                    drawRect(targetPalette.canvasColor)
                 } else {
+                    val bgAlpha = ((ep - 0.01f) / 0.88f).coerceIn(0f, 1f)
+                    val bgColor = lerp(targetPalette.sourceBgColor, targetPalette.canvasColor, sm)
                     drawRect(bgColor.copy(alpha = bgAlpha))
                 }
             }
@@ -1828,9 +1827,8 @@ fun AodScreen(
         // LAYER 3: Smooth Line-by-Line AOD Lyrics View (No Controls)
         // =====================================================================
         if (lyricsModeProgress > 0.005f && syncedLines.isNotEmpty()) {
-            val lyricsEnterT = ((enterProgress - 0.12f) / 0.88f).coerceIn(0f, 1f)
+            val lyricsEnterT = ((enterProgress - 0.18f) / 0.82f).coerceIn(0f, 1f)
             val smoothLyricsEnter = lyricsEnterT * lyricsEnterT * (3f - 2f * lyricsEnterT)
-            val lyricsCornerDp = lerp(42f, 0f, smoothLyricsEnter).dp
             val effectivePositionMs = (positionMs + lyricsSyncOffsetMs.toLong()).coerceAtLeast(0L)
 
             AodLiveLyricsView(
@@ -1845,16 +1843,8 @@ fun AodScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        val combinedAlpha = smoothLyricsEnter * lyricsModeProgress
-                        alpha = combinedAlpha
-                        val scale = lerp(0.97f, 1f, smoothLyricsEnter)
-                        scaleX = scale
-                        scaleY = scale
-                        translationY = (1f - smoothLyricsEnter) * 18.dp.toPx()
-                        if (lyricsCornerDp > 0.5.dp) {
-                            shape = RoundedCornerShape(lyricsCornerDp)
-                            clip = true
-                        }
+                        alpha = smoothLyricsEnter * lyricsModeProgress
+                        translationY = (1f - smoothLyricsEnter) * 14.dp.toPx()
                     }
             )
         }
