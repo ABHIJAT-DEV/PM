@@ -164,7 +164,7 @@ class AodActivity : ComponentActivity() {
         // If the system never turns the screen off after we went black, close ourselves so the
         // device isn't left on a black screen indefinitely.
         const val DIMMED_GRACE_MS = 30_000L
-        const val AOD_BRIGHTNESS = 0.06f
+        const val AOD_BRIGHTNESS = 0.015f
     }
 
     @Composable

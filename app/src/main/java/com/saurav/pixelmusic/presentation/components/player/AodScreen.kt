@@ -861,7 +861,7 @@ fun AodScreen(
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
                 val lp = window.attributes
-                lp.screenBrightness = 0.06f
+                lp.screenBrightness = 0.015f
                 window.attributes = lp
             } else {
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
