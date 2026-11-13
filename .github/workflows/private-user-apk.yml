@@ -58,20 +58,18 @@ jobs:
       - name: Build Signed Release APK
         run: ./gradlew :app:assembleRelease --no-daemon
 
-      - name: Rename APK for Direct Sharing
+      - name: Rename APKs for Direct Sharing
         run: |
           mkdir -p dist-apk
           for apk in app/build/outputs/apk/release/*.apk; do
-            cp "$apk" "dist-apk/PixelMusic-v${{ env.VERSION_NAME }}-${{ env.VERSION_CODE }}-arm64-v8a.apk"
+            cp "$apk" "dist-apk/$(basename "$apk")"
           done
 
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PixelMusic-v${{ env.VERSION_NAME }}-${{ env.VERSION_CODE }}-private-apk
-          path: |
-            dist-apk/*.apk
-            app/build/outputs/mapping/release/mapping.txt
+          path: dist-apk/*.apk
 
       - name: Attach APK to Private Source Repo Pre-Release (Clean2.0 Only)
         uses: softprops/action-gh-release@v2
@@ -83,8 +81,6 @@ jobs:
           body: |
             Private signed build for direct sharing (`com.saurav.pixelmusic`, v${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }})).
             Installs cleanly over existing v${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }}) without altering public releases or updater channels.
-          files: |
-            dist-apk/*.apk
-            app/build/outputs/mapping/release/mapping.txt
+          files: dist-apk/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
