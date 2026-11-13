@@ -61,6 +61,11 @@ jobs:
           sed -i 's/include("arm64-v8a", "armeabi-v7a")/include("arm64-v8a")/' app/build.gradle.kts 2>/dev/null || true
           sed -i 's/isUniversalApk = true/isUniversalApk = false/' app/build.gradle.kts 2>/dev/null || true
 
+          # 5. Disable dexLayoutOptimization and R8 Full Mode for faster test builds
+          sed -i 's/dexLayoutOptimization = true/dexLayoutOptimization = false/' app/build.gradle.kts
+          sed -i 's/proguard-android-optimize.txt/proguard-android.txt/' app/build.gradle.kts
+          echo "android.enableR8.fullMode=false" >> gradle.properties
+
       - name: Calculate Sequential Version
         run: |
           # Fetch the latest release tag from the Test-px repository
