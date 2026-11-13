@@ -2,6 +2,7 @@
 
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
