@@ -1834,10 +1834,8 @@ fun AodScreen(
             AodLiveLyricsView(
                 syncedLines = syncedLines,
                 effectivePositionMs = effectivePositionMs,
-                isPlaying = isPlaying,
                 titleColor = titlePaletteColor,
                 accentColor = accentColor,
-                glowColor = glowColor,
                 topInsetDp = (statusBarTopDp + 24.dp).coerceAtLeast(36.dp),
                 bottomInsetDp = (navBarBottomDp + 24.dp).coerceAtLeast(36.dp),
                 modifier = Modifier
@@ -1857,10 +1855,8 @@ private val IOSLyricsFluidEasing = CubicBezierEasing(0.16f, 1.0f, 0.30f, 1.0f)
 private fun AodLiveLyricsView(
     syncedLines: List<SyncedLine>,
     effectivePositionMs: Long,
-    isPlaying: Boolean,
     titleColor: Color,
     accentColor: Color,
-    glowColor: Color,
     topInsetDp: Dp,
     bottomInsetDp: Dp,
     modifier: Modifier = Modifier
@@ -1887,51 +1883,9 @@ private fun AodLiveLyricsView(
         }
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "aodLyricsAmbient")
-    val ambientScale by infiniteTransition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            tween(5400, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse
-        ),
-        label = "aodLyricsAmbientScale"
-    )
-    val ambientAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.08f,
-        targetValue = 0.16f,
-        animationSpec = infiniteRepeatable(
-            tween(4200, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse
-        ),
-        label = "aodLyricsAmbientAlpha"
-    )
-
     val lineSpacingPx = with(density) { 28.dp.toPx().roundToInt() }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Subtle AMOLED-safe ambient glow behind the focal lyric zone
-        Box(
-            modifier = Modifier
-                .requiredSize(420.dp)
-                .align(Alignment.Center)
-                .graphicsLayer {
-                    scaleX = ambientScale
-                    scaleY = ambientScale
-                    translationY = -48.dp.toPx()
-                    alpha = if (isPlaying) ambientAlpha else ambientAlpha * 0.5f
-                }
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            glowColor.copy(alpha = 0.55f),
-                            accentColor.copy(alpha = 0.18f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
         Layout(
             modifier = Modifier
                 .fillMaxSize()
