@@ -785,7 +785,7 @@ fun FullPlayerContent(
             morphTracker = artworkMorphTracker,
             rootCoordsHolder = rootCoordsHolder,
             aodSourceBounds = aodSourceBounds,
-            aodTransitionProgressProvider = aodTransitionProgressProvider
+            aodTransitionProgressProvider = nowPlayingAodHideProvider
         )
     }
 
