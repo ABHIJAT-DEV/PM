@@ -1558,48 +1558,50 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        AnimatedVisibility(
-                            visible = showRecognitionDialog,
-                            enter = fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)),
-                            exit = fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
-                        ) {
-                            MusicRecognitionOverlay(
-                                isExternalWindow = false,
-                                onDismiss = { showRecognitionDialog = false },
-                                onPlayMusic = { recognizedResult ->
-                                    showRecognitionDialog = false
-                                    scope.launch {
-                                        val songToPlay = withContext(Dispatchers.IO) {
-                                            val query = "${recognizedResult.title} ${recognizedResult.artist}"
-                                            val searchResult = YouTube.search(
-                                                query,
-                                                YouTube.SearchFilter.FILTER_SONG
-                                            ).getOrNull()
-
-                                            val topResult = searchResult?.items
-                                                ?.firstOrNull { it is SongItem } as? SongItem
-
-                                            val nativeSong = topResult?.toNativeSong()
-                                            nativeSong?.copy(
-                                                albumArtUriString = recognizedResult.coverArtHqUrl
-                                                    ?: recognizedResult.coverArtUrl
-                                                    ?: nativeSong.albumArtUriString
-                                            )
-                                        }
-
-                                        if (songToPlay != null) {
-                                            playerViewModel.playWithArchiveTuneQueueBuilder(
-                                                song = songToPlay,
-                                                queueName = "Recognized Music"
-                                            )
-                                        } else {
-                                            playerViewModel.sendToast("Could not find this track on YouTube Music.")
-                                        }
-                                    }
-                                }
-                            )
-                        }
                     }
+                }
+
+                // 3. Full-screen Music Recognition Overlay rendered above Scaffold & bottom navigation bar
+                AnimatedVisibility(
+                    visible = showRecognitionDialog,
+                    enter = fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)),
+                    exit = fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+                ) {
+                    MusicRecognitionOverlay(
+                        isExternalWindow = false,
+                        onDismiss = { showRecognitionDialog = false },
+                        onPlayMusic = { recognizedResult ->
+                            showRecognitionDialog = false
+                            scope.launch {
+                                val songToPlay = withContext(Dispatchers.IO) {
+                                    val query = "${recognizedResult.title} ${recognizedResult.artist}"
+                                    val searchResult = YouTube.search(
+                                        query,
+                                        YouTube.SearchFilter.FILTER_SONG
+                                    ).getOrNull()
+
+                                    val topResult = searchResult?.items
+                                        ?.firstOrNull { it is SongItem } as? SongItem
+
+                                    val nativeSong = topResult?.toNativeSong()
+                                    nativeSong?.copy(
+                                        albumArtUriString = recognizedResult.coverArtHqUrl
+                                            ?: recognizedResult.coverArtUrl
+                                            ?: nativeSong.albumArtUriString
+                                    )
+                                }
+
+                                if (songToPlay != null) {
+                                    playerViewModel.playWithArchiveTuneQueueBuilder(
+                                        song = songToPlay,
+                                        queueName = "Recognized Music"
+                                    )
+                                } else {
+                                    playerViewModel.sendToast("Could not find this track on YouTube Music.")
+                                }
+                            }
+                        }
+                    )
                 }
                 }
             }
