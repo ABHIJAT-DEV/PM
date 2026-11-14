@@ -1,6 +1,7 @@
 package com.saurav.pixelmusic.ui.glancewidget
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
@@ -13,11 +14,9 @@ import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.action.Action
-import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
-import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartService
 import androidx.glance.appwidget.cornerRadius
-import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.ContentScale
@@ -25,6 +24,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.size
 import androidx.glance.unit.ColorProvider
 import com.saurav.pixelmusic.R
+import com.saurav.pixelmusic.data.service.MusicService
 import timber.log.Timber
 
 @Composable
@@ -37,10 +37,11 @@ fun AlbumArtImage(
     cornerRadius: Dp
 ) {
     val density = context.resources.displayMetrics.density
+    val targetSizePx = (size.value * density).toInt().coerceAtLeast(64)
     val cornerRadiusPx = cornerRadius.value * density
 
     val imageProvider = bitmapData?.let { data ->
-        val cacheKey = "${AlbumArtBitmapCache.getKey(data)}_r${cornerRadius.value.toInt()}"
+        val cacheKey = "${AlbumArtBitmapCache.getKey(data)}_s${targetSizePx}_r${cornerRadius.value.toInt()}"
         var bitmap = AlbumArtBitmapCache.getBitmap(cacheKey)
 
         if (bitmap == null) {
@@ -51,7 +52,6 @@ fun AlbumArtImage(
                 BitmapFactory.decodeByteArray(data, 0, data.size, options)
 
                 var inSampleSize = 1
-                val targetSizePx = (size.value * density).toInt()
 
                 if (options.outHeight > targetSizePx || options.outWidth > targetSizePx) {
                     val halfHeight = options.outHeight / 2
@@ -66,7 +66,9 @@ fun AlbumArtImage(
                 options.inSampleSize = inSampleSize
                 options.inJustDecodeBounds = false
                 val decoded = BitmapFactory.decodeByteArray(data, 0, data.size, options)
-                bitmap = decoded?.let { roundCornerBitmap(it, cornerRadiusPx) }
+                bitmap = decoded?.let {
+                    centerCropAndRoundBitmap(it, targetSizePx, targetSizePx, cornerRadiusPx)
+                }
 
                 bitmap?.let { AlbumArtBitmapCache.putBitmap(cacheKey, it) }
             } catch (e: Exception) {
@@ -76,7 +78,7 @@ fun AlbumArtImage(
         }
         bitmap?.let { ImageProvider(it) }
     } ?: albumArtUri?.let { rawUri ->
-        val cacheKey = "uri:${rawUri}_r${cornerRadius.value.toInt()}"
+        val cacheKey = "uri:${rawUri}_s${targetSizePx}_r${cornerRadius.value.toInt()}"
         var bitmap = AlbumArtBitmapCache.getBitmap(cacheKey)
         if (bitmap == null) {
             val decoded = decodeAlbumArtFromUri(
@@ -84,7 +86,9 @@ fun AlbumArtImage(
                 rawUri = rawUri,
                 requestedSize = size
             )
-            bitmap = decoded?.let { roundCornerBitmap(it, cornerRadiusPx) }
+            bitmap = decoded?.let {
+                centerCropAndRoundBitmap(it, targetSizePx, targetSizePx, cornerRadiusPx)
+            }
             bitmap?.let { AlbumArtBitmapCache.putBitmap(cacheKey, it) }
         }
         bitmap?.let { ImageProvider(it) }
@@ -175,6 +179,14 @@ fun WidgetIconButton(
 }
 
 // Convenience wrappers for specific actions
+private fun widgetServiceAction(context: Context, action: String): Action {
+    val intent = Intent(context, MusicService::class.java).apply {
+        this.action = action
+        putExtra(MusicService.EXTRA_FORCE_FOREGROUND_ON_START, true)
+    }
+    return actionStartService(intent = intent, isForegroundService = true)
+}
+
 @Composable
 fun PreviousButton(
     modifier: GlanceModifier,
@@ -184,10 +196,9 @@ fun PreviousButton(
     iconSize: Dp = 20.dp
 ) {
     val context = LocalContext.current
-    val params = actionParametersOf(PlayerActions.key to PlayerActions.PREVIOUS)
     WidgetIconButton(
         modifier = modifier,
-        action = actionRunCallback<PlayerControlActionCallback>(params),
+        action = widgetServiceAction(context, PlayerActions.PREVIOUS),
         backgroundColor = backgroundColor,
         iconColor = iconColor,
         imageProvider = ImageProvider(R.drawable.rounded_skip_previous_filled_24),
@@ -206,10 +217,9 @@ fun NextButton(
     iconSize: Dp = 20.dp
 ) {
     val context = LocalContext.current
-    val params = actionParametersOf(PlayerActions.key to PlayerActions.NEXT)
     WidgetIconButton(
         modifier = modifier,
-        action = actionRunCallback<PlayerControlActionCallback>(params),
+        action = widgetServiceAction(context, PlayerActions.NEXT),
         backgroundColor = backgroundColor,
         iconColor = iconColor,
         imageProvider = ImageProvider(R.drawable.rounded_skip_next_filled_24),
@@ -229,10 +239,9 @@ fun PlayPauseButton(
     iconSize: Dp = 22.dp
 ) {
     val context = LocalContext.current
-    val params = actionParametersOf(PlayerActions.key to PlayerActions.PLAY_PAUSE)
     WidgetIconButton(
         modifier = modifier,
-        action = actionRunCallback<PlayerControlActionCallback>(params),
+        action = widgetServiceAction(context, PlayerActions.PLAY_PAUSE),
         backgroundColor = backgroundColor,
         iconColor = iconColor,
         imageProvider = ImageProvider(
@@ -255,10 +264,9 @@ fun ShuffleButton(
     cornerRadius: Dp
 ) {
     val context = LocalContext.current
-    val params = actionParametersOf(PlayerActions.key to PlayerActions.SHUFFLE)
     WidgetIconButton(
         modifier = modifier,
-        action = actionRunCallback<PlayerControlActionCallback>(params),
+        action = widgetServiceAction(context, PlayerActions.SHUFFLE),
         backgroundColor = backgroundColor,
         iconColor = iconColor,
         imageProvider = ImageProvider(R.drawable.rounded_shuffle_24),
@@ -276,10 +284,9 @@ fun RepeatButton(
     cornerRadius: Dp
 ) {
     val context = LocalContext.current
-    val params = actionParametersOf(PlayerActions.key to PlayerActions.REPEAT)
     WidgetIconButton(
         modifier = modifier,
-        action = actionRunCallback<PlayerControlActionCallback>(params),
+        action = widgetServiceAction(context, PlayerActions.REPEAT),
         backgroundColor = backgroundColor,
         iconColor = iconColor,
         imageProvider = ImageProvider(iconRes),

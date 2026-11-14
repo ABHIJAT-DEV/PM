@@ -1147,25 +1147,41 @@ class MusicService : MediaLibraryService() {
         startTemporaryForegroundForCommand()
     }
 
+    var isRestoringForWidgetAction = false
     intent?.action?.let { action ->
         Timber.tag(TAG).d("onStartCommand widget action: %s", action)
 
             val player = mediaSession?.player ?: engine.masterPlayer
             when (action) {
                 PlayerActions.PLAY_PAUSE -> {
-                    if (player.playbackState == Player.STATE_IDLE) {
-                        player.prepare()
+                    if (player.mediaItemCount == 0) {
+                        isRestoringForWidgetAction = true
+                        restoreAndPlayLastQueueFromWidget(action)
+                    } else {
+                        if (player.playbackState == Player.STATE_IDLE) {
+                            player.prepare()
+                        }
+                        player.playWhenReady = !player.playWhenReady
+                        requestWidgetFullUpdate(force = true)
                     }
-                    player.playWhenReady = !player.playWhenReady
-                    requestWidgetFullUpdate(force = true)
                 }
                 PlayerActions.NEXT -> {
-                    player.seekToNext()
-                    requestWidgetFullUpdate(force = true)
+                    if (player.mediaItemCount == 0) {
+                        isRestoringForWidgetAction = true
+                        restoreAndPlayLastQueueFromWidget(action)
+                    } else {
+                        player.seekToNext()
+                        requestWidgetFullUpdate(force = true)
+                    }
                 }
                 PlayerActions.PREVIOUS -> {
-                    player.seekToPrevious()
-                    requestWidgetFullUpdate(force = true)
+                    if (player.mediaItemCount == 0) {
+                        isRestoringForWidgetAction = true
+                        restoreAndPlayLastQueueFromWidget(action)
+                    } else {
+                        player.seekToPrevious()
+                        requestWidgetFullUpdate(force = true)
+                    }
                 }
                 PlayerActions.FAVORITE -> {
                     val songId = player.currentMediaItem?.mediaId
@@ -1236,8 +1252,8 @@ class MusicService : MediaLibraryService() {
                     it.playbackState != Player.STATE_IDLE &&
                     it.playbackState != Player.STATE_ENDED
             } == true
-            // Fix: Only remove foreground service if nothing is queued.
-            if (!isActivelyPlaying && !hasQueueItems) {
+            // Fix: Only remove foreground service if nothing is queued and not restoring from widget tap.
+            if (!isActivelyPlaying && !hasQueueItems && !isRestoringForWidgetAction) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelfResult(startId)
             }
@@ -2217,6 +2233,66 @@ class MusicService : MediaLibraryService() {
             repeatMode = safeRepeatMode,
             shuffleEnabled = isManualShuffleEnabled,
         )
+    }
+
+    private fun restoreAndPlayLastQueueFromWidget(action: String) {
+        serviceScope.launch(Dispatchers.IO) {
+            val snapshot = runCatching {
+                userPreferencesRepository.getPlaybackQueueSnapshotOnce()
+            }.getOrNull()
+
+            val restoredItems = snapshot?.items?.mapNotNull(::buildMediaItemFromSnapshot).orEmpty()
+            if (restoredItems.isEmpty()) {
+                withContext(Dispatchers.Main.immediate) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+                return@launch
+            }
+
+            val resolvedIndex = when {
+                snapshot!!.currentIndex in restoredItems.indices -> snapshot.currentIndex
+                !snapshot.currentMediaId.isNullOrBlank() -> {
+                    restoredItems.indexOfFirst { it.mediaId == snapshot.currentMediaId }
+                        .takeIf { it >= 0 } ?: 0
+                }
+                else -> 0
+            }
+
+            withContext(Dispatchers.Main.immediate) {
+                val player = mediaSession?.player ?: engine.masterPlayer
+                if (player.mediaItemCount == 0) {
+                    val safeRepeatMode = when (snapshot.repeatMode) {
+                        Player.REPEAT_MODE_OFF,
+                        Player.REPEAT_MODE_ONE,
+                        Player.REPEAT_MODE_ALL -> snapshot.repeatMode
+                        else -> Player.REPEAT_MODE_OFF
+                    }
+                    isRestoringPlaybackSnapshot = true
+                    try {
+                        player.setMediaItems(
+                            restoredItems,
+                            resolvedIndex,
+                            snapshot.currentPositionMs.coerceAtLeast(0L)
+                        )
+                        player.repeatMode = safeRepeatMode
+                        player.shuffleModeEnabled = false
+                        isManualShuffleEnabled = snapshot.shuffleEnabled
+                    } finally {
+                        isRestoringPlaybackSnapshot = false
+                    }
+                }
+
+                when (action) {
+                    PlayerActions.NEXT -> if (player.hasNextMediaItem()) player.seekToNext()
+                    PlayerActions.PREVIOUS -> if (player.hasPreviousMediaItem()) player.seekToPrevious()
+                }
+                player.prepare()
+                player.play()
+                mediaSession?.let { refreshMediaSessionUi(it) }
+                requestWidgetFullUpdate(force = true)
+            }
+        }
     }
 
     private suspend fun restorePlaybackQueueSnapshotIfNeeded() {

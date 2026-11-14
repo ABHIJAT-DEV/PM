@@ -69,15 +69,36 @@ fun WidgetRoundedBackgroundLayer(
     )
 }
 
-fun roundCornerBitmap(source: Bitmap, cornerRadiusPx: Float): Bitmap {
-    if (cornerRadiusPx <= 0f || source.width <= 0 || source.height <= 0) return source
-    val output = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+fun centerCropAndRoundBitmap(
+    source: Bitmap,
+    targetWidthPx: Int,
+    targetHeightPx: Int,
+    cornerRadiusPx: Float
+): Bitmap {
+    if (source.width <= 0 || source.height <= 0) return source
+    val outW = targetWidthPx.coerceAtLeast(1)
+    val outH = targetHeightPx.coerceAtLeast(1)
+    val output = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(output)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        shader = BitmapShader(source, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+
+    val scale = maxOf(
+        outW.toFloat() / source.width.toFloat(),
+        outH.toFloat() / source.height.toFloat()
+    )
+    val dx = (outW - source.width * scale) * 0.5f
+    val dy = (outH - source.height * scale) * 0.5f
+    val matrix = android.graphics.Matrix().apply {
+        setScale(scale, scale)
+        postTranslate(dx, dy)
     }
-    val rect = RectF(0f, 0f, source.width.toFloat(), source.height.toFloat())
-    val clampedRadius = cornerRadiusPx.coerceAtMost(minOf(source.width, source.height) / 2f)
+    val shader = BitmapShader(source, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+        setLocalMatrix(matrix)
+    }
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        this.shader = shader
+    }
+    val rect = RectF(0f, 0f, outW.toFloat(), outH.toFloat())
+    val clampedRadius = cornerRadiusPx.coerceIn(0f, minOf(outW, outH) / 2f)
     canvas.drawRoundRect(rect, clampedRadius, clampedRadius, paint)
     return output
 }

@@ -1,6 +1,7 @@
 package com.saurav.pixelmusic.ui.glancewidget
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
@@ -24,6 +25,7 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartService
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -50,6 +52,7 @@ import com.saurav.pixelmusic.R
 import androidx.core.graphics.scale
 import androidx.glance.unit.ColorProvider
 import com.saurav.pixelmusic.data.model.QueueItem
+import com.saurav.pixelmusic.data.service.MusicService
 import com.saurav.pixelmusic.utils.createScalableBackgroundBitmap
 import timber.log.Timber
 
@@ -1092,10 +1095,23 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         val widgetDpSize = LocalSize.current // Get the actual size of the composable
 
         val density = context.resources.displayMetrics.density
+        val targetWidthPx: Int
+        val targetHeightPx: Int
+        if (size != null) {
+            val targetSizePx = (size.value * density).toInt().coerceAtLeast(64)
+            targetWidthPx = targetSizePx
+            targetHeightPx = targetSizePx
+        } else {
+            val side = (minOf(widgetDpSize.width.value, widgetDpSize.height.value) * density)
+                .toInt()
+                .coerceAtLeast(64)
+            targetWidthPx = side
+            targetHeightPx = side
+        }
         val cornerRadiusPx = cornerRadius.value * density
 
         val imageProvider = bitmapData?.let { data ->
-            val cacheKey = "${AlbumArtBitmapCache.getKey(data)}_r${cornerRadius.value.toInt()}"
+            val cacheKey = "${AlbumArtBitmapCache.getKey(data)}_${targetWidthPx}x${targetHeightPx}_r${cornerRadius.value.toInt()}"
             var bitmap = AlbumArtBitmapCache.getBitmap(cacheKey)
 
             if (bitmap != null) {
@@ -1105,41 +1121,18 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
                 try {
                     val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeByteArray(data, 0, data.size, options)
-                    Timber.tag(TAG_AAIG)
-                        .d("Initial bounds: ${options.outWidth}x${options.outHeight}")
 
                     val imageHeight = options.outHeight
                     val imageWidth = options.outWidth
                     var inSampleSize = 1
 
-                    // Determine target size in pixels
-                    val targetWidthPx: Int
-                    val targetHeightPx: Int
-                    with(context.resources.displayMetrics) {
-                        if (size != null) {
-                            // If size is provided, use it for both width and height (maintains square logic)
-                            val targetSizePx = (size.value * density).toInt()
-                            targetWidthPx = targetSizePx
-                            targetHeightPx = targetSizePx
-                            Timber.tag(TAG_AAIG).d("Target Px size for Dp $size: $targetSizePx")
-                        } else {
-                            // If size is not provided, use the actual widget size
-                            targetWidthPx = (widgetDpSize.width.value * density).toInt()
-                            targetHeightPx = (widgetDpSize.height.value * density).toInt()
-                            Timber.tag(TAG_AAIG).d("Target Px size from widget DpSize ${widgetDpSize}: ${targetWidthPx}x${targetHeightPx}")
-                        }
-                    }
-
                     if (imageHeight > targetHeightPx || imageWidth > targetWidthPx) {
                         val halfHeight: Int = imageHeight / 2
                         val halfWidth: Int = imageWidth / 2
-                        // Calculate the largest inSampleSize value that is a power of 2 and keeps both
-                        // height and width larger than the requested height and width.
                         while (halfHeight / inSampleSize >= targetHeightPx && halfWidth / inSampleSize >= targetWidthPx) {
                             inSampleSize *= 2
                         }
                     }
-                    Timber.tag(TAG_AAIG).d("Calculated inSampleSize: $inSampleSize")
 
                     options.inSampleSize = inSampleSize
                     options.inJustDecodeBounds = false
@@ -1150,13 +1143,8 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
                             .e("BitmapFactory.decodeByteArray returned null after sampling.")
                         return@let null
                     }
-                    Timber.tag(TAG_AAIG)
-                        .d("Sampled bitmap size: ${sampledBitmap.width}x${sampledBitmap.height}")
 
-                    bitmap = roundCornerBitmap(sampledBitmap, cornerRadiusPx)
-
-                    Timber.tag(TAG_AAIG)
-                        .d("Final bitmap size: ${bitmap.width}x${bitmap.height}. Putting into cache with key: $cacheKey")
+                    bitmap = centerCropAndRoundBitmap(sampledBitmap, targetWidthPx, targetHeightPx, cornerRadiusPx)
                     bitmap.let { AlbumArtBitmapCache.putBitmap(cacheKey, it) }
 
                 } catch (e: Exception) {
@@ -1166,7 +1154,7 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
             }
             bitmap?.let { ImageProvider(it) }
         } ?: albumArtUri?.let { rawUri ->
-            val cacheKey = "uri:${rawUri}_r${cornerRadius.value.toInt()}"
+            val cacheKey = "uri:${rawUri}_${targetWidthPx}x${targetHeightPx}_r${cornerRadius.value.toInt()}"
             var bitmap = AlbumArtBitmapCache.getBitmap(cacheKey)
             if (bitmap == null) {
                 val decoded = decodeAlbumArtFromUri(
@@ -1175,7 +1163,9 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
                     requestedSize = size,
                     widgetDpSize = widgetDpSize
                 )
-                bitmap = decoded?.let { roundCornerBitmap(it, cornerRadiusPx) }
+                bitmap = decoded?.let {
+                    centerCropAndRoundBitmap(it, targetWidthPx, targetHeightPx, cornerRadiusPx)
+                }
                 bitmap?.let { AlbumArtBitmapCache.putBitmap(cacheKey, it) }
             }
             bitmap?.let { ImageProvider(it) }
@@ -1258,11 +1248,14 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         cornerRadius: Dp = 0.dp
     ) {
         val context = LocalContext.current
-        val params = actionParametersOf(PlayerActions.key to PlayerActions.PLAY_PAUSE)
+        val intent = Intent(context, MusicService::class.java).apply {
+            action = PlayerActions.PLAY_PAUSE
+            putExtra(MusicService.EXTRA_FORCE_FOREGROUND_ON_START, true)
+        }
         Box(
             modifier = modifier
                 .cornerRadius(cornerRadius)
-                .clickable(actionRunCallback<PlayerControlActionCallback>(params)),
+                .clickable(actionStartService(intent = intent, isForegroundService = true)),
             contentAlignment = Alignment.Center
         ) {
             WidgetRoundedBackgroundLayer(
@@ -1340,11 +1333,14 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         cornerRadius: Dp = 8.dp
     ) {
         val context = LocalContext.current
-        val params = actionParametersOf(PlayerActions.key to PlayerActions.NEXT)
+        val intent = Intent(context, MusicService::class.java).apply {
+            action = PlayerActions.NEXT
+            putExtra(MusicService.EXTRA_FORCE_FOREGROUND_ON_START, true)
+        }
         Box(
             modifier = modifier
                 .cornerRadius(cornerRadius)
-                .clickable(actionRunCallback<PlayerControlActionCallback>(params)),
+                .clickable(actionStartService(intent = intent, isForegroundService = true)),
             contentAlignment = Alignment.Center
         ) {
             WidgetRoundedBackgroundLayer(
@@ -1369,11 +1365,14 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         cornerRadius: Dp = 8.dp
     ) {
         val context = LocalContext.current
-        val params = actionParametersOf(PlayerActions.key to PlayerActions.PREVIOUS)
+        val intent = Intent(context, MusicService::class.java).apply {
+            action = PlayerActions.PREVIOUS
+            putExtra(MusicService.EXTRA_FORCE_FOREGROUND_ON_START, true)
+        }
         Box(
             modifier = modifier
                 .cornerRadius(cornerRadius)
-                .clickable(actionRunCallback<PlayerControlActionCallback>(params)),
+                .clickable(actionStartService(intent = intent, isForegroundService = true)),
             contentAlignment = Alignment.Center
         ) {
             WidgetRoundedBackgroundLayer(
