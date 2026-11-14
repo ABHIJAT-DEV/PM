@@ -75,6 +75,7 @@ import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.presentation.components.AiPlaylistSheet
 import com.saurav.pixelmusic.presentation.components.DailyMixMenu
+import com.saurav.pixelmusic.presentation.components.ExpressiveHeroCollageHeader
 import com.saurav.pixelmusic.presentation.viewmodel.SmartMixViewModel
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.PlaylistBottomSheet
@@ -308,10 +309,42 @@ fun DailyMixScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item(key = "daily_mix_header") {
-                    ExpressiveDailyMixHeader(
+                    val parallaxOffset by remember {
+                        derivedStateOf {
+                            if (lazyListState.firstVisibleItemIndex == 0) lazyListState.firstVisibleItemScrollOffset * 0.45f else 0f
+                        }
+                    }
+                    val collageAlpha by remember {
+                        derivedStateOf {
+                            (1f - (lazyListState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
+                        }
+                    }
+                    val totalDuration = remember(dailyMixSongs) { dailyMixSongs.sumOf { it.duration } }
+                    val subtitle = if (dailyMixSongs.isNotEmpty()) {
+                        "${dailyMixSongs.size} songs • ${formatDuration(totalDuration)}"
+                    } else {
+                        ""
+                    }
+                    ExpressiveHeroCollageHeader(
+                        title = dailyMixTitle,
+                        subtitle = subtitle,
                         songs = dailyMixSongs,
-                        scrollState = lazyListState,
-                        onShowMenu = { playerViewModel.showAiPlaylistSheet() }
+                        headerHeight = 330.dp,
+                        parallaxOffset = parallaxOffset,
+                        collageAlpha = collageAlpha,
+                        trailingAction = {
+                            IconButton(
+                                onClick = { playerViewModel.showAiPlaylistSheet() },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_instant_mix_24),
+                                    contentDescription = dailyMixTitle,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     )
                 }
 

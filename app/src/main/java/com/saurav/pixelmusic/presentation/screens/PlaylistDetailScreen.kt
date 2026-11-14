@@ -1409,16 +1409,18 @@ private fun ExportPlaylistSheet(
             ) {
                 TextButton(
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    shape = CircleShape
+                    modifier = Modifier.weight(1.15f),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(cancelLabel, style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(4.dp))
+                    Text(cancelLabel, style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
                 }
                 FilledTonalButton(
                     onClick = { if (selectedCsv) onSaveCsv() else onSaveM3u() },
-                    modifier = Modifier.weight(1.5f),
+                    modifier = Modifier.weight(1.4f),
+                    contentPadding = PaddingValues(horizontal = 10.dp),
                     shape = AbsoluteSmoothCornerShape(
                         cornerRadiusTL = 60.dp, smoothnessAsPercentTL = 60,
                         cornerRadiusTR = 14.dp, smoothnessAsPercentTR = 60,
@@ -1427,12 +1429,13 @@ private fun ExportPlaylistSheet(
                     )
                 ) {
                     Icon(painterResource(R.drawable.rounded_download_24), contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(saveLabel, style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(4.dp))
+                    Text(saveLabel, style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
                 }
                 Button(
                     onClick = { if (selectedCsv) onShareCsv() else onShareM3u() },
-                    modifier = Modifier.weight(1.5f),
+                    modifier = Modifier.weight(1.45f),
+                    contentPadding = PaddingValues(horizontal = 10.dp),
                     shape = AbsoluteSmoothCornerShape(
                         cornerRadiusTL = 14.dp, smoothnessAsPercentTL = 60,
                         cornerRadiusTR = 60.dp, smoothnessAsPercentTR = 60,
@@ -1445,8 +1448,8 @@ private fun ExportPlaylistSheet(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = 90f }
                     )
-                    Spacer(Modifier.width(6.dp))
-                    Text(shareLabel, style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(4.dp))
+                    Text(shareLabel, style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
                 }
             }
         }

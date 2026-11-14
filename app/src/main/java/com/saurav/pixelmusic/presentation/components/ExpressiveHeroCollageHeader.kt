@@ -1,7 +1,5 @@
 package com.saurav.pixelmusic.presentation.components
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -22,11 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -42,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import kotlinx.coroutines.delay
 
 @Composable
 fun ExpressiveHeroCollageHeader(
@@ -56,20 +50,8 @@ fun ExpressiveHeroCollageHeader(
     showCollage: Boolean = true,
     trailingAction: (@Composable () -> Unit)? = null
 ) {
-    val albumArts = remember(songs) {
-        songs.mapNotNull { it.albumArtUriString?.takeIf { uri -> uri.isNotBlank() } }
-            .distinct()
-            .take(6)
-    }
-    var currentArtIndex by remember(albumArts) { mutableIntStateOf(0) }
-
-    LaunchedEffect(albumArts) {
-        if (albumArts.size > 1) {
-            while (true) {
-                delay(4800L)
-                currentArtIndex = (currentArtIndex + 1) % albumArts.size
-            }
-        }
+    val topAlbumArt = remember(songs) {
+        songs.firstOrNull { !it.albumArtUriString.isNullOrBlank() }?.albumArtUriString
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "heroArtMotion")
@@ -107,11 +89,12 @@ fun ExpressiveHeroCollageHeader(
                 )
         )
 
-        // Full-bleed iOS / Apple Music-style slowly crossfading album art backdrop
-        if (showCollage && albumArts.isNotEmpty()) {
-            Crossfade(
-                targetState = currentArtIndex.coerceIn(0, albumArts.lastIndex),
-                animationSpec = tween(durationMillis = 1600, easing = FastOutSlowInEasing),
+        // Full-bleed iOS / Apple Music-style single top-song artwork backdrop
+        if (showCollage && topAlbumArt != null) {
+            SmartImage(
+                model = topAlbumArt,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
@@ -119,16 +102,8 @@ fun ExpressiveHeroCollageHeader(
                         alpha = collageAlpha * 0.85f
                         scaleX = slowZoom
                         scaleY = slowZoom
-                    },
-                label = "heroArtCrossfade"
-            ) { index ->
-                SmartImage(
-                    model = albumArts[index],
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+                    }
+            )
         } else if (showCollage) {
             Box(
                 modifier = Modifier
