@@ -334,15 +334,28 @@ fun DailyMixScreen(
                         parallaxOffset = parallaxOffset,
                         collageAlpha = collageAlpha,
                         trailingAction = {
-                            IconButton(
+                            val cookieShape = remember {
+                                RoundedStarShape(
+                                    sides = 8,
+                                    curve = 0.05,
+                                    rotation = 0f
+                                )
+                            }
+                            FilledIconButton(
                                 onClick = { playerViewModel.showAiPlaylistSheet() },
-                                modifier = Modifier.size(34.dp)
+                                shape = cookieShape,
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                modifier = Modifier
+                                    .padding(start = 6.dp)
+                                    .size(50.dp)
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.rounded_instant_mix_24),
-                                    contentDescription = dailyMixTitle,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
+                                    contentDescription = "Daily Mix Generator",
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         }

@@ -1,11 +1,5 @@
 package com.saurav.pixelmusic.presentation.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,17 +46,6 @@ fun ExpressiveHeroCollageHeader(
     val topAlbumArt = remember(songs) {
         songs.firstOrNull { !it.albumArtUriString.isNullOrBlank() }?.albumArtUriString
     }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "heroArtMotion")
-    val slowZoom by infiniteTransition.animateFloat(
-        initialValue = 1.03f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 8500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "heroSlowZoom"
-    )
 
     val surfaceColor = MaterialTheme.colorScheme.surface
     val primaryGlow = MaterialTheme.colorScheme.primary
@@ -100,8 +82,6 @@ fun ExpressiveHeroCollageHeader(
                     .graphicsLayer {
                         translationY = parallaxOffset
                         alpha = collageAlpha * 0.85f
-                        scaleX = slowZoom
-                        scaleY = slowZoom
                     }
             )
         } else if (showCollage) {
