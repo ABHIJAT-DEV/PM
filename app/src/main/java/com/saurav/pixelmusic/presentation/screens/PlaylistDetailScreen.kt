@@ -682,6 +682,63 @@ fun PlaylistDetailScreen(
                 }
             }
         }
+
+        // Floating Top Controls over Hero Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 14.dp, vertical = 8.dp)
+                .align(Alignment.TopCenter),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                FilledTonalIconButton(
+                    modifier = Modifier.size(42.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f),
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    onClick = onBackClick
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.auth_cd_back))
+                }
+            }
+
+            if (currentPlaylist != null) {
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilledTonalIconButton(
+                            modifier = Modifier.size(42.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f),
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            onClick = { playerViewModel.showSortingSheet() }
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_sort_24),
+                                contentDescription = sortSongsLabel
+                            )
+                        }
+                        FilledTonalIconButton(
+                            modifier = Modifier.size(42.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f),
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            onClick = { showPlaylistOptionsSheet = true }
+                        ) {
+                            Icon(Icons.Filled.MoreVert, moreOptionsLabel)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showAddSongsSheet && currentPlaylist != null && !isFolderPlaylist && isSavedLocally) {
