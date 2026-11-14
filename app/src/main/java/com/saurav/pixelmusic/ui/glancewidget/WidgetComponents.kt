@@ -36,8 +36,11 @@ fun AlbumArtImage(
     context: Context,
     cornerRadius: Dp
 ) {
+    val density = context.resources.displayMetrics.density
+    val cornerRadiusPx = cornerRadius.value * density
+
     val imageProvider = bitmapData?.let { data ->
-        val cacheKey = AlbumArtBitmapCache.getKey(data)
+        val cacheKey = "${AlbumArtBitmapCache.getKey(data)}_r${cornerRadius.value.toInt()}"
         var bitmap = AlbumArtBitmapCache.getBitmap(cacheKey)
 
         if (bitmap == null) {
@@ -48,8 +51,7 @@ fun AlbumArtImage(
                 BitmapFactory.decodeByteArray(data, 0, data.size, options)
 
                 var inSampleSize = 1
-                // Calculate target size in pixels
-                val targetSizePx = (size.value * context.resources.displayMetrics.density).toInt()
+                val targetSizePx = (size.value * density).toInt()
 
                 if (options.outHeight > targetSizePx || options.outWidth > targetSizePx) {
                     val halfHeight = options.outHeight / 2
@@ -63,7 +65,8 @@ fun AlbumArtImage(
 
                 options.inSampleSize = inSampleSize
                 options.inJustDecodeBounds = false
-                bitmap = BitmapFactory.decodeByteArray(data, 0, data.size, options)
+                val decoded = BitmapFactory.decodeByteArray(data, 0, data.size, options)
+                bitmap = decoded?.let { roundCornerBitmap(it, cornerRadiusPx) }
 
                 bitmap?.let { AlbumArtBitmapCache.putBitmap(cacheKey, it) }
             } catch (e: Exception) {
@@ -73,14 +76,15 @@ fun AlbumArtImage(
         }
         bitmap?.let { ImageProvider(it) }
     } ?: albumArtUri?.let { rawUri ->
-        val cacheKey = "uri:$rawUri"
+        val cacheKey = "uri:${rawUri}_r${cornerRadius.value.toInt()}"
         var bitmap = AlbumArtBitmapCache.getBitmap(cacheKey)
         if (bitmap == null) {
-            bitmap = decodeAlbumArtFromUri(
+            val decoded = decodeAlbumArtFromUri(
                 context = context,
                 rawUri = rawUri,
                 requestedSize = size
             )
+            bitmap = decoded?.let { roundCornerBitmap(it, cornerRadiusPx) }
             bitmap?.let { AlbumArtBitmapCache.putBitmap(cacheKey, it) }
         }
         bitmap?.let { ImageProvider(it) }
@@ -105,10 +109,13 @@ fun AlbumArtImage(
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .cornerRadius(cornerRadius)
-                    .background(GlanceTheme.colors.surfaceVariant),
+                    .cornerRadius(cornerRadius),
                 contentAlignment = Alignment.Center
             ) {
+                WidgetRoundedBackgroundLayer(
+                    color = GlanceTheme.colors.surfaceVariant,
+                    cornerRadius = cornerRadius
+                )
                 Image(
                     provider = ImageProvider(R.drawable.ic_music_placeholder),
                     contentDescription = cdPlaceholder,
@@ -150,11 +157,14 @@ fun WidgetIconButton(
 ) {
     Box(
         modifier = modifier
-            .background(backgroundColor)
             .cornerRadius(cornerRadius)
             .clickable(action),
         contentAlignment = Alignment.Center
     ) {
+        WidgetRoundedBackgroundLayer(
+            color = backgroundColor,
+            cornerRadius = cornerRadius
+        )
         Image(
             provider = imageProvider,
             contentDescription = contentDescription,

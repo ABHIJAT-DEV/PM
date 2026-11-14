@@ -67,11 +67,15 @@ class BarWidget4x1 : GlanceAppWidget() {
 
         Box(
             modifier = GlanceModifier
-                .background(colors.surface)
+                .fillMaxSize()
                 .cornerRadius(widgetCornerRadius)
-                .padding(16.dp)
                 .clickable(actionStartActivity<MainActivity>())
         ) {
+            WidgetRoundedBackgroundLayer(
+                color = colors.surface,
+                cornerRadius = widgetCornerRadius
+            )
+            Box(modifier = GlanceModifier.fillMaxSize().padding(16.dp)) {
             Row(
                 modifier = GlanceModifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -144,6 +148,7 @@ class BarWidget4x1 : GlanceAppWidget() {
                     iconColor = colors.prevNextIcon,
                     cornerRadius = controlButtonCornerRadius
                 )
+            }
             }
         }
     }

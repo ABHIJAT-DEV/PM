@@ -71,11 +71,15 @@ class ControlWidget4x2 : GlanceAppWidget() {
 
         Box(
             modifier = GlanceModifier
-                .background(colors.surface)
+                .fillMaxSize()
                 .cornerRadius(widgetCornerRadius)
-                .padding(16.dp)
                 .clickable(actionStartActivity<MainActivity>())
         ) {
+            WidgetRoundedBackgroundLayer(
+                color = colors.surface,
+                cornerRadius = widgetCornerRadius
+            )
+            Box(modifier = GlanceModifier.fillMaxSize().padding(16.dp)) {
             Column(
                 modifier = GlanceModifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -196,6 +200,7 @@ class ControlWidget4x2 : GlanceAppWidget() {
                         cornerRadius = controlButtonCornerRadius
                     )
                 }
+            }
             }
         }
     }

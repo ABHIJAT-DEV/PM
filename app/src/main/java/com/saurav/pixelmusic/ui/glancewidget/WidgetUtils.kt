@@ -1,12 +1,27 @@
 package com.saurav.pixelmusic.ui.glancewidget
 
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Shader
 import android.util.LruCache
+import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.glance.ColorFilter
+import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.color.ColorProvider
+import androidx.glance.layout.ContentScale
+import androidx.glance.layout.fillMaxSize
 import androidx.glance.unit.ColorProvider
+import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.PlayerInfo
 
 object AlbumArtBitmapCache {
@@ -28,6 +43,43 @@ object AlbumArtBitmapCache {
     fun getKey(byteArray: ByteArray): String {
         return byteArray.contentHashCode().toString()
     }
+}
+
+@DrawableRes
+fun widgetShapeResForRadius(cornerRadius: Dp): Int {
+    return when {
+        cornerRadius >= 36.dp -> R.drawable.widget_bg_pill
+        cornerRadius >= 22.dp -> R.drawable.widget_bg_card
+        cornerRadius >= 14.dp -> R.drawable.widget_bg_squircle
+        else -> R.drawable.widget_bg_rounded_12
+    }
+}
+
+@Composable
+fun WidgetRoundedBackgroundLayer(
+    color: ColorProvider,
+    cornerRadius: Dp
+) {
+    Image(
+        provider = ImageProvider(widgetShapeResForRadius(cornerRadius)),
+        contentDescription = null,
+        modifier = GlanceModifier.fillMaxSize(),
+        contentScale = ContentScale.FillBounds,
+        colorFilter = ColorFilter.tint(color)
+    )
+}
+
+fun roundCornerBitmap(source: Bitmap, cornerRadiusPx: Float): Bitmap {
+    if (cornerRadiusPx <= 0f || source.width <= 0 || source.height <= 0) return source
+    val output = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(output)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        shader = BitmapShader(source, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+    }
+    val rect = RectF(0f, 0f, source.width.toFloat(), source.height.toFloat())
+    val clampedRadius = cornerRadiusPx.coerceAtMost(minOf(source.width, source.height) / 2f)
+    canvas.drawRoundRect(rect, clampedRadius, clampedRadius, paint)
+    return output
 }
 
 data class WidgetColors(

@@ -1091,8 +1091,11 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         val sizingModifier = if (size != null) modifier.size(size) else modifier
         val widgetDpSize = LocalSize.current // Get the actual size of the composable
 
+        val density = context.resources.displayMetrics.density
+        val cornerRadiusPx = cornerRadius.value * density
+
         val imageProvider = bitmapData?.let { data ->
-            val cacheKey = AlbumArtBitmapCache.getKey(data)
+            val cacheKey = "${AlbumArtBitmapCache.getKey(data)}_r${cornerRadius.value.toInt()}"
             var bitmap = AlbumArtBitmapCache.getBitmap(cacheKey)
 
             if (bitmap != null) {
@@ -1150,7 +1153,7 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
                     Timber.tag(TAG_AAIG)
                         .d("Sampled bitmap size: ${sampledBitmap.width}x${sampledBitmap.height}")
 
-                    bitmap = sampledBitmap
+                    bitmap = roundCornerBitmap(sampledBitmap, cornerRadiusPx)
 
                     Timber.tag(TAG_AAIG)
                         .d("Final bitmap size: ${bitmap.width}x${bitmap.height}. Putting into cache with key: $cacheKey")
@@ -1163,15 +1166,16 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
             }
             bitmap?.let { ImageProvider(it) }
         } ?: albumArtUri?.let { rawUri ->
-            val cacheKey = "uri:$rawUri"
+            val cacheKey = "uri:${rawUri}_r${cornerRadius.value.toInt()}"
             var bitmap = AlbumArtBitmapCache.getBitmap(cacheKey)
             if (bitmap == null) {
-                bitmap = decodeAlbumArtFromUri(
+                val decoded = decodeAlbumArtFromUri(
                     context = context,
                     rawUri = rawUri,
                     requestedSize = size,
                     widgetDpSize = widgetDpSize
                 )
+                bitmap = decoded?.let { roundCornerBitmap(it, cornerRadiusPx) }
                 bitmap?.let { AlbumArtBitmapCache.putBitmap(cacheKey, it) }
             }
             bitmap?.let { ImageProvider(it) }
@@ -1201,10 +1205,13 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
                 Box(
                     modifier = GlanceModifier
                         .fillMaxSize()
-                        .cornerRadius(cornerRadius)
-                        .background(GlanceTheme.colors.surfaceVariant),
+                        .cornerRadius(cornerRadius),
                     contentAlignment = Alignment.Center
                 ) {
+                    WidgetRoundedBackgroundLayer(
+                        color = GlanceTheme.colors.surfaceVariant,
+                        cornerRadius = cornerRadius
+                    )
                     Image(
                         provider = ImageProvider(R.drawable.ic_music_placeholder),
                         contentDescription = context.getString(R.string.widget_album_art_placeholder),
@@ -1254,11 +1261,14 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         val params = actionParametersOf(PlayerActions.key to PlayerActions.PLAY_PAUSE)
         Box(
             modifier = modifier
-                .background(backgroundColor)
                 .cornerRadius(cornerRadius)
                 .clickable(actionRunCallback<PlayerControlActionCallback>(params)),
             contentAlignment = Alignment.Center
         ) {
+            WidgetRoundedBackgroundLayer(
+                color = backgroundColor,
+                cornerRadius = cornerRadius
+            )
             Image(
                 provider = ImageProvider(if (isPlaying) R.drawable.rounded_pause_filled_24 else R.drawable.rounded_play_arrow_filled_24),
                 contentDescription = context.getString(if (isPlaying) R.string.cd_pause else R.string.cd_play),
@@ -1333,11 +1343,14 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         val params = actionParametersOf(PlayerActions.key to PlayerActions.NEXT)
         Box(
             modifier = modifier
-                .background(backgroundColor)
                 .cornerRadius(cornerRadius)
                 .clickable(actionRunCallback<PlayerControlActionCallback>(params)),
             contentAlignment = Alignment.Center
         ) {
+            WidgetRoundedBackgroundLayer(
+                color = backgroundColor,
+                cornerRadius = cornerRadius
+            )
             Image(
                 provider = ImageProvider(R.drawable.rounded_skip_next_filled_24),
                 contentDescription = context.getString(R.string.next_track),
@@ -1359,11 +1372,14 @@ class PixelMusicGlanceWidget : GlanceAppWidget() {
         val params = actionParametersOf(PlayerActions.key to PlayerActions.PREVIOUS)
         Box(
             modifier = modifier
-                .background(backgroundColor)
                 .cornerRadius(cornerRadius)
                 .clickable(actionRunCallback<PlayerControlActionCallback>(params)),
             contentAlignment = Alignment.Center
         ) {
+            WidgetRoundedBackgroundLayer(
+                color = backgroundColor,
+                cornerRadius = cornerRadius
+            )
             Image(
                 provider = ImageProvider(R.drawable.rounded_skip_previous_filled_24),
                 contentDescription = context.getString(R.string.previous_track),
