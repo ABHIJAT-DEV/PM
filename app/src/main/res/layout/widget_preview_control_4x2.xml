@@ -51,13 +51,10 @@
         </LinearLayout>
     </LinearLayout>
 
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="16dp" />
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:gravity="center"
         android:orientation="horizontal">
 
@@ -69,7 +66,7 @@
             android:contentDescription="Shuffle"
             android:padding="12dp"
             android:src="@drawable/rounded_shuffle_24"
-            app:tint="?android:attr/textColorSecondary" />
+            android:tint="?android:attr/textColorSecondary" />
 
         <ImageView
             android:layout_width="0dp"
@@ -80,7 +77,7 @@
             android:contentDescription="Previous"
             android:padding="12dp"
             android:src="@drawable/rounded_skip_previous_filled_24"
-            app:tint="?android:attr/textColorSecondary" />
+            android:tint="?android:attr/textColorSecondary" />
 
         <ImageView
             android:layout_width="0dp"
@@ -91,7 +88,7 @@
             android:contentDescription="Play/Pause"
             android:padding="12dp"
             android:src="@drawable/rounded_pause_filled_24"
-            app:tint="?android:attr/colorBackground" />
+            android:tint="?android:attr/colorBackground" />
 
         <ImageView
             android:layout_width="0dp"
@@ -102,7 +99,7 @@
             android:contentDescription="Next"
             android:padding="12dp"
             android:src="@drawable/rounded_skip_next_filled_24"
-            app:tint="?android:attr/textColorSecondary" />
+            android:tint="?android:attr/textColorSecondary" />
 
         <ImageView
             android:layout_width="0dp"
@@ -113,7 +110,7 @@
             android:contentDescription="Repeat"
             android:padding="12dp"
             android:src="@drawable/rounded_repeat_24"
-            app:tint="?android:attr/textColorSecondary" />
+            android:tint="?android:attr/textColorSecondary" />
     </LinearLayout>
 
 </LinearLayout>
