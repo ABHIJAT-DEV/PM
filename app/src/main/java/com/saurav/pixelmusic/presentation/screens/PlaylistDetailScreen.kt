@@ -425,118 +425,53 @@ fun PlaylistDetailScreen(
                     }
                 }
 
-                if (!isFolderPlaylist) {
+                // Only show a compact exit pill when Remove or Reorder edit mode is active
+                if (!isFolderPlaylist && isSavedLocally && (isRemoveModeEnabled || isReorderModeEnabled)) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(start = 20.dp, end = 20.dp, bottom = 8.dp, top = 2.dp),
+                            .padding(horizontal = 20.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Only show local editing options if the playlist is saved in the library
-                        if (isSavedLocally) {
-                            val actionPillShape = remember { CircleShape }
-
-                            val reorderButtonColor by animateColorAsState(
-                                targetValue = if (isReorderModeEnabled) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                label = "reorderButtonColor"
-                            )
-                            val reorderIconColor by animateColorAsState(
-                                targetValue = if (isReorderModeEnabled) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface,
-                                label = "reorderIconColor"
-                            )
-
-                            val removeButtonColor by animateColorAsState(
-                                targetValue = if (isRemoveModeEnabled) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                label = "removeButtonColor"
-                            )
-                            val removeIconColor by animateColorAsState(
-                                targetValue = if (isRemoveModeEnabled) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface,
-                                label = "removeIconColor"
-                            )
-
+                        if (isRemoveModeEnabled) {
                             Button(
-                                onClick = { showAddSongsSheet = true },
-                                shape = actionPillShape,
+                                onClick = { isRemoveModeEnabled = false },
+                                shape = CircleShape,
                                 contentPadding = PaddingValues(horizontal = 14.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                    containerColor = MaterialTheme.colorScheme.tertiary,
+                                    contentColor = MaterialTheme.colorScheme.onTertiary
                                 ),
-                                elevation = ButtonDefaults.buttonElevation(),
-                                modifier = Modifier
-                                    .height(actionButtonsHeight)
-                                    .animateContentSize()
+                                modifier = Modifier.height(38.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Add,
-                                    contentDescription = addSongsCd,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = addLabel,
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                            }
-
-                            Button(
-                                onClick = { isRemoveModeEnabled = !isRemoveModeEnabled },
-                                shape = actionPillShape,
-                                contentPadding = PaddingValues(horizontal = 12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = removeButtonColor,
-                                    contentColor = removeIconColor
-                                ),
-                                elevation = ButtonDefaults.buttonElevation(),
-                                modifier = Modifier
-                                    .height(actionButtonsHeight)
-                                    .animateContentSize()
-                                    .clip(actionPillShape)
-                            ) {
-                                Icon(
-                                    modifier = Modifier.size(18.dp),
                                     painter = painterResource(R.drawable.rounded_remove_circle_outline_24),
                                     contentDescription = removeSongsCd,
-                                    tint = removeIconColor
+                                    modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(Modifier.width(6.dp))
-                                Text(
-                                    modifier = Modifier.padding(end = 4.dp),
-                                    text = removeLabel,
-                                    color = removeIconColor,
-                                    style = MaterialTheme.typography.labelMedium
-                                )
+                                Text("Done $removeLabel", style = MaterialTheme.typography.labelMedium)
                             }
-
+                        }
+                        if (isReorderModeEnabled) {
                             Button(
-                                onClick = { isReorderModeEnabled = !isReorderModeEnabled },
-                                shape = actionPillShape,
-                                contentPadding = PaddingValues(horizontal = 12.dp),
+                                onClick = { isReorderModeEnabled = false },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = reorderButtonColor,
-                                    contentColor = reorderIconColor
+                                    containerColor = MaterialTheme.colorScheme.tertiary,
+                                    contentColor = MaterialTheme.colorScheme.onTertiary
                                 ),
-                                elevation = ButtonDefaults.buttonElevation(),
-                                modifier = Modifier
-                                    .height(actionButtonsHeight)
-                                    .animateContentSize()
-                                    .clip(actionPillShape)
+                                modifier = Modifier.height(38.dp)
                             ) {
                                 Icon(
-                                    modifier = Modifier.size(22.dp),
                                     painter = painterResource(R.drawable.drag_order_icon),
                                     contentDescription = reorderSongsCd,
-                                    tint = reorderIconColor
+                                    modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(Modifier.width(6.dp))
-                                Text(
-                                    modifier = Modifier.padding(end = 4.dp),
-                                    text = reorderLabel,
-                                    color = reorderIconColor,
-                                    style = MaterialTheme.typography.labelMedium
-                                )
+                                Text("Done $reorderLabel", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -768,79 +703,164 @@ fun PlaylistDetailScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 4.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                        .padding(horizontal = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
                         text = playlistOptionsTitle,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = GoogleSansRounded),
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     currentPlaylist?.name?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = GoogleSansRounded),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                PlaylistActionItem(
-                    icon = painterResource(R.drawable.rounded_queue_music_24),
-                    label = stringResource(R.string.cd_add_all_to_queue),
-                    onClick = {
-                        showPlaylistOptionsSheet = false
-                        playerViewModel.addSongsToQueue(localReorderableSongs)
-                    }
-                )
 
-                if (currentPlaylist != null) {
-                    PlaylistActionItem(
-                        icon = if (isPlaylistFullyDownloaded) rememberVectorPainter(Icons.Rounded.Check) else painterResource(R.drawable.rounded_download_24),
-                        label = if (isPlaylistFullyDownloaded) "Playlist downloaded" else downloadPlaylistLabel,
-                        onClick = {
-                            showPlaylistOptionsSheet = false
-                            if (!isPlaylistFullyDownloaded) {
-                                playlistViewModel.downloadPlaylist(context, currentPlaylist.id, songsInPlaylist)
-                            }
+                // Material You Expressive quick-action pill cards (Add / Remove / Reorder)
+                if (!isFolderPlaylist && isSavedLocally && currentPlaylist != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilledTonalButton(
+                            onClick = {
+                                showPlaylistOptionsSheet = false
+                                showAddSongsSheet = true
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp)
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = addSongsCd, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(addLabel, maxLines = 1, style = MaterialTheme.typography.labelLarge)
                         }
-                    )
+
+                        FilledTonalButton(
+                            onClick = {
+                                isRemoveModeEnabled = !isRemoveModeEnabled
+                                showPlaylistOptionsSheet = false
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (isRemoveModeEnabled) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = if (isRemoveModeEnabled) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_remove_circle_outline_24),
+                                contentDescription = removeSongsCd,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(removeLabel, maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                        }
+
+                        FilledTonalButton(
+                            onClick = {
+                                isReorderModeEnabled = !isReorderModeEnabled
+                                showPlaylistOptionsSheet = false
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (isReorderModeEnabled) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = if (isReorderModeEnabled) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.drag_order_icon),
+                                contentDescription = reorderSongsCd,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(reorderLabel, maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                 }
-                
-                // Only show local editing options if the playlist is saved in the local database
-                if (isSavedLocally && currentPlaylist != null) {
+
+                // Material You Expressive grouped card: Playback & Offline
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp)),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     PlaylistActionItem(
-                        icon = painterResource(R.drawable.rounded_push_pin_24),
-                        label = if (currentPlaylist.isPinned) "Unpin Playlist" else "Pin Playlist",
+                        icon = painterResource(R.drawable.rounded_queue_music_24),
+                        label = stringResource(R.string.cd_add_all_to_queue),
                         onClick = {
                             showPlaylistOptionsSheet = false
-                            playlistViewModel.togglePinPlaylist(currentPlaylist.id)
+                            playerViewModel.addSongsToQueue(localReorderableSongs)
                         }
                     )
-                    
-                    if (!isFolderPlaylist) {
+
+                    if (currentPlaylist != null) {
+                        PlaylistActionItem(
+                            icon = if (isPlaylistFullyDownloaded) rememberVectorPainter(Icons.Rounded.Check) else painterResource(R.drawable.rounded_download_24),
+                            label = if (isPlaylistFullyDownloaded) "Playlist downloaded" else downloadPlaylistLabel,
+                            onClick = {
+                                showPlaylistOptionsSheet = false
+                                if (!isPlaylistFullyDownloaded) {
+                                    playlistViewModel.downloadPlaylist(context, currentPlaylist.id, songsInPlaylist)
+                                }
+                            }
+                        )
+                    }
+
+                    if (isSavedLocally && currentPlaylist != null) {
+                        PlaylistActionItem(
+                            icon = painterResource(R.drawable.rounded_push_pin_24),
+                            label = if (currentPlaylist.isPinned) "Unpin Playlist" else "Pin Playlist",
+                            onClick = {
+                                showPlaylistOptionsSheet = false
+                                playlistViewModel.togglePinPlaylist(currentPlaylist.id)
+                            }
+                        )
+                    }
+                }
+
+                // Material You Expressive grouped card: Manage & Customize
+                if (isSavedLocally && currentPlaylist != null && !isFolderPlaylist) {
+                    val actualDeleteLabel = if (currentPlaylist.source == "YOUTUBE") "Remove from Library" else deletePlaylistLabel
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp)),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
                         PlaylistActionItem(
                             icon = painterResource(R.drawable.rounded_edit_24),
                             label = editPlaylistLabel,
                             onClick = {
                                 showPlaylistOptionsSheet = false
                                 showEditPlaylistDialog = true
-                            }
-                        )
-                        
-                        // Clarify delete label for synced YouTube playlists
-                        val actualDeleteLabel = if (currentPlaylist.source == "YOUTUBE") "Remove from Library" else deletePlaylistLabel
-                        
-                        PlaylistActionItem(
-                            icon = painterResource(R.drawable.rounded_delete_24),
-                            label = actualDeleteLabel,
-                            onClick = {
-                                showPlaylistOptionsSheet = false
-                                showDeleteConfirmation = true
                             }
                         )
                         PlaylistActionItem(
@@ -857,6 +877,15 @@ fun PlaylistDetailScreen(
                             onClick = {
                                 showPlaylistOptionsSheet = false
                                 showExportSheet = true
+                            }
+                        )
+                        PlaylistActionItem(
+                            icon = painterResource(R.drawable.rounded_delete_24),
+                            label = actualDeleteLabel,
+                            isDestructive = true,
+                            onClick = {
+                                showPlaylistOptionsSheet = false
+                                showDeleteConfirmation = true
                             }
                         )
                     }
@@ -1159,37 +1188,57 @@ fun PlaylistDetailScreen(
 private fun PlaylistActionItem(
     icon: Painter,
     label: String,
+    isDestructive: Boolean = false,
     onClick: () -> Unit
 ) {
-    val itemShape = remember { RoundedCornerShape(18.dp) }
+    val containerColor = if (isDestructive) {
+        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val iconBgColor = if (isDestructive) {
+        MaterialTheme.colorScheme.error.copy(alpha = 0.16f)
+    } else {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+    }
+    val iconTint = if (isDestructive) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+    val textColor = if (isDestructive) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(itemShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(containerColor)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(38.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                .background(iconBgColor),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 painter = icon,
                 contentDescription = label,
-                tint = MaterialTheme.colorScheme.primary
+                tint = iconTint,
+                modifier = Modifier.size(20.dp)
             )
         }
         Spacer(modifier = Modifier.width(14.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = GoogleSansRounded),
+            color = textColor
         )
     }
 }

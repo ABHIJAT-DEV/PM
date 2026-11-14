@@ -1,5 +1,13 @@
 package com.saurav.pixelmusic.presentation.components
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,28 +19,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
+import kotlinx.coroutines.delay
 
 @Composable
 fun ExpressiveHeroCollageHeader(
@@ -40,7 +50,7 @@ fun ExpressiveHeroCollageHeader(
     subtitle: String,
     songs: List<Song>,
     modifier: Modifier = Modifier,
-    headerHeight: Dp = 330.dp,
+    headerHeight: Dp = 340.dp,
     parallaxOffset: Float = 0f,
     collageAlpha: Float = 1f,
     showCollage: Boolean = true,
@@ -49,8 +59,30 @@ fun ExpressiveHeroCollageHeader(
     val albumArts = remember(songs) {
         songs.mapNotNull { it.albumArtUriString?.takeIf { uri -> uri.isNotBlank() } }
             .distinct()
-            .take(3)
+            .take(6)
     }
+    var currentArtIndex by remember(albumArts) { mutableIntStateOf(0) }
+
+    LaunchedEffect(albumArts) {
+        if (albumArts.size > 1) {
+            while (true) {
+                delay(4800L)
+                currentArtIndex = (currentArtIndex + 1) % albumArts.size
+            }
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "heroArtMotion")
+    val slowZoom by infiniteTransition.animateFloat(
+        initialValue = 1.03f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 8500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "heroSlowZoom"
+    )
+
     val surfaceColor = MaterialTheme.colorScheme.surface
     val primaryGlow = MaterialTheme.colorScheme.primary
 
@@ -58,107 +90,52 @@ fun ExpressiveHeroCollageHeader(
         modifier = modifier
             .fillMaxWidth()
             .height(headerHeight)
+            .clipToBounds()
     ) {
-        // Soft ambient glow + Expressive overlapping album-art collage
+        // Subtle fallback ambient gradient
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            primaryGlow.copy(alpha = 0.22f),
-                            surfaceColor.copy(alpha = 0.4f),
+                            primaryGlow.copy(alpha = 0.24f),
+                            surfaceColor.copy(alpha = 0.5f),
                             surfaceColor
                         )
                     )
                 )
         )
 
+        // Full-bleed iOS / Apple Music-style slowly crossfading album art backdrop
         if (showCollage && albumArts.isNotEmpty()) {
-            Box(
+            Crossfade(
+                targetState = currentArtIndex.coerceIn(0, albumArts.lastIndex),
+                animationSpec = tween(durationMillis = 1600, easing = FastOutSlowInEasing),
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(top = 18.dp, bottom = 58.dp)
                     .graphicsLayer {
                         translationY = parallaxOffset
-                        alpha = collageAlpha
+                        alpha = collageAlpha * 0.85f
+                        scaleX = slowZoom
+                        scaleY = slowZoom
                     },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy((-72).dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    albumArts.forEachIndexed { index, artUrl ->
-                        val size = when {
-                            albumArts.size == 1 -> 196.dp
-                            index == 1 -> 204.dp
-                            else -> 164.dp
-                        }
-                        val rotation = when {
-                            albumArts.size == 1 -> 0f
-                            index == 0 -> -14f
-                            index == 1 -> 0f
-                            else -> 14f
-                        }
-                        val shape = threeShapeSwitch(index, thirdShapeCornerRadius = 28.dp)
-
-                        if (index == 2) {
-                            Box(
-                                modifier = Modifier.layout { measurable, constraints ->
-                                    val placeable = measurable.measure(
-                                        Constraints.fixed(
-                                            width = size.roundToPx(),
-                                            height = size.roundToPx()
-                                        )
-                                    )
-                                    layout(constraints.maxWidth, placeable.height) {
-                                        val xOffset = (constraints.maxWidth - placeable.width) / 2
-                                        placeable.placeRelative(xOffset, 0)
-                                    }
-                                }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .graphicsLayer { rotationZ = rotation }
-                                        .clip(shape)
-                                ) {
-                                    SmartImage(
-                                        model = artUrl,
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(size)
-                                    .graphicsLayer { rotationZ = rotation }
-                                    .clip(shape)
-                            ) {
-                                SmartImage(
-                                    model = artUrl,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                    }
-                }
+                label = "heroArtCrossfade"
+            ) { index ->
+                SmartImage(
+                    model = albumArts[index],
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         } else if (showCollage) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(top = 24.dp, bottom = 64.dp)
                     .graphicsLayer {
                         translationY = parallaxOffset
-                        alpha = collageAlpha * 0.45f
+                        alpha = collageAlpha * 0.35f
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -171,29 +148,29 @@ fun ExpressiveHeroCollageHeader(
             }
         }
 
-        // Smooth Apple Music-style fade into surface
+        // Smooth iOS-style top legibility scrim & bottom fade into surface
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
-                            surfaceColor.copy(alpha = 0.08f),
-                            Color.Transparent,
-                            surfaceColor.copy(alpha = 0.55f),
-                            surfaceColor.copy(alpha = 0.92f),
-                            surfaceColor
+                        colorStops = arrayOf(
+                            0.0f to surfaceColor.copy(alpha = 0.34f),
+                            0.22f to Color.Transparent,
+                            0.55f to surfaceColor.copy(alpha = 0.35f),
+                            0.80f to surfaceColor.copy(alpha = 0.84f),
+                            1.0f to surfaceColor
                         )
                     )
                 )
         )
 
-        // Centered Title + Subtitle anchored at the bottom of the hero
+        // Centered Title + Subtitle anchored cleanly at the bottom of the hero
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(

@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +79,7 @@ import androidx.navigation.NavController
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.stats.StatsTimeRange
+import com.saurav.pixelmusic.presentation.components.ExpressiveHeroCollageHeader
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.PlaylistBottomSheet
 import com.saurav.pixelmusic.presentation.components.RecentlyPlayedRangeSelector
@@ -251,11 +253,23 @@ fun RecentlyPlayedScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item(key = "recently_played_header") {
-                    ExpressiveRecentlyPlayedHeader(
+                    val parallaxOffset by remember {
+                        derivedStateOf {
+                            if (lazyListState.firstVisibleItemIndex == 0) lazyListState.firstVisibleItemScrollOffset * 0.45f else 0f
+                        }
+                    }
+                    val collageAlpha by remember {
+                        derivedStateOf {
+                            (1f - (lazyListState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
+                        }
+                    }
+                    ExpressiveHeroCollageHeader(
                         title = stringResource(R.string.presentation_batch_b_recently_played_title),
-                        songs = recentlyPlayedSongs,
-                        selectedRange = selectedRange,
-                        scrollState = lazyListState
+                        subtitle = "${recentlyPlayedSongs.size} songs • ${selectedRange.displayName}",
+                        songs = queueSongs,
+                        headerHeight = 320.dp,
+                        parallaxOffset = parallaxOffset,
+                        collageAlpha = collageAlpha
                     )
                 }
 
