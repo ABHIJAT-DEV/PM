@@ -61,7 +61,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import com.saurav.pixelmusic.data.model.Song
+import com.saurav.pixelmusic.presentation.components.ExpressiveHeroCollageHeader
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
@@ -131,12 +135,44 @@ fun QuickPicksAllScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Header
+            // Expressive Hero Collage Header
             item(key = "qp_header") {
-                QuickPicksAllHeader(
-                    songCount = songs.size,
-                    isLoading = isLoading,
-                    onRefresh = { quickPicksViewModel.refresh() }
+                val parallaxOffset by remember {
+                    derivedStateOf {
+                        if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset * 0.45f else 0f
+                    }
+                }
+                val collageAlpha by remember {
+                    derivedStateOf {
+                        (1f - (listState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
+                    }
+                }
+                val subtitleText = when {
+                    isLoading -> "Fetching from YouTube..."
+                    songs.isNotEmpty() -> "${songs.size} songs from YouTube"
+                    else -> ""
+                }
+                ExpressiveHeroCollageHeader(
+                    title = "Quick Picks",
+                    subtitle = subtitleText,
+                    songs = songs,
+                    headerHeight = 330.dp,
+                    parallaxOffset = parallaxOffset,
+                    collageAlpha = collageAlpha,
+                    trailingAction = {
+                        IconButton(
+                            onClick = { quickPicksViewModel.refresh() },
+                            modifier = Modifier.size(34.dp),
+                            enabled = !isLoading
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = "Refresh",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 )
             }
 
@@ -227,18 +263,21 @@ fun QuickPicksAllScreen(
             }
         }
 
-        // Back button
-        IconButton(
+        // Floating Back button over Hero Header
+        FilledTonalIconButton(
             onClick = { navController.popBackStack() },
+            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f),
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(start = 10.dp, top = 8.dp)
-                .size(40.dp)
+                .padding(start = 14.dp, top = 8.dp)
+                .size(42.dp)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface
+                contentDescription = "Back"
             )
         }
 

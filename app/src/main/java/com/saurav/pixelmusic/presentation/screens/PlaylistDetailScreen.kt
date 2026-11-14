@@ -106,7 +106,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import coil.size.Size
 import com.saurav.pixelmusic.R
+import androidx.compose.animation.core.animateDpAsState
 import com.saurav.pixelmusic.data.model.Song
+import com.saurav.pixelmusic.presentation.components.ExpressiveHeroCollageHeader
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.PlaylistBottomSheet
 import com.saurav.pixelmusic.presentation.components.QueuePlaylistSongItem
@@ -288,119 +290,38 @@ fun PlaylistDetailScreen(
         }
     }
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
-
-    Scaffold(
-        modifier = Modifier
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = {
-                    Text(
-                        modifier = Modifier.padding(start = 8.dp),
-                        text = currentPlaylist?.name ?: fallbackPlaylistName,
-                        fontFamily = GoogleSansRounded,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    scrolledContainerColor = Color.Transparent,
-                    containerColor = Color.Transparent
-                ),
-                subtitle = {
-                    Text(
-                        modifier = Modifier.padding(start = 8.dp),
-                        text = stringResource(
-                            R.string.presentation_batch_f_status_bullet_step,
-                            formatSongCount(songsInPlaylist.size),
-                            formatTotalDuration(songsInPlaylist)
-                        ),
-                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = GoogleSansRounded),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                navigationIcon = {
-                    CompositionLocalProvider(
-                        LocalMinimumInteractiveComponentSize provides 0.dp
-                    ) {
-                        FilledTonalIconButton(
-                            modifier = Modifier
-                                .padding(start = 10.dp)
-                                .size(44.dp),
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            ),
-                            onClick = onBackClick
-                        ) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.auth_cd_back))
-                        }
-                    }
-                },
-                actions = {
-                    CompositionLocalProvider(
-                        LocalMinimumInteractiveComponentSize provides 0.dp
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(end = 10.dp)
-                        ) {
-                            FilledTonalIconButton(
-                                modifier = Modifier.size(44.dp),
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                ),
-                                onClick = {
-                                    playerViewModel.showSortingSheet() 
-                                }
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_sort_24),
-                                    contentDescription = sortSongsLabel
-                                )
-                            }
-                            FilledTonalIconButton(
-                                modifier = Modifier.size(44.dp),
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                ),
-                                onClick = { showPlaylistOptionsSheet = true }
-                            ) { Icon(Icons.Filled.MoreVert, moreOptionsLabel) }
-                        }
-                    }
-                },
-                scrollBehavior = scrollBehavior
-            )
+    val isHeaderCollapsed by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 60
         }
-    ) { innerPadding ->
+    }
+    val heroHeight by animateDpAsState(
+        targetValue = if (isHeaderCollapsed) 142.dp else 310.dp,
+        label = "playlistHeroHeight"
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading && currentPlaylist == null) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = innerPadding.calculateTopPadding()), Alignment.Center
-            ) { CircularProgressIndicator() }
+            Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
         } else if (uiState.playlistNotFound) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = innerPadding.calculateTopPadding()), Alignment.Center
-            ) { Text(stringResource(id = R.string.playlist_not_found)) }
+            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Text(stringResource(id = R.string.playlist_not_found))
+            }
         } else if (currentPlaylist == null) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = innerPadding.calculateTopPadding()), Alignment.Center
-            ) { CircularProgressIndicator() }
+            Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
         } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = innerPadding.calculateTopPadding())
-            ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                ExpressiveHeroCollageHeader(
+                    title = currentPlaylist.name,
+                    subtitle = stringResource(
+                        R.string.presentation_batch_f_status_bullet_step,
+                        formatSongCount(songsInPlaylist.size),
+                        formatTotalDuration(songsInPlaylist)
+                    ),
+                    songs = songsInPlaylist,
+                    headerHeight = heroHeight,
+                    showCollage = !isHeaderCollapsed
+                )
                 val actionButtonsHeight = 42.dp
                 val playbackControlBottomPadding = if (isFolderPlaylist) 8.dp else 6.dp
 
