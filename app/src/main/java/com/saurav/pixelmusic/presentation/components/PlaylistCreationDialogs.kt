@@ -223,7 +223,7 @@ private object AiHeroArtworkMemo {
 }
 
 @Composable
-private fun rememberAiHeroArtworkUris(): List<String> {
+internal fun rememberAiHeroArtworkUris(): List<String> {
     val context = LocalContext.current
     var artworkUris by remember { mutableStateOf(AiHeroArtworkMemo.uris) }
     LaunchedEffect(context) {
@@ -1477,7 +1477,7 @@ private fun AiPlaylistRefineView(
     }
 }
 
-private val AiSmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+internal val AiSmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 
 internal const val SHAPE_STEP_COUNT = 240
 internal val COS_TABLE = FloatArray(SHAPE_STEP_COUNT) { i ->
@@ -1728,7 +1728,7 @@ private class AiMorphingExpressiveShape(
  * Fills an expressive morphing shape with a plain drawPath instead of clip + background, so no
  * stencil/path-clip mask is needed per frame. The morph progress is read in the draw phase only.
  */
-private fun Modifier.drawAiMorphShape(
+internal fun Modifier.drawAiMorphShape(
     from: AiExpressiveShapeType,
     to: AiExpressiveShapeType,
     morphProgress: () -> Float,
@@ -2372,7 +2372,7 @@ private val FLOATING_EXPRESSIVE_SHAPES = listOf(
 )
 
 @Composable
-private fun AiLibraryIndicatorsAnimation(
+internal fun AiLibraryIndicatorsAnimation(
     isGenerating: Boolean,
     isSuccess: Boolean = false,
     heroArtworkUris: List<String> = emptyList(),
@@ -3062,7 +3062,7 @@ private fun ExpressiveQuickSelectPill(
  * Full-filled choice chip (no borders) with shape morphing & spring touch feedback.
  */
 @Composable
-private fun ExpressiveChoiceChip(
+internal fun ExpressiveChoiceChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit
@@ -3155,7 +3155,7 @@ private fun ExpressiveChoiceChip(
  * never suppressed or delayed by ancestor `graphicsLayer` alpha transitions (sheet opening or
  * Refine page crossfades) and avoids CPU `Outline.Generic` path shadow tessellation.
  */
-private fun Modifier.aiSoftSurfaceGlow(
+internal fun Modifier.aiSoftSurfaceGlow(
     color: Color,
     cornerRadius: Dp,
     spread: Dp,
@@ -3185,7 +3185,7 @@ private fun Modifier.aiSoftSurfaceGlow(
 }
 
 @Composable
-private fun RefineBadge(text: String) {
+internal fun RefineBadge(text: String) {
     Surface(
         shape = AbsoluteSmoothCornerShape(10.dp, 60),
         color = MaterialTheme.colorScheme.surfaceContainerHigh

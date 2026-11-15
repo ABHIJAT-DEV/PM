@@ -3,11 +3,11 @@ package com.saurav.pixelmusic.presentation.screens
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,9 +31,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -49,8 +56,15 @@ import androidx.navigation.NavController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import com.saurav.pixelmusic.presentation.components.AiExpressiveShapeType
+import com.saurav.pixelmusic.presentation.components.AiPlaylistGeneratingFullScreenPage
+import com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing
+import com.saurav.pixelmusic.presentation.components.ExpressiveChoiceChip
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
+import com.saurav.pixelmusic.presentation.components.aiSoftSurfaceGlow
+import com.saurav.pixelmusic.presentation.components.drawAiMorphShape
 import com.saurav.pixelmusic.presentation.components.resolveNavBarOccupiedHeight
+import com.saurav.pixelmusic.utils.shapes.RoundedStarShape
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.navigation.navigateSafelyReplacing
@@ -144,7 +158,12 @@ fun SmartMixScreen(
             }
 
             if (uiState.isGenerating) {
-                GenerationProgressDialog(progress = uiState.generationProgress)
+                AiPlaylistGeneratingFullScreenPage(
+                    isSuccess = false,
+                    status = uiState.generationProgress,
+                    error = null,
+                    onDismiss = {}
+                )
             }
         }
     }
@@ -248,7 +267,46 @@ private fun SmartMixConfigurator(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    val ambientScheme = MaterialTheme.colorScheme
+    val ambientDark = isDark
+    val selectedColorPair = uiState.selectedMode?.let { modeColors[it] }
+    val targetAmbientA = selectedColorPair?.second ?: ambientScheme.primary
+    val targetAmbientB = selectedColorPair?.first ?: ambientScheme.tertiaryContainer
+    val ambientA by animateColorAsState(targetValue = targetAmbientA, animationSpec = tween(900, easing = AiSmoothMorphEasing), label = "sm_ambient_a")
+    val ambientB by animateColorAsState(targetValue = targetAmbientB, animationSpec = tween(900, easing = AiSmoothMorphEasing), label = "sm_ambient_b")
+    val ambientPhase by rememberInfiniteTransition(label = "sm_ambient").animateFloat(
+        initialValue = 0f,
+        targetValue = 6.2831855f,
+        animationSpec = infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Restart),
+        label = "sm_ambient_phase"
+    )
+    val haptic = LocalHapticFeedback.current
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawWithCache {
+                val brushA = Brush.radialGradient(listOf(ambientA.copy(alpha = 1f), Color.Transparent), Offset.Zero, 1f)
+                val brushB = Brush.radialGradient(listOf(ambientB.copy(alpha = 1f), Color.Transparent), Offset.Zero, 1f)
+                onDrawBehind {
+                    val w = size.width
+                    val h = size.height
+                    val t = ambientPhase
+                    withTransform({
+                        translate(w * (0.18f + 0.08f * kotlin.math.cos(t)), h * (0.15f + 0.04f * kotlin.math.sin(t)))
+                        scale(w * 0.72f, w * 0.72f, Offset.Zero)
+                    }) {
+                        drawCircle(brush = brushA, radius = 1f, center = Offset.Zero, alpha = if (ambientDark) 0.16f else 0.14f)
+                    }
+                    withTransform({
+                        translate(w * (0.85f + 0.07f * kotlin.math.sin(t + 1.8f)), h * (0.55f + 0.06f * kotlin.math.cos(t + 2.1f)))
+                        scale(w * 0.68f, w * 0.68f, Offset.Zero)
+                    }) {
+                        drawCircle(brush = brushB, radius = 1f, center = Offset.Zero, alpha = if (ambientDark) 0.14f else 0.12f)
+                    }
+                }
+            }
+    ) {
         val smartMixListState = rememberLazyListState()
         LazyColumn(
             state = smartMixListState,
@@ -292,106 +350,125 @@ private fun SmartMixConfigurator(
                 ModeItemData("library",         "My Library",       "Re-discover the sounds of your past",      R.drawable.rounded_library_music_24)
             )
 
-            val total = modes.size
+            val baseShapes = remember {
+                listOf(
+                    AiExpressiveShapeType.ROUNDED_SQUARE to AiExpressiveShapeType.COOKIE,
+                    AiExpressiveShapeType.CIRCLE to AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+                    AiExpressiveShapeType.ROUNDED_TRIANGLE to AiExpressiveShapeType.SIX_COOKIE,
+                    AiExpressiveShapeType.SIX_COOKIE to AiExpressiveShapeType.SUNNY_COOKIE,
+                    AiExpressiveShapeType.FOUR_HEAD_COOKIE to AiExpressiveShapeType.ROUNDED_TRIANGLE,
+                    AiExpressiveShapeType.COOKIE to AiExpressiveShapeType.ROUNDED_SQUARE,
+                    AiExpressiveShapeType.SUNNY_COOKIE to AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+                    AiExpressiveShapeType.CIRCLE to AiExpressiveShapeType.COOKIE
+                )
+            }
             modes.forEachIndexed { idx, mode ->
                 item(key = mode.id) {
                     val isSelected = uiState.selectedMode == mode.id
                     val colors = modeColors[mode.id]!!
+                    val (fromShape, toShape) = baseShapes[idx % baseShapes.size]
 
-                    // Dynamic scale bounce micro-interaction on selection
+                    val selectProgress by animateFloatAsState(
+                        targetValue = if (isSelected) 1f else 0f,
+                        animationSpec = tween(durationMillis = 560, easing = AiSmoothMorphEasing),
+                        label = "card_select_progress"
+                    )
                     val cardScale by animateFloatAsState(
-                        targetValue = if (isSelected) 1.02f else 1.0f,
+                        targetValue = if (isSelected) 1.015f else 1.0f,
                         animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            dampingRatio = Spring.DampingRatioNoBouncy,
                             stiffness = Spring.StiffnessLow
                         ),
                         label = "card_scale"
                     )
+                    val cardCorner by animateDpAsState(
+                        targetValue = if (isSelected) 30.dp else 22.dp,
+                        animationSpec = tween(durationMillis = 560, easing = AiSmoothMorphEasing),
+                        label = "card_corner"
+                    )
+                    val itemShape = remember(cardCorner) { AbsoluteSmoothCornerShape(cardCorner, 60) }
 
-                    val itemShape = remember { AbsoluteSmoothCornerShape(22.dp, 60) }
+                    val cardBgColor by animateColorAsState(
+                        targetValue = if (isSelected) {
+                            lerp(MaterialTheme.colorScheme.surfaceContainerHigh, colors.first, 0.22f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainer
+                        },
+                        animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing),
+                        label = "card_bg"
+                    )
 
-                    val cardBgColor = if (isSelected) {
-                        MaterialTheme.colorScheme.surfaceContainerHigh
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainerLow
-                    }
-
-                    val borderStroke = if (isSelected) {
-                        BorderStroke(
-                            width = 2.dp,
-                            brush = Brush.linearGradient(
-                                colors = listOf(colors.second, colors.second.copy(alpha = 0.5f))
-                            )
-                        )
-                    } else {
-                        BorderStroke(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                        )
-                    }
+                    val badgeRot by animateFloatAsState(
+                        targetValue = if (isSelected) (if (idx % 2 == 0) 22f else -22f) else 0f,
+                        animationSpec = tween(durationMillis = 620, easing = AiSmoothMorphEasing),
+                        label = "badge_rot"
+                    )
+                    val badgeBg by animateColorAsState(
+                        targetValue = if (isSelected) colors.second else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+                        label = "badge_bg"
+                    )
+                    val badgeIconTint by animateColorAsState(
+                        targetValue = if (isSelected) colors.first else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+                        label = "badge_tint"
+                    )
 
                     Surface(
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             if (isSelected) viewModel.setSelectedMode(null)
                             else viewModel.setSelectedMode(mode.id)
                         },
                         shape = itemShape,
                         color = cardBgColor,
-                        border = borderStroke,
+                        shadowElevation = 0.dp,
                         modifier = Modifier
                             .fillMaxWidth()
                             .graphicsLayer {
                                 scaleX = cardScale
                                 scaleY = cardScale
                             }
+                            .aiSoftSurfaceGlow(
+                                color = colors.second,
+                                cornerRadius = cardCorner,
+                                spread = 14.dp * selectProgress,
+                                offsetY = 4.dp * selectProgress,
+                                maxAlpha = (if (isDark) 0.26f else 0.16f) * selectProgress
+                            )
                     ) {
-                        val overlayModifier = if (isSelected) {
-                            Modifier.background(colors.second.copy(alpha = 0.05f))
-                        } else {
-                            Modifier
-                        }
-                        Column(modifier = overlayModifier) {
+                        Column {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp)
                             ) {
-                                // Premium Squircle Icon Container with dynamic inversion
+                                // Material You Expressive Morphing Shape Badge
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
-                                        .size(52.dp)
-                                        .clip(AbsoluteSmoothCornerShape(16.dp, 60))
-                                        .background(
-                                            if (isSelected) {
-                                                Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        colors.second,
-                                                        colors.second.copy(alpha = 0.8f)
-                                                    )
+                                        .size(54.dp)
+                                        .graphicsLayer { rotationZ = badgeRot }
+                                        .drawAiMorphShape(
+                                            from = fromShape,
+                                            to = toShape,
+                                            morphProgress = { selectProgress },
+                                            brush = Brush.verticalGradient(
+                                                colors = listOf(
+                                                    lerp(badgeBg, Color.White, if (isSelected) 0.18f else 0.04f),
+                                                    badgeBg
                                                 )
-                                            } else {
-                                                Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                        MaterialTheme.colorScheme.surfaceContainerHigh
-                                                    )
-                                                )
-                                            }
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = (if (isSelected) colors.first else MaterialTheme.colorScheme.outlineVariant).copy(alpha = 0.2f),
-                                            shape = AbsoluteSmoothCornerShape(16.dp, 60)
+                                            )
                                         )
                                 ) {
                                     Icon(
                                         painter = painterResource(mode.iconRes),
                                         contentDescription = null,
-                                        modifier = Modifier.size(24.dp),
-                                        tint = if (isSelected) colors.first
-                                               else MaterialTheme.colorScheme.onSurfaceVariant
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .graphicsLayer { rotationZ = -badgeRot },
+                                        tint = badgeIconTint
                                     )
                                 }
 
@@ -418,10 +495,9 @@ private fun SmartMixConfigurator(
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
-                                // Animated chevron / collapse icon matching the dynamic color scheme
                                 val iconRotation by animateFloatAsState(
                                     targetValue = if (isSelected) 90f else 0f,
-                                    animationSpec = tween(200),
+                                    animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
                                     label = "chevron_rotation"
                                 )
                                 Icon(
@@ -435,11 +511,10 @@ private fun SmartMixConfigurator(
                                 )
                             }
 
-                            // Inline expanded options styled symmetrically
                             AnimatedVisibility(
                                 visible = isSelected,
-                                enter = expandVertically(tween(220)) + fadeIn(tween(220)),
-                                exit  = shrinkVertically(tween(180)) + fadeOut(tween(180))
+                                enter = expandVertically(tween(540, easing = AiSmoothMorphEasing)) + fadeIn(tween(480, easing = AiSmoothMorphEasing)),
+                                exit  = shrinkVertically(tween(460, easing = AiSmoothMorphEasing)) + fadeOut(tween(320, easing = AiSmoothMorphEasing))
                             ) {
                                 Column(
                                     modifier = Modifier
@@ -507,22 +582,39 @@ private fun SmartMixConfigurator(
             visible = uiState.selectedMode != null,
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            ) + fadeIn(),
+                animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing)
+            ) + fadeIn(tween(durationMillis = 460, easing = AiSmoothMorphEasing)),
             exit = slideOutVertically(
                 targetOffsetY = { it },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            ) + fadeOut(),
+                animationSpec = tween(durationMillis = 420, easing = AiSmoothMorphEasing)
+            ) + fadeOut(tween(durationMillis = 320)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
         ) {
+            val genInteraction = remember { MutableInteractionSource() }
+            val isGenPressed by genInteraction.collectIsPressedAsState()
+            val genScale by animateFloatAsState(
+                targetValue = if (isGenPressed) 0.94f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "sm_gen_scale"
+            )
+            val genCorner by animateDpAsState(
+                targetValue = if (isGenPressed) 18.dp else 28.dp,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                label = "sm_gen_corner"
+            )
+            val genContainer by animateColorAsState(
+                targetValue = if (isGenerateEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                animationSpec = tween(320, easing = AiSmoothMorphEasing),
+                label = "sm_gen_container"
+            )
+            val genContent by animateColorAsState(
+                targetValue = if (isGenerateEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                animationSpec = tween(320, easing = AiSmoothMorphEasing),
+                label = "sm_gen_content"
+            )
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -542,37 +634,52 @@ private fun SmartMixConfigurator(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Button(
-                    onClick = { keyboardController?.hide(); viewModel.generatePlaylist() },
+                Surface(
+                    onClick = {
+                        if (isGenerateEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            keyboardController?.hide()
+                            viewModel.generatePlaylist()
+                        }
+                    },
                     enabled = isGenerateEnabled,
+                    interactionSource = genInteraction,
+                    shape = AbsoluteSmoothCornerShape(genCorner, 60),
+                    color = genContainer,
+                    contentColor = genContent,
+                    shadowElevation = 0.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    shape = AbsoluteSmoothCornerShape(28.dp, 60),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 6.dp,
-                        pressedElevation = 2.dp,
-                        disabledElevation = 0.dp
-                    )
+                        .height(56.dp)
+                        .graphicsLayer {
+                            scaleX = genScale
+                            scaleY = genScale
+                        }
+                        .aiSoftSurfaceGlow(
+                            color = if (isGenerateEnabled) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            cornerRadius = genCorner,
+                            spread = 14.dp,
+                            offsetY = 4.dp,
+                            maxAlpha = if (isGenerateEnabled) (if (isDark) 0.34f else 0.22f) else 0f
+                        )
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.rounded_auto_awesome_24),
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Generate Mix",
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_auto_awesome_24),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Generate Mix",
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
             }
         }
@@ -584,12 +691,20 @@ private fun TrackCountSliderCard(
     count: Int,
     onCountChange: (Int) -> Unit
 ) {
-    val shape = remember { AbsoluteSmoothCornerShape(22.dp, 60) }
+    val haptic = LocalHapticFeedback.current
+    val shape = remember { AbsoluteSmoothCornerShape(26.dp, 60) }
+    val starShape = remember { RoundedStarShape(sides = 8, curve = 0.08, rotation = 0f) }
+    val badgeRotation by animateFloatAsState(
+        targetValue = (count - 5) * 4f,
+        animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+        label = "track_count_badge_rot"
+    )
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = shape,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shadowElevation = 0.dp
     ) {
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
             Row(
@@ -611,23 +726,29 @@ private fun TrackCountSliderCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
-                Surface(
-                    shape = AbsoluteSmoothCornerShape(12.dp, 60),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.padding(start = 8.dp)
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(52.dp)
                 ) {
+                    Surface(
+                        shape = starShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shadowElevation = 0.dp,
+                        modifier = Modifier
+                            .size(52.dp)
+                            .graphicsLayer { rotationZ = badgeRotation }
+                    ) {}
                     Text(
                         text = "$count",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = GoogleSansRounded,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             Slider(
                 value = count.toFloat(),
                 onValueChange = { onCountChange(it.toInt()) },
@@ -636,19 +757,22 @@ private fun TrackCountSliderCard(
                 colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
                     activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 )
             )
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("5", "15", "25", "35").forEach { label ->
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Bold
+                listOf(10, 15, 25, 35).forEach { preset ->
+                    ExpressiveChoiceChip(
+                        label = "$preset",
+                        selected = count == preset,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onCountChange(preset)
+                        }
                     )
                 }
             }
@@ -678,24 +802,19 @@ private fun PeriodSelectionSection(
         modifier = Modifier.padding(bottom = 8.dp)
     )
 
+    val haptic = LocalHapticFeedback.current
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         items(periods) { (id, label) ->
-            val active = selectedPeriod == id
-            FilterChip(
-                selected = active,
-                onClick = { onPeriodSelect(id) },
-                label = { Text(label, fontFamily = GoogleSansRounded) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = colors.second,
-                    selectedLabelColor = colors.first,
-                    containerColor = colors.second.copy(alpha = 0.15f),
-                    labelColor = colors.second
-                ),
-                shape = AbsoluteSmoothCornerShape(12.dp, 60),
-                border = null
+            ExpressiveChoiceChip(
+                label = label,
+                selected = selectedPeriod == id,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onPeriodSelect(id)
+                }
             )
         }
     }
@@ -996,25 +1115,20 @@ private fun TagInputs(
             color = colors.second
         )
 
+        val haptic = LocalHapticFeedback.current
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             mainAxisSpacing = 8.dp,
             crossAxisSpacing = 8.dp
         ) {
             for (tag in suggestions) {
-                val active = uiState.tagInput.lowercase() == tag
-                FilterChip(
-                    selected = active,
-                    onClick = { viewModel.setTagInput(tag) },
-                    label = { Text(tag, fontFamily = GoogleSansRounded) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = colors.second,
-                        selectedLabelColor = colors.first,
-                        containerColor = colors.second.copy(alpha = 0.15f),
-                        labelColor = colors.second
-                    ),
-                    shape = AbsoluteSmoothCornerShape(12.dp, 60),
-                    border = null
+                ExpressiveChoiceChip(
+                    label = tag,
+                    selected = uiState.tagInput.lowercase() == tag,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.setTagInput(tag)
+                    }
                 )
             }
         }
@@ -1033,7 +1147,7 @@ private fun SeedSearchResultItem(
         modifier = Modifier.fillMaxWidth(),
         shape = AbsoluteSmoothCornerShape(16.dp, 60),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
