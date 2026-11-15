@@ -544,6 +544,11 @@ fun AiPlaylistGeneratingFullScreenPage(
     status: String?,
     error: String?,
     heroArtworkUris: List<String> = rememberAiHeroArtworkUris(),
+    customHeadlines: List<String>? = null,
+    customPhases: List<String>? = null,
+    successHeadline: String = "Mix synthesized!",
+    successSubtitle: String = "Opening your new playlist now…",
+    preferLiveStatus: Boolean = false,
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -665,6 +670,11 @@ fun AiPlaylistGeneratingFullScreenPage(
                             status = status,
                             isSuccess = isSuccess,
                             error = error,
+                            customHeadlines = customHeadlines,
+                            customPhases = customPhases,
+                            successHeadline = successHeadline,
+                            successSubtitle = successSubtitle,
+                            preferLiveStatus = preferLiveStatus,
                             onDismiss = onDismiss
                         )
                     }
@@ -3204,10 +3214,15 @@ private fun AiPlaylistCreationAnimationView(
     status: String?,
     isSuccess: Boolean,
     error: String?,
+    customHeadlines: List<String>? = null,
+    customPhases: List<String>? = null,
+    successHeadline: String = "Mix synthesized!",
+    successSubtitle: String = "Opening your new playlist now…",
+    preferLiveStatus: Boolean = false,
     onDismiss: () -> Unit
 ) {
-    val headlines = remember {
-        listOf(
+    val headlines = remember(customHeadlines) {
+        customHeadlines ?: listOf(
             "Creating your AI playlist…",
             "Matching your vibe…",
             "AI is thinking…",
@@ -3218,8 +3233,8 @@ private fun AiPlaylistCreationAnimationView(
             "Sequencing your custom mix…"
         )
     }
-    val phases = remember {
-        listOf(
+    val phases = remember(customPhases) {
+        customPhases ?: listOf(
             "Tuning to your taste & listening patterns…",
             "Scanning local & cloud tracks for matching vibes…",
             "Discovering fresh recommendations & flow…",
@@ -3258,9 +3273,9 @@ private fun AiPlaylistCreationAnimationView(
         // Dynamic animated headline cycling smoothly one by one
         AnimatedContent(
             targetState = if (isSuccess) {
-                "Mix synthesized!"
+                successHeadline
             } else {
-                headlines[headlineIndex]
+                headlines[headlineIndex % headlines.size]
             },
             transitionSpec = {
                 (slideInVertically(
@@ -3301,9 +3316,11 @@ private fun AiPlaylistCreationAnimationView(
         // Animated stage subtitle cycling smoothly through detailed progress lines
         AnimatedContent(
             targetState = if (isSuccess) {
-                "Opening your new playlist now…"
+                successSubtitle
+            } else if (preferLiveStatus && !status.isNullOrBlank()) {
+                status
             } else {
-                phases[phaseIndex]
+                phases[phaseIndex % phases.size]
             },
             transitionSpec = {
                 (slideInVertically(

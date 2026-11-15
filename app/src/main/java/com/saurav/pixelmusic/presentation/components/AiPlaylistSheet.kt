@@ -23,13 +23,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,28 +44,26 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -84,6 +81,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -91,9 +89,11 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -109,6 +109,23 @@ import com.saurav.pixelmusic.presentation.viewmodel.LastFmTrack
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import kotlinx.coroutines.delay
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
+
+private val LASTFM_DAILY_MIX_HEADLINES = listOf(
+    "Updating your Daily Mix…",
+    "Syncing with Last.fm…",
+    "Reading your Last.fm scrobbles…",
+    "Analyzing your listening history…",
+    "Matching your Last.fm taste…",
+    "Resolving tracks on YouTube Music…",
+    "Refreshing your Daily Mix queue…"
+)
+
+private val LASTFM_DAILY_MIX_PHASES = listOf(
+    "Connecting to your Last.fm profile & scrobble history…",
+    "Curating tracks from your Last.fm listening patterns…",
+    "Matching playable tracks on YouTube Music…",
+    "Updating your Daily Mix songs directly…"
+)
 
 @Composable
 fun AiPlaylistSheet(
@@ -140,7 +157,7 @@ fun AiPlaylistSheet(
 ) {
     val heroArtworkUris = rememberAiHeroArtworkUris()
 
-    // Auto-dismiss right as the full-screen success portal animation finishes dissolving
+    // Auto-dismiss right as the full-screen Daily Mix update portal animation finishes dissolving
     LaunchedEffect(isSuccess) {
         if (isSuccess) {
             delay(1380L)
@@ -154,6 +171,11 @@ fun AiPlaylistSheet(
             status = status,
             error = error,
             heroArtworkUris = heroArtworkUris,
+            customHeadlines = LASTFM_DAILY_MIX_HEADLINES,
+            customPhases = LASTFM_DAILY_MIX_PHASES,
+            successHeadline = "Daily Mix Updated!",
+            successSubtitle = "Your Last.fm mix is ready in Daily Mix…",
+            preferLiveStatus = true,
             onDismiss = onDismiss
         )
     } else {
@@ -243,7 +265,6 @@ private fun DailyMixLastFmSheetContent(
     var timePeriod by rememberSaveable { mutableStateOf("overall") }
     var isRefining by rememberSaveable { mutableStateOf(false) }
 
-    // Ambient, mode-reactive background matching the AI playlist sheet
     val ambientScheme = MaterialTheme.colorScheme
     val ambientDark = ambientScheme.surface.luminance() < 0.5f
     val ambientPick = remember(selectedMode) { (selectedMode.hashCode() and 0x7fffffff) % 3 }
@@ -271,12 +292,11 @@ private fun DailyMixLastFmSheetContent(
         label = "dm_ambient_energy"
     )
 
-    // Hero shapes morph & spin smoothly whenever mode, period, or count changes
     var heroFrom by remember { mutableIntStateOf(0) }
     var heroTo by remember { mutableIntStateOf(0) }
     val heroMorph = remember { Animatable(1f) }
-    val stateSignature = remember(selectedMode, timePeriod, trackCountText) {
-        ((selectedMode.hashCode() * 31 + timePeriod.hashCode() * 7 + trackCountText.hashCode()) and 0x7fffffff) % 11 + 1
+    val stateSignature = remember(selectedMode, timePeriod, trackCountText, seedTrackName, seedArtistInput, tagInput) {
+        ((selectedMode.hashCode() * 31 + timePeriod.hashCode() * 7 + trackCountText.hashCode() + seedTrackName.hashCode() + seedArtistInput.hashCode() + tagInput.hashCode()) and 0x7fffffff) % 11 + 1
     }
     LaunchedEffect(stateSignature) {
         if (stateSignature != heroTo) {
@@ -301,7 +321,6 @@ private fun DailyMixLastFmSheetContent(
         )
     }
 
-    // Lock the bottom sheet dialog window against IME resize/pan jumps
     val view = LocalView.current
     DisposableEffect(view) {
         var p = view.parent
@@ -424,7 +443,7 @@ private fun DailyMixLastFmSheetContent(
                         translationX = -18.dp.toPx() * p
                     }
                     .verticalScroll(mainScrollState)
-                    .padding(bottom = 28.dp),
+                    .padding(bottom = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
@@ -475,6 +494,7 @@ private fun DailyMixLastFmSheetContent(
                     onModeChange = { selectedMode = it },
                     trackCountText = trackCountText,
                     timePeriod = timePeriod,
+                    onTimePeriodChange = { timePeriod = it },
                     seedTrackName = seedTrackName,
                     onSeedTrackNameChange = { seedTrackName = it },
                     seedArtistName = seedArtistName,
@@ -564,6 +584,7 @@ private fun DailyMixLastFmMainView(
     onModeChange: (String) -> Unit,
     trackCountText: String,
     timePeriod: String,
+    onTimePeriodChange: (String) -> Unit,
     seedTrackName: String,
     onSeedTrackNameChange: (String) -> Unit,
     seedArtistName: String,
@@ -589,18 +610,9 @@ private fun DailyMixLastFmMainView(
     onLoadTopArtists: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val colors = MaterialTheme.colorScheme
     val isDark = colors.surface.luminance() < 0.5f
-
-    val fieldColors = TextFieldDefaults.colors(
-        focusedContainerColor = colors.surfaceContainerHigh,
-        unfocusedContainerColor = colors.surfaceContainerHigh,
-        disabledContainerColor = colors.surfaceContainerHigh,
-        focusedIndicatorColor = Color.Transparent,
-        unfocusedIndicatorColor = Color.Transparent,
-        disabledIndicatorColor = Color.Transparent
-    )
-    val smoothFieldShape = remember { AbsoluteSmoothCornerShape(16.dp, 60) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -621,14 +633,14 @@ private fun DailyMixLastFmMainView(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Based on your Last.fm history",
+            text = "Update your Daily Mix from your Last.fm history",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 20.dp)
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         DailyMixModeQuickSelectRow(
             selectedMode = selectedMode,
@@ -638,86 +650,128 @@ private fun DailyMixLastFmMainView(
             }
         )
 
-        // Conditional inputs for modes that require seeds or tags
+        // Conditional Time Period card when Top Tracks or My Library is selected
         AnimatedVisibility(
-            visible = selectedMode == "similar-tracks" || selectedMode == "similar-artists" || selectedMode == "tag",
-            enter = expandVertically(tween(420, easing = AiSmoothMorphEasing)) + fadeIn(tween(380)),
-            exit = shrinkVertically(tween(320, easing = AiSmoothMorphEasing)) + fadeOut(tween(240))
+            visible = selectedMode == "top" || selectedMode == "library",
+            enter = expandVertically(tween(460, easing = AiSmoothMorphEasing)) + fadeIn(tween(380)),
+            exit = shrinkVertically(tween(340, easing = AiSmoothMorphEasing)) + fadeOut(tween(240))
         ) {
             Surface(
-                shape = remember { AbsoluteSmoothCornerShape(22.dp, 60) },
+                shape = remember { AbsoluteSmoothCornerShape(26.dp, 60) },
                 color = colors.surfaceContainer,
                 shadowElevation = 0.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 6.dp)
+                    .padding(horizontal = 20.dp, vertical = 4.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    Text(
+                        text = "Time period",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = colors.onSurface
+                    )
+                    DailyMixTimePeriodGrid(
+                        selectedPeriod = timePeriod,
+                        onPeriodSelect = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onTimePeriodChange(it)
+                        }
+                    )
+                }
+            }
+        }
+
+        // Expressive Board Cards for Similar Tracks, Similar Artists, and Tag
+        AnimatedVisibility(
+            visible = selectedMode == "similar-tracks" || selectedMode == "similar-artists" || selectedMode == "tag",
+            enter = expandVertically(tween(480, easing = AiSmoothMorphEasing)) + fadeIn(tween(400)),
+            exit = shrinkVertically(tween(360, easing = AiSmoothMorphEasing)) + fadeOut(tween(260))
+        ) {
+            Surface(
+                shape = remember { AbsoluteSmoothCornerShape(28.dp, 60) },
+                color = colors.surfaceContainer,
+                shadowElevation = 0.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     when (selectedMode) {
                         "similar-tracks" -> {
-                            OutlinedTextField(
+                            ExpressiveSeedInputCard(
                                 value = seedTrackName,
                                 onValueChange = onSeedTrackNameChange,
-                                label = { Text("Seed Track Name") },
-                                placeholder = { Text("e.g. Blinding Lights") },
-                                trailingIcon = {
-                                    IconButton(onClick = { onSearchTrack(seedTrackName, seedArtistName) }) {
-                                        Icon(Icons.Rounded.Search, contentDescription = "Search", tint = colors.primary)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = smoothFieldShape,
-                                colors = fieldColors,
-                                singleLine = true
+                                label = "Seed Track",
+                                placeholder = "e.g. Blinding Lights",
+                                iconRes = R.drawable.rounded_music_note_24,
+                                badgeShape = AiExpressiveShapeType.COOKIE,
+                                morphedBadgeShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+                                accentColor = colors.primary,
+                                accentContainer = colors.primaryContainer,
+                                onSearch = {
+                                    keyboardController?.hide()
+                                    onSearchTrack(seedTrackName, seedArtistName)
+                                }
                             )
-                            OutlinedTextField(
+
+                            ExpressiveSeedInputCard(
                                 value = seedArtistName,
                                 onValueChange = onSeedArtistNameChange,
-                                label = { Text("Seed Artist Name") },
-                                placeholder = { Text("e.g. The Weeknd") },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = smoothFieldShape,
-                                colors = fieldColors,
-                                singleLine = true
+                                label = "Seed Artist",
+                                placeholder = "e.g. The Weeknd",
+                                iconRes = R.drawable.rounded_people_24,
+                                badgeShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+                                morphedBadgeShape = AiExpressiveShapeType.SIX_COOKIE,
+                                accentColor = colors.tertiary,
+                                accentContainer = colors.tertiaryContainer,
+                                onSearch = null
                             )
-                            Button(
-                                onClick = onLoadTopTracks,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = colors.primaryContainer,
-                                    contentColor = colors.onPrimaryContainer
-                                ),
-                                shape = AbsoluteSmoothCornerShape(14.dp, 60),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_library_music_24),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Pick From My Top Tracks", fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
-                            }
-                            if (isSearchingSeeds || isSearchingTopSeeds) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(44.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(color = colors.primary, modifier = Modifier.size(22.dp))
+
+                            ExpressiveTopSeedTriggerCard(
+                                text = "Pick From My Top Tracks",
+                                subtitle = "Choose a track from your Last.fm top listens",
+                                iconRes = R.drawable.rounded_library_music_24,
+                                isLoading = isSearchingSeeds || isSearchingTopSeeds,
+                                accentColor = colors.primary,
+                                accentContainer = colors.primaryContainer,
+                                onAccentContainer = colors.onPrimaryContainer,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    keyboardController?.hide()
+                                    onLoadTopTracks()
                                 }
-                            }
+                            )
+
                             if (searchTrackResults.isNotEmpty()) {
-                                Text("Search Results", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = colors.primary)
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    for (track in searchTrackResults.take(5)) {
-                                        SeedSearchResultItem(
+                                ExpressiveSeedBoardSection(
+                                    title = "Search Results",
+                                    count = searchTrackResults.size,
+                                    accentColor = colors.primary
+                                ) {
+                                    searchTrackResults.take(6).forEachIndexed { idx, track ->
+                                        val selected = seedTrackName.equals(track.name, ignoreCase = true) &&
+                                            seedArtistName.equals(track.artist, ignoreCase = true)
+                                        ExpressiveSeedBoardItem(
+                                            index = idx,
                                             title = track.name,
                                             subtitle = track.artist,
+                                            iconRes = R.drawable.rounded_music_note_24,
+                                            isSelected = selected,
+                                            accentColor = colors.primary,
+                                            accentContainer = colors.primaryContainer,
+                                            onAccent = colors.onPrimary,
+                                            onAccentContainer = colors.onPrimaryContainer,
                                             onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                 onSeedTrackNameChange(track.name)
                                                 onSeedArtistNameChange(track.artist)
                                             }
@@ -725,14 +779,28 @@ private fun DailyMixLastFmMainView(
                                     }
                                 }
                             }
+
                             if (topTracks.isNotEmpty()) {
-                                Text("My Top Tracks", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = colors.primary)
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    for (track in topTracks.take(5)) {
-                                        SeedSearchResultItem(
+                                ExpressiveSeedBoardSection(
+                                    title = "My Top Tracks",
+                                    count = topTracks.size,
+                                    accentColor = colors.primary
+                                ) {
+                                    topTracks.take(6).forEachIndexed { idx, track ->
+                                        val selected = seedTrackName.equals(track.name, ignoreCase = true) &&
+                                            seedArtistName.equals(track.artist, ignoreCase = true)
+                                        ExpressiveSeedBoardItem(
+                                            index = idx,
                                             title = track.name,
                                             subtitle = track.artist,
+                                            iconRes = R.drawable.rounded_music_note_24,
+                                            isSelected = selected,
+                                            accentColor = colors.primary,
+                                            accentContainer = colors.primaryContainer,
+                                            onAccent = colors.onPrimary,
+                                            onAccentContainer = colors.onPrimaryContainer,
                                             onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                 onSeedTrackNameChange(track.name)
                                                 onSeedArtistNameChange(track.artist)
                                             }
@@ -741,101 +809,132 @@ private fun DailyMixLastFmMainView(
                                 }
                             }
                         }
+
                         "similar-artists" -> {
-                            OutlinedTextField(
+                            ExpressiveSeedInputCard(
                                 value = seedArtistInput,
                                 onValueChange = onSeedArtistInputChange,
-                                label = { Text("Seed Artist Name") },
-                                placeholder = { Text("e.g. Coldplay") },
-                                trailingIcon = {
-                                    IconButton(onClick = { onSearchArtist(seedArtistInput) }) {
-                                        Icon(Icons.Rounded.Search, contentDescription = "Search", tint = colors.primary)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = smoothFieldShape,
-                                colors = fieldColors,
-                                singleLine = true
-                            )
-                            Button(
-                                onClick = onLoadTopArtists,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = colors.primaryContainer,
-                                    contentColor = colors.onPrimaryContainer
-                                ),
-                                shape = AbsoluteSmoothCornerShape(14.dp, 60),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_people_24),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Pick From My Top Artists", fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
-                            }
-                            if (isSearchingSeeds || isSearchingTopSeeds) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(44.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(color = colors.primary, modifier = Modifier.size(22.dp))
+                                label = "Seed Artist",
+                                placeholder = "e.g. Coldplay, Arijit Singh…",
+                                iconRes = R.drawable.rounded_people_24,
+                                badgeShape = AiExpressiveShapeType.SIX_COOKIE,
+                                morphedBadgeShape = AiExpressiveShapeType.COOKIE,
+                                accentColor = colors.primary,
+                                accentContainer = colors.primaryContainer,
+                                onSearch = {
+                                    keyboardController?.hide()
+                                    onSearchArtist(seedArtistInput)
                                 }
-                            }
+                            )
+
+                            ExpressiveTopSeedTriggerCard(
+                                text = "Pick From My Top Artists",
+                                subtitle = "Choose an artist from your Last.fm history",
+                                iconRes = R.drawable.rounded_people_24,
+                                isLoading = isSearchingSeeds || isSearchingTopSeeds,
+                                accentColor = colors.primary,
+                                accentContainer = colors.primaryContainer,
+                                onAccentContainer = colors.onPrimaryContainer,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    keyboardController?.hide()
+                                    onLoadTopArtists()
+                                }
+                            )
+
                             if (searchArtistResults.isNotEmpty()) {
-                                Text("Search Results", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = colors.primary)
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    for (artist in searchArtistResults.take(5)) {
-                                        SeedSearchResultItem(
+                                ExpressiveSeedBoardSection(
+                                    title = "Search Results",
+                                    count = searchArtistResults.size,
+                                    accentColor = colors.primary
+                                ) {
+                                    searchArtistResults.take(6).forEachIndexed { idx, artist ->
+                                        val selected = seedArtistInput.equals(artist, ignoreCase = true)
+                                        ExpressiveSeedBoardItem(
+                                            index = idx,
                                             title = artist,
-                                            subtitle = "Artist",
-                                            onClick = { onSeedArtistInputChange(artist) }
+                                            subtitle = "Last.fm Artist",
+                                            iconRes = R.drawable.rounded_people_24,
+                                            isSelected = selected,
+                                            accentColor = colors.primary,
+                                            accentContainer = colors.primaryContainer,
+                                            onAccent = colors.onPrimary,
+                                            onAccentContainer = colors.onPrimaryContainer,
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                onSeedArtistInputChange(artist)
+                                            }
                                         )
                                     }
                                 }
                             }
+
                             if (topArtists.isNotEmpty()) {
-                                Text("My Top Artists", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = colors.primary)
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    for (artist in topArtists.take(5)) {
-                                        SeedSearchResultItem(
+                                ExpressiveSeedBoardSection(
+                                    title = "My Top Artists",
+                                    count = topArtists.size,
+                                    accentColor = colors.primary
+                                ) {
+                                    topArtists.take(6).forEachIndexed { idx, artist ->
+                                        val selected = seedArtistInput.equals(artist, ignoreCase = true)
+                                        ExpressiveSeedBoardItem(
+                                            index = idx,
                                             title = artist,
-                                            subtitle = "Artist",
-                                            onClick = { onSeedArtistInputChange(artist) }
+                                            subtitle = "Top Last.fm Artist",
+                                            iconRes = R.drawable.rounded_people_24,
+                                            isSelected = selected,
+                                            accentColor = colors.primary,
+                                            accentContainer = colors.primaryContainer,
+                                            onAccent = colors.onPrimary,
+                                            onAccentContainer = colors.onPrimaryContainer,
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                onSeedArtistInputChange(artist)
+                                            }
                                         )
                                     }
                                 }
                             }
                         }
+
                         "tag" -> {
-                            OutlinedTextField(
+                            ExpressiveSeedInputCard(
                                 value = tagInput,
                                 onValueChange = onTagInputChange,
-                                label = { Text("Genre or Tag") },
-                                placeholder = { Text("e.g. rock, lofi, jazz") },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = smoothFieldShape,
-                                colors = fieldColors,
-                                singleLine = true
+                                label = "Genre or Tag",
+                                placeholder = "e.g. rock, lofi, jazz, indie…",
+                                iconRes = R.drawable.rounded_sell_24,
+                                badgeShape = AiExpressiveShapeType.SUNNY_COOKIE,
+                                morphedBadgeShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+                                accentColor = colors.primary,
+                                accentContainer = colors.primaryContainer,
+                                onSearch = null
                             )
-                            val quickTags = remember { listOf("lofi", "rock", "pop", "jazz", "indie", "ambient") }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                quickTags.forEach { tag ->
-                                    ExpressiveChoiceChip(
-                                        label = tag,
-                                        selected = tagInput.equals(tag, ignoreCase = true),
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            onTagInputChange(tag)
+
+                            val quickTags = remember {
+                                listOf(
+                                    listOf("lofi", "rock", "pop", "jazz"),
+                                    listOf("indie", "electronic", "hip-hop", "ambient")
+                                )
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                quickTags.forEach { rowTags ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        rowTags.forEach { tag ->
+                                            DailyMixMorphChip(
+                                                label = tag,
+                                                selected = tagInput.equals(tag, ignoreCase = true),
+                                                onClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    onTagInputChange(tag)
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            )
                                         }
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -876,9 +975,9 @@ private fun DailyMixLastFmMainView(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Refine Section Card matching AI Playlist Sheet
+        // Refine Daily Mix Card
         val refineCardShape = remember { AbsoluteSmoothCornerShape(22.dp, 60) }
         val displayCount = trackCountText.ifBlank { "30" }
         val periodLabel = when (timePeriod) {
@@ -924,7 +1023,7 @@ private fun DailyMixLastFmMainView(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Refine your mix",
+                        text = "Refine Daily Mix",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = colors.onSurface
@@ -934,7 +1033,7 @@ private fun DailyMixLastFmMainView(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RefineBadge(text = "Tracks: $displayCount")
+                        RefineBadge(text = "Mix size: $displayCount songs")
                         if (selectedMode == "top" || selectedMode == "library") {
                             RefineBadge(text = "Period: $periodLabel")
                         }
@@ -943,7 +1042,7 @@ private fun DailyMixLastFmMainView(
 
                 Icon(
                     painter = painterResource(R.drawable.rounded_chevron_right_24),
-                    contentDescription = "Refine options",
+                    contentDescription = "Refine Daily Mix",
                     tint = colors.onSurfaceVariant
                 )
             }
@@ -951,7 +1050,7 @@ private fun DailyMixLastFmMainView(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Generate Mix Expressive Action Button
+        // Update Daily Mix Expressive Action Button
         val btnInteraction = remember { MutableInteractionSource() }
         val isBtnPressed by btnInteraction.collectIsPressedAsState()
         val btnScale by animateFloatAsState(
@@ -990,7 +1089,7 @@ private fun DailyMixLastFmMainView(
             shadowElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 20.dp, vertical = 6.dp)
                 .height(56.dp)
                 .graphicsLayer {
                     scaleX = btnScale
@@ -999,9 +1098,9 @@ private fun DailyMixLastFmMainView(
                 .aiSoftSurfaceGlow(
                     color = if (isInputReady) colors.primary else Color.Transparent,
                     cornerRadius = btnCorner,
-                    spread = 14.dp,
-                    offsetY = 4.dp,
-                    maxAlpha = if (isInputReady) (if (isDark) 0.34f else 0.22f) else 0f
+                    spread = 10.dp,
+                    offsetY = 3.dp,
+                    maxAlpha = if (isInputReady) (if (isDark) 0.28f else 0.18f) else 0f
                 )
         ) {
             Row(
@@ -1015,7 +1114,7 @@ private fun DailyMixLastFmMainView(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "Generate Mix",
+                    text = "Update Daily Mix",
                     style = MaterialTheme.typography.titleMedium,
                     fontFamily = GoogleSansRounded,
                     fontWeight = FontWeight.Bold
@@ -1062,7 +1161,7 @@ private fun DailyMixLastFmRefineView(
             }
 
             Text(
-                text = "Refine your mix",
+                text = "Refine Daily Mix",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = colors.onSurface
@@ -1081,92 +1180,140 @@ private fun DailyMixLastFmRefineView(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // Playlist size card
+        // Daily Mix size card — uses DailyMixMorphChip (zero overflowing shadow clipping!)
         Surface(
-            shape = remember { AbsoluteSmoothCornerShape(22.dp, 60) },
+            shape = remember { AbsoluteSmoothCornerShape(24.dp, 60) },
             color = colors.surfaceContainer,
             shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Playlist size",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    text = "Daily Mix size",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    ),
                     color = colors.onSurface
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "How many songs to load into your Daily Mix",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(14.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf("15", "25", "30", "40", "50").forEach { countOption ->
-                        ExpressiveChoiceChip(
-                            label = "$countOption",
+                        DailyMixMorphChip(
+                            label = countOption,
                             selected = trackCountText == countOption,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onTrackCountChange(countOption)
-                            }
+                            },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = trackCountText,
-                    onValueChange = { onTrackCountChange(it.filter { ch -> ch.isDigit() }.take(3)) },
-                    label = { Text("Custom song count") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = remember { AbsoluteSmoothCornerShape(14.dp, 60) }
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Borderless Material You Expressive tonal input pill (zero wireframe outline!)
+                val countInteraction = remember { MutableInteractionSource() }
+                val isCountFocused by countInteraction.collectIsFocusedAsState()
+                val countFieldBg by animateColorAsState(
+                    targetValue = if (isCountFocused) colors.surfaceContainerHighest else colors.surfaceContainerHigh,
+                    animationSpec = tween(220),
+                    label = "dm_count_field_bg"
                 )
-            }
-        }
-
-        if (selectedMode == "top" || selectedMode == "library") {
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Surface(
-                shape = remember { AbsoluteSmoothCornerShape(22.dp, 60) },
-                color = colors.surfaceContainer,
-                shadowElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Time period",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val periods = listOf(
-                        "overall" to "All Time",
-                        "12month" to "Yearly",
-                        "6month" to "6 Months",
-                        "3month" to "3 Months",
-                        "1month" to "Monthly",
-                        "7day" to "Weekly"
-                    )
+                Surface(
+                    shape = remember { AbsoluteSmoothCornerShape(18.dp, 60) },
+                    color = countFieldBg,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        periods.forEach { (pId, pLabel) ->
-                            ExpressiveChoiceChip(
-                                label = pLabel,
-                                selected = timePeriod == pId,
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onTimePeriodChange(pId)
-                                }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Custom song count",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.primary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            BasicTextField(
+                                value = trackCountText,
+                                onValueChange = { onTrackCountChange(it.filter { ch -> ch.isDigit() }.take(3)) },
+                                textStyle = MaterialTheme.typography.titleMedium.copy(
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.onSurface
+                                ),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                cursorBrush = SolidColor(colors.primary),
+                                interactionSource = countInteraction,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        Surface(
+                            shape = AbsoluteSmoothCornerShape(10.dp, 60),
+                            color = colors.primaryContainer
+                        ) {
+                            Text(
+                                text = "songs",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
                     }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Time period card — 2x3 grid so all 6 periods are visible with zero horizontal scroll clipping!
+        Surface(
+            shape = remember { AbsoluteSmoothCornerShape(24.dp, 60) },
+            color = colors.surfaceContainer,
+            shadowElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Time period",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = colors.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Used when generating from Top Tracks or My Library",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                DailyMixTimePeriodGrid(
+                    selectedPeriod = timePeriod,
+                    onPeriodSelect = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onTimePeriodChange(it)
+                    }
+                )
             }
         }
 
@@ -1211,6 +1358,113 @@ private fun DailyMixLastFmRefineView(
 }
 
 @Composable
+private fun DailyMixTimePeriodGrid(
+    selectedPeriod: String,
+    onPeriodSelect: (String) -> Unit
+) {
+    val rows = remember {
+        listOf(
+            listOf("overall" to "All Time", "12month" to "Yearly", "6month" to "6 Months"),
+            listOf("3month" to "3 Months", "1month" to "Monthly", "7day" to "Weekly")
+        )
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowItems.forEach { (pId, pLabel) ->
+                    DailyMixMorphChip(
+                        label = pLabel,
+                        selected = selectedPeriod == pId,
+                        onClick = { onPeriodSelect(pId) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Clean Material You Expressive morphing chip without overflowing drawBehind shadows,
+ * preventing any clipping inside cards/rows or overlapping section titles.
+ */
+@Composable
+internal fun DailyMixMorphChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selectedContainerColor: Color = MaterialTheme.colorScheme.primary,
+    selectedContentColor: Color = MaterialTheme.colorScheme.onPrimary
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1.0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "dm_morph_chip_scale"
+    )
+    val cornerRadius by animateDpAsState(
+        targetValue = when {
+            isPressed -> 10.dp
+            selected -> 22.dp
+            else -> 14.dp
+        },
+        animationSpec = tween(durationMillis = 420, easing = AiSmoothMorphEasing),
+        label = "dm_morph_chip_corner"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            selected -> selectedContainerColor
+            isPressed -> MaterialTheme.colorScheme.surfaceContainerHighest
+            else -> MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
+        label = "dm_morph_chip_bg"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) selectedContentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
+        label = "dm_morph_chip_fg"
+    )
+
+    Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        shape = AbsoluteSmoothCornerShape(cornerRadius, 60),
+        color = containerColor,
+        contentColor = contentColor,
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .height(40.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                ),
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun DailyMixModeQuickSelectRow(
     selectedMode: String,
     onModeClick: (String) -> Unit,
@@ -1247,12 +1501,13 @@ private fun DailyMixModeQuickSelectRow(
         }
     }
 
+    // 20.dp vertical padding inside horizontalScroll ensures pill glows never clip on top or bottom
     Column(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         rows.forEach { rowItems ->
             Row(
@@ -1337,10 +1592,10 @@ private fun DailyMixModePill(
     }
     val clampedMorph = morphFraction.coerceIn(0f, 1f)
     val pillGlowColor = lerp(restingPillShadowColor, primaryColor, clampedMorph)
-    val pillGlowSpread = 5.dp + 9.dp * clampedMorph
-    val pillGlowOffsetY = 2.dp + 2.5.dp * clampedMorph
-    val basePillGlowAlpha = if (isDark) 0.20f else 0.11f
-    val activePillGlowAlpha = if (isDark) 0.36f else 0.25f
+    val pillGlowSpread = 4.dp + 7.dp * clampedMorph
+    val pillGlowOffsetY = 1.5.dp + 2.dp * clampedMorph
+    val basePillGlowAlpha = if (isDark) 0.16f else 0.09f
+    val activePillGlowAlpha = if (isDark) 0.30f else 0.20f
     val pillGlowMaxAlpha = basePillGlowAlpha + (activePillGlowAlpha - basePillGlowAlpha) * clampedMorph
 
     val containerColor by animateColorAsState(
@@ -1461,45 +1716,524 @@ private fun DailyMixModePill(
     }
 }
 
+/**
+ * Material You Expressive Seed Input Card (replaces OutlinedTextField so there are no label-cutout
+ * notches or thin wireframes). Features a morphing expressive shape badge on the left and a
+ * tactile search button on the right.
+ */
 @Composable
-private fun SeedSearchResultItem(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
+internal fun ExpressiveSeedInputCard(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    @DrawableRes iconRes: Int,
+    badgeShape: AiExpressiveShapeType,
+    morphedBadgeShape: AiExpressiveShapeType,
+    accentColor: Color,
+    accentContainer: Color,
+    onSearch: (() -> Unit)? = null
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isActive = isFocused || value.isNotBlank()
+
+    val morphProgress by animateFloatAsState(
+        targetValue = if (isActive) 1f else 0f,
+        animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+        label = "seed_input_morph"
+    )
+    val cornerRadius by animateDpAsState(
+        targetValue = if (isFocused) 26.dp else 20.dp,
+        animationSpec = tween(durationMillis = 440, easing = AiSmoothMorphEasing),
+        label = "seed_input_corner"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (isFocused) {
+            lerp(MaterialTheme.colorScheme.surfaceContainerHighest, accentContainer, 0.22f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        animationSpec = tween(durationMillis = 340, easing = AiSmoothMorphEasing),
+        label = "seed_input_bg"
+    )
+    val badgeBg by animateColorAsState(
+        targetValue = if (isActive) accentColor else accentContainer,
+        animationSpec = tween(durationMillis = 360, easing = AiSmoothMorphEasing),
+        label = "seed_badge_bg"
+    )
+    val badgeIconTint by animateColorAsState(
+        targetValue = if (isActive) MaterialTheme.colorScheme.surface else accentColor,
+        animationSpec = tween(durationMillis = 360, easing = AiSmoothMorphEasing),
+        label = "seed_badge_tint"
+    )
+    val badgeRot by animateFloatAsState(
+        targetValue = if (isActive) 20f else 0f,
+        animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing),
+        label = "seed_badge_rot"
+    )
+
     Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = AbsoluteSmoothCornerShape(14.dp, 60),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 0.dp
+        shape = AbsoluteSmoothCornerShape(cornerRadius, 60),
+        color = containerColor,
+        shadowElevation = 0.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                painter = painterResource(R.drawable.rounded_music_note_24),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(42.dp)
+                    .graphicsLayer { rotationZ = badgeRot }
+                    .drawAiMorphShape(
+                        from = badgeShape,
+                        to = morphedBadgeShape,
+                        morphProgress = { morphProgress },
+                        brush = Brush.linearGradient(
+                            colors = listOf(lerp(badgeBg, Color.White, 0.20f), badgeBg)
+                        )
+                    )
+            ) {
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    tint = badgeIconTint,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .graphicsLayer { rotationZ = -badgeRot }
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = accentColor
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    if (value.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    BasicTextField(
+                        value = value,
+                        onValueChange = onValueChange,
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = if (onSearch != null) ImeAction.Search else ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { onSearch?.invoke() },
+                            onDone = { onSearch?.invoke() }
+                        ),
+                        cursorBrush = SolidColor(accentColor),
+                        interactionSource = interactionSource,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            if (onSearch != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                val searchInteraction = remember { MutableInteractionSource() }
+                val isSearchPressed by searchInteraction.collectIsPressedAsState()
+                val searchScale by animateFloatAsState(
+                    targetValue = if (isSearchPressed) 0.90f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                    label = "seed_search_scale"
+                )
+                val searchCorner by animateDpAsState(
+                    targetValue = if (isSearchPressed) 12.dp else 18.dp,
+                    animationSpec = tween(320, easing = AiSmoothMorphEasing),
+                    label = "seed_search_corner"
+                )
+                Surface(
+                    onClick = onSearch,
+                    interactionSource = searchInteraction,
+                    shape = AbsoluteSmoothCornerShape(searchCorner, 60),
+                    color = if (value.isNotBlank()) accentColor else accentContainer,
+                    contentColor = if (value.isNotBlank()) MaterialTheme.colorScheme.surface else accentColor,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .graphicsLayer {
+                            scaleX = searchScale
+                            scaleY = searchScale
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = "Search",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Material You Expressive action card for loading Top Tracks / Top Artists from Last.fm.
+ */
+@Composable
+internal fun ExpressiveTopSeedTriggerCard(
+    text: String,
+    subtitle: String,
+    @DrawableRes iconRes: Int,
+    isLoading: Boolean,
+    accentColor: Color,
+    accentContainer: Color,
+    onAccentContainer: Color,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "top_seed_trigger_scale"
+    )
+    val corner by animateDpAsState(
+        targetValue = if (isPressed) 16.dp else 22.dp,
+        animationSpec = tween(380, easing = AiSmoothMorphEasing),
+        label = "top_seed_trigger_corner"
+    )
+
+    Surface(
+        onClick = onClick,
+        enabled = !isLoading,
+        interactionSource = interactionSource,
+        shape = AbsoluteSmoothCornerShape(corner, 60),
+        color = accentContainer,
+        contentColor = onAccentContainer,
+        shadowElevation = 0.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(38.dp)
+                    .drawAiMorphShape(
+                        from = AiExpressiveShapeType.COOKIE,
+                        to = AiExpressiveShapeType.SUNNY_COOKIE,
+                        morphProgress = { if (isPressed || isLoading) 1f else 0f },
+                        brush = SolidColor(accentColor)
+                    )
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.surface,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(iconRes),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isLoading) "Loading from Last.fm…" else text,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = onAccentContainer
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = onAccentContainer.copy(alpha = 0.78f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            Icon(
+                painter = painterResource(R.drawable.rounded_auto_awesome_24),
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun ExpressiveSeedBoardSection(
+    title: String,
+    count: Int,
+    accentColor: Color,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = accentColor
+            )
+            Surface(
+                shape = AbsoluteSmoothCornerShape(10.dp, 60),
+                color = accentColor.copy(alpha = 0.14f)
+            ) {
+                Text(
+                    text = "Tap to select",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = accentColor,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            content()
+        }
+    }
+}
+
+private val SEED_ITEM_SHAPES = listOf(
+    AiExpressiveShapeType.COOKIE to AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+    AiExpressiveShapeType.FOUR_HEAD_COOKIE to AiExpressiveShapeType.SIX_COOKIE,
+    AiExpressiveShapeType.ROUNDED_SQUARE to AiExpressiveShapeType.COOKIE,
+    AiExpressiveShapeType.SIX_COOKIE to AiExpressiveShapeType.SUNNY_COOKIE,
+    AiExpressiveShapeType.ROUNDED_TRIANGLE to AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+    AiExpressiveShapeType.SUNNY_COOKIE to AiExpressiveShapeType.ROUNDED_SQUARE
+)
+
+/**
+ * Material You Expressive Seed Board Card for Similar Tracks & Similar Artists.
+ * Features smooth corner morphing, tonal container morphing, a left-side 1:1 morphing expressive
+ * shape badge, and a right-side selected/seed pill indicator.
+ */
+@Composable
+internal fun ExpressiveSeedBoardItem(
+    index: Int,
+    title: String,
+    subtitle: String,
+    @DrawableRes iconRes: Int,
+    isSelected: Boolean,
+    accentColor: Color,
+    accentContainer: Color,
+    onAccent: Color,
+    onAccentContainer: Color,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val (baseShape, morphedShape) = SEED_ITEM_SHAPES[index % SEED_ITEM_SHAPES.size]
+
+    val activeFraction by animateFloatAsState(
+        targetValue = if (isSelected || isPressed) 1f else 0f,
+        animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+        label = "seed_item_morph"
+    )
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 0.96f
+            isSelected -> 1.01f
+            else -> 1.0f
+        },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "seed_item_scale"
+    )
+    val cornerRadius by animateDpAsState(
+        targetValue = when {
+            isPressed -> 14.dp
+            isSelected -> 26.dp
+            else -> 18.dp
+        },
+        animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+        label = "seed_item_corner"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            lerp(MaterialTheme.colorScheme.surfaceContainerHigh, accentContainer, 0.55f)
+        } else if (isPressed) {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        animationSpec = tween(durationMillis = 380, easing = AiSmoothMorphEasing),
+        label = "seed_item_bg"
+    )
+    val badgeColor by animateColorAsState(
+        targetValue = if (isSelected) accentColor else accentContainer,
+        animationSpec = tween(durationMillis = 380, easing = AiSmoothMorphEasing),
+        label = "seed_item_badge_bg"
+    )
+    val badgeIconColor by animateColorAsState(
+        targetValue = if (isSelected) onAccent else accentColor,
+        animationSpec = tween(durationMillis = 380, easing = AiSmoothMorphEasing),
+        label = "seed_item_badge_fg"
+    )
+    val badgeRotation by animateFloatAsState(
+        targetValue = if (isSelected) (if (index % 2 == 0) 24f else -24f) else 0f,
+        animationSpec = tween(durationMillis = 540, easing = AiSmoothMorphEasing),
+        label = "seed_item_badge_rot"
+    )
+
+    Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        shape = AbsoluteSmoothCornerShape(cornerRadius, 60),
+        color = containerColor,
+        shadowElevation = 0.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            accentColor.copy(alpha = if (isSelected) 0.14f else 0.04f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(42.dp)
+                    .graphicsLayer { rotationZ = badgeRotation }
+                    .drawAiMorphShape(
+                        from = baseShape,
+                        to = morphedShape,
+                        morphProgress = { activeFraction },
+                        brush = Brush.linearGradient(
+                            colors = listOf(lerp(badgeColor, Color.White, 0.22f), badgeColor)
+                        )
+                    )
+            ) {
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    tint = badgeIconColor,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .graphicsLayer { rotationZ = -badgeRotation }
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Surface(
+                shape = AbsoluteSmoothCornerShape(if (isSelected) 16.dp else 12.dp, 60),
+                color = if (isSelected) accentColor else MaterialTheme.colorScheme.surfaceContainerHighest
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = onAccent,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    Text(
+                        text = if (isSelected) "Active" else "Use",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = if (isSelected) onAccent else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

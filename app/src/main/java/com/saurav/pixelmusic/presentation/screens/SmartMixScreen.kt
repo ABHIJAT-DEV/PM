@@ -59,7 +59,11 @@ import kotlinx.coroutines.flow.map
 import com.saurav.pixelmusic.presentation.components.AiExpressiveShapeType
 import com.saurav.pixelmusic.presentation.components.AiPlaylistGeneratingFullScreenPage
 import com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing
-import com.saurav.pixelmusic.presentation.components.ExpressiveChoiceChip
+import com.saurav.pixelmusic.presentation.components.DailyMixMorphChip
+import com.saurav.pixelmusic.presentation.components.ExpressiveSeedBoardItem
+import com.saurav.pixelmusic.presentation.components.ExpressiveSeedBoardSection
+import com.saurav.pixelmusic.presentation.components.ExpressiveSeedInputCard
+import com.saurav.pixelmusic.presentation.components.ExpressiveTopSeedTriggerCard
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.aiSoftSurfaceGlow
 import com.saurav.pixelmusic.presentation.components.drawAiMorphShape
@@ -162,6 +166,23 @@ fun SmartMixScreen(
                     isSuccess = false,
                     status = uiState.generationProgress,
                     error = null,
+                    customHeadlines = listOf(
+                        "Building your Smart Mix…",
+                        "Syncing with Last.fm…",
+                        "Scanning your Last.fm history…",
+                        "Matching your top artists & tracks…",
+                        "Resolving tracks on YouTube Music…",
+                        "Curating your Last.fm Smart Mix…"
+                    ),
+                    customPhases = listOf(
+                        "Connecting to your Last.fm profile…",
+                        "Gathering scrobbles, top tracks & recommendations…",
+                        "Matching playable songs on YouTube Music…",
+                        "Saving your Smart Mix playlist…"
+                    ),
+                    successHeadline = "Smart Mix Ready!",
+                    successSubtitle = "Opening your Last.fm Smart Mix…",
+                    preferLiveStatus = true,
                     onDismiss = {}
                 )
             }
@@ -325,10 +346,14 @@ private fun SmartMixConfigurator(
             state = smartMixListState,
             modifier = Modifier
                 .fillMaxSize()
-                .scrollMotionBlur(lazyListState = smartMixListState)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = fabAreaHeight + 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .scrollMotionBlur(lazyListState = smartMixListState),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 12.dp,
+                bottom = fabAreaHeight + 36.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // 1. Slider Card
             item {
@@ -374,44 +399,54 @@ private fun SmartMixConfigurator(
                         animationSpec = tween(durationMillis = 560, easing = AiSmoothMorphEasing),
                         label = "card_select_progress"
                     )
+                    val modeInteraction = remember { MutableInteractionSource() }
+                    val isModePressed by modeInteraction.collectIsPressedAsState()
                     val cardScale by animateFloatAsState(
-                        targetValue = if (isSelected) 1.015f else 1.0f,
+                        targetValue = when {
+                            isModePressed -> 0.975f
+                            isSelected -> 1.0f
+                            else -> 1.0f
+                        },
                         animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
                             stiffness = Spring.StiffnessLow
                         ),
                         label = "card_scale"
                     )
                     val cardCorner by animateDpAsState(
-                        targetValue = if (isSelected) 30.dp else 22.dp,
-                        animationSpec = tween(durationMillis = 560, easing = AiSmoothMorphEasing),
+                        targetValue = when {
+                            isModePressed -> 18.dp
+                            isSelected -> 32.dp
+                            else -> 24.dp
+                        },
+                        animationSpec = tween(durationMillis = 580, easing = AiSmoothMorphEasing),
                         label = "card_corner"
                     )
                     val itemShape = remember(cardCorner) { AbsoluteSmoothCornerShape(cardCorner, 60) }
 
                     val cardBgColor by animateColorAsState(
                         targetValue = if (isSelected) {
-                            lerp(MaterialTheme.colorScheme.surfaceContainerHigh, colors.first, 0.22f)
+                            lerp(MaterialTheme.colorScheme.surfaceContainerHigh, colors.first, 0.34f)
                         } else {
                             MaterialTheme.colorScheme.surfaceContainer
                         },
-                        animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing),
+                        animationSpec = tween(durationMillis = 540, easing = AiSmoothMorphEasing),
                         label = "card_bg"
                     )
 
                     val badgeRot by animateFloatAsState(
-                        targetValue = if (isSelected) (if (idx % 2 == 0) 22f else -22f) else 0f,
-                        animationSpec = tween(durationMillis = 620, easing = AiSmoothMorphEasing),
+                        targetValue = if (isSelected) (if (idx % 2 == 0) 24f else -24f) else 0f,
+                        animationSpec = tween(durationMillis = 640, easing = AiSmoothMorphEasing),
                         label = "badge_rot"
                     )
                     val badgeBg by animateColorAsState(
-                        targetValue = if (isSelected) colors.second else MaterialTheme.colorScheme.surfaceContainerHigh,
-                        animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+                        targetValue = if (isSelected) colors.second else colors.first.copy(alpha = 0.55f),
+                        animationSpec = tween(durationMillis = 500, easing = AiSmoothMorphEasing),
                         label = "badge_bg"
                     )
                     val badgeIconTint by animateColorAsState(
-                        targetValue = if (isSelected) colors.first else MaterialTheme.colorScheme.onSurfaceVariant,
-                        animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+                        targetValue = if (isSelected) colors.first else colors.second,
+                        animationSpec = tween(durationMillis = 500, easing = AiSmoothMorphEasing),
                         label = "badge_tint"
                     )
 
@@ -421,6 +456,7 @@ private fun SmartMixConfigurator(
                             if (isSelected) viewModel.setSelectedMode(null)
                             else viewModel.setSelectedMode(mode.id)
                         },
+                        interactionSource = modeInteraction,
                         shape = itemShape,
                         color = cardBgColor,
                         shadowElevation = 0.dp,
@@ -430,15 +466,17 @@ private fun SmartMixConfigurator(
                                 scaleX = cardScale
                                 scaleY = cardScale
                             }
-                            .aiSoftSurfaceGlow(
-                                color = colors.second,
-                                cornerRadius = cardCorner,
-                                spread = 14.dp * selectProgress,
-                                offsetY = 4.dp * selectProgress,
-                                maxAlpha = (if (isDark) 0.26f else 0.16f) * selectProgress
-                            )
                     ) {
-                        Column {
+                        Column(
+                            modifier = Modifier.background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        colors.second.copy(alpha = 0.10f * selectProgress),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                        ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -457,7 +495,7 @@ private fun SmartMixConfigurator(
                                             morphProgress = { selectProgress },
                                             brush = Brush.verticalGradient(
                                                 colors = listOf(
-                                                    lerp(badgeBg, Color.White, if (isSelected) 0.18f else 0.04f),
+                                                    lerp(badgeBg, Color.White, if (isSelected) 0.18f else 0.06f),
                                                     badgeBg
                                                 )
                                             )
@@ -498,18 +536,31 @@ private fun SmartMixConfigurator(
 
                                 val iconRotation by animateFloatAsState(
                                     targetValue = if (isSelected) 90f else 0f,
-                                    animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing),
+                                    animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing),
                                     label = "chevron_rotation"
                                 )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(22.dp)
-                                        .graphicsLayer { rotationZ = iconRotation },
-                                    tint = if (isSelected) colors.second
-                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                                val chevronCorner by animateDpAsState(
+                                    targetValue = if (isSelected) 18.dp else 12.dp,
+                                    animationSpec = tween(durationMillis = 520, easing = AiSmoothMorphEasing),
+                                    label = "chevron_corner"
                                 )
+                                Surface(
+                                    shape = AbsoluteSmoothCornerShape(chevronCorner, 60),
+                                    color = if (isSelected) colors.second else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    modifier = Modifier.size(34.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .graphicsLayer { rotationZ = iconRotation },
+                                            tint = if (isSelected) colors.first
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
 
                             AnimatedVisibility(
@@ -767,13 +818,14 @@ private fun TrackCountSliderCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(10, 15, 25, 35).forEach { preset ->
-                    ExpressiveChoiceChip(
+                    DailyMixMorphChip(
                         label = "$preset",
                         selected = count == preset,
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onCountChange(preset)
-                        }
+                        },
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
@@ -787,36 +839,47 @@ private fun PeriodSelectionSection(
     onPeriodSelect: (String) -> Unit,
     colors: Pair<Color, Color>
 ) {
-    val periods = listOf(
-        "overall" to "All Time",
-        "12month" to "12 Months",
-        "6month" to "6 Months",
-        "3month" to "3 Months",
-        "1month" to "1 Month",
-        "7day" to "7 Days"
-    )
+    val rows = remember {
+        listOf(
+            listOf("overall" to "All Time", "12month" to "12 Months", "6month" to "6 Months"),
+            listOf("3month" to "3 Months", "1month" to "1 Month", "7day" to "7 Days")
+        )
+    }
 
     Text(
         text = "Select Time Period",
-        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.labelLarge.copy(
+            fontFamily = GoogleSansRounded,
+            fontWeight = FontWeight.Bold
+        ),
         color = colors.second,
-        modifier = Modifier.padding(bottom = 8.dp)
+        modifier = Modifier.padding(bottom = 10.dp)
     )
 
     val haptic = LocalHapticFeedback.current
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(periods) { (id, label) ->
-            ExpressiveChoiceChip(
-                label = label,
-                selected = selectedPeriod == id,
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onPeriodSelect(id)
+        rows.forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowItems.forEach { (id, label) ->
+                    DailyMixMorphChip(
+                        label = label,
+                        selected = selectedPeriod == id,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onPeriodSelect(id)
+                        },
+                        selectedContainerColor = colors.second,
+                        selectedContentColor = colors.first,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-            )
+            }
         }
     }
 }
@@ -828,130 +891,108 @@ private fun SimilarTracksInputs(
     keyboardController: androidx.compose.ui.platform.SoftwareKeyboardController?,
     colors: Pair<Color, Color>
 ) {
+    val haptic = LocalHapticFeedback.current
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
+        ExpressiveSeedInputCard(
             value = uiState.seedTrackName,
             onValueChange = { viewModel.setSeedTrackName(it) },
-            label = { Text("Seed Track Name", fontFamily = GoogleSansRounded) },
-            placeholder = { Text("Enter track name...", fontFamily = GoogleSansRounded) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = {
+            label = "Seed Track",
+            placeholder = "e.g. Blinding Lights",
+            iconRes = R.drawable.rounded_music_note_24,
+            badgeShape = AiExpressiveShapeType.COOKIE,
+            morphedBadgeShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            accentColor = colors.second,
+            accentContainer = colors.first,
+            onSearch = {
                 keyboardController?.hide()
                 viewModel.searchSeedTrack()
-            }),
-            trailingIcon = {
-                IconButton(onClick = {
-                    keyboardController?.hide()
-                    viewModel.searchSeedTrack()
-                }) {
-                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = colors.second)
-                }
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = colors.second,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                focusedLabelColor = colors.second,
-                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                cursorColor = colors.second,
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            )
+            }
         )
 
-        OutlinedTextField(
+        ExpressiveSeedInputCard(
             value = uiState.seedArtistName,
             onValueChange = { viewModel.setSeedArtistName(it) },
-            label = { Text("Seed Artist Name (Optional)", fontFamily = GoogleSansRounded) },
-            placeholder = { Text("Enter artist name...", fontFamily = GoogleSansRounded) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = colors.second,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                focusedLabelColor = colors.second,
-                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                cursorColor = colors.second,
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            )
+            label = "Seed Artist",
+            placeholder = "e.g. The Weeknd",
+            iconRes = R.drawable.rounded_people_24,
+            badgeShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            morphedBadgeShape = AiExpressiveShapeType.SIX_COOKIE,
+            accentColor = colors.second,
+            accentContainer = colors.first,
+            onSearch = null
         )
 
-        Button(
+        ExpressiveTopSeedTriggerCard(
+            text = "Pick From My Top Tracks",
+            subtitle = "Choose a track from your Last.fm top listens",
+            iconRes = R.drawable.rounded_library_music_24,
+            isLoading = uiState.isSearchingTopSeeds || uiState.isSearchingSeed,
+            accentColor = colors.second,
+            accentContainer = colors.first,
+            onAccentContainer = colors.second,
             onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 keyboardController?.hide()
                 viewModel.loadTopTracksForSeed()
-            },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.second,
-                contentColor = colors.first
-            ),
-            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(painterResource(R.drawable.rounded_library_music_24), contentDescription = null, tint = colors.first)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Pick From My Top Tracks", fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
-        }
-
-        if (uiState.isSearchingTopSeeds || uiState.isSearchingSeed) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = colors.second, modifier = Modifier.size(24.dp))
             }
-        }
+        )
 
         if (uiState.searchTrackResults.isNotEmpty()) {
-            Text(
-                text = "Search Results",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = colors.second
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (track in uiState.searchTrackResults) {
-                    SeedSearchResultItem(
+            ExpressiveSeedBoardSection(
+                title = "Search Results",
+                count = uiState.searchTrackResults.size,
+                accentColor = colors.second
+            ) {
+                uiState.searchTrackResults.forEachIndexed { idx, track ->
+                    val selected = uiState.seedTrackName.equals(track.name, ignoreCase = true) &&
+                        uiState.seedArtistName.equals(track.artist, ignoreCase = true)
+                    ExpressiveSeedBoardItem(
+                        index = idx,
                         title = track.name,
                         subtitle = track.artist,
+                        iconRes = R.drawable.rounded_music_note_24,
+                        isSelected = selected,
+                        accentColor = colors.second,
+                        accentContainer = colors.first,
+                        onAccent = colors.first,
+                        onAccentContainer = colors.second,
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             viewModel.setSeedTrackName(track.name)
                             viewModel.setSeedArtistName(track.artist)
-                        },
-                        colors = colors
+                        }
                     )
                 }
             }
         }
 
         if (uiState.topTracksForSeed.isNotEmpty()) {
-            Text(
-                text = "My Top Tracks",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = colors.second
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (track in uiState.topTracksForSeed) {
-                    SeedSearchResultItem(
+            ExpressiveSeedBoardSection(
+                title = "My Top Tracks",
+                count = uiState.topTracksForSeed.size,
+                accentColor = colors.second
+            ) {
+                uiState.topTracksForSeed.forEachIndexed { idx, track ->
+                    val selected = uiState.seedTrackName.equals(track.name, ignoreCase = true) &&
+                        uiState.seedArtistName.equals(track.artist, ignoreCase = true)
+                    ExpressiveSeedBoardItem(
+                        index = idx,
                         title = track.name,
                         subtitle = track.artist,
+                        iconRes = R.drawable.rounded_music_note_24,
+                        isSelected = selected,
+                        accentColor = colors.second,
+                        accentContainer = colors.first,
+                        onAccent = colors.first,
+                        onAccentContainer = colors.second,
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             viewModel.setSeedTrackName(track.name)
                             viewModel.setSeedArtistName(track.artist)
-                        },
-                        colors = colors
+                        }
                     )
                 }
             }
@@ -966,107 +1007,91 @@ private fun SimilarArtistsInputs(
     keyboardController: androidx.compose.ui.platform.SoftwareKeyboardController?,
     colors: Pair<Color, Color>
 ) {
+    val haptic = LocalHapticFeedback.current
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
+        ExpressiveSeedInputCard(
             value = uiState.seedArtistInput,
             onValueChange = { viewModel.setSeedArtistInput(it) },
-            label = { Text("Seed Artist Name", fontFamily = GoogleSansRounded) },
-            placeholder = { Text("Enter artist name...", fontFamily = GoogleSansRounded) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = {
+            label = "Seed Artist",
+            placeholder = "e.g. Coldplay, Arijit Singh…",
+            iconRes = R.drawable.rounded_people_24,
+            badgeShape = AiExpressiveShapeType.SIX_COOKIE,
+            morphedBadgeShape = AiExpressiveShapeType.COOKIE,
+            accentColor = colors.second,
+            accentContainer = colors.first,
+            onSearch = {
                 keyboardController?.hide()
                 viewModel.searchSeedArtist()
-            }),
-            trailingIcon = {
-                IconButton(onClick = {
-                    keyboardController?.hide()
-                    viewModel.searchSeedArtist()
-                }) {
-                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = colors.second)
-                }
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = colors.second,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                focusedLabelColor = colors.second,
-                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                cursorColor = colors.second,
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            )
+            }
         )
 
-        Button(
+        ExpressiveTopSeedTriggerCard(
+            text = "Pick From My Top Artists",
+            subtitle = "Choose an artist from your Last.fm history",
+            iconRes = R.drawable.rounded_people_24,
+            isLoading = uiState.isSearchingTopSeeds || uiState.isSearchingSeed,
+            accentColor = colors.second,
+            accentContainer = colors.first,
+            onAccentContainer = colors.second,
             onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 keyboardController?.hide()
                 viewModel.loadTopArtistsForSeed()
-            },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.second,
-                contentColor = colors.first
-            ),
-            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(painterResource(R.drawable.rounded_people_24), contentDescription = null, tint = colors.first)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Pick From My Top Artists", fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
-        }
-
-        if (uiState.isSearchingTopSeeds || uiState.isSearchingSeed) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = colors.second, modifier = Modifier.size(24.dp))
             }
-        }
+        )
 
         if (uiState.searchArtistResults.isNotEmpty()) {
-            Text(
-                text = "Search Results",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = colors.second
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (artist in uiState.searchArtistResults) {
-                    SeedSearchResultItem(
+            ExpressiveSeedBoardSection(
+                title = "Search Results",
+                count = uiState.searchArtistResults.size,
+                accentColor = colors.second
+            ) {
+                uiState.searchArtistResults.forEachIndexed { idx, artist ->
+                    val selected = uiState.seedArtistInput.equals(artist, ignoreCase = true)
+                    ExpressiveSeedBoardItem(
+                        index = idx,
                         title = artist,
-                        subtitle = "Artist",
+                        subtitle = "Last.fm Artist",
+                        iconRes = R.drawable.rounded_people_24,
+                        isSelected = selected,
+                        accentColor = colors.second,
+                        accentContainer = colors.first,
+                        onAccent = colors.first,
+                        onAccentContainer = colors.second,
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             viewModel.setSeedArtistInput(artist)
-                        },
-                        colors = colors
+                        }
                     )
                 }
             }
         }
 
         if (uiState.topArtistsForSeed.isNotEmpty()) {
-            Text(
-                text = "My Top Artists",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (artist in uiState.topArtistsForSeed) {
-                    SeedSearchResultItem(
+            ExpressiveSeedBoardSection(
+                title = "My Top Artists",
+                count = uiState.topArtistsForSeed.size,
+                accentColor = colors.second
+            ) {
+                uiState.topArtistsForSeed.forEachIndexed { idx, artist ->
+                    val selected = uiState.seedArtistInput.equals(artist, ignoreCase = true)
+                    ExpressiveSeedBoardItem(
+                        index = idx,
                         title = artist,
-                        subtitle = "Artist",
+                        subtitle = "Top Last.fm Artist",
+                        iconRes = R.drawable.rounded_people_24,
+                        isSelected = selected,
+                        accentColor = colors.second,
+                        accentContainer = colors.first,
+                        onAccent = colors.first,
+                        onAccentContainer = colors.second,
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             viewModel.setSeedArtistInput(artist)
-                        },
-                        colors = colors
+                        }
                     )
                 }
             }
@@ -1087,32 +1112,25 @@ private fun TagInputs(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
+        ExpressiveSeedInputCard(
             value = uiState.tagInput,
             onValueChange = { viewModel.setTagInput(it) },
-            label = { Text("Genre / Tag", fontFamily = GoogleSansRounded) },
-            placeholder = { Text("e.g. lofi, rock...", fontFamily = GoogleSansRounded) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = colors.second,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                focusedLabelColor = colors.second,
-                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                cursorColor = colors.second,
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            )
+            label = "Genre / Tag",
+            placeholder = "e.g. lofi, rock, jazz…",
+            iconRes = R.drawable.rounded_sell_24,
+            badgeShape = AiExpressiveShapeType.SUNNY_COOKIE,
+            morphedBadgeShape = AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            accentColor = colors.second,
+            accentContainer = colors.first,
+            onSearch = { keyboardController?.hide() }
         )
 
         Text(
             text = "Suggested Genres",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontFamily = GoogleSansRounded,
+                fontWeight = FontWeight.Bold
+            ),
             color = colors.second
         )
 
@@ -1123,13 +1141,15 @@ private fun TagInputs(
             crossAxisSpacing = 8.dp
         ) {
             for (tag in suggestions) {
-                ExpressiveChoiceChip(
+                DailyMixMorphChip(
                     label = tag,
-                    selected = uiState.tagInput.lowercase() == tag,
+                    selected = uiState.tagInput.equals(tag, ignoreCase = true),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         viewModel.setTagInput(tag)
-                    }
+                    },
+                    selectedContainerColor = colors.second,
+                    selectedContentColor = colors.first
                 )
             }
         }
