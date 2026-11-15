@@ -282,6 +282,19 @@ private fun SmartMixConfigurator(
     )
     val haptic = LocalHapticFeedback.current
 
+    val baseShapes = remember {
+        listOf(
+            AiExpressiveShapeType.ROUNDED_SQUARE to AiExpressiveShapeType.COOKIE,
+            AiExpressiveShapeType.CIRCLE to AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            AiExpressiveShapeType.ROUNDED_TRIANGLE to AiExpressiveShapeType.SIX_COOKIE,
+            AiExpressiveShapeType.SIX_COOKIE to AiExpressiveShapeType.SUNNY_COOKIE,
+            AiExpressiveShapeType.FOUR_HEAD_COOKIE to AiExpressiveShapeType.ROUNDED_TRIANGLE,
+            AiExpressiveShapeType.COOKIE to AiExpressiveShapeType.ROUNDED_SQUARE,
+            AiExpressiveShapeType.SUNNY_COOKIE to AiExpressiveShapeType.FOUR_HEAD_COOKIE,
+            AiExpressiveShapeType.CIRCLE to AiExpressiveShapeType.COOKIE
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -350,18 +363,6 @@ private fun SmartMixConfigurator(
                 ModeItemData("library",         "My Library",       "Re-discover the sounds of your past",      R.drawable.rounded_library_music_24)
             )
 
-            val baseShapes = remember {
-                listOf(
-                    AiExpressiveShapeType.ROUNDED_SQUARE to AiExpressiveShapeType.COOKIE,
-                    AiExpressiveShapeType.CIRCLE to AiExpressiveShapeType.FOUR_HEAD_COOKIE,
-                    AiExpressiveShapeType.ROUNDED_TRIANGLE to AiExpressiveShapeType.SIX_COOKIE,
-                    AiExpressiveShapeType.SIX_COOKIE to AiExpressiveShapeType.SUNNY_COOKIE,
-                    AiExpressiveShapeType.FOUR_HEAD_COOKIE to AiExpressiveShapeType.ROUNDED_TRIANGLE,
-                    AiExpressiveShapeType.COOKIE to AiExpressiveShapeType.ROUNDED_SQUARE,
-                    AiExpressiveShapeType.SUNNY_COOKIE to AiExpressiveShapeType.FOUR_HEAD_COOKIE,
-                    AiExpressiveShapeType.CIRCLE to AiExpressiveShapeType.COOKIE
-                )
-            }
             modes.forEachIndexed { idx, mode ->
                 item(key = mode.id) {
                     val isSelected = uiState.selectedMode == mode.id
