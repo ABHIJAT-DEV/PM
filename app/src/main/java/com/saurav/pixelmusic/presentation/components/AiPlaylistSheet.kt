@@ -666,7 +666,7 @@ private fun DailyMixLastFmMainView(
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Text(
                         text = "Time period",
@@ -917,7 +917,7 @@ private fun DailyMixLastFmMainView(
                                     listOf("indie", "electronic", "hip-hop", "ambient")
                                 )
                             }
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 quickTags.forEach { rowTags ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -1368,7 +1368,7 @@ private fun DailyMixTimePeriodGrid(
             listOf("3month" to "3 Months", "1month" to "Monthly", "7day" to "Weekly")
         )
     }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         rows.forEach { rowItems ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1432,6 +1432,20 @@ internal fun DailyMixMorphChip(
         label = "dm_morph_chip_fg"
     )
 
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val restingChipShadow = remember(selectedContainerColor, isDark) {
+        if (isDark) lerp(Color.Black, selectedContainerColor, 0.40f) else lerp(Color.Black, selectedContainerColor, 0.55f)
+    }
+    val selectedFraction by animateFloatAsState(
+        targetValue = if (selected || isPressed) 1f else 0f,
+        animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
+        label = "dm_morph_chip_glow"
+    )
+    val chipGlowColor = lerp(restingChipShadow, selectedContainerColor, selectedFraction)
+    val chipSpread = 4.dp + 7.dp * selectedFraction
+    val chipOffsetY = 1.5.dp + 2.dp * selectedFraction
+    val chipMaxAlpha = (if (isDark) 0.14f else 0.08f) + (if (isDark) 0.22f else 0.16f) * selectedFraction
+
     Surface(
         onClick = onClick,
         interactionSource = interactionSource,
@@ -1445,6 +1459,13 @@ internal fun DailyMixMorphChip(
                 scaleX = scale
                 scaleY = scale
             }
+            .aiSoftSurfaceGlow(
+                color = chipGlowColor,
+                cornerRadius = cornerRadius,
+                spread = chipSpread,
+                offsetY = chipOffsetY,
+                maxAlpha = chipMaxAlpha
+            )
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 10.dp),

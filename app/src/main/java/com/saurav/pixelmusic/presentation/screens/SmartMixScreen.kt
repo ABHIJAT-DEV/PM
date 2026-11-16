@@ -819,10 +819,10 @@ private fun TrackCountSliderCard(
                     inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 )
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 listOf(10, 15, 25, 35).forEach { preset ->
                     DailyMixMorphChip(
@@ -860,13 +860,13 @@ private fun PeriodSelectionSection(
             fontWeight = FontWeight.Bold
         ),
         color = colors.second,
-        modifier = Modifier.padding(bottom = 10.dp)
+        modifier = Modifier.padding(bottom = 14.dp)
     )
 
     val haptic = LocalHapticFeedback.current
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         rows.forEach { rowItems ->
             Row(
@@ -1144,8 +1144,8 @@ private fun TagInputs(
         val haptic = LocalHapticFeedback.current
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            mainAxisSpacing = 8.dp,
-            crossAxisSpacing = 8.dp
+            mainAxisSpacing = 10.dp,
+            crossAxisSpacing = 12.dp
         ) {
             for (tag in suggestions) {
                 DailyMixMorphChip(
