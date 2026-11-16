@@ -8,13 +8,19 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -24,6 +30,8 @@ import kotlin.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -141,12 +149,18 @@ import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.saurav.pixelmusic.R
+import com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing
+import com.saurav.pixelmusic.presentation.components.aiSoftSurfaceGlow
 import com.saurav.pixelmusic.presentation.screens.TabAnimation
 
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
@@ -1171,112 +1185,210 @@ private fun PlaylistFormContent(
             )
 
             if (showCreationModeSelector) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Visibility",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    fontFamily = GoogleSansRounded,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 22.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val isLocalSelected = privacyStatus == "LOCAL"
-                    FilterChip(
-                        selected = isLocalSelected,
-                        onClick = { onPrivacyStatusChange("LOCAL") },
-                        label = { Text("Local") },
-                        leadingIcon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_phonef),
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    )
+                val haptic = LocalHapticFeedback.current
+                Spacer(modifier = Modifier.height(10.dp))
 
-                    if (isYoutubeLoggedIn) {
-                        listOf(
-                            "PRIVATE" to "Private",
-                            "UNLISTED" to "Unlisted",
-                            "PUBLIC" to "Public"
-                        ).forEach { (status, label) ->
-                            val isSelected = privacyStatus == status
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { onPrivacyStatusChange(status) },
-                                label = { Text(label) },
-                                leadingIcon = {
-                                    when (status) {
-                                        "PRIVATE" -> Icon(
-                                            imageVector = Icons.Rounded.Lock,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        "UNLISTED" -> Icon(
-                                            painter = painterResource(R.drawable.rounded_link_24),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        else -> Icon(
-                                            painter = painterResource(R.drawable.rounded_public_24),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            )
-                        }
-                    } else {
-                        Text(
-                            text = "Sign in to YT for Cloud sync",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.align(Alignment.CenterVertically).padding(start = 4.dp),
-                            fontFamily = GoogleSansRounded
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (showCreationModeSelector) {
-                SingleChoiceSegmentedButtonRow(
+                Surface(
+                    shape = remember { AbsoluteSmoothCornerShape(24.dp, 60) },
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shadowElevation = 0.dp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 22.dp)
                 ) {
-                    SegmentedButton(
-                        selected = creationMode == PlaylistCreationMode.MANUAL,
-                        onClick = { onCreationModeChange(PlaylistCreationMode.MANUAL) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(stringResource(R.string.presentation_batch_f_creation_mode_manual))
+                        Text(
+                            text = "Visibility",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        if (isYoutubeLoggedIn) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    CreatePlaylistGlowPill(
+                                        label = "Local",
+                                        selected = privacyStatus == "LOCAL",
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onPrivacyStatusChange("LOCAL")
+                                        },
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                        selectedContentColor = MaterialTheme.colorScheme.onPrimary,
+                                        leadingIcon = { tint ->
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_phonef),
+                                                contentDescription = null,
+                                                tint = tint,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    CreatePlaylistGlowPill(
+                                        label = "Private",
+                                        selected = privacyStatus == "PRIVATE",
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onPrivacyStatusChange("PRIVATE")
+                                        },
+                                        selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                        selectedContentColor = MaterialTheme.colorScheme.onTertiary,
+                                        leadingIcon = { tint ->
+                                            Icon(
+                                                imageVector = Icons.Rounded.Lock,
+                                                contentDescription = null,
+                                                tint = tint,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    CreatePlaylistGlowPill(
+                                        label = "Unlisted",
+                                        selected = privacyStatus == "UNLISTED",
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onPrivacyStatusChange("UNLISTED")
+                                        },
+                                        selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                        selectedContentColor = MaterialTheme.colorScheme.onTertiary,
+                                        leadingIcon = { tint ->
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_link_24),
+                                                contentDescription = null,
+                                                tint = tint,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    CreatePlaylistGlowPill(
+                                        label = "Public",
+                                        selected = privacyStatus == "PUBLIC",
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onPrivacyStatusChange("PUBLIC")
+                                        },
+                                        selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                        selectedContentColor = MaterialTheme.colorScheme.onTertiary,
+                                        leadingIcon = { tint ->
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_public_24),
+                                                contentDescription = null,
+                                                tint = tint,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CreatePlaylistGlowPill(
+                                    label = "Local",
+                                    selected = privacyStatus == "LOCAL",
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onPrivacyStatusChange("LOCAL")
+                                    },
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedContentColor = MaterialTheme.colorScheme.onPrimary,
+                                    leadingIcon = { tint ->
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_phonef),
+                                            contentDescription = null,
+                                            tint = tint,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                )
+                                Text(
+                                    text = "Sign in to YT for Cloud sync",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                    fontFamily = GoogleSansRounded
+                                )
+                            }
+                        }
                     }
-                    SegmentedButton(
-                        selected = creationMode == PlaylistCreationMode.SMART,
-                        onClick = { onCreationModeChange(PlaylistCreationMode.SMART) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Surface(
+                    shape = remember { AbsoluteSmoothCornerShape(24.dp, 60) },
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(stringResource(R.string.presentation_batch_f_creation_mode_smart))
+                        val isManual = creationMode == PlaylistCreationMode.MANUAL
+                        val isSmart = creationMode == PlaylistCreationMode.SMART
+                        CreatePlaylistGlowPill(
+                            label = stringResource(R.string.presentation_batch_f_creation_mode_manual),
+                            selected = isManual,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onCreationModeChange(PlaylistCreationMode.MANUAL)
+                            },
+                            leadingIcon = if (isManual) {
+                                { tint ->
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = tint,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            } else null,
+                            modifier = Modifier.weight(1f)
+                        )
+                        CreatePlaylistGlowPill(
+                            label = stringResource(R.string.presentation_batch_f_creation_mode_smart),
+                            selected = isSmart,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onCreationModeChange(PlaylistCreationMode.SMART)
+                            },
+                            leadingIcon = if (isSmart) {
+                                { tint ->
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = tint,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            } else null,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -1304,38 +1416,55 @@ private fun PlaylistFormContent(
 //                }
 //            }
 
-            AnimatedVisibility(visible = creationMode == PlaylistCreationMode.SMART) {
-                Column(
+            AnimatedVisibility(
+                visible = creationMode == PlaylistCreationMode.SMART,
+                enter = expandVertically(tween(460, easing = AiSmoothMorphEasing)) + fadeIn(tween(400)),
+                exit = shrinkVertically(tween(360, easing = AiSmoothMorphEasing)) + fadeOut(tween(260))
+            ) {
+                val haptic = LocalHapticFeedback.current
+                Surface(
+                    shape = remember { AbsoluteSmoothCornerShape(24.dp, 60) },
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shadowElevation = 0.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 22.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 22.dp, vertical = 6.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.presentation_batch_f_smart_rule),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        SmartPlaylistRule.entries.forEach { rule ->
-                            FilterChip(
-                                selected = selectedSmartRule == rule,
-                                onClick = { onSmartRuleChange(rule) },
-                                label = { Text(smartPlaylistRuleTitle(rule)) },
-                                shape = CircleShape
-                            )
-                        }
-                    }
+                        Text(
+                            text = stringResource(R.string.presentation_batch_f_smart_rule),
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
 
-                    Text(
-                        text = smartPlaylistRuleSubtitle(selectedSmartRule),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            SmartPlaylistRule.entries.forEach { rule ->
+                                CreatePlaylistGlowPill(
+                                    label = smartPlaylistRuleTitle(rule),
+                                    selected = selectedSmartRule == rule,
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onSmartRuleChange(rule)
+                                    }
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = smartPlaylistRuleSubtitle(selectedSmartRule),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -1563,56 +1692,200 @@ fun getIconResByName(name: String?): Int? {
 }
 
 @Composable
+private fun CreatePlaylistGlowPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selectedContainerColor: Color = MaterialTheme.colorScheme.primary,
+    selectedContentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    leadingIcon: (@Composable (Color) -> Unit)? = null
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1.0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "cp_pill_scale"
+    )
+    val cornerRadius by animateDpAsState(
+        targetValue = when {
+            isPressed -> 10.dp
+            selected -> 22.dp
+            else -> 14.dp
+        },
+        animationSpec = tween(durationMillis = 420, easing = AiSmoothMorphEasing),
+        label = "cp_pill_corner"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            selected -> selectedContainerColor
+            isPressed -> MaterialTheme.colorScheme.surfaceContainerHighest
+            else -> MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
+        label = "cp_pill_bg"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) selectedContentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
+        label = "cp_pill_fg"
+    )
+
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val restingShadow = remember(selectedContainerColor, isDark) {
+        if (isDark) lerp(Color.Black, selectedContainerColor, 0.40f) else lerp(Color.Black, selectedContainerColor, 0.55f)
+    }
+    val selectedFraction by animateFloatAsState(
+        targetValue = if (selected || isPressed) 1f else 0f,
+        animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
+        label = "cp_pill_glow"
+    )
+    val glowColor = lerp(restingShadow, selectedContainerColor, selectedFraction)
+    val glowSpread = 4.dp + 7.dp * selectedFraction
+    val glowOffsetY = 1.5.dp + 2.dp * selectedFraction
+    val glowMaxAlpha = (if (isDark) 0.14f else 0.08f) + (if (isDark) 0.22f else 0.16f) * selectedFraction
+
+    Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        shape = AbsoluteSmoothCornerShape(cornerRadius, 60),
+        color = containerColor,
+        contentColor = contentColor,
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .height(42.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .aiSoftSurfaceGlow(
+                color = glowColor,
+                cornerRadius = cornerRadius,
+                spread = glowSpread,
+                offsetY = glowOffsetY,
+                maxAlpha = glowMaxAlpha
+            )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (leadingIcon != null) {
+                leadingIcon(contentColor)
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                ),
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 fun ExpressiveButtonGroup(
     items: List<String>,
     selectedIndex: Int,
     onItemClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val haptic = LocalHapticFeedback.current
+
     Row(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(Color.Transparent, CircleShape), // Optional container background
-            //.padding(1.dp), // Check if padding is needed
-        horizontalArrangement = Arrangement.spacedBy(4.dp) // Gap between buttons
+        modifier = modifier.padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items.forEachIndexed { index, title ->
             val isSelected = selectedIndex == index
-            val shape = if (isSelected) CircleShape else RoundedCornerShape(10.dp) // Pill vs RoundedRect
-            val containerColor by androidx.compose.animation.animateColorAsState(
-                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+
+            val scale by animateFloatAsState(
+                targetValue = if (isPressed) 0.94f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "ebg_scale"
+            )
+            val cornerRadius by animateDpAsState(
+                targetValue = if (isPressed) 12.dp else if (isSelected) 24.dp else 14.dp,
+                animationSpec = tween(durationMillis = 420, easing = AiSmoothMorphEasing),
+                label = "ebg_corner"
+            )
+            val containerColor by animateColorAsState(
+                targetValue = if (isSelected) primaryColor else MaterialTheme.colorScheme.surfaceContainerHigh,
+                animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
                 label = "ButtonColor"
             )
-            val contentColor by androidx.compose.animation.animateColorAsState(
-                if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            val contentColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
                 label = "ContentColor"
             )
+            val selectedFraction by animateFloatAsState(
+                targetValue = if (isSelected || isPressed) 1f else 0f,
+                animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
+                label = "ebg_glow"
+            )
+            val restingShadow = remember(primaryColor, isDark) {
+                if (isDark) lerp(Color.Black, primaryColor, 0.40f) else lerp(Color.Black, primaryColor, 0.55f)
+            }
 
-            Box(
+            Surface(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onItemClick(index)
+                },
+                interactionSource = interactionSource,
+                shape = AbsoluteSmoothCornerShape(cornerRadius, 60),
+                color = containerColor,
+                contentColor = contentColor,
+                shadowElevation = 0.dp,
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp) // Taller button
-                    .clip(shape)
-                    .background(containerColor)
-                    .clickable { onItemClick(index) },
-                contentAlignment = Alignment.Center
+                    .height(48.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .aiSoftSurfaceGlow(
+                        color = lerp(restingShadow, primaryColor, selectedFraction),
+                        cornerRadius = cornerRadius,
+                        spread = 4.dp + 7.dp * selectedFraction,
+                        offsetY = 1.5.dp + 2.dp * selectedFraction,
+                        maxAlpha = (if (isDark) 0.14f else 0.08f) + (if (isDark) 0.22f else 0.16f) * selectedFraction
+                    )
             ) {
-                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                     androidx.compose.animation.AnimatedVisibility(visible = isSelected) {
-                         Icon(
-                             Icons.Rounded.Check, 
-                             contentDescription = null, 
-                             modifier = Modifier.padding(end = 8.dp).size(18.dp),
-                             tint = contentColor
-                         )
-                     }
-                     Text(
-                         text = title,
-                         style = MaterialTheme.typography.labelLarge,
-                         color = contentColor,
-                         fontWeight = if(isSelected) FontWeight.Bold else FontWeight.Medium
-                     )
-                 }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    AnimatedVisibility(visible = isSelected) {
+                        Icon(
+                            Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 8.dp).size(18.dp),
+                            tint = contentColor
+                        )
+                    }
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.labelLarge.copy(fontFamily = GoogleSansRounded),
+                        color = contentColor,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
     }
