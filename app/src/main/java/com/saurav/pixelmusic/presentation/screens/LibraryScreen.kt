@@ -809,6 +809,7 @@ fun LibraryScreen(
                 )
                 if (!isCompactNavigation) {
                     val showTabIndicator = false
+                    val isPagerDragged by pagerState.interactionSource.collectIsDraggedAsState()
                     var tappedTabIndex by remember { mutableStateOf<Int?>(null) }
                     LaunchedEffect(pagerState.settledPage) {
                         tappedTabIndex = null
@@ -816,7 +817,7 @@ fun LibraryScreen(
                     val settledTabIndex by remember(pagerState, tabTitles, isCompactNavigation) {
                         derivedStateOf {
                             resolveTabIndex(
-                                page = pagerState.settledPage,
+                                page = if (isPagerDragged) pagerState.currentPage else pagerState.targetPage,
                                 tabCount = tabTitles.size,
                                 compactMode = isCompactNavigation
                             )
