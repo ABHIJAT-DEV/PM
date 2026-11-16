@@ -1861,7 +1861,7 @@ fun AiMixCookieButton(
         Icon(
             painter = painterResource(R.drawable.rounded_auto_awesome_24),
             contentDescription = "Create AI Playlist",
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(36.dp)
         )
     }
 }

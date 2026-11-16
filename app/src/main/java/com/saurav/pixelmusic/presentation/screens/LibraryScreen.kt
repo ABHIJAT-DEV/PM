@@ -809,6 +809,10 @@ fun LibraryScreen(
                 )
                 if (!isCompactNavigation) {
                     val showTabIndicator = false
+                    var tappedTabIndex by remember { mutableStateOf<Int?>(null) }
+                    LaunchedEffect(pagerState.settledPage) {
+                        tappedTabIndex = null
+                    }
                     val settledTabIndex by remember(pagerState, tabTitles, isCompactNavigation) {
                         derivedStateOf {
                             resolveTabIndex(
@@ -818,14 +822,15 @@ fun LibraryScreen(
                             )
                         }
                     }
+                    val activePillTabIndex = tappedTabIndex ?: settledTabIndex
                     PrimaryScrollableTabRow(
-                        selectedTabIndex = settledTabIndex,
+                        selectedTabIndex = activePillTabIndex,
                         containerColor = Color.Transparent,
                         edgePadding = 12.dp,
                         indicator = {
                             if (showTabIndicator) {
                                 TabRowDefaults.PrimaryIndicator(
-                                    modifier = Modifier.tabIndicatorOffset(selectedTabIndex = settledTabIndex),
+                                    modifier = Modifier.tabIndicatorOffset(selectedTabIndex = activePillTabIndex),
                                     height = 3.dp,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -838,8 +843,9 @@ fun LibraryScreen(
                             TabAnimation(
                                 index = index,
                                 title = tabId.storageKey,
-                                selectedIndex = settledTabIndex,
+                                selectedIndex = activePillTabIndex,
                                 onClick = {
+                                    tappedTabIndex = index
                                     scope.launch {
                                         pagerState.animateScrollToPage(
                                             page = targetPageForTabIndex(
@@ -849,24 +855,25 @@ fun LibraryScreen(
                                                 compactMode = isCompactNavigation
                                             ),
                                             animationSpec = tween(
-                                                durationMillis = 540,
+                                                durationMillis = 380,
                                                 easing = androidx.compose.animation.core.CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
                                             )
                                         )
+                                        tappedTabIndex = null
                                     }
                                 }
                             ) {
                                 Text(
                                     text = tabId.title,
                                     style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = if (settledTabIndex == index) FontWeight.Bold else FontWeight.Medium
+                                    fontWeight = if (activePillTabIndex == index) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
                         }
                         TabAnimation(
                             index = -1,
                             title = stringResource(R.string.presentation_batch_d_edit_library_tabs_cd),
-                            selectedIndex = settledTabIndex,
+                            selectedIndex = activePillTabIndex,
                             onClick = { showReorderTabsSheet = true }
                         ) {
                             Icon(

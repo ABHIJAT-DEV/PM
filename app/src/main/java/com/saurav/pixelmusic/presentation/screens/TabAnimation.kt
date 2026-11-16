@@ -53,16 +53,16 @@ fun TabAnimation(
 
     val containerColor by animateColorAsState(
         targetValue = if (isSelected) selectedColor else unselectedColor,
-        animationSpec = tween(durationMillis = 480, easing = TabSmoothMorphEasing),
+        animationSpec = tween(durationMillis = 260, easing = TabSmoothMorphEasing),
         label = "Tab Container Color"
     )
     val contentColor by animateColorAsState(
         targetValue = if (isSelected) onSelectedColor else onUnselectedColor,
-        animationSpec = tween(durationMillis = 480, easing = TabSmoothMorphEasing),
+        animationSpec = tween(durationMillis = 260, easing = TabSmoothMorphEasing),
         label = "Tab Content Color"
     )
 
-    // Synchronized ~1s pulse across all tabs whenever selectedIndex settles on a new tab:
+    // Synchronized neighbor-push pulse across all tabs whenever selectedIndex changes:
     // the selected pill expands symmetrically from center while pushing both left and right neighbors,
     // then all pills smoothly fall back to their default shape and position.
     val pushPulse = remember { Animatable(0f) }
@@ -75,11 +75,11 @@ fun TabAnimation(
         pushPulse.snapTo(0f)
         pushPulse.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 260, easing = TabSmoothMorphEasing)
+            animationSpec = tween(durationMillis = 200, easing = TabSmoothMorphEasing)
         )
         pushPulse.animateTo(
             targetValue = 0f,
-            animationSpec = tween(durationMillis = 680, easing = TabSmoothMorphEasing)
+            animationSpec = tween(durationMillis = 520, easing = TabSmoothMorphEasing)
         )
     }
 
