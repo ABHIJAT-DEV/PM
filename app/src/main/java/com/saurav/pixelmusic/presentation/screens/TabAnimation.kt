@@ -53,12 +53,12 @@ fun TabAnimation(
 
     val containerColor by animateColorAsState(
         targetValue = if (isSelected) selectedColor else unselectedColor,
-        animationSpec = tween(durationMillis = 260, easing = TabSmoothMorphEasing),
+        animationSpec = tween(durationMillis = 140, easing = TabSmoothMorphEasing),
         label = "Tab Container Color"
     )
     val contentColor by animateColorAsState(
         targetValue = if (isSelected) onSelectedColor else onUnselectedColor,
-        animationSpec = tween(durationMillis = 260, easing = TabSmoothMorphEasing),
+        animationSpec = tween(durationMillis = 140, easing = TabSmoothMorphEasing),
         label = "Tab Content Color"
     )
 
@@ -75,11 +75,11 @@ fun TabAnimation(
         pushPulse.snapTo(0f)
         pushPulse.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 200, easing = TabSmoothMorphEasing)
+            animationSpec = tween(durationMillis = 120, easing = TabSmoothMorphEasing)
         )
         pushPulse.animateTo(
             targetValue = 0f,
-            animationSpec = tween(durationMillis = 520, easing = TabSmoothMorphEasing)
+            animationSpec = tween(durationMillis = 260, easing = TabSmoothMorphEasing)
         )
     }
 

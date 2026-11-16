@@ -855,7 +855,7 @@ fun LibraryScreen(
                                                 compactMode = isCompactNavigation
                                             ),
                                             animationSpec = tween(
-                                                durationMillis = 380,
+                                                durationMillis = 220,
                                                 easing = androidx.compose.animation.core.CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
                                             )
                                         )
