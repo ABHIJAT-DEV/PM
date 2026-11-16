@@ -826,18 +826,25 @@ fun LibraryScreen(
                     ) {
                         tabTitles.forEachIndexed { index, rawId ->
                             val tabId = rawId.toLibraryTabIdOrNull() ?: LibraryTabId.SONGS
+                            val fractionalPage = pagerState.currentPage + pagerState.currentPageOffsetFraction
+                            val tabFraction = (1f - kotlin.math.abs(fractionalPage - index)).coerceIn(0f, 1f)
                             TabAnimation(
                                 index = index,
                                 title = tabId.storageKey,
                                 selectedIndex = currentTabIndex,
+                                selectionFraction = tabFraction,
                                 onClick = {
                                     scope.launch {
                                         pagerState.animateScrollToPage(
-                                            targetPageForTabIndex(
+                                            page = targetPageForTabIndex(
                                                 currentPage = pagerState.currentPage,
                                                 targetTabIndex = index,
                                                 tabCount = tabTitles.size,
                                                 compactMode = isCompactNavigation
+                                            ),
+                                            animationSpec = tween(
+                                                durationMillis = 540,
+                                                easing = androidx.compose.animation.core.CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
                                             )
                                         )
                                     }
