@@ -353,7 +353,7 @@ private fun SmartMixConfigurator(
                 top = 12.dp,
                 bottom = fabAreaHeight + 36.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // 1. Slider Card
             item {
@@ -466,6 +466,13 @@ private fun SmartMixConfigurator(
                                 scaleX = cardScale
                                 scaleY = cardScale
                             }
+                            .aiSoftSurfaceGlow(
+                                color = colors.second,
+                                cornerRadius = cardCorner,
+                                spread = 10.dp * selectProgress,
+                                offsetY = 2.dp * selectProgress,
+                                maxAlpha = (if (isDark) 0.28f else 0.18f) * selectProgress
+                            )
                     ) {
                         Column(
                             modifier = Modifier.background(
