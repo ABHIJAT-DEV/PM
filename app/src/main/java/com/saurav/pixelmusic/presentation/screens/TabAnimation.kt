@@ -1,5 +1,6 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
@@ -9,7 +10,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -20,13 +20,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
@@ -45,7 +43,6 @@ fun TabAnimation(
     selectedIndex: Int,
     onClick: () -> Unit,
     transformOrigin: TransformOrigin = TransformOrigin.Center,
-    selectionFraction: Float? = null,
     content: @Composable () -> Unit
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -54,37 +51,36 @@ fun TabAnimation(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val targetFraction = (selectionFraction ?: if (isSelected) 1f else 0f).coerceIn(0f, 1f)
-    val morphFraction by animateFloatAsState(
-        targetValue = targetFraction,
-        animationSpec = tween(durationMillis = 520, easing = TabSmoothMorphEasing),
-        label = "Tab Morph Fraction"
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) selectedColor else unselectedColor,
+        animationSpec = tween(durationMillis = 480, easing = TabSmoothMorphEasing),
+        label = "Tab Container Color"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isSelected) onSelectedColor else onUnselectedColor,
+        animationSpec = tween(durationMillis = 480, easing = TabSmoothMorphEasing),
+        label = "Tab Content Color"
     )
 
-    // Transient ~1s neighbor-push pulse when a tab becomes selected, then falls back to default size
+    // Synchronized ~1s pulse across all tabs whenever selectedIndex settles on a new tab:
+    // the selected pill expands symmetrically from center while pushing both left and right neighbors,
+    // then all pills smoothly fall back to their default shape and position.
     val pushPulse = remember { Animatable(0f) }
     var hasInitialized by remember { mutableStateOf(false) }
-    LaunchedEffect(isSelected) {
+    LaunchedEffect(selectedIndex) {
         if (!hasInitialized) {
             hasInitialized = true
             return@LaunchedEffect
         }
-        if (isSelected) {
-            pushPulse.snapTo(0f)
-            pushPulse.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 280, easing = TabSmoothMorphEasing)
-            )
-            pushPulse.animateTo(
-                targetValue = 0f,
-                animationSpec = tween(durationMillis = 680, easing = TabSmoothMorphEasing)
-            )
-        } else {
-            pushPulse.animateTo(
-                targetValue = 0f,
-                animationSpec = tween(durationMillis = 220, easing = TabSmoothMorphEasing)
-            )
-        }
+        pushPulse.snapTo(0f)
+        pushPulse.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 260, easing = TabSmoothMorphEasing)
+        )
+        pushPulse.animateTo(
+            targetValue = 0f,
+            animationSpec = tween(durationMillis = 680, easing = TabSmoothMorphEasing)
+        )
     }
 
     val pressScale by animateFloatAsState(
@@ -96,30 +92,33 @@ fun TabAnimation(
         label = "Tab Press Scale"
     )
 
-    val containerColor = lerp(unselectedColor, selectedColor, morphFraction)
-    val contentColor = lerp(onUnselectedColor, onSelectedColor, morphFraction)
-    val pillScale = (1f + 0.04f * pushPulse.value) * pressScale
-
     Tab(
         modifier = modifier
             .padding(all = 4.dp)
             .graphicsLayer {
-                scaleX = pillScale
-                scaleY = pillScale
+                val pulse = pushPulse.value
+                val sX = (if (isSelected) 1f + 0.14f * pulse else 1f) * pressScale
+                val sY = (if (isSelected) 1f + 0.05f * pulse else 1f) * pressScale
+                scaleX = sX
+                scaleY = sY
                 this.transformOrigin = transformOrigin
+                translationX = when {
+                    isSelected -> 0f
+                    index >= 0 && index < selectedIndex -> {
+                        val dpShift = if (index == selectedIndex - 1) -10.dp else -5.dp
+                        dpShift.toPx() * pulse
+                    }
+                    else -> {
+                        val dpShift = if (index == selectedIndex + 1) 10.dp else 5.dp
+                        dpShift.toPx() * pulse
+                    }
+                }
             }
             .clip(tabShape)
             .background(containerColor, tabShape),
         selected = isSelected,
         interactionSource = interactionSource,
-        text = {
-            Box(
-                modifier = Modifier.padding(horizontal = (14f * pushPulse.value).dp),
-                contentAlignment = Alignment.Center
-            ) {
-                content()
-            }
-        },
+        text = content,
         onClick = {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             onClick()
