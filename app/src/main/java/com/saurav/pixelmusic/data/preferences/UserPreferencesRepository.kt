@@ -616,6 +616,21 @@ constructor(
     suspend fun setCrossfadeEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.IS_CROSSFADE_ENABLED] = enabled
+            val current = preferences[PreferencesKeys.GLOBAL_TRANSITION_SETTINGS]?.let {
+                runCatching { json.decodeFromString<TransitionSettings>(it) }.getOrNull()
+            } ?: TransitionSettings()
+            val updated = current.copy(
+                mode = if (enabled) {
+                    if (current.mode == com.saurav.pixelmusic.data.model.TransitionMode.NONE) {
+                        com.saurav.pixelmusic.data.model.TransitionMode.OVERLAP
+                    } else {
+                        current.mode
+                    }
+                } else {
+                    com.saurav.pixelmusic.data.model.TransitionMode.NONE
+                }
+            )
+            preferences[PreferencesKeys.GLOBAL_TRANSITION_SETTINGS] = json.encodeToString(updated)
         }
     }
 
@@ -663,8 +678,13 @@ constructor(
             }
 
     suspend fun setCrossfadeDuration(duration: Int) {
+        val coerced = duration.coerceIn(1000, 12000)
         dataStore.edit { preferences ->
-            preferences[PreferencesKeys.CROSSFADE_DURATION] = duration.coerceIn(1000, 12000)
+            preferences[PreferencesKeys.CROSSFADE_DURATION] = coerced
+            val current = preferences[PreferencesKeys.GLOBAL_TRANSITION_SETTINGS]?.let {
+                runCatching { json.decodeFromString<TransitionSettings>(it) }.getOrNull()
+            } ?: TransitionSettings()
+            preferences[PreferencesKeys.GLOBAL_TRANSITION_SETTINGS] = json.encodeToString(current.copy(durationMs = coerced))
         }
     }
 

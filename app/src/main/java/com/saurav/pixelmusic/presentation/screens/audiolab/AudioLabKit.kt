@@ -1,10 +1,8 @@
 package com.saurav.pixelmusic.presentation.screens.audiolab
 
 import androidx.activity.compose.BackHandler
-import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
@@ -15,8 +13,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -179,48 +175,17 @@ fun LabToggleRow(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     leadingDot: Boolean = false,
-    @DrawableRes iconRes: Int? = null,
 ) {
-    val haptic = LocalHapticFeedback.current
-    val cs = MaterialTheme.colorScheme
+    val hideDescriptions = false
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .clickable(enabled = enabled) {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onCheckedChange(!checked)
-            }
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
             .padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (iconRes != null) {
-            val badgeBg by animateColorAsState(
-                targetValue = if (checked) cs.primaryContainer else cs.secondaryContainer,
-                animationSpec = tween(220),
-                label = "toggleIconBg",
-            )
-            val badgeFg by animateColorAsState(
-                targetValue = if (checked) cs.onPrimaryContainer else cs.onSecondaryContainer,
-                animationSpec = tween(220),
-                label = "toggleIconFg",
-            )
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(badgeBg),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(iconRes),
-                    contentDescription = null,
-                    tint = badgeFg,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-        } else if (leadingDot) {
+        if (leadingDot) {
             val dot by animateColorAsState(if (checked) LabColors.Accent else LabColors.Secondary.copy(alpha = 0.4f), tween(200), label = "dot")
             Box(Modifier.size(20.dp).clip(CircleShape).background(dot))
             Spacer(Modifier.width(12.dp))
@@ -233,25 +198,18 @@ fun LabToggleRow(
                 fontSize = 15.sp,
                 color = if (enabled) LabColors.Primary else LabColors.Faint,
             )
-            if (subtitle != null) {
+            if (subtitle != null && !hideDescriptions) {
                 Text(
                     text = subtitle,
                     fontFamily = InterFontFamily,
                     fontSize = 12.sp,
-                    lineHeight = 16.sp,
+                    lineHeight = 15.sp,
                     color = if (enabled) LabColors.Secondary else LabColors.Faint,
                 )
             }
         }
         Spacer(Modifier.width(12.dp))
-        AppSwitch(
-            checked = checked,
-            onCheckedChange = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onCheckedChange(it)
-            },
-            enabled = enabled,
-        )
+        AppSwitch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
@@ -307,14 +265,12 @@ fun LabPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() 
     )
 }
 
-private val ExpressiveEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-
 @Composable
 fun LabCollapsible(visible: Boolean, content: @Composable ColumnScope.() -> Unit) {
     AnimatedVisibility(
         visible = visible,
-        enter = expandVertically(tween(300, easing = ExpressiveEasing)) + fadeIn(tween(240, 60)),
-        exit = shrinkVertically(tween(240, easing = ExpressiveEasing)) + fadeOut(tween(160)),
+        enter = expandVertically(spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow)) + fadeIn(tween(220, 60)),
+        exit = shrinkVertically(spring(dampingRatio = 1f, stiffness = Spring.StiffnessMedium)) + fadeOut(tween(140)),
     ) {
         Column(Modifier.fillMaxWidth()) { content() }
     }
@@ -359,7 +315,7 @@ fun LabTextAction(text: String, iconRes: Int? = null, enabled: Boolean = true, b
     }
 }
 
-data class LabChip(val key: String, val label: String, val dot: Color? = null, @DrawableRes val iconRes: Int? = null)
+data class LabChip(val key: String, val label: String, val dot: Color? = null)
 
 @Composable
 fun LabChips(
@@ -370,7 +326,6 @@ fun LabChips(
     onLongPress: ((String) -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
-    val haptic = LocalHapticFeedback.current
     Row(
         modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -378,54 +333,27 @@ fun LabChips(
     ) {
         chips.forEach { chip ->
             val selected = chip.key == selectedKey
-            val bg by animateColorAsState(
-                if (selected) LabColors.Accent else LabColors.Chip,
-                tween(220, easing = ExpressiveEasing),
-                label = "chipBg",
-            )
-            val fg by animateColorAsState(
-                if (selected) LabColors.OnAccent else LabColors.Primary,
-                tween(220, easing = ExpressiveEasing),
-                label = "chipFg",
-            )
+            val bg by animateColorAsState(if (selected) LabColors.Accent else LabColors.Chip, tween(180), label = "chipBg")
+            val fg by animateColorAsState(if (selected) LabColors.OnAccent else LabColors.Primary, tween(180), label = "chipFg")
             val interaction = remember { MutableInteractionSource() }
             Row(
                 modifier = Modifier
                     .height(38.dp)
-                    .pressBounce(interaction, pressedScale = 0.94f)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(19.dp))
                     .background(bg)
                     .then(
                         if (onLongPress != null) Modifier.combinedClickableCompat(
-                            interaction,
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onSelect(chip.key)
-                            },
-                            onLongClick = { onLongPress(chip.key) },
-                        ) else Modifier.clickable(interaction, null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelect(chip.key)
-                        }
+                            interaction, onClick = { onSelect(chip.key) }, onLongClick = { onLongPress(chip.key) },
+                        ) else Modifier.clickable(interaction, null) { onSelect(chip.key) }
                     )
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (chip.iconRes != null) {
-                    Icon(painterResource(chip.iconRes), null, tint = fg, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                } else if (chip.dot != null) {
+                if (chip.dot != null) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(chip.dot))
                     Spacer(Modifier.width(8.dp))
                 }
-                Text(
-                    chip.label,
-                    fontFamily = InterFontFamily,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = fg,
-                    maxLines = 1,
-                )
+                Text(chip.label, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = fg, maxLines = 1)
             }
         }
         trailing()
@@ -447,60 +375,40 @@ fun LabSegmented(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    height: Dp = 50.dp,
+    height: Dp = 48.dp,
 ) {
-    val haptic = LocalHapticFeedback.current
-    val cs = MaterialTheme.colorScheme
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .clip(CircleShape)
-            .background(cs.surfaceContainerLow)
+            .clip(RoundedCornerShape(height / 2))
+            .background(LabColors.Card)
+            .border(1.dp, LabColors.StageLine, RoundedCornerShape(height / 2))
             .padding(4.dp),
     ) {
         val segment = maxWidth / options.size
-        val offset by animateDpAsState(
-            targetValue = segment * selectedIndex,
-            animationSpec = tween(durationMillis = 280, easing = ExpressiveEasing),
-            label = "segment",
-        )
+        val offset by animateDpAsState(segment * selectedIndex, spring(dampingRatio = 0.82f, stiffness = 520f), label = "segment")
         Box(
             Modifier
                 .offset(x = offset)
                 .width(segment)
                 .fillMaxHeight()
-                .clip(CircleShape)
-                .background(cs.secondaryContainer)
+                .clip(RoundedCornerShape(height / 2))
+                .background(LabColors.Accent)
         )
         Row(Modifier.fillMaxWidth().fillMaxHeight()) {
             options.forEachIndexed { index, label ->
-                val isSelected = index == selectedIndex
-                val color by animateColorAsState(
-                    targetValue = if (isSelected) cs.onSecondaryContainer else cs.onSurfaceVariant,
-                    animationSpec = tween(220, easing = ExpressiveEasing),
-                    label = "segText",
-                )
+                val color by animateColorAsState(if (index == selectedIndex) LabColors.OnAccent else LabColors.Primary, tween(160), label = "segText")
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clip(CircleShape)
-                        .clickable(remember { MutableInteractionSource() }, null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelect(index)
-                        },
+                        .clip(RoundedCornerShape(height / 2))
+                        .clickable(remember { MutableInteractionSource() }, null) { onSelect(index) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        label,
-                        fontFamily = InterFontFamily,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        fontSize = 14.sp,
-                        color = color,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Text(label, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = color,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

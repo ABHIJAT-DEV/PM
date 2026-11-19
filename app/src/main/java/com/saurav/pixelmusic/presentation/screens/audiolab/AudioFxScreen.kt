@@ -4,12 +4,8 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.MediaCodecList
 import android.os.Build
-import androidx.annotation.DrawableRes
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,31 +14,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,17 +26,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,38 +45,15 @@ import com.saurav.pixelmusic.audiolab.PlaybackSettings
 import com.saurav.pixelmusic.audiolab.ReverbPresets
 import com.saurav.pixelmusic.audiolab.audio.ReplayGainMode
 import com.saurav.pixelmusic.audiolab.audio.SpatialMode
-import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.navigation.Screen
-import com.saurav.pixelmusic.presentation.screens.TabAnimation
-import com.saurav.pixelmusic.presentation.screens.audiolab.stage.StagePicture
+import com.saurav.pixelmusic.presentation.screens.audiolab.stage.StageCard
 import com.saurav.pixelmusic.presentation.viewmodel.AudioLabViewModel
-import com.saurav.pixelmusic.ui.theme.PixelMusicStatusBarStyle
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.PI
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
-private enum class FxTab(
-    @StringRes val labelRes: Int,
-    @DrawableRes val iconRes: Int,
-) {
-    Reverb(R.string.lab_effect_reverb, R.drawable.rounded_blur_on_24),
-    Loudness(R.string.lab_effect_loudness, R.drawable.rounded_volume_up_24),
-    Spatial(R.string.lab_effect_spatial, R.drawable.rounded_headphones_24),
-    Stage(R.string.lab_effect_stage, R.drawable.rounded_surround_sound_24),
-    Atmos(R.string.lab_effect_surround, R.drawable.rounded_speaker_24),
-    Mono(R.string.lab_effect_mono, R.drawable.rounded_hearing_24),
-    Speed(R.string.lab_effect_playback, R.drawable.rounded_speed_24),
-    Volume(R.string.lab_effect_volume, R.drawable.rounded_show_chart_24),
-}
-
-private val FxTabEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioFxScreen(
     navController: NavController,
@@ -120,155 +68,26 @@ fun AudioFxScreen(
     val stage by viewModel.stage.collectAsState()
     val effects = activeEffects(reverb, loudness, spatial, playback, volume, stage)
 
-    val cs = MaterialTheme.colorScheme
-    PixelMusicStatusBarStyle(color = cs.background)
-    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-
-    val tabs = FxTab.entries
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { tabs.size })
-    val scope = rememberCoroutineScope()
-    var tappedTabIndex by remember { mutableStateOf<Int?>(null) }
-    val activePillIndex = tappedTabIndex ?: pagerState.currentPage
-
-    fun isTabActive(tab: FxTab): Boolean = when (tab) {
-        FxTab.Reverb -> reverb.enabled
-        FxTab.Loudness -> loudness.enabled
-        FxTab.Spatial -> spatial.enabled
-        FxTab.Stage -> stage.enabled
-        FxTab.Atmos -> spatial.surround
-        FxTab.Mono -> spatial.mono
-        FxTab.Speed -> !playback.isNormal
-        FxTab.Volume -> volume.enabled
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(cs.background),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    AudioLabPage(
+        title = LabTitle(stringResource(R.string.fx_title_audio), "FX", firstSize = 40.sp, secondSize = 84.sp, firstDim = true),
+        onBack = { navController.navigateUp() },
+        art = { hidden -> FxCardStack(effects, hidden) },
     ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 680.dp)
-                .fillMaxSize()
-                .padding(top = statusTop + 10.dp),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-            ) {
-                FilledIconButton(
-                    onClick = { navController.navigateUp() },
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = cs.surfaceContainerLow,
-                        contentColor = cs.onSurface,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.rounded_arrow_back_24),
-                        contentDescription = stringResource(R.string.lab_back),
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.lab_audio_effect),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = cs.onSurface,
-                    )
-                    Text(
-                        text = if (effects.isEmpty()) stringResource(R.string.lab_status_all_off)
-                        else "${effects.size} active",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (effects.isEmpty()) cs.onSurfaceVariant else cs.primary,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(6.dp))
-
-            PrimaryScrollableTabRow(
-                selectedTabIndex = activePillIndex,
-                containerColor = Color.Transparent,
-                edgePadding = 12.dp,
-                indicator = {},
-                divider = {},
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    val enabled = isTabActive(tab)
-                    val selected = activePillIndex == index
-                    TabAnimation(
-                        index = index,
-                        title = tab.name,
-                        selectedIndex = activePillIndex,
-                        unselectedColor = if (enabled) cs.secondaryContainer.copy(alpha = 0.7f) else cs.surfaceContainerLow,
-                        onUnselectedColor = if (enabled) cs.onSecondaryContainer else cs.onSurface.copy(alpha = 0.85f),
-                        onClick = {
-                            tappedTabIndex = index
-                            scope.launch {
-                                pagerState.animateScrollToPage(
-                                    page = index,
-                                    animationSpec = tween(durationMillis = 320, easing = FxTabEasing),
-                                )
-                                tappedTabIndex = null
-                            }
-                        },
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(horizontal = 4.dp),
-                        ) {
-                            Icon(
-                                painter = painterResource(tab.iconRes),
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                            )
-                            Text(
-                                text = stringResource(tab.labelRes),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                beyondViewportPageCount = 1,
-            ) { page ->
-                val tab = tabs[page]
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 6.dp, bottom = navBottom + MiniPlayerHeight + 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    when (tab) {
-                        FxTab.Reverb -> ReverbTabPage(viewModel)
-                        FxTab.Loudness -> LoudnessTabPage(viewModel)
-                        FxTab.Spatial -> SpatialTabPage(viewModel)
-                        FxTab.Stage -> StageTabPage(viewModel) { navController.navigate(Screen.AudioLabStage.route) }
-                        FxTab.Atmos -> AtmosTabPage(viewModel)
-                        FxTab.Mono -> MonoTabPage(viewModel)
-                        FxTab.Speed -> SpeedTabPage(viewModel)
-                        FxTab.Volume -> VolumeTabPage(viewModel)
-                    }
-                }
-            }
-        }
+        StageCard(viewModel) { navController.navigate(Screen.AudioLabStage.route) }
+        Spacer(Modifier.height(14.dp))
+        ReverbCard(viewModel)
+        Spacer(Modifier.height(14.dp))
+        LoudnessCard(viewModel)
+        Spacer(Modifier.height(14.dp))
+        SpatialCard(viewModel)
+        Spacer(Modifier.height(14.dp))
+        MonoCard(viewModel)
+        Spacer(Modifier.height(14.dp))
+        AtmosCard(viewModel = viewModel)
+        Spacer(Modifier.height(14.dp))
+        SpeedCard(viewModel)
+        Spacer(Modifier.height(14.dp))
+        VolumeCard(viewModel)
     }
 }
 
@@ -280,94 +99,30 @@ internal fun EffectCard(
     options: @Composable ColumnScope.() -> Unit,
     footer: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    LabCard(padding = 16.dp) {
+    LabCard(padding = 14.dp) {
+        LabStage(height = 132.dp) { picture() }
+        Spacer(Modifier.height(10.dp))
         header()
         LabCollapsible(expanded) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             options()
         }
         footer?.invoke(this)
-    }
-    LabCard(padding = 12.dp) {
-        LabStage(height = 176.dp) { picture() }
     }
 }
 
 internal fun pct(v: Float) = "${(v * 100).roundToInt()}%"
 
 @Composable
-private fun ReverbTabPage(viewModel: AudioLabViewModel) {
-    val reverb by viewModel.reverb.collectAsState()
-    EffectCard(
-        picture = { ReverbPicture(reverb) },
-        header = {
-            LabToggleRow(
-                title = stringResource(R.string.fx_reverb_title),
-                subtitle = stringResource(R.string.fx_reverb_sub),
-                checked = reverb.enabled,
-                onCheckedChange = { on -> viewModel.updateReverb { it.copy(enabled = on) } },
-                iconRes = R.drawable.rounded_blur_on_24,
-            )
-        },
-        expanded = reverb.enabled,
-        options = {
-            LabChips(
-                chips = ReverbPresets.All.map { LabChip(it.id, reverbTabPresetName(it)) } +
-                    (if (reverb.presetId == null) listOf(LabChip("custom", stringResource(R.string.fx_reverb_custom))) else emptyList()),
-                selectedKey = reverb.presetId ?: "custom",
-                onSelect = { id -> ReverbPresets.All.firstOrNull { it.id == id }?.let { p -> viewModel.updateReverb { it.withPreset(p) } } },
-            )
-            Spacer(Modifier.height(10.dp))
-            LabPanel {
-                LabSlider(stringResource(R.string.fx_mix), pct(reverb.mix), reverb.mix, { v -> viewModel.updateReverb { it.copy(mix = v, presetId = null) } }, 0f..1f)
-                LabSlider(stringResource(R.string.fx_room_size), pct(reverb.roomSize), reverb.roomSize, { v -> viewModel.updateReverb { it.copy(roomSize = v, presetId = null) } }, 0f..1f)
-                LabSlider(stringResource(R.string.fx_damping), pct(reverb.damping), reverb.damping, { v -> viewModel.updateReverb { it.copy(damping = v, presetId = null) } }, 0f..1f)
-                LabSlider(stringResource(R.string.fx_wet), pct(reverb.wet), reverb.wet, { v -> viewModel.updateReverb { it.copy(wet = v, presetId = null) } }, 0f..1f)
-                Text(
-                    stringResource(R.string.fx_fine_tune),
-                    fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 1.3.sp,
-                    color = LabColors.Secondary, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-                )
-                LabSlider(stringResource(R.string.fx_dry), pct(reverb.dry), reverb.dry, { v -> viewModel.updateReverb { it.copy(dry = v, presetId = null) } }, 0f..1f)
-                LabSlider(stringResource(R.string.fx_width), pct(reverb.width), reverb.width, { v -> viewModel.updateReverb { it.copy(width = v, presetId = null) } }, 0f..1f)
-                LabSlider(stringResource(R.string.fx_pre_delay), "${reverb.preDelayMs.roundToInt()} ms", reverb.preDelayMs,
-                    { v -> viewModel.updateReverb { it.copy(preDelayMs = v.roundToInt().toFloat(), presetId = null) } }, 0f..120f)
-                LabSlider(stringResource(R.string.fx_low_cut), "${reverb.lowCutHz.roundToInt()} Hz", log10(reverb.lowCutHz),
-                    { v -> viewModel.updateReverb { it.copy(lowCutHz = 10f.pow(v).roundToInt().toFloat(), presetId = null) } },
-                    log10(20f)..log10(1000f))
-            }
-        },
-    )
-}
-
-@Composable
-private fun reverbTabPresetName(preset: ReverbPresets.Preset): String = when (preset.id) {
-    "room" -> stringResource(R.string.fx_reverb_room)
-    "studio" -> stringResource(R.string.fx_reverb_studio)
-    "bathroom" -> stringResource(R.string.fx_reverb_bathroom)
-    "plate" -> stringResource(R.string.fx_reverb_plate)
-    "hall" -> stringResource(R.string.fx_reverb_hall)
-    "cathedral" -> stringResource(R.string.fx_reverb_cathedral)
-    "stadium" -> stringResource(R.string.fx_reverb_stadium)
-    "dream" -> stringResource(R.string.fx_reverb_dream)
-    else -> preset.name
-}
-
-@Composable
-private fun LoudnessTabPage(viewModel: AudioLabViewModel) {
+private fun LoudnessCard(viewModel: AudioLabViewModel) {
     val loudness by viewModel.loudness.collectAsState()
     val normalize by viewModel.normalizeEnabled.collectAsState()
     val onNormalize: (Boolean) -> Unit = viewModel::setNormalizeEnabled
     EffectCard(
         picture = { LoudnessPicture(loudness, viewModel.fx) },
         header = {
-            LabToggleRow(
-                title = stringResource(R.string.fx_loudness_title),
-                subtitle = stringResource(R.string.fx_loudness_sub),
-                checked = loudness.enabled,
-                onCheckedChange = { on -> viewModel.updateLoudness { it.copy(enabled = on) } },
-                iconRes = R.drawable.rounded_volume_up_24,
-            )
+            LabToggleRow(stringResource(R.string.fx_loudness_title), stringResource(R.string.fx_loudness_sub), loudness.enabled,
+                { on -> viewModel.updateLoudness { it.copy(enabled = on) } })
         },
         expanded = loudness.enabled,
         options = {
@@ -409,14 +164,8 @@ private fun LoudnessTabPage(viewModel: AudioLabViewModel) {
             }
         },
         footer = {
-            Spacer(Modifier.height(8.dp))
-            LabToggleRow(
-                title = stringResource(R.string.fx_even_out),
-                subtitle = stringResource(R.string.fx_even_out_sub),
-                checked = normalize,
-                onCheckedChange = onNormalize,
-                iconRes = R.drawable.rounded_graphic_eq_24,
-            )
+            Spacer(Modifier.height(6.dp))
+            LabToggleRow(stringResource(R.string.fx_even_out), stringResource(R.string.fx_even_out_sub), normalize, onNormalize)
             val rg by viewModel.normalize.collectAsState()
             LabCollapsible(normalize) {
                 Spacer(Modifier.height(4.dp))
@@ -457,19 +206,14 @@ private val CrossfeedLevels = listOf(
 )
 
 @Composable
-private fun SpatialTabPage(viewModel: AudioLabViewModel) {
+private fun SpatialCard(viewModel: AudioLabViewModel) {
     val spatial by viewModel.spatial.collectAsState()
     val stage by viewModel.stage.collectAsState()
     EffectCard(
         picture = { SpatialPicture(spatial) },
         header = {
-            LabToggleRow(
-                title = stringResource(R.string.fx_spatial_title),
-                subtitle = stringResource(R.string.fx_spatial_sub),
-                checked = spatial.enabled,
-                onCheckedChange = { on -> viewModel.updateSpatial { it.copy(enabled = on) } },
-                iconRes = R.drawable.rounded_headphones_24,
-            )
+            LabToggleRow(stringResource(R.string.fx_spatial_title), stringResource(R.string.fx_spatial_sub), spatial.enabled,
+                { on -> viewModel.updateSpatial { it.copy(enabled = on) } })
         },
         expanded = spatial.enabled,
         options = {
@@ -477,7 +221,7 @@ private fun SpatialTabPage(viewModel: AudioLabViewModel) {
                 options = listOf(stringResource(R.string.fx_mode_crossfeed), stringResource(R.string.fx_mode_speakers)),
                 selectedIndex = if (spatial.mode == SpatialMode.Crossfeed) 0 else 1,
                 onSelect = { i -> viewModel.updateSpatial { it.copy(mode = if (i == 0) SpatialMode.Crossfeed else SpatialMode.Speakers) } },
-                height = 46.dp,
+                height = 42.dp,
             )
             Spacer(Modifier.height(10.dp))
             if (spatial.mode == SpatialMode.Crossfeed) {
@@ -526,107 +270,21 @@ private fun SpatialTabPage(viewModel: AudioLabViewModel) {
 }
 
 @Composable
-private fun StageTabPage(viewModel: AudioLabViewModel, onOpenRoom: () -> Unit) {
-    val stage by viewModel.stage.collectAsState()
-    val cs = MaterialTheme.colorScheme
-    EffectCard(
-        picture = { Box(Modifier.fillMaxSize().clickable(onClick = onOpenRoom)) { StagePicture(stage) } },
-        header = {
-            LabToggleRow(
-                title = stringResource(R.string.stage_card_title),
-                subtitle = stringResource(R.string.stage_card_sub),
-                checked = stage.enabled,
-                onCheckedChange = { on -> viewModel.updateStage { it.copy(enabled = on) } },
-                iconRes = R.drawable.rounded_surround_sound_24,
-            )
-        },
-        expanded = false,
-        options = {},
-        footer = {
-            Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = onOpenRoom,
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = cs.primaryContainer,
-                    contentColor = cs.onPrimaryContainer,
-                ),
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-            ) {
-                Text(stringResource(R.string.stage_open), fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.width(8.dp))
-                Icon(
-                    painter = painterResource(R.drawable.rounded_arrow_forward_24),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        },
-    )
-}
-
-@Composable
-private fun MonoTabPage(viewModel: AudioLabViewModel) {
+private fun MonoCard(viewModel: AudioLabViewModel) {
     val spatial by viewModel.spatial.collectAsState()
-    EffectCard(
-        picture = { MonoPicture(enabled = spatial.mono) },
-        header = {
-            LabToggleRow(
-                title = stringResource(R.string.fx_mono_title),
-                subtitle = stringResource(R.string.fx_mono_sub),
-                checked = spatial.mono,
-                onCheckedChange = { on -> viewModel.updateSpatial { it.copy(mono = on) } },
-                iconRes = R.drawable.rounded_hearing_24,
-            )
-        },
-        expanded = false,
-        options = {},
-    )
-}
-
-@Composable
-private fun MonoPicture(enabled: Boolean) {
-    val merged by animateFloatAsState(if (enabled) 1f else 0f, tween(450, easing = FxTabEasing), label = "monoMerge")
-    val ink = LabColors.Primary
-    val accent = LabColors.Accent
-    PictureCanvas { t, clock ->
-        val w = size.width
-        val h = size.height
-        val cy = h / 2f
-        val leftX = 20.dp.toPx()
-        val rightX = w - 20.dp.toPx()
-        val amp = h * (0.14f + 0.14f * clock.level.level.coerceAtMost(1f))
-        val sep = h * 0.18f * (1f - merged)
-        val pathL = androidx.compose.ui.graphics.Path()
-        val pathR = androidx.compose.ui.graphics.Path()
-        var x = leftX
-        while (x <= rightX) {
-            val p = (x - leftX) / (rightX - leftX)
-            val env = sin(p * PI.toFloat())
-            val waveA = sin(p * 4f * PI.toFloat() - t * 3.5f) * amp * env
-            val waveB = sin(p * 4f * PI.toFloat() - t * 3.5f + (1f - merged) * 1.4f) * amp * env
-            val yL = cy - sep + waveA
-            val yR = cy + sep + waveB
-            if (x == leftX) {
-                pathL.moveTo(x, yL)
-                pathR.moveTo(x, yR)
-            } else {
-                pathL.lineTo(x, yL)
-                pathR.lineTo(x, yR)
-            }
-            x += 2.dp.toPx()
-        }
-        drawLine(ink.copy(alpha = 0.12f), Offset(leftX, cy), Offset(rightX, cy), 1.dp.toPx())
-        drawPath(pathL, Color(0xFF3A96DE).copy(alpha = 0.85f * (1f - merged * 0.5f)), style = Stroke(2.2.dp.toPx(), cap = StrokeCap.Round))
-        drawPath(pathR, Color(0xFFE05A82).copy(alpha = 0.85f * (1f - merged * 0.5f)), style = Stroke(2.2.dp.toPx(), cap = StrokeCap.Round))
-        if (merged > 0.05f) {
-            drawPath(pathL, accent.copy(alpha = merged), style = Stroke(2.6.dp.toPx(), cap = StrokeCap.Round))
-        }
+    LabCard(padding = 10.dp) {
+        LabToggleRow(
+            title = stringResource(R.string.fx_mono_title),
+            subtitle = stringResource(R.string.fx_mono_sub),
+            checked = spatial.mono,
+            onCheckedChange = { on -> viewModel.updateSpatial { it.copy(mono = on) } },
+            leadingDot = true,
+        )
     }
 }
 
 @Composable
-private fun AtmosTabPage(viewModel: AudioLabViewModel) {
+private fun AtmosCard(viewModel: AudioLabViewModel) {
     val spatial by viewModel.spatial.collectAsState()
     val context = LocalContext.current
     var device by remember { mutableStateOf<AtmosSupport?>(null) }
@@ -640,7 +298,6 @@ private fun AtmosTabPage(viewModel: AudioLabViewModel) {
                 subtitle = stringResource(R.string.fx_atmos_sub),
                 checked = spatial.surround,
                 onCheckedChange = { on -> viewModel.updateSpatial { it.copy(surround = on) } },
-                iconRes = R.drawable.rounded_speaker_24,
             )
         },
         expanded = false,
@@ -688,15 +345,10 @@ private fun spatializerState(context: Context): Int = runCatching {
 
 @Composable
 private fun SupportPill(label: String, value: String) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(LabColors.Row)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
+    Column {
         Text(label.uppercase(), fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 10.sp,
             letterSpacing = 1.sp, color = LabColors.Faint)
-        Text(value, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = LabColors.Primary)
+        Text(value, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = LabColors.Secondary)
     }
 }
 
@@ -714,29 +366,13 @@ private val SpeedPresets = listOf(
 )
 
 @Composable
-private fun SpeedTabPage(viewModel: AudioLabViewModel) {
+private fun SpeedCard(viewModel: AudioLabViewModel) {
     val playback by viewModel.playback.collectAsState()
     val reverb by viewModel.reverb.collectAsState()
-    val cs = MaterialTheme.colorScheme
     EffectCard(
         picture = { SpeedPicture(playback) },
         header = {
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(if (!playback.isNormal) cs.primaryContainer else cs.secondaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.rounded_speed_24),
-                        contentDescription = null,
-                        tint = if (!playback.isNormal) cs.onPrimaryContainer else cs.onSecondaryContainer,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.fx_speed_title), fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = LabColors.Primary)
                     Text(
@@ -747,8 +383,8 @@ private fun SpeedTabPage(viewModel: AudioLabViewModel) {
                 StepButton("−") { viewModel.updatePlayback { it.copy(speed = ((it.speed - 0.05f) * 100).roundToInt() / 100f) } }
                 Text(
                     String.format("%.2f×", playback.speed),
-                    fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = LabColors.Primary,
-                    modifier = Modifier.padding(horizontal = 8.dp),
+                    fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = LabColors.Primary,
+                    modifier = Modifier.padding(horizontal = 10.dp),
                 )
                 StepButton("+") { viewModel.updatePlayback { it.copy(speed = ((it.speed + 0.05f) * 100).roundToInt() / 100f) } }
             }
@@ -825,32 +461,27 @@ private val CurveShapes = listOf(
 )
 
 @Composable
-private fun VolumeTabPage(viewModel: AudioLabViewModel) {
+private fun VolumeCard(viewModel: AudioLabViewModel) {
     val volume by viewModel.volume.collectAsState()
     EffectCard(
         picture = { VolumeCurvePicture(volume, 0.7f) },
         header = {
-            LabToggleRow(
-                title = stringResource(R.string.fx_volume_title),
-                subtitle = stringResource(R.string.fx_volume_sub),
-                checked = volume.enabled,
-                onCheckedChange = { on -> viewModel.updateVolume { it.copy(enabled = on) } },
-                iconRes = R.drawable.rounded_show_chart_24,
-            )
+            LabToggleRow(stringResource(R.string.fx_volume_title), stringResource(R.string.fx_volume_sub), volume.enabled,
+                { on -> viewModel.updateVolume { it.copy(enabled = on) } })
         },
         expanded = volume.enabled,
         options = {
             LabChips(
                 chips = CurveShapes.map { LabChip(it.key, stringResource(it.label)) },
                 selectedKey = CurveShapes.firstOrNull { it.exponent == volume.exponent }?.key,
-                onSelect = { key -> CurveShapes.firstOrNull { it.key == key }?.let { c -> viewModel.updateVolume { it.copy(exponent = c.exponent) } } },
+                onSelect = { key -> CurveShapes.firstOrNull { it.key == key }?.let { s -> viewModel.updateVolume { it.copy(exponent = s.exponent) } } },
             )
             Spacer(Modifier.height(10.dp))
             LabPanel {
-                LabSlider(stringResource(R.string.fx_curve), String.format("%.1f", volume.exponent), volume.exponent,
+                LabSlider(stringResource(R.string.fx_curve), String.format("x^%.1f", volume.exponent), volume.exponent,
                     { v -> viewModel.updateVolume { it.copy(exponent = (v * 10).roundToInt() / 10f) } }, 1f..4f)
                 LabSlider(stringResource(R.string.fx_volume_limit), pct(volume.limit), volume.limit,
-                    { v -> viewModel.updateVolume { it.copy(limit = (v * 20).roundToInt() / 20f) } }, 0.3f..1f)
+                    { v -> viewModel.updateVolume { it.copy(limit = (v * 100).roundToInt() / 100f) } }, 0.2f..1f)
                 Text(
                     stringResource(R.string.fx_volume_note),
                     fontFamily = InterFontFamily, fontSize = 12.sp, lineHeight = 16.sp, color = LabColors.Secondary,
