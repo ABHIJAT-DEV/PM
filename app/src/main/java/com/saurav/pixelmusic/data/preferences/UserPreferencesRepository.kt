@@ -1151,7 +1151,7 @@ constructor(
             val jsonString = json.encodeToString(settings)
             preferences[PreferencesKeys.GLOBAL_TRANSITION_SETTINGS] = jsonString
             preferences[PreferencesKeys.CROSSFADE_DURATION] = settings.durationMs.coerceIn(1000, 12000)
-            preferences[PreferencesKeys.IS_CROSSFADE_ENABLED] = settings.mode != TransitionMode.NONE
+            preferences[PreferencesKeys.IS_CROSSFADE_ENABLED] = settings.mode != com.saurav.pixelmusic.data.model.TransitionMode.NONE
         }
     }
 
