@@ -34,6 +34,7 @@ import com.saurav.pixelmusic.presentation.screens.audiolab.ActionPromptDialog
 import com.saurav.pixelmusic.presentation.screens.audiolab.LabCard
 import com.saurav.pixelmusic.presentation.screens.audiolab.LabChip
 import com.saurav.pixelmusic.presentation.screens.audiolab.LabChips
+import com.saurav.pixelmusic.presentation.screens.audiolab.LabColors
 import com.saurav.pixelmusic.presentation.screens.audiolab.LabSectionLabel
 import com.saurav.pixelmusic.presentation.screens.audiolab.LabSegmented
 import com.saurav.pixelmusic.presentation.screens.audiolab.LabSlider

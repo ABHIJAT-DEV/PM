@@ -1952,13 +1952,13 @@ fun FullPlayerContent(
                                         painter = if (isDownloaded) rememberVectorPainter(Icons.Rounded.CheckCircle) else painterResource(R.drawable.rounded_download_24),
                                         title = when {
                                             isDownloaded -> "Downloaded"
-                                            isDownloading && downloadProgress != null && downloadProgress >= 0f -> "Downloading · ${(animatedDownloadProgress * 100).toInt()}%"
+                                            isDownloading && downloadProgress >= 0f -> "Downloading · ${(animatedDownloadProgress * 100).toInt()}%"
                                             isDownloading -> "Downloading…"
                                             else -> "Download"
                                         },
                                         subtitle = when {
                                             isDownloaded -> "Saved to device storage"
-                                            isDownloading && downloadProgress != null && downloadProgress >= 0f -> "Downloading song · ${(animatedDownloadProgress * 100).toInt()}% complete"
+                                            isDownloading && downloadProgress >= 0f -> "Downloading song · ${(animatedDownloadProgress * 100).toInt()}% complete"
                                             isDownloading -> "Preparing audio download…"
                                             else -> null
                                         },
@@ -1966,7 +1966,7 @@ fun FullPlayerContent(
                                         iconBgColor = if (isDownloaded) LocalMaterialTheme.current.primaryContainer else defaultIconBg,
                                         trailingContent = if (isDownloading) {
                                             {
-                                                if (downloadProgress != null && downloadProgress < 0f) {
+                                                if (downloadProgress < 0f) {
                                                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
                                                 } else {
                                                     CircularProgressIndicator(

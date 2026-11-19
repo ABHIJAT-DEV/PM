@@ -17,6 +17,7 @@ import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.audiolab.stage.StageSettings
 import com.saurav.pixelmusic.audiolab.stage.StageSource
 import com.saurav.pixelmusic.presentation.screens.audiolab.EffectCard
+import com.saurav.pixelmusic.presentation.screens.audiolab.LabColors
 import com.saurav.pixelmusic.presentation.screens.audiolab.LabTextAction
 import com.saurav.pixelmusic.presentation.screens.audiolab.LabToggleRow
 import com.saurav.pixelmusic.presentation.screens.audiolab.PictureCanvas
