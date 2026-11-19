@@ -1,5 +1,8 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import androidx.compose.ui.graphics.Color
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,10 +79,19 @@ fun MashupScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.presentation_batch_d_mashup_title)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
-            )
+            Box {
+                ProgressiveHeaderBackdrop(
+                    scrimColor = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.matchParentSize()
+                )
+                TopAppBar(
+                    title = { Text(stringResource(R.string.presentation_batch_d_mashup_title)) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    )
+                )
+            }
         }
     ) { paddingValues ->
         val mashupScrollState = rememberScrollState()

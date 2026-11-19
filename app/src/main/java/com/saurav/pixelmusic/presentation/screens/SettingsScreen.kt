@@ -1,5 +1,10 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import androidx.compose.runtime.CompositionLocalProvider
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
+
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -219,6 +224,8 @@ fun SettingsScreen(
         Modifier
     }
 
+    val settingsGlassState = rememberGlassState()
+    CompositionLocalProvider(LocalScreenGlassState provides settingsGlassState) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -237,6 +244,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxSize()
+                .glassRoot(settingsGlassState)
                 .scrollMotionBlur(
                     lazyListState = lazyListState, 
                     enabled = uiState.isUiMotionBlurEnabled

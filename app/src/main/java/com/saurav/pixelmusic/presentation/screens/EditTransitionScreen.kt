@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -123,7 +125,12 @@ fun EditTransitionScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            LargeTopAppBar(
+            Box {
+                ProgressiveHeaderBackdrop(
+                    scrimColor = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.matchParentSize()
+                )
+                LargeTopAppBar(
                 title = {
                     Text(
                         modifier = Modifier.padding(start = 4.dp),
@@ -161,10 +168,11 @@ fun EditTransitionScreen(
                 },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
-            )
+                )
+            }
         },
         floatingActionButton = {
 //            if (!uiState.isLoading) {

@@ -1,5 +1,12 @@
 package com.saurav.pixelmusic.ui.blur
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
 import android.graphics.Matrix
 import android.graphics.RenderNode
 import android.graphics.RuntimeShader
@@ -734,7 +741,7 @@ fun ProgressiveGlassBackground(
  */
 @Composable
 fun ProgressiveHeaderBackdrop(
-    alpha: Float,
+    alpha: Float = 1f,
     modifier: Modifier = Modifier,
     scrimColor: Color = MaterialTheme.colorScheme.background,
     glassState: GlassState? = LocalScreenGlassState.current,
@@ -769,4 +776,25 @@ fun ProgressiveHeaderBackdrop(
                 }
         )
     }
+}
+
+@Composable
+fun ProgressiveStatusBarHeaderBackdrop(
+    modifier: Modifier = Modifier,
+    extraHeight: Dp = 64.dp,
+    alpha: Float = 1f,
+    scrimColor: Color = MaterialTheme.colorScheme.surface,
+    glassState: GlassState? = LocalScreenGlassState.current,
+    maxBlurRadius: Float = 38f,
+) {
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    ProgressiveHeaderBackdrop(
+        alpha = alpha,
+        scrimColor = scrimColor,
+        glassState = glassState,
+        maxBlurRadius = maxBlurRadius,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(statusBarHeight + extraHeight),
+    )
 }

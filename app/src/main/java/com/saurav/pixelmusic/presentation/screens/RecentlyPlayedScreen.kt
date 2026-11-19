@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
+
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 
 import android.os.Trace
@@ -423,6 +425,12 @@ fun RecentlyPlayedScreen(
             playerViewModel = playerViewModel,
         )
     }
+
+        ProgressiveStatusBarHeaderBackdrop(
+            extraHeight = 64.dp,
+            scrimColor = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
 
         FilledIconButton(
             onClick = { navController.popBackStack() },

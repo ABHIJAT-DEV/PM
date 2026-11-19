@@ -1,5 +1,9 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
+
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import androidx.compose.material3.FloatingActionButtonDefaults
 
@@ -303,9 +307,10 @@ fun DailyMixScreen(
                 ContainedLoadingIndicator()
             }
         } else {
+            val dailyMixGlassState = rememberGlassState()
             LazyColumn(
                 state = lazyListState,
-                modifier = Modifier.fillMaxSize().scrollMotionBlur(lazyListState = lazyListState),
+                modifier = Modifier.fillMaxSize().glassRoot(dailyMixGlassState).scrollMotionBlur(lazyListState = lazyListState),
                 contentPadding = PaddingValues(bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -485,23 +490,11 @@ fun DailyMixScreen(
 
         }
 
-        //Top Gradient
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .height(50.dp)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surfaceContainerLowest.copy(0.5f),
-                            Color.Transparent,
-                        )
-                    )
-                )
-        ) {
-
-        }
+        ProgressiveStatusBarHeaderBackdrop(
+            extraHeight = 60.dp,
+            scrimColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
     Trace.endSection()
 }

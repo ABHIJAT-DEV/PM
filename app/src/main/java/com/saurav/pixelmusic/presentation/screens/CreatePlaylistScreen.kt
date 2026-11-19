@@ -2,6 +2,8 @@
 
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -366,7 +368,12 @@ private fun CreatePlaylistContent(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
+            Box {
+                ProgressiveHeaderBackdrop(
+                    scrimColor = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier.matchParentSize()
+                )
+                CenterAlignedTopAppBar(
                 title = {
                     AnimatedContent(targetState = currentStep, label = "Title Animation") { step ->
                         Text(
@@ -801,7 +808,12 @@ fun EditPlaylistContent(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
+            Box {
+                ProgressiveHeaderBackdrop(
+                    scrimColor = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier.matchParentSize()
+                )
+                CenterAlignedTopAppBar(
                 title = {
                     Text(
                         stringResource(R.string.presentation_batch_f_edit_playlist),
@@ -826,9 +838,11 @@ fun EditPlaylistContent(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
-            )
+                )
+            }
         },
         floatingActionButton = {
             if (!showCropUi) {

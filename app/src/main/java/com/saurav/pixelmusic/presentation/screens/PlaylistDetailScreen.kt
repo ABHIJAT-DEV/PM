@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
+
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.navigation.navigateSafelyReplacing
 import android.widget.Toast
@@ -620,6 +622,12 @@ fun PlaylistDetailScreen(
                 }
             }
         }
+
+        ProgressiveStatusBarHeaderBackdrop(
+            extraHeight = 64.dp,
+            scrimColor = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
 
         // Floating Top Controls over Hero Header
         Row(

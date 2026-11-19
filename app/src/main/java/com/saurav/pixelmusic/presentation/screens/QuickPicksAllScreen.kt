@@ -2,6 +2,10 @@
 
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
+
 import com.saurav.pixelmusic.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
@@ -125,10 +129,12 @@ fun QuickPicksAllScreen(
             .fillMaxSize()
             .background(backgroundBrush)
     ) {
+        val quickPicksGlassState = rememberGlassState()
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
+                .glassRoot(quickPicksGlassState)
                 .scrollMotionBlur(listState, enabled = isMotionBlurEnabled),
             contentPadding = PaddingValues(
                 bottom = MiniPlayerHeight + navBarPadding + 16.dp
@@ -262,6 +268,13 @@ fun QuickPicksAllScreen(
                 }
             }
         }
+
+        ProgressiveStatusBarHeaderBackdrop(
+            extraHeight = 64.dp,
+            scrimColor = MaterialTheme.colorScheme.surface,
+            glassState = quickPicksGlassState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
 
         // Floating Back button over Hero Header
         FilledTonalIconButton(

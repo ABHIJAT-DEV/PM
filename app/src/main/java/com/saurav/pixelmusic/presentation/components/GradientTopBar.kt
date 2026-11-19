@@ -92,18 +92,26 @@ fun GenreGradientTopBar(
 
     PixelMusicStatusBarStyle(color = startColor)
 
-    LargeTopAppBar(
-        scrollBehavior = scrollBehavior,
-        title = {
-            Text(
-                modifier = Modifier.padding(start = 6.dp),
-                text = title,
-                color = contentColor,
-                fontFamily = GoogleSansRounded
-            )
-        },
-        expandedHeight = 160.dp,
-        modifier = Modifier.background(brush = gradientBrush),
+    Box {
+        ProgressiveHeaderBackdrop(
+            scrimColor = startColor,
+            glassState = LocalScreenGlassState.current,
+            modifier = Modifier
+                .matchParentSize()
+                .background(brush = gradientBrush)
+        )
+        LargeTopAppBar(
+            scrollBehavior = scrollBehavior,
+            title = {
+                Text(
+                    modifier = Modifier.padding(start = 6.dp),
+                    text = title,
+                    color = contentColor,
+                    fontFamily = GoogleSansRounded
+                )
+            },
+            expandedHeight = 160.dp,
+            modifier = Modifier,
         navigationIcon = {
             IconButton(
                 modifier = Modifier.padding(start = 10.dp),
@@ -125,7 +133,8 @@ fun GenreGradientTopBar(
             titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
-    )
+        )
+    }
 }
 
 

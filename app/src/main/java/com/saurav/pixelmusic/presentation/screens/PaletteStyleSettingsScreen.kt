@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -281,7 +283,11 @@ private fun PaletteStyleHeader(
     onApplyClick: () -> Unit,
     applyEnabled: Boolean
 ) {
-    Surface(color = scheme.background) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        ProgressiveHeaderBackdrop(
+            scrimColor = scheme.background,
+            modifier = Modifier.matchParentSize()
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()

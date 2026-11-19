@@ -2,6 +2,9 @@
 
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.navigation.navigateSafelyReplacing
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
@@ -572,11 +575,13 @@ private fun SharedAlbumTopBarProbe(
             )
         }
 
-        Box(
+        ProgressiveHeaderBackdrop(
+            alpha = solidAlpha.coerceAtLeast(0.35f),
+            scrimColor = surfaceColor,
+            glassState = LocalScreenGlassState.current,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(80.dp)
-                .background(statusBarBrush)
                 .align(Alignment.TopCenter)
         )
 

@@ -4,6 +4,10 @@
 )
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -360,9 +364,12 @@ fun ExploreScreen(
         }
     }
 
+    val exploreGlassState = rememberGlassState()
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .glassRoot(exploreGlassState),
             containerColor = if (isCustomBackground) Color.Transparent else colorScheme.background
         ) { innerPadding ->
             PullToRefreshBox(
@@ -795,25 +802,14 @@ fun ExploreScreen(
             colorScheme.background
         }
 
-        // Top status bar protection scrim matching Home screen
-        Box(
+        // Top progressive blur backdrop (Mochy style)
+        ProgressiveHeaderBackdrop(
+            scrimColor = if (isCustomBackground) Color.Transparent else scrimTopColor,
+            glassState = exploreGlassState,
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
-                .height(statusBarHeight + 64.dp)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.00f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.95f)),
-                            0.18f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.86f)),
-                            0.36f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.68f)),
-                            0.54f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.48f)),
-                            0.72f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.28f)),
-                            0.88f to (if (isCustomBackground) Color.Transparent else scrimTopColor.copy(alpha = 0.11f)),
-                            1.00f to Color.Transparent
-                        )
-                    )
-                )
+                .height(statusBarHeight + 76.dp)
         )
 
         // Top bar with Explore text pill on the left and Settings button on the right
@@ -3562,16 +3558,24 @@ fun ExploreTopBar(
         label = "topbar_alpha_transition"
     )
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = animatedAlpha))
-            .statusBarsPadding()
-            .padding(start = 24.dp, top = 12.dp, end = 20.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
     ) {
+        ProgressiveHeaderBackdrop(
+            alpha = animatedAlpha,
+            scrimColor = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.matchParentSize()
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(start = 24.dp, top = 12.dp, end = 20.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         Text(
             text = "Explore",
             fontFamily = GoogleSansRounded,
@@ -3602,6 +3606,7 @@ fun ExploreTopBar(
                     modifier = Modifier.size(20.dp)
                 )
             }
+        }
         }
     }
 }

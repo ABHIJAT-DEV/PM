@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -276,18 +278,23 @@ fun SearchScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             // ── Top Search Header ───────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = 16.dp,
-                        top = statusBarTopInset + 10.dp,
-                        end = 16.dp,
-                        bottom = 6.dp
-                    ),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                ProgressiveHeaderBackdrop(
+                    scrimColor = colorScheme.surface,
+                    modifier = Modifier.matchParentSize()
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = 16.dp,
+                            top = statusBarTopInset + 10.dp,
+                            end = 16.dp,
+                            bottom = 6.dp
+                        ),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                 Surface(
                     modifier = Modifier
                         .weight(1f)

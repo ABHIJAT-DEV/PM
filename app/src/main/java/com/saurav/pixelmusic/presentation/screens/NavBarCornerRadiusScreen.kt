@@ -1,5 +1,8 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import androidx.compose.ui.graphics.Color
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -119,7 +122,12 @@ fun NavBarCornerRadiusContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            Box {
+                ProgressiveHeaderBackdrop(
+                    scrimColor = MaterialTheme.colorScheme.background,
+                    modifier = Modifier.matchParentSize()
+                )
+                TopAppBar(
                 title = { },
                 navigationIcon = {
                     FilledIconButton(
@@ -157,9 +165,11 @@ fun NavBarCornerRadiusContent(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
-            )
+                )
+            }
         }
     ) { paddingValues ->
         Box(

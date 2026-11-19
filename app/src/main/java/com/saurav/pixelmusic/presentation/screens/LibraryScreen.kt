@@ -2,6 +2,8 @@
 
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.navigation.navigateSafelyReplacing
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
@@ -737,10 +739,15 @@ fun LibraryScreen(
     Scaffold(
         modifier = Modifier.background(brush = gradientBrush),
         topBar = {
-            Column(
-                modifier = Modifier.background(headerContainerColor)
-            ) {
-                TopAppBar(
+            Box {
+                ProgressiveHeaderBackdrop(
+                    scrimColor = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.matchParentSize()
+                )
+                Column(
+                    modifier = Modifier.background(headerContainerColor.copy(alpha = 0.25f))
+                ) {
+                    TopAppBar(
                     title = {
                         if (isCompactNavigation) {
                             LibraryNavigationPill(
@@ -891,6 +898,7 @@ fun LibraryScreen(
                         pageCount = tabTitles.size,
                         modifier = Modifier.padding(top = 8.dp, bottom = 10.dp)
                     )
+                }
                 }
             }
         }
