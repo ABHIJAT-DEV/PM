@@ -47,6 +47,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -82,21 +83,49 @@ import com.saurav.pixelmusic.audiolab.audio.AudioTap
 import kotlinx.coroutines.flow.first
 
 object LabColors {
-    val Card = Color(0xFF1C1C1E)
-    val Stage = Color(0xFF0E0E10)
-    val StageLine = Color(0xFF2E2E32)
-    val Row = Color(0xFF26262A)
-    val RowSelected = Color(0xFF34343A)
-    val Chip = Color(0xFF232327)
-    val Primary = Color.White
-    val Secondary = Color(0xFF9A9AA0)
-    val Faint = Color(0xFF5C5C63)
-    val Ink = Color(0xFF8A8A92)
+    val PageBackdrop: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerLow
+    val Sheet: Color
+        @Composable get() = MaterialTheme.colorScheme.background
+    val HubCard: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerHigh
+    val Card: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainer
+    val Stage: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerLowest
+    val StageLine: Color
+        @Composable get() = MaterialTheme.colorScheme.outlineVariant
+    val Row: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerHigh
+    val RowSelected: Color
+        @Composable get() = MaterialTheme.colorScheme.secondaryContainer
+    val Chip: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerHigh
+    val Accent: Color
+        @Composable get() = MaterialTheme.colorScheme.primary
+    val OnAccent: Color
+        @Composable get() = MaterialTheme.colorScheme.onPrimary
+    val Primary: Color
+        @Composable get() = MaterialTheme.colorScheme.onSurface
+    val Secondary: Color
+        @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+    val Faint: Color
+        @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+    val Ink: Color
+        @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+    val Sketch: Color
+        @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+    val SelectBg: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerLow
+    val SelectEdge: Color
+        @Composable get() = MaterialTheme.colorScheme.outlineVariant
+    val SelectEdgeOpen: Color
+        @Composable get() = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
 
     val Nodes = listOf(
-        Color(0xFFF28BA8), Color(0xFFF2A46B), Color(0xFFF2D46B), Color(0xFF8FD98B),
-        Color(0xFF6BD9C4), Color(0xFF6BBAF2), Color(0xFF8C9EF2), Color(0xFFB98CF2),
-        Color(0xFFE08CF2), Color(0xFFF26B6B),
+        Color(0xFFE05A82), Color(0xFFE0833E), Color(0xFFD4AD2B), Color(0xFF56B352),
+        Color(0xFF33B39B), Color(0xFF3A96DE), Color(0xFF5E73E0), Color(0xFF935EE0),
+        Color(0xFFC45EE0), Color(0xFFE04848),
     )
 
     fun node(index: Int) = Nodes[index.mod(Nodes.size)]
@@ -157,7 +186,7 @@ fun LabToggleRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leadingDot) {
-            val dot by animateColorAsState(if (checked) Color.White else Color(0xFFD9D9DE), tween(200), label = "dot")
+            val dot by animateColorAsState(if (checked) LabColors.Accent else LabColors.Secondary.copy(alpha = 0.4f), tween(200), label = "dot")
             Box(Modifier.size(20.dp).clip(CircleShape).background(dot))
             Spacer(Modifier.width(12.dp))
         }
@@ -276,13 +305,13 @@ fun LabTextAction(text: String, iconRes: Int? = null, enabled: Boolean = true, b
             val turn = if (busy) rememberInfiniteTransition(label = "busy")
                 .animateFloat(0f, 360f, infiniteRepeatable(tween(800, easing = LinearEasing)), label = "turn") else null
             Icon(
-                painterResource(iconRes), null, tint = if (enabled) Color.White else LabColors.Faint,
+                painterResource(iconRes), null, tint = if (enabled) LabColors.Accent else LabColors.Faint,
                 modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = turn?.value ?: 0f },
             )
             Spacer(Modifier.width(6.dp))
         }
         Text(text, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
-            color = if (enabled) Color.White else LabColors.Faint)
+            color = if (enabled) LabColors.Accent else LabColors.Faint)
     }
 }
 
@@ -304,8 +333,8 @@ fun LabChips(
     ) {
         chips.forEach { chip ->
             val selected = chip.key == selectedKey
-            val bg by animateColorAsState(if (selected) Color.White else LabColors.Chip, tween(180), label = "chipBg")
-            val fg by animateColorAsState(if (selected) Color.Black else Color.White, tween(180), label = "chipFg")
+            val bg by animateColorAsState(if (selected) LabColors.Accent else LabColors.Chip, tween(180), label = "chipBg")
+            val fg by animateColorAsState(if (selected) LabColors.OnAccent else LabColors.Primary, tween(180), label = "chipFg")
             val interaction = remember { MutableInteractionSource() }
             Row(
                 modifier = Modifier
@@ -365,11 +394,11 @@ fun LabSegmented(
                 .width(segment)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(height / 2))
-                .background(Color.White)
+                .background(LabColors.Accent)
         )
         Row(Modifier.fillMaxWidth().fillMaxHeight()) {
             options.forEachIndexed { index, label ->
-                val color by animateColorAsState(if (index == selectedIndex) Color.Black else Color.White, tween(160), label = "segText")
+                val color by animateColorAsState(if (index == selectedIndex) LabColors.OnAccent else LabColors.Primary, tween(160), label = "segText")
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -389,10 +418,10 @@ fun LabSegmented(
 @Composable
 fun LabGlyph(iconRes: Int, modifier: Modifier = Modifier, size: Dp = 32.dp) {
     Box(
-        modifier = modifier.size(size).clip(CircleShape).background(Color(0xFFE5E5EA)),
+        modifier = modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painterResource(iconRes), null, tint = Color.Black, modifier = Modifier.size(size * 0.55f))
+        Icon(painterResource(iconRes), null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(size * 0.55f))
     }
 }
 
@@ -487,7 +516,10 @@ fun LabSelect(
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     val chevron by animateFloatAsState(if (open) 180f else 0f, spring(dampingRatio = 0.8f, stiffness = 420f), label = "chevron")
-    val edge by animateColorAsState(if (open) LabSelectEdgeOpen else LabSelectEdge, tween(180), label = "selectEdge")
+    val selectBg = LabColors.SelectBg
+    val selectEdge = LabColors.SelectEdge
+    val selectEdgeOpen = LabColors.SelectEdgeOpen
+    val edge by animateColorAsState(if (open) selectEdgeOpen else selectEdge, tween(180), label = "selectEdge")
     val listScroll = rememberScrollState()
     val rowHeight = with(LocalDensity.current) { LabSelectRowHeight.roundToPx() }
     val bringIntoView = remember { BringIntoViewRequester() }
@@ -505,7 +537,7 @@ fun LabSelect(
             .fillMaxWidth()
             .bringIntoViewRequester(bringIntoView)
             .clip(LabSelectShape)
-            .background(LabSelectColor)
+            .background(selectBg)
             .border(1.dp, edge, LabSelectShape),
     ) {
         Row(
@@ -529,7 +561,7 @@ fun LabSelect(
             Icon(
                 painter = painterResource(com.saurav.pixelmusic.R.drawable.ic_lab_expand_more),
                 contentDescription = contentDescription,
-                tint = if (open) Color.White else LabColors.Secondary,
+                tint = if (open) LabColors.Accent else LabColors.Secondary,
                 modifier = Modifier.size(22.dp).graphicsLayer { rotationZ = chevron },
             )
         }
@@ -539,7 +571,7 @@ fun LabSelect(
             exit = shrinkVertically(tween(200, easing = FastOutSlowInEasing), shrinkTowards = Alignment.Top) + fadeOut(tween(120)),
         ) {
             Column {
-                Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(LabSelectEdge))
+                Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(selectEdge))
                 Column(
                     Modifier
                         .heightIn(max = maxListHeight)
@@ -585,8 +617,8 @@ private fun LabSelectRow(label: String, picked: Boolean, onClick: () -> Unit) {
             modifier = Modifier.weight(1f),
         )
         if (picked) {
-            Box(Modifier.size(20.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
-                Icon(painterResource(com.saurav.pixelmusic.R.drawable.ic_lab_check), contentDescription = null, tint = Color.Black, modifier = Modifier.size(14.dp))
+            Box(Modifier.size(20.dp).clip(CircleShape).background(LabColors.Accent), contentAlignment = Alignment.Center) {
+                Icon(painterResource(com.saurav.pixelmusic.R.drawable.ic_lab_check), contentDescription = null, tint = LabColors.OnAccent, modifier = Modifier.size(14.dp))
             }
         }
     }
@@ -595,6 +627,3 @@ private fun LabSelectRow(label: String, picked: Boolean, onClick: () -> Unit) {
 private const val LabSelectUnrollMs = 240
 private val LabSelectRowHeight = 44.dp
 private val LabSelectShape = RoundedCornerShape(16.dp)
-private val LabSelectColor = Color(0xFF141416)
-private val LabSelectEdge = Color(0xFF2A2A2F)
-private val LabSelectEdgeOpen = Color(0xFF3C3C42)

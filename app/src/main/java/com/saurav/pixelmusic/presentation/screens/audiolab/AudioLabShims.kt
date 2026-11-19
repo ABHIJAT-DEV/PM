@@ -42,10 +42,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -112,43 +114,12 @@ internal fun AppSwitch(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val track by animateColorAsState(
-        targetValue = if (checked) Color.White else Color(0xFF2C2C30),
-        animationSpec = tween(180),
-        label = "swTrack",
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier,
+        enabled = enabled,
     )
-    val thumb by animateColorAsState(
-        targetValue = if (checked) Color.Black else Color(0xFF9A9AA0),
-        animationSpec = tween(180),
-        label = "swThumb",
-    )
-    val thumbOffset by animateDpAsState(
-        targetValue = if (checked) 20.dp else 2.dp,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 500f),
-        label = "swOffset",
-    )
-    Box(
-        modifier = modifier
-            .size(width = 44.dp, height = 26.dp)
-            .clip(CircleShape)
-            .background(track)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = enabled,
-                onClick = { onCheckedChange(!checked) },
-            )
-            .graphicsLayer { alpha = if (enabled) 1f else 0.45f },
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Box(
-            Modifier
-                .offset(x = thumbOffset)
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(thumb)
-        )
-    }
 }
 
 @Composable
@@ -160,6 +131,7 @@ internal fun DefaultPlayerSeekBarSlider(
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     Slider(
         value = value,
         onValueChange = onValueChange,
@@ -168,12 +140,12 @@ internal fun DefaultPlayerSeekBarSlider(
         enabled = enabled,
         modifier = modifier.fillMaxWidth(),
         colors = SliderDefaults.colors(
-            thumbColor = Color.White,
-            activeTrackColor = Color.White,
-            inactiveTrackColor = Color(0xFF2E2E33),
-            disabledThumbColor = Color(0xFF66666D),
-            disabledActiveTrackColor = Color(0xFF55555C),
-            disabledInactiveTrackColor = Color(0xFF222226),
+            thumbColor = cs.primary,
+            activeTrackColor = cs.primary,
+            inactiveTrackColor = cs.surfaceContainerHighest,
+            disabledThumbColor = cs.onSurface.copy(alpha = 0.38f),
+            disabledActiveTrackColor = cs.onSurface.copy(alpha = 0.24f),
+            disabledInactiveTrackColor = cs.surfaceContainerHighest.copy(alpha = 0.5f),
         ),
     )
 }
@@ -185,13 +157,14 @@ internal fun SubSettingsScaffold(
     onBack: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    PixelMusicStatusBarStyle(color = Color.Transparent, useDarkIcons = false)
+    val bg = MaterialTheme.colorScheme.background
+    PixelMusicStatusBarStyle(color = bg)
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(bg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(
@@ -213,14 +186,14 @@ internal fun SubSettingsScaffold(
                     Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF1C1C20))
-                        .border(1.dp, Color(0xFF2C2C32), CircleShape),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_lab_arrow_back),
                         contentDescription = backLabel,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -239,7 +212,7 @@ internal fun SubSettingsScaffold(
                 fontFamily = InterFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 30.sp,
-                color = Color.White,
+                color = LabColors.Primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -257,11 +230,12 @@ internal fun TextFieldDialog(
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf("") }
+    val cs = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF16161A),
-        titleContentColor = Color.White,
-        textContentColor = Color.White,
+        containerColor = cs.surfaceContainerHigh,
+        titleContentColor = cs.onSurface,
+        textContentColor = cs.onSurface,
         title = title,
         text = {
             OutlinedTextField(
@@ -270,11 +244,11 @@ internal fun TextFieldDialog(
                 placeholder = placeholder,
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color.White,
-                    unfocusedBorderColor = Color(0xFF3A3A40),
-                    cursorColor = Color.White,
+                    focusedTextColor = cs.onSurface,
+                    unfocusedTextColor = cs.onSurface,
+                    focusedBorderColor = cs.primary,
+                    unfocusedBorderColor = cs.outline,
+                    cursorColor = cs.primary,
                 ),
             )
         },
@@ -288,12 +262,12 @@ internal fun TextFieldDialog(
                     }
                 }
             ) {
-                Text("Save", color = Color.White)
+                Text("Save", color = cs.primary)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = LabColors.Secondary)
+                Text("Cancel", color = cs.onSurfaceVariant)
             }
         },
     )
@@ -307,21 +281,22 @@ internal fun ActionPromptDialog(
     onConfirm: () -> Unit,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
+    val cs = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF16161A),
-        titleContentColor = Color.White,
-        textContentColor = LabColors.Secondary,
+        containerColor = cs.surfaceContainerHigh,
+        titleContentColor = cs.onSurface,
+        textContentColor = cs.onSurfaceVariant,
         title = { Text(title, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold) },
         text = { Column(content = content) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Delete", color = Color(0xFFFF6B6B))
+                Text("Delete", color = cs.error)
             }
         },
         dismissButton = {
             TextButton(onClick = onCancel) {
-                Text("Cancel", color = LabColors.Secondary)
+                Text("Cancel", color = cs.onSurfaceVariant)
             }
         },
     )
@@ -354,7 +329,7 @@ internal fun SheetOptionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF1E1E22))
+            .background(LabColors.Row)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .graphicsLayer { alpha = if (enabled) 1f else 0.45f },
@@ -366,7 +341,7 @@ internal fun SheetOptionRow(
                 fontFamily = InterFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp,
-                color = Color.White,
+                color = LabColors.Primary,
             )
             Text(
                 text = subtitle,

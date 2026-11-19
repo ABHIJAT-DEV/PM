@@ -113,6 +113,8 @@ private fun ReverbPicture(settings: ReverbSettings) {
     val room by animateFloatAsState(settings.roomSize, spring(dampingRatio = 0.8f, stiffness = 120f), label = "room")
     val on by animateFloatAsState(if (settings.enabled) 1f else 0f, tween(400), label = "on")
     val waves = remember { RoomWaves() }
+    val ink = LabColors.Primary
+    val accent = LabColors.Accent
     PictureCanvas { t, clock ->
         val w = size.width
         val h = size.height
@@ -142,7 +144,7 @@ private fun ReverbPicture(settings: ReverbSettings) {
                 val x = speakerX + d
                 if (x > w + 20f) continue
                 val a = waves.strength[i] * exp(-d / (w * 1.6f))
-                drawWave(x, cy, h, d, a * (if (d > first) 1f - on else 1f), rightward = true, softness = 0f)
+                drawWave(x, cy, h, d, a * (if (d > first) 1f - on else 1f), rightward = true, softness = 0f, color = accent)
                 continue
             }
             val past = d - first
@@ -153,19 +155,19 @@ private fun ReverbPicture(settings: ReverbSettings) {
             val a = waves.strength[i] * reflectivity.pow(bounces) * exp(-d / (w * 2.2f)) * echoAlpha
             if (a < 0.02f) continue
             if (inLeg < span * 0.08f && !rightward) flash = max(flash, a * (1f - inLeg / (span * 0.08f)))
-            drawWave(x, cy, h, d, a, rightward, softness = settings.damping)
+            drawWave(x, cy, h, d, a, rightward, softness = settings.damping, color = accent)
         }
 
         val wallH = h * 0.62f
         drawRoundRect(
-            Color.White.copy(alpha = (0.18f + 0.55f * on + 0.6f * flash).coerceAtMost(1f)),
+            ink.copy(alpha = (0.18f + 0.55f * on + 0.6f * flash).coerceAtMost(1f)),
             Offset(wallX, cy - wallH / 2), Size(5.dp.toPx(), wallH), CornerRadius(3.dp.toPx()),
         )
-        drawSpeaker(Offset(speakerX, cy), 1f + clock.level.punch * 0.12f)
+        drawSpeaker(Offset(speakerX, cy), 1f + clock.level.punch * 0.12f, color = ink)
     }
 }
 
-private fun DrawScope.drawWave(x: Float, cy: Float, h: Float, travelled: Float, alpha: Float, rightward: Boolean, softness: Float) {
+private fun DrawScope.drawWave(x: Float, cy: Float, h: Float, travelled: Float, alpha: Float, rightward: Boolean, softness: Float, color: Color) {
     if (alpha <= 0.005f) return
     val reach = min(h * 0.42f, 14.dp.toPx() + travelled * 0.18f)
     val bulge = reach * 0.42f * if (rightward) 1f else -1f
@@ -174,12 +176,12 @@ private fun DrawScope.drawWave(x: Float, cy: Float, h: Float, travelled: Float, 
         quadraticTo(x + bulge, cy, x - bulge * 0.2f, cy + reach)
     }
     if (softness > 0.15f) {
-        drawPath(path, Color.White.copy(alpha = alpha * 0.25f * softness), style = Stroke(7.dp.toPx() * softness, cap = StrokeCap.Round))
+        drawPath(path, color.copy(alpha = alpha * 0.25f * softness), style = Stroke(7.dp.toPx() * softness, cap = StrokeCap.Round))
     }
-    drawPath(path, Color.White.copy(alpha = alpha.coerceAtMost(1f)), style = Stroke((2.2f - softness).dp.toPx(), cap = StrokeCap.Round))
+    drawPath(path, color.copy(alpha = alpha.coerceAtMost(1f)), style = Stroke((2.2f - softness).dp.toPx(), cap = StrokeCap.Round))
 }
 
-private fun DrawScope.drawSpeaker(center: Offset, scale: Float) {
+private fun DrawScope.drawSpeaker(center: Offset, scale: Float, color: Color) {
     val s = 9.dp.toPx() * scale
     val body = Path().apply {
         moveTo(center.x - s * 1.1f, center.y - s * 0.45f)
@@ -190,5 +192,5 @@ private fun DrawScope.drawSpeaker(center: Offset, scale: Float) {
         lineTo(center.x - s * 1.1f, center.y + s * 0.45f)
         close()
     }
-    drawPath(body, Color.White.copy(alpha = 0.92f), style = Stroke(1.6.dp.toPx()))
+    drawPath(body, color.copy(alpha = 0.92f), style = Stroke(1.6.dp.toPx()))
 }

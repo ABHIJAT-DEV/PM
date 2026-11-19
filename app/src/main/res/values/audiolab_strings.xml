@@ -12,7 +12,7 @@
     <string name="eqx_auto_preamp_lowering">Lowering by %1$s dB, the limiter catches the rest</string>
     <string name="eqx_auto_preamp_nothing">Nothing to lower, the limiter catches any peaks</string>
     <string name="eqx_auto_preamp_off">Off: louder, but big boosts get squashed on loud songs</string>
-    <string name="eqx_back">Audio Lab</string>
+    <string name="eqx_back">Audio FX</string>
     <string name="eqx_bands_count">%1$d bands</string>
     <string name="eqx_bands_hint">Sweep across the sliders to draw a curve</string>
     <string name="eqx_bass">Bass</string>

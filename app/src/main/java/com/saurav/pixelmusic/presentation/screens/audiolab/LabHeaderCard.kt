@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,13 +30,12 @@ internal val LabCardStart = 22.dp
 internal val LabCardBottom = 18.dp
 internal val LabCardWidth = 128.dp
 internal val LabCardHeight = 186.dp
-internal val LabCardBars = Color(0xFF5A5A60)
-internal val LabCardInk = Color(0xFF7E7E84)
+internal val LabCardBars: Color
+    @Composable get() = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+internal val LabCardInk: Color
+    @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 private val CardShape = RoundedCornerShape(26.dp)
-private val CardColor = Color(0xFF1C1C1F)
-private val CardEdge = Color(0xFF36363C)
-private val PanelColor = Color(0xFF141416)
 
 @Composable
 internal fun LabHeaderCardFrame(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
@@ -43,8 +43,8 @@ internal fun LabHeaderCardFrame(modifier: Modifier = Modifier, content: @Composa
         modifier = modifier
             .size(LabCardWidth, LabCardHeight)
             .clip(CardShape)
-            .background(CardColor)
-            .border(1.5.dp, CardEdge, CardShape),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, CardShape),
         content = content,
     )
 }
@@ -72,7 +72,7 @@ internal fun LabCardFace(
                 fontWeight = FontWeight.Medium,
                 fontSize = (20f * (7f / label.length).coerceAtMost(1f)).coerceAtLeast(13f).sp,
                 letterSpacing = (-0.01).em,
-                color = Color(0xFFA2A2A8),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 softWrap = false,
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -84,7 +84,7 @@ internal fun LabCardFace(
                 .fillMaxWidth()
                 .weight(1f)
                 .clip(RoundedCornerShape(18.dp))
-                .background(PanelColor),
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
         ) {
             bars(Modifier.fillMaxSize().padding(start = 10.dp, end = 10.dp, top = 14.dp))
         }

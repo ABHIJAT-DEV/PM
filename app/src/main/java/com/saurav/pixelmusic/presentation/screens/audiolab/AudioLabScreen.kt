@@ -62,9 +62,6 @@ import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.viewmodel.AudioLabViewModel
 import kotlin.math.sin
 
-private val HubCard = Color(0xFF222225)
-private val Sketch = Color(0xFF6A6A70)
-
 @Composable
 fun AudioLabScreen(
     navController: NavController,
@@ -83,7 +80,7 @@ fun AudioLabScreen(
     ListenToAudio()
 
     AudioLabPage(
-        title = LabTitle("Audio", "Lab"),
+        title = LabTitle("Audio", "FX"),
         onBack = { navController.navigateUp() },
     ) {
         val equalizer: @Composable (Modifier) -> Unit = { modifier ->
@@ -180,7 +177,7 @@ private fun BigHubCard(
             .heightIn(min = 128.dp)
             .pressBounce(interaction, pressedScale = 0.97f)
             .clip(RoundedCornerShape(26.dp))
-            .background(HubCard)
+            .background(LabColors.HubCard)
             .clickable(interaction, null, onClick = onClick)
             .damageBoundary(),
     ) {
@@ -191,7 +188,7 @@ private fun BigHubCard(
             Text(
                 title,
                 fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 30.sp,
-                letterSpacing = (-0.03).em, color = Color.White,
+                letterSpacing = (-0.03).em, color = LabColors.Primary,
             )
         }
     }
@@ -212,17 +209,17 @@ private fun SmallHubCard(
             .heightIn(min = 60.dp)
             .pressBounce(interaction, pressedScale = 0.97f)
             .clip(RoundedCornerShape(20.dp))
-            .background(HubCard)
+            .background(LabColors.HubCard)
             .clickable(interaction, null, onClick = onClick)
             .damageBoundary(),
         contentAlignment = Alignment.CenterStart,
     ) {
         Box(Modifier.matchParentSize()) { sketch() }
         Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp).fillMaxWidth(0.62f)) {
-            Text(title, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+            Text(title, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = LabColors.Primary)
             Text(
                 status.uppercase(),
-                fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = Color(0xFF8A8A8E),
+                fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = LabColors.Secondary,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -232,14 +229,14 @@ private fun SmallHubCard(
 @Composable
 private fun StatusLine(status: String, on: Boolean, modifier: Modifier = Modifier) {
     val dot by androidx.compose.animation.animateColorAsState(
-        if (on) Color(0xFF8BE07A) else Color(0xFF5C5C63), tween(300), label = "dot",
+        if (on) Color(0xFF4CAF50) else LabColors.Faint, tween(300), label = "dot",
     )
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
         Spacer(Modifier.width(8.dp))
         Text(
             status,
-            fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color(0xFF8A8A8E),
+            fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = LabColors.Secondary,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
     }
@@ -265,22 +262,25 @@ private fun BoxScope.EqualizerSketch(eq: EqSettings) {
     val level = remember { LevelFollower() }
     val time = sketchTime { eq.enabled && com.saurav.pixelmusic.audiolab.audio.AudioTap.isLive }
     val last = remember { floatArrayOf(-1f) }
+    val hubCard = LabColors.HubCard
+    val sketch = LabColors.Sketch
+    val activeKnob = LabColors.Accent
     Canvas(Modifier.fillMaxSize()) {
         val t = time.value
         if (t != last[0]) { level.update(0.016f); last[0] = t }
         val panel = size.height * 1.05f
         val origin = Offset(size.width - panel * 0.78f, size.height * 0.05f)
         rotate(-14f, Offset(origin.x + panel / 2, origin.y + panel / 2)) {
-            drawRoundRect(Sketch, origin, Size(panel, panel), CornerRadius(panel * 0.2f), style = Stroke(3.5.dp.toPx()))
+            drawRoundRect(sketch, origin, Size(panel, panel), CornerRadius(panel * 0.2f), style = Stroke(3.5.dp.toPx()))
             listOf(low, mid, high).forEachIndexed { i, gain ->
                 val x = origin.x + panel * (0.25f + i * 0.22f)
                 val top = origin.y + panel * 0.16f
                 val bottom = origin.y + panel * 0.84f
-                drawLine(Sketch, Offset(x, top), Offset(x, bottom), 4.dp.toPx(), StrokeCap.Round)
+                drawLine(sketch, Offset(x, top), Offset(x, bottom), 4.dp.toPx(), StrokeCap.Round)
                 val bob = level.punch * 4.dp.toPx() * sin(t * 9f + i * 2f)
                 val y = (top + bottom) / 2 - (gain / 12f) * (bottom - top) / 2 + bob
-                drawCircle(HubCard, 11.dp.toPx(), Offset(x, y))
-                drawCircle(if (eq.enabled) Color(0xFF9A9AA0) else Sketch, 11.dp.toPx(), Offset(x, y), style = Stroke(4.dp.toPx()))
+                drawCircle(hubCard, 11.dp.toPx(), Offset(x, y))
+                drawCircle(if (eq.enabled) activeKnob else sketch, 11.dp.toPx(), Offset(x, y), style = Stroke(4.dp.toPx()))
             }
         }
     }
@@ -291,6 +291,8 @@ private fun BoxScope.FxSketch(active: Boolean) {
     val measurer = rememberTextMeasurer()
     val glow by animateFloatAsState(if (active) 1f else 0f, tween(500), label = "fx")
     val time = sketchTime { active }
+    val sketch = LabColors.Sketch
+    val accent = LabColors.Accent
     Canvas(Modifier.fillMaxSize()) {
         val style = TextStyle(
             fontFamily = InterFontFamily, fontWeight = FontWeight.Light, fontStyle = FontStyle.Italic,
@@ -299,14 +301,14 @@ private fun BoxScope.FxSketch(active: Boolean) {
         )
         val layout = measurer.measure("FX", style)
         val topLeft = Offset(size.width - layout.size.width * 0.86f, (size.height - layout.size.height) / 2f + size.height * 0.08f)
-        drawText(layout, color = Sketch, topLeft = topLeft)
+        drawText(layout, color = sketch, topLeft = topLeft)
         if (glow > 0.01f) {
             val sweep = (time.value * 0.35f) % 1f
             val x = topLeft.x + layout.size.width * (sweep * 1.6f - 0.3f)
             drawText(
                 layout,
                 brush = Brush.horizontalGradient(
-                    listOf(Color.Transparent, Color.White.copy(alpha = 0.85f * glow), Color.Transparent),
+                    listOf(Color.Transparent, accent.copy(alpha = 0.85f * glow), Color.Transparent),
                     startX = x - 60.dp.toPx(), endX = x + 60.dp.toPx(),
                 ),
                 topLeft = topLeft,
@@ -318,26 +320,30 @@ private fun BoxScope.FxSketch(active: Boolean) {
 @Composable
 private fun BoxScope.StageMiniSketch(active: Boolean) {
     val on by animateFloatAsState(if (active) 1f else 0.45f, tween(400), label = "stage")
+    val sketch = LabColors.Sketch
+    val primary = LabColors.Primary
+    val accent = LabColors.Accent
     Canvas(Modifier.fillMaxHeight().width(56.dp).align(Alignment.CenterEnd).padding(end = 14.dp, top = 16.dp, bottom = 16.dp)) {
         val w = size.width
         val h = size.height
-        val color = (if (active) Color.White else Sketch).copy(alpha = on)
+        val color = (if (active) primary else sketch).copy(alpha = on)
         val stroke = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round)
         drawRect(color, Offset(w * 0.12f, h * 0.25f), Size(w * 0.56f, h * 0.62f), style = stroke)
         drawRect(color.copy(alpha = on * 0.6f), Offset(w * 0.32f, h * 0.1f), Size(w * 0.56f, h * 0.62f), style = stroke)
-        drawCircle(if (active) Color(0xFFF2D46B) else Sketch, 3.dp.toPx(), Offset(w * 0.5f, h * 0.48f))
+        drawCircle(if (active) accent else sketch, 3.dp.toPx(), Offset(w * 0.5f, h * 0.48f))
     }
 }
 
 @Composable
 private fun BoxScope.TransitionSketch(active: Boolean) {
     val on by animateFloatAsState(if (active) 1f else 0.4f, tween(400), label = "t")
+    val sketch = LabColors.Sketch
     Canvas(Modifier.fillMaxHeight().width(56.dp).align(Alignment.CenterEnd).padding(end = 14.dp, top = 18.dp, bottom = 18.dp)) {
         val w = size.width
         val h = size.height
         val out = Path().apply { moveTo(0f, 0f); cubicTo(w * 0.5f, 0f, w * 0.5f, h, w, h) }
         val inn = Path().apply { moveTo(0f, h); cubicTo(w * 0.5f, h, w * 0.5f, 0f, w, 0f) }
-        drawPath(out, Sketch.copy(alpha = on), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-        drawPath(inn, Sketch.copy(alpha = on), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(out, sketch.copy(alpha = on), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(inn, sketch.copy(alpha = on), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
     }
 }

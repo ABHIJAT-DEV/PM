@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -66,8 +67,6 @@ import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.ui.theme.PixelMusicStatusBarStyle
 import kotlin.math.roundToInt
 
-private val PageBackdrop = Color(0xFF141416)
-private val SheetColor = Color.Black
 private val SheetCorner = 40.dp
 private val ContentMaxWidth = 680.dp
 private val SideMargin = 24.dp
@@ -93,14 +92,16 @@ fun AudioLabPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scroll = rememberScrollState()
-    PixelMusicStatusBarStyle(color = Color.Transparent, useDarkIcons = false)
+    val pageBackdrop = LabColors.PageBackdrop
+    val sheetColor = LabColors.Sheet
+    PixelMusicStatusBarStyle(color = pageBackdrop)
     val statusTop = WindowInsets.stableStatusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + MiniPlayerHeight
 
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(sheetColor),
     ) {
         val wide = maxWidth > ContentMaxWidth + SideMargin * 2
         val inset = if (wide) (maxWidth - ContentMaxWidth) / 2 + SideMargin else SideMargin
@@ -139,7 +140,7 @@ fun AudioLabPage(
                                 .fillMaxWidth()
                                 .heightIn(min = viewport - headerDp + SheetCorner)
                                 .clip(RoundedCornerShape(topStart = SheetCorner, topEnd = SheetCorner))
-                                .background(SheetColor),
+                                .background(sheetColor),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Column(
@@ -187,8 +188,8 @@ private fun LabBackdrop(scroll: ScrollState, headerHeight: Int, content: @Compos
                     null
                 }
             }
-            .background(PageBackdrop)
-            .dotGrid(),
+            .background(LabColors.PageBackdrop)
+            .dotGrid(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
         content = content,
     )
 }
@@ -201,7 +202,7 @@ fun LabSheetTitle(text: String, modifier: Modifier = Modifier) {
         fontWeight = FontWeight.Bold,
         fontSize = 22.sp,
         letterSpacing = (-0.02).em,
-        color = Color(0xFF8E8E93),
+        color = LabColors.Secondary,
         modifier = modifier.padding(start = 4.dp, top = 6.dp, bottom = 12.dp),
     )
 }
@@ -212,7 +213,7 @@ fun LabGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() 
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(30.dp))
-            .background(Color(0xFF1A1A1C))
+            .background(LabColors.Card)
             .padding(12.dp),
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
         content = content,
@@ -241,7 +242,7 @@ private fun LabHeader(
             fontSize = title.firstSize * keep,
             lineHeight = title.firstSize * keep * 0.95f,
             letterSpacing = (-0.035).em,
-            color = if (title.firstDim) Color(0xFF8A8A8E) else Color.White,
+            color = if (title.firstDim) LabColors.Secondary else LabColors.Primary,
             maxLines = 1,
             overflow = TextOverflow.Clip,
             softWrap = false,
@@ -255,7 +256,7 @@ private fun LabHeader(
                     fontSize = title.secondSize * keep,
                     lineHeight = title.secondSize * keep * 0.92f,
                     letterSpacing = (-0.04).em,
-                    color = if (title.secondDim) Color(0xFF8A8A8E) else Color.White,
+                    color = if (title.secondDim) LabColors.Secondary else LabColors.Primary,
                     maxLines = 1,
                     overflow = TextOverflow.Clip,
                     softWrap = false,
@@ -274,7 +275,7 @@ private fun LabHeader(
                 fontFamily = FontFamily.Monospace,
                 fontSize = 10.sp,
                 letterSpacing = 0.06.em,
-                color = Color(0xFF8A8A8E),
+                color = LabColors.Secondary,
                 maxLines = 2,
                 modifier = Modifier.widthIn(max = 220.dp),
             )
@@ -287,8 +288,8 @@ private fun LabBadge(text: String) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(Color(0xFF2C2C2E))
-            .border(1.5.dp, Color(0xFFFFF59D), RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .border(1.5.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f), RoundedCornerShape(50))
             .padding(horizontal = 12.dp, vertical = 3.dp),
     ) {
         Text(
@@ -297,7 +298,7 @@ private fun LabBadge(text: String) {
             fontWeight = FontWeight.Medium,
             fontSize = 13.sp,
             letterSpacing = 0.08.em,
-            color = Color(0xFFFFD866),
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
             maxLines = 1,
         )
     }
@@ -305,6 +306,7 @@ private fun LabBadge(text: String) {
 
 @Composable
 private fun TopScrim(scroll: ScrollState, headerHeight: Int, statusTop: Dp) {
+    val sheetColor = LabColors.Sheet
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -313,7 +315,7 @@ private fun TopScrim(scroll: ScrollState, headerHeight: Int, statusTop: Dp) {
                 val reach = headerHeight - (statusTop + 64.dp).toPx()
                 alpha = ((scroll.value - reach) / 48.dp.toPx()).coerceIn(0f, 1f)
             }
-            .background(Brush.verticalGradient(listOf(Color.Black, Color.Black.copy(alpha = 0.85f), Color.Transparent))),
+            .background(Brush.verticalGradient(listOf(sheetColor, sheetColor.copy(alpha = 0.85f), Color.Transparent))),
     )
 }
 
@@ -323,24 +325,24 @@ internal fun LabBackButton(onBack: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier
             .size(BackSize)
             .clip(CircleShape)
-            .background(Color(0xFF5E5E62))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable(onClick = onBack),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_lab_arrow_back),
             contentDescription = stringResource(R.string.lab_back),
-            tint = Color.White,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(15.dp),
         )
     }
 }
 
-private fun Modifier.dotGrid(): Modifier = drawWithCache {
+private fun Modifier.dotGrid(dotColor: Color): Modifier = drawWithCache {
     val step = 12.dp.toPx().roundToInt().coerceAtLeast(2)
     val tile = ImageBitmap(step, step)
     val paint = Paint().apply {
-        color = Color.White.copy(alpha = 0.06f)
+        color = dotColor
         isAntiAlias = true
     }
     androidx.compose.ui.graphics.Canvas(tile).drawCircle(Offset(step / 2f, step / 2f), 0.9.dp.toPx(), paint)
