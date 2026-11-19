@@ -42,8 +42,8 @@
     <string name="settings_category_backup_subtitle">Export and recover your personal app data</string>
     <string name="settings_category_developer_title">Developer Options</string>
     <string name="settings_category_developer_subtitle">Experimental features and debugging</string>
-    <string name="settings_category_equalizer_title">Equalizer</string>
-    <string name="settings_category_equalizer_subtitle">Adjust audio frequencies and presets</string>
+    <string name="settings_category_equalizer_title">Audio FX</string>
+    <string name="settings_category_equalizer_subtitle">Parametric EQ, AutoEQ, 3D Sims, reverb, and audio effects</string>
     <string name="settings_category_device_capabilities_title">Device Capabilities</string>
     <string name="settings_category_device_capabilities_subtitle">Audio specs, codecs, and decoder info</string>
     <string name="settings_category_about_title">About</string>
