@@ -73,11 +73,28 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
 
     override fun isActive(): Boolean = pendingFormat != AudioProcessor.AudioFormat.NOT_SET
 
+    private fun ensureFormatApplied() {
+        val format = pendingFormat
+        if (format != AudioProcessor.AudioFormat.NOT_SET &&
+            (format.sampleRate != sampleRate || format.channelCount != inChannels || pendingSurround != surround)
+        ) {
+            sampleRate = format.sampleRate
+            inChannels = format.channelCount
+            surround = pendingSurround
+            crossfeed = null
+            head = null
+            headAngle = Float.NaN
+        }
+    }
+
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
+        if (inChannels == 0) ensureFormatApplied()
         if (inChannels == 0) {
-            inputBuffer.position(inputBuffer.limit())
+            val out = replaceOutputBuffer(bytes)
+            out.put(inputBuffer)
+            out.flip()
             return
         }
         val frames = bytes / (2 * inChannels)
@@ -175,21 +192,19 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
 
     override fun isEnded(): Boolean = inputEnded && outputBuffer === EMPTY_BUFFER
 
+    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
+        onFlush()
+    }
+
     @Deprecated("Deprecated in Java")
     override fun flush() {
+        onFlush()
+    }
+
+    private fun onFlush() {
         outputBuffer = EMPTY_BUFFER
         inputEnded = false
-        val format = pendingFormat
-        if (format != AudioProcessor.AudioFormat.NOT_SET) {
-            if (format.sampleRate != sampleRate || format.channelCount != inChannels || pendingSurround != surround) {
-                sampleRate = format.sampleRate
-                inChannels = format.channelCount
-                surround = pendingSurround
-                crossfeed = null
-                head = null
-                headAngle = Float.NaN
-            }
-        }
+        ensureFormatApplied()
         crossfeed?.clear()
         head?.clear()
         val params = service.spatial
@@ -378,6 +393,7 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
         }
 
         private fun toPcm(sample: Float): Short {
+            if (!sample.isFinite()) return 0
             val a = abs(sample)
             val shaped = if (a <= Knee) sample else {
                 (Knee + (1f - Knee) * tanh((a - Knee) / (1f - Knee))) * if (sample < 0) -1f else 1f

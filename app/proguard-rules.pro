@@ -187,10 +187,16 @@
 
 
 
-# OkHttp + kotlinx.serialization JSON tree parsing for GeminiAiClient
+# OkHttp + kotlinx.serialization JSON tree parsing & @Serializable classes under R8
 -dontwarn okhttp3.**
 -dontwarn okio.**
+-dontnote kotlinx.serialization.AnnotationsKt
 -keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keep,includedescriptorclasses class com.saurav.pixelmusic.**$$serializer { *; }
+-keepclassmembers class com.saurav.pixelmusic.** { *** Companion; }
+-keepclasseswithmembers class com.saurav.pixelmusic.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
 
 # Suppress R8 missing service class warnings for ScriptEngineFactory
 -dontwarn javax.script.**

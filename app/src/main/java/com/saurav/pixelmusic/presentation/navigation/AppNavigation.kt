@@ -309,9 +309,11 @@ fun AppNavigation(
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
             ) {
-                com.saurav.pixelmusic.presentation.screens.audiolab.AudioLabScreen(
-                    navController = navController,
-                )
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    com.saurav.pixelmusic.presentation.screens.audiolab.AudioLabScreen(
+                        navController = navController,
+                    )
+                }
             }
             composable(
                 Screen.AudioLabEq.route,
@@ -320,9 +322,11 @@ fun AppNavigation(
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
             ) {
-                com.saurav.pixelmusic.presentation.screens.audiolab.equalizer.AudioLabEqualizerScreen(
-                    navController = navController,
-                )
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    com.saurav.pixelmusic.presentation.screens.audiolab.equalizer.AudioLabEqualizerScreen(
+                        navController = navController,
+                    )
+                }
             }
             composable(
                 Screen.AudioLabFx.route,
@@ -331,9 +335,11 @@ fun AppNavigation(
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
             ) {
-                com.saurav.pixelmusic.presentation.screens.audiolab.AudioFxScreen(
-                    navController = navController,
-                )
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    com.saurav.pixelmusic.presentation.screens.audiolab.AudioFxScreen(
+                        navController = navController,
+                    )
+                }
             }
             composable(
                 Screen.AudioLabStage.route,
@@ -342,9 +348,11 @@ fun AppNavigation(
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
             ) {
-                com.saurav.pixelmusic.presentation.screens.audiolab.stage.StageScreen(
-                    navController = navController,
-                )
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    com.saurav.pixelmusic.presentation.screens.audiolab.stage.StageScreen(
+                        navController = navController,
+                    )
+                }
             }
             composable(
                 Screen.ListenTogetherSettings.route,

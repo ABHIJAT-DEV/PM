@@ -1,10 +1,12 @@
 package com.saurav.pixelmusic.data.model
 
 import androidx.room.Embedded
+import kotlinx.serialization.Serializable
 
 /**
  * Defines the available transition modes between songs.
  */
+@Serializable
 enum class TransitionMode {
     /** No transition, the next song starts after the previous one ends. */
     NONE,
@@ -19,6 +21,7 @@ enum class TransitionMode {
 /**
  * Defines the shape of the volume curve for transitions.
  */
+@Serializable
 enum class Curve {
     /** Linear volume change. */
     LINEAR,
@@ -53,6 +56,7 @@ enum class TransitionSource {
  * @param curveIn The curve to use for the incoming track's volume.
  * @param curveOut The curve to use for the outgoing track's volume.
  */
+@Serializable
 data class TransitionSettings(
     val mode: TransitionMode = TransitionMode.OVERLAP,
     val durationMs: Int = 2000,

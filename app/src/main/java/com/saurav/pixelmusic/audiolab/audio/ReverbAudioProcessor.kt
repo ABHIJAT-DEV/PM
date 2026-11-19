@@ -63,11 +63,25 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
 
     override fun isActive(): Boolean = pendingFormat != AudioProcessor.AudioFormat.NOT_SET
 
+    private fun ensureFormatApplied() {
+        val format = pendingFormat
+        if (format != AudioProcessor.AudioFormat.NOT_SET &&
+            (format.sampleRate != sampleRate || format.channelCount != channels)
+        ) {
+            sampleRate = format.sampleRate
+            channels = format.channelCount
+            build(sampleRate)
+        }
+    }
+
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
+        if (channels == 0) ensureFormatApplied()
         if (channels == 0) {
-            inputBuffer.position(inputBuffer.limit())
+            val out = replaceOutputBuffer(bytes)
+            out.put(inputBuffer)
+            out.flip()
             return
         }
         val params = service.reverb
@@ -195,18 +209,22 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
 
     override fun isEnded(): Boolean = inputEnded && outputBuffer === EMPTY_BUFFER
 
+    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
+        onFlush()
+    }
+
     @Deprecated("Deprecated in Java")
     override fun flush() {
+        onFlush()
+    }
+
+    private fun onFlush() {
         outputBuffer = EMPTY_BUFFER
         inputEnded = false
-        val format = pendingFormat
-        if (format != AudioProcessor.AudioFormat.NOT_SET &&
-            (format.sampleRate != sampleRate || format.channelCount != channels)
-        ) {
-            sampleRate = format.sampleRate
-            channels = format.channelCount
-            build(sampleRate)
-        } else {
+        val prevRate = sampleRate
+        val prevChannels = channels
+        ensureFormatApplied()
+        if (sampleRate == prevRate && channels == prevChannels) {
             clearRoom()
         }
         val params = service.reverb
@@ -284,6 +302,7 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
         private const val Knee = 0.89f
 
         private fun toPcm(sample: Float): Short {
+            if (!sample.isFinite()) return 0
             val a = abs(sample)
             val shaped = if (a <= Knee) sample else {
                 val over = (a - Knee) / (1f - Knee)

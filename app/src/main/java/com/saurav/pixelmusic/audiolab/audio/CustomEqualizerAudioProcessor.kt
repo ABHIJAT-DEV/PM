@@ -61,30 +61,48 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
 
     override fun isActive(): Boolean = pendingFormat != AudioProcessor.AudioFormat.NOT_SET
 
+    private fun ensureFormatApplied() {
+        val format = pendingFormat
+        if (format != AudioProcessor.AudioFormat.NOT_SET &&
+            (format.sampleRate != sampleRate || format.channelCount != channels)
+        ) {
+            sampleRate = format.sampleRate
+            channels = format.channelCount
+            bank = null
+            builtVersion = -1
+            limiter.configure(sampleRate, channels)
+        }
+    }
+
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) {
             if (tailPending) drainTail()
             return
         }
+        if (channels == 0) ensureFormatApplied()
         if (channels == 0) {
-            inputBuffer.position(inputBuffer.limit())
+            val out = replaceOutputBuffer(bytes)
+            out.put(inputBuffer)
+            out.flip()
             return
         }
         syncDesign()
         if (bank == null && !fading && limiter.isResting && !AudioTap.wanted) {
-            limiter.delayPcm(inputBuffer, replaceOutputBuffer(bytes))
-            outputBuffer.flip()
+            val out = replaceOutputBuffer(bytes)
+            out.put(inputBuffer)
+            out.flip()
             return
         }
         val frames = bytes / (2 * channels)
+        if (frames == 0) return
         val count = frames * channels
         ensureWork(count)
         val scale = 1.0 / 32768.0
         inputBuffer.asShortBuffer().get(pcm, 0, count)
         inputBuffer.position(inputBuffer.position() + count * 2)
         for (i in 0 until count) work[i] = pcm[i] * scale
-        render(frames, replaceOutputBuffer(bytes))
+        render(frames, replaceOutputBuffer(count * 2))
     }
 
     private fun render(frames: Int, out: ByteBuffer) {
@@ -172,10 +190,21 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
 
     override fun queueEndOfStream() {
         inputEnded = true
-        tailPending = channels > 0
+        if (channels > 0 && (bank != null || fading || !limiter.isResting)) {
+            if (outputBuffer === EMPTY_BUFFER) {
+                drainTail()
+            } else {
+                tailPending = true
+            }
+        } else {
+            tailPending = false
+        }
     }
 
     override fun getOutput(): ByteBuffer {
+        if (outputBuffer === EMPTY_BUFFER && tailPending) {
+            drainTail()
+        }
         val buffer = outputBuffer
         outputBuffer = EMPTY_BUFFER
         return buffer
@@ -183,21 +212,20 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
 
     override fun isEnded(): Boolean = inputEnded && !tailPending && outputBuffer === EMPTY_BUFFER
 
+    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
+        onFlush()
+    }
+
     @Deprecated("Deprecated in Java")
     override fun flush() {
+        onFlush()
+    }
+
+    private fun onFlush() {
         outputBuffer = EMPTY_BUFFER
         inputEnded = false
         tailPending = false
-        val format = pendingFormat
-        if (format != AudioProcessor.AudioFormat.NOT_SET &&
-            (format.sampleRate != sampleRate || format.channelCount != channels)
-        ) {
-            sampleRate = format.sampleRate
-            channels = format.channelCount
-            bank = null
-            builtVersion = -1
-            limiter.configure(sampleRate, channels)
-        }
+        ensureFormatApplied()
         bank?.reset()
         limiter.reset()
         fading = false
@@ -288,5 +316,7 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
     }
 }
 
-internal fun toPcm(sample: Double): Short =
-    Math.round(sample * 32768.0).coerceIn(-32768L, 32767L).toShort()
+internal fun toPcm(sample: Double): Short {
+    if (!sample.isFinite()) return 0
+    return Math.round(sample * 32768.0).coerceIn(-32768L, 32767L).toShort()
+}

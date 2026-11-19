@@ -48,11 +48,31 @@ class StageAudioProcessor(private val service: AudioFxService) : AudioProcessor 
 
     override fun isActive(): Boolean = pendingFormat != AudioProcessor.AudioFormat.NOT_SET
 
+    private fun ensureNativeReady() {
+        val format = pendingFormat
+        if (format == AudioProcessor.AudioFormat.NOT_SET) return
+        if (handle == 0L || format.sampleRate != sampleRate || format.channelCount != channels) {
+            release()
+            sampleRate = format.sampleRate
+            channels = format.channelCount
+            handle = StageNative.create(sampleRate, channels)
+            pushed = null
+            idle = true
+        }
+    }
+
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
+        if (handle == 0L || channels == 0) ensureNativeReady()
         if (handle == 0L || channels == 0) {
-            inputBuffer.position(inputBuffer.limit())
+            if (pendingFormat.channelCount == 2) {
+                val out = replaceOutputBuffer(bytes)
+                out.put(inputBuffer)
+                out.flip()
+            } else {
+                inputBuffer.position(inputBuffer.limit())
+            }
             return
         }
         val params = service.stage
@@ -106,8 +126,16 @@ class StageAudioProcessor(private val service: AudioFxService) : AudioProcessor 
 
     override fun isEnded(): Boolean = inputEnded && outputBuffer === EMPTY_BUFFER
 
+    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
+        onFlush()
+    }
+
     @Deprecated("Deprecated in Java")
     override fun flush() {
+        onFlush()
+    }
+
+    private fun onFlush() {
         outputBuffer = EMPTY_BUFFER
         inputEnded = false
         val format = pendingFormat
