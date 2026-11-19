@@ -109,7 +109,7 @@ private class RoomWaves {
 }
 
 @Composable
-private fun ReverbPicture(settings: ReverbSettings) {
+internal fun ReverbPicture(settings: ReverbSettings) {
     val room by animateFloatAsState(settings.roomSize, spring(dampingRatio = 0.8f, stiffness = 120f), label = "room")
     val on by animateFloatAsState(if (settings.enabled) 1f else 0f, tween(400), label = "on")
     val waves = remember { RoomWaves() }

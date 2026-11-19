@@ -50,7 +50,7 @@ internal fun StageCard(viewModel: AudioLabViewModel, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun StagePicture(settings: StageSettings) {
+internal fun StagePicture(settings: StageSettings) {
     val on by animateFloatAsState(if (settings.enabled) 1f else 0f, tween(400), label = "stageCardOn")
     val stageInk = LabColors.Primary
     PictureCanvas { t, clock ->
