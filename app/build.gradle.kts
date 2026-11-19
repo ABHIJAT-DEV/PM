@@ -89,8 +89,15 @@ android {
                 "**/libdatastore_shared_counter.so",
                 "**/libffmpegJNI.so",
                 "**/libquickjs.so",
-                "**/libtaglib.so"
+                "**/libtaglib.so",
+                "**/libmochystage.so"
             )
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
         }
     }
 
