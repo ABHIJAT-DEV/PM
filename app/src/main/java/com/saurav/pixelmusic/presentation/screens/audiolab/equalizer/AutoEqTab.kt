@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -129,7 +130,7 @@ fun AutoEqTab(viewModel: AudioLabViewModel, eq: EqSettings) {
     }
 
     AnimatedVisibility(error != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-        Text(error.orEmpty(), fontFamily = InterFontFamily, fontSize = 13.sp, color = Color(0xFFFF8A80),
+        Text(error.orEmpty(), fontFamily = InterFontFamily, fontSize = 13.sp, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(top = 10.dp, start = 6.dp))
     }
 
@@ -150,6 +151,7 @@ private fun Legend(color: Color, label: String) {
 private fun ResponseGraph(measurement: AutoEqMeasurement?, correction: AutoEqCorrection?) {
     val measurer = rememberTextMeasurer(cacheSize = 32)
     val style = TextStyle(fontFamily = InterFontFamily, fontSize = 10.sp, color = LabColors.Faint)
+    val gridInk = LabColors.Primary
     val appear by animateFloatAsState(if (measurement != null) 1f else 0f, tween(600), label = "appear")
 
     val curves = remember(measurement, correction) {
@@ -188,7 +190,7 @@ private fun ResponseGraph(measurement: AutoEqMeasurement?, correction: AutoEqCor
         val step = if (range > 20) 10.0 else 5.0
         val labels = generateSequence(ceil(lo / step) * step) { it + step }.takeWhile { it <= hi }
             .map { (it - centre) to it.toInt().toString() }.toList()
-        drawGrid(plot, measurer, style, labels)
+        drawGrid(plot, measurer, style, labels, inkColor = gridInk)
         if (data == null) return@Canvas
         val (raw, target, cor) = data.first
         val f = measurement!!.frequencies
@@ -223,14 +225,14 @@ private fun SelectedHeadphone(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(correction.model, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp,
-                    color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    color = LabColors.Primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOfNotNull(stringResource(R.string.eqx_by_source, correction.source), correction.rig, pluralStringResource(R.plurals.eqx_filters_count, correction.filters.size, correction.filters.size)).joinToString(" · "),
                     fontFamily = InterFontFamily, fontSize = 12.sp, color = LabColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
             if (fitting) {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                CircularProgressIndicator(color = LabColors.Accent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(10.dp))
             }
         }
@@ -288,14 +290,15 @@ private fun SelectedHeadphone(
 
 @Composable
 private fun FormGlyph(form: HeadphoneForm) {
+    val cs = MaterialTheme.colorScheme
     Box(
-        modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF2C2C2E)),
+        modifier = Modifier.size(40.dp).clip(CircleShape).background(cs.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painterResource(R.drawable.ic_lab_headset), null, tint = Color.White, modifier = Modifier.size(20.dp))
+        Icon(painterResource(R.drawable.ic_lab_headset), null, tint = cs.onSecondaryContainer, modifier = Modifier.size(20.dp))
         if (form != HeadphoneForm.OverEar) {
             Text(if (form == HeadphoneForm.InEar) "IEM" else "BUD", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold,
-                fontSize = 7.sp, color = Color.White, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
+                fontSize = 7.sp, color = cs.onSecondaryContainer, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
         }
     }
 }
@@ -312,7 +315,7 @@ private fun Database(viewModel: AudioLabViewModel, selectedPath: String?, loadin
     LabCard(padding = 14.dp) {
         Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.eqx_database), fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color.White)
+                Text(stringResource(R.string.eqx_database), fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = LabColors.Primary)
                 Text(stringResource(R.string.eqx_database_desc), fontFamily = InterFontFamily, fontSize = 12.sp, color = LabColors.Secondary)
             }
             val ready = index as? AutoEqIndex.Ready
@@ -408,8 +411,8 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
-                textStyle = TextStyle(fontFamily = InterFontFamily, fontSize = 15.sp, color = Color.White),
-                cursorBrush = SolidColor(Color.White),
+                textStyle = TextStyle(fontFamily = InterFontFamily, fontSize = 15.sp, color = LabColors.Primary),
+                cursorBrush = SolidColor(LabColors.Accent),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -444,7 +447,7 @@ private fun ModelRow(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(model.name, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
-                    color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    color = LabColors.Primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     if (model.entries.size == 1) model.entries.first().sourceLabel else stringResource(R.string.eqx_profiles_count, model.entries.size),
                     fontFamily = InterFontFamily, fontSize = 12.sp, color = LabColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -452,9 +455,9 @@ private fun ModelRow(
             }
             when {
                 model.entries.size == 1 && loadingPath == model.entries.first().path ->
-                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                    CircularProgressIndicator(color = LabColors.Accent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
                 picked && model.entries.size == 1 ->
-                    Icon(painterResource(R.drawable.ic_lab_check), null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Icon(painterResource(R.drawable.ic_lab_check), null, tint = LabColors.Accent, modifier = Modifier.size(18.dp))
                 model.entries.size > 1 -> {
                     val turn by animateFloatAsState(if (expanded) 90f else 0f, tween(200), label = "chevron")
                     Icon(painterResource(R.drawable.ic_lab_navigate_next), null, tint = LabColors.Faint,
@@ -474,13 +477,13 @@ private fun ModelRow(
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(entry.sourceLabel, fontFamily = InterFontFamily, fontSize = 13.sp, color = Color.White,
+                    Text(entry.sourceLabel, fontFamily = InterFontFamily, fontSize = 13.sp, color = LabColors.Primary,
                         modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     when {
                         loadingPath == entry.path ->
-                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
+                            CircularProgressIndicator(color = LabColors.Accent, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
                         entry.path == selectedPath ->
-                            Icon(painterResource(R.drawable.ic_lab_check), null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Icon(painterResource(R.drawable.ic_lab_check), null, tint = LabColors.Accent, modifier = Modifier.size(16.dp))
                     }
                 }
             }

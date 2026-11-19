@@ -76,7 +76,7 @@ private fun SourceChips(stage: State<StageSettings>, selected: Int?, onSelect: (
     val names = StageSource.entries.associateWith { stringResource(sourceName(it)) }
     val labels = labelsOf(objects, names, stringResource(R.string.stage_source_numbered))
     val chips = objects.map { (id, source) -> LabChip(id.toString(), labels.getValue(id), sourceColor(source)) } +
-        LabChip(YouKey, stringResource(R.string.stage_you), Color.White)
+        LabChip(YouKey, stringResource(R.string.stage_you), LabColors.Primary)
     LabChips(
         chips = chips,
         selectedKey = when (selected) {
@@ -134,8 +134,8 @@ private fun ListenerControls(viewModel: AudioLabViewModel, stage: State<StageSet
 
 @Composable
 internal fun StagePill(label: String, on: Boolean, onClick: () -> Unit) {
-    val background by animateColorAsState(if (on) Color.White else LabColors.Chip, tween(180), label = "pillBg")
-    val foreground by animateColorAsState(if (on) Color.Black else Color.White, tween(180), label = "pillFg")
+    val background by animateColorAsState(if (on) LabColors.Accent else LabColors.Chip, tween(180), label = "pillBg")
+    val foreground by animateColorAsState(if (on) LabColors.OnAccent else LabColors.Primary, tween(180), label = "pillFg")
     Box(
         modifier = Modifier
             .height(34.dp)

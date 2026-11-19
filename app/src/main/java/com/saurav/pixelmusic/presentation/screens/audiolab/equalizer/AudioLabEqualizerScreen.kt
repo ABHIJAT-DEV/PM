@@ -186,7 +186,8 @@ private fun Presets(
     val builtInPresetNames = EqPresets.BuiltIn.associate { it.id to builtInPresetName(it) }
     val chips = buildList {
         if (eq.presetId == null) add(LabChip("custom", customLabel))
-        presets.forEach { add(LabChip(it.id, it.name, dot = androidx.compose.ui.graphics.Color.White)) }
+        val dotColor = LabColors.Accent
+        presets.forEach { add(LabChip(it.id, it.name, dot = dotColor)) }
         EqPresets.BuiltIn.forEach { add(LabChip(it.id, builtInPresetNames.getValue(it.id))) }
     }
     LabChips(

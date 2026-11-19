@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -164,7 +165,7 @@ fun EqGraphSection(
                         .clickable { onAdd(freeFrequency(nodes), 0.0) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(painterResource(R.drawable.ic_lab_add), stringResource(R.string.eqx_add_band), tint = Color.White, modifier = Modifier.size(18.dp))
+                    Icon(painterResource(R.drawable.ic_lab_add), stringResource(R.string.eqx_add_band), tint = LabColors.Primary, modifier = Modifier.size(18.dp))
                 }
             }
         },
@@ -226,6 +227,9 @@ private fun EqGraph(
     val selectedPulse by animateFloatAsState(if (dragging >= 0) 1f else 0f, spring(dampingRatio = 0.6f, stiffness = 500f), label = "drag")
 
     val labelStyle = TextStyle(fontFamily = InterFontFamily, fontSize = 10.sp, color = LabColors.Faint)
+    val ink = LabColors.Primary
+    val stageBg = LabColors.Stage
+    val faint = LabColors.Faint
     val plotOf: DrawScope.() -> Plot = {
         Plot(left = 30.dp.toPx(), top = 10.dp.toPx(), right = size.width - 10.dp.toPx(), bottom = size.height - 24.dp.toPx())
     }
@@ -288,14 +292,14 @@ private fun EqGraph(
             },
     ) {
         val plot = plotOf()
-        drawGrid(plot, measurer, labelStyle)
+        drawGrid(plot, measurer, labelStyle, inkColor = ink)
 
         val t = time.value
         if (t != lastSpectrumTime[0]) {
             lastSpectrumTime[0] = t
             analyzer.update()
         }
-        drawSpectrum(plot, analyzer.levels)
+        drawSpectrum(plot, analyzer.levels, ink)
 
         clipRect(plot.left, plot.top, plot.right, plot.bottom) {
             val zero = plot.y(0.0)
@@ -315,22 +319,22 @@ private fun EqGraph(
             }
             drawPath(
                 curvePath(plot, total),
-                Color.White,
+                ink,
                 style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
         }
 
         nodes.forEachIndexed { i, n ->
             val center = Offset(plot.x(n.frequency), plot.y(n.nodeGain().coerceIn(-GraphRangeDb, GraphRangeDb)))
-            val color = if (n.enabled) LabColors.node(i) else LabColors.Faint
+            val color = if (n.enabled) LabColors.node(i) else faint
             val isSelected = i == selected
             val r = (if (isSelected) 8.5.dp else 6.5.dp).toPx() + if (isSelected) 3.dp.toPx() * selectedPulse else 0f
             if (isSelected) {
                 drawCircle(color.copy(alpha = 0.18f + 0.1f * selectedPulse), r * 2.1f, center)
             }
-            drawCircle(Color.Black, r + 2.dp.toPx(), center)
+            drawCircle(stageBg, r + 2.dp.toPx(), center)
             drawCircle(color, r, center)
-            if (isSelected) drawCircle(Color.White, r + 2.dp.toPx(), center, style = Stroke(1.5.dp.toPx()))
+            if (isSelected) drawCircle(ink, r + 2.dp.toPx(), center, style = Stroke(1.5.dp.toPx()))
         }
     }
 }
@@ -368,11 +372,12 @@ internal fun DrawScope.drawGrid(
     measurer: androidx.compose.ui.text.TextMeasurer,
     style: TextStyle,
     yLabels: List<Pair<Double, String>> = listOf(12.0 to "+12", 6.0 to "+6", 0.0 to "0", -6.0 to "-6", -12.0 to "-12"),
+    inkColor: Color = Color.White,
 ) {
-    val line = Color.White.copy(alpha = 0.06f)
+    val line = inkColor.copy(alpha = 0.08f)
     yLabels.forEach { (db, label) ->
         val y = plot.y(db)
-        drawLine(if (db == 0.0) Color.White.copy(alpha = 0.16f) else line, Offset(plot.left, y), Offset(plot.right, y), 1.dp.toPx())
+        drawLine(if (db == 0.0) inkColor.copy(alpha = 0.2f) else line, Offset(plot.left, y), Offset(plot.right, y), 1.dp.toPx())
         val layout = measurer.measure(label, style)
         drawText(layout, topLeft = Offset(plot.left - layout.size.width - 6.dp.toPx(), y - layout.size.height / 2f))
     }
@@ -385,7 +390,7 @@ internal fun DrawScope.drawGrid(
     }
 }
 
-private fun DrawScope.drawSpectrum(plot: Plot, levels: FloatArray) {
+private fun DrawScope.drawSpectrum(plot: Plot, levels: FloatArray, inkColor: Color) {
     val height = (plot.bottom - plot.top) * 0.55f
     val path = Path()
     var any = false
@@ -404,12 +409,12 @@ private fun DrawScope.drawSpectrum(plot: Plot, levels: FloatArray) {
     drawPath(
         path,
         Brush.verticalGradient(
-            listOf(Color.White.copy(alpha = 0.09f), Color.White.copy(alpha = 0.01f)),
+            listOf(inkColor.copy(alpha = 0.1f), inkColor.copy(alpha = 0.01f)),
             startY = plot.bottom - height,
             endY = plot.bottom,
         ),
     )
-    drawPath(stroke, Color.White.copy(alpha = 0.12f), style = Stroke(1.dp.toPx()))
+    drawPath(stroke, inkColor.copy(alpha = 0.14f), style = Stroke(1.dp.toPx()))
 }
 
 @Composable
@@ -427,7 +432,7 @@ private fun NodeDetail(
             Column(Modifier.weight(1f)) {
                 Text(
                     stringResource(R.string.eqx_node_title, frequencyLabel(node.frequency)),
-                    fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White,
+                    fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = LabColors.Primary,
                 )
                 Text(
                     "${stringResource(filterTypeRes(node.filterType)).lowercase()} · Q ${String.format("%.1f", node.q)}" +
@@ -441,8 +446,8 @@ private fun NodeDetail(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(FilterType.LSC, FilterType.PK, FilterType.HSC).forEach { type ->
                 val picked = node.filterType == type
-                val bg by animateColorAsState(if (picked) Color(0xFFD1D1D6) else Color.Black, tween(160), label = "type")
-                val fg by animateColorAsState(if (picked) Color.Black else Color.White, tween(160), label = "typeText")
+                val bg by animateColorAsState(if (picked) LabColors.Accent else LabColors.Stage, tween(160), label = "type")
+                val fg by animateColorAsState(if (picked) LabColors.OnAccent else LabColors.Primary, tween(160), label = "typeText")
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -500,7 +505,7 @@ private fun NodeDetail(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(stringResource(R.string.eqx_remove_node), fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
-                    color = Color(0xFFFF8A80))
+                    color = MaterialTheme.colorScheme.error)
             }
         }
     }

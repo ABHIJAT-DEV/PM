@@ -47,30 +47,31 @@ internal fun DrawScope.drawStage(
     selected: Int?,
     on: Float,
     compact: Boolean = false,
+    inkColor: Color = Color.White,
 ) {
-    drawRoomBox(view, on)
+    drawRoomBox(view, on, inkColor)
     if (selected != null && !compact) {
         val mark = marks.firstOrNull { it.key == selected }
         if (mark != null) drawGuides(view, mark.x, mark.z, sourceColor(mark.source))
-        else if (selected == ListenerKey) drawGuides(view, listener.x, listener.z, Color.White)
+        else if (selected == ListenerKey) drawGuides(view, listener.x, listener.z, inkColor)
     }
-    drawFacing(view, listener, on)
+    drawFacing(view, listener, on, inkColor)
 
     val headDepth = view.project(listener.x, listener.y, listener.z).depth
     val ordered = marks.sortedByDescending { view.project(it.x, it.y, it.z).depth }
     var headDrawn = false
     for (mark in ordered) {
         if (!headDrawn && view.project(mark.x, mark.y, mark.z).depth < headDepth) {
-            drawHead(view, listener, selected == ListenerKey, on, compact)
+            drawHead(view, listener, selected == ListenerKey, on, compact, inkColor)
             headDrawn = true
         }
-        drawMark(view, mark, selected == mark.key, on, compact)
+        drawMark(view, mark, selected == mark.key, on, compact, inkColor)
     }
-    if (!headDrawn) drawHead(view, listener, selected == ListenerKey, on, compact)
+    if (!headDrawn) drawHead(view, listener, selected == ListenerKey, on, compact, inkColor)
 }
 
-private fun DrawScope.drawRoomBox(view: StageView, on: Float) {
-    val grid = Color.White.copy(alpha = 0.035f + 0.03f * on)
+private fun DrawScope.drawRoomBox(view: StageView, on: Float, inkColor: Color) {
+    val grid = inkColor.copy(alpha = 0.05f + 0.04f * on)
     for (i in 0..4) {
         val t = -1f + i * 0.5f
         drawLine(grid, view.project(t, 0f, -1f).point, view.project(t, 0f, 1f).point, 1.dp.toPx())
@@ -83,18 +84,18 @@ private fun DrawScope.drawRoomBox(view: StageView, on: Float) {
     for ((a, b) in Edges) {
         val back = corners[a].depth == farthest || corners[b].depth == farthest
         val alpha = (if (back) 0.18f else 0.34f) * (0.6f + 0.4f * on)
-        drawLine(Color.White.copy(alpha = alpha), corners[a].point, corners[b].point, 1.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(inkColor.copy(alpha = alpha), corners[a].point, corners[b].point, 1.dp.toPx(), cap = StrokeCap.Round)
     }
 }
 
 private fun DrawScope.drawGuides(view: StageView, x: Float, z: Float, color: Color) {
-    val line = color.copy(alpha = 0.22f)
+    val line = color.copy(alpha = 0.25f)
     val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
     drawLine(line, view.project(-1f, 0f, z).point, view.project(1f, 0f, z).point, 1.dp.toPx(), pathEffect = dash)
     drawLine(line, view.project(x, 0f, -1f).point, view.project(x, 0f, 1f).point, 1.dp.toPx(), pathEffect = dash)
 }
 
-private fun DrawScope.drawFacing(view: StageView, listener: StageListener, on: Float) {
+private fun DrawScope.drawFacing(view: StageView, listener: StageListener, on: Float, inkColor: Color) {
     val base = Math.toRadians(listener.yaw.toDouble())
     val reach = 0.55f
     val path = Path()
@@ -109,7 +110,7 @@ private fun DrawScope.drawFacing(view: StageView, listener: StageListener, on: F
     }
     path.close()
     drawPath(path, Brush.radialGradient(
-        listOf(Color.White.copy(alpha = 0.12f * (0.5f + 0.5f * on)), Color.Transparent),
+        listOf(inkColor.copy(alpha = 0.14f * (0.5f + 0.5f * on)), Color.Transparent),
         center = start,
         radius = view.pixels(view.project(listener.x, 0f, listener.z), reach) + 1f,
     ))
@@ -127,7 +128,7 @@ private fun DrawScope.drawStem(view: StageView, x: Float, y: Float, z: Float, co
     )
 }
 
-private fun DrawScope.drawMark(view: StageView, mark: StageMark, selected: Boolean, on: Float, compact: Boolean) {
+private fun DrawScope.drawMark(view: StageView, mark: StageMark, selected: Boolean, on: Float, compact: Boolean, inkColor: Color) {
     val color = sourceColor(mark.source)
     val alpha = (if (mark.quiet) 0.35f else 1f) * (0.55f + 0.45f * on)
     val p = view.project(mark.x, mark.y, mark.z)
@@ -155,11 +156,11 @@ private fun DrawScope.drawMark(view: StageView, mark: StageMark, selected: Boole
         drawCircle(color.copy(alpha = alpha), r, p.point)
     }
     drawCircle(Color.White.copy(alpha = 0.55f * alpha), r * 0.32f, p.point + Offset(-r * 0.3f, -r * 0.3f))
-    if (selected) drawCircle(Color.White.copy(alpha = 0.9f), r + 4.dp.toPx(), p.point, style = Stroke(1.5.dp.toPx()))
+    if (selected) drawCircle(inkColor.copy(alpha = 0.9f), r + 4.dp.toPx(), p.point, style = Stroke(1.5.dp.toPx()))
     if (!compact && mark.label != null) {
         drawText(
             mark.label,
-            color = Color.White.copy(alpha = 0.85f * alpha),
+            color = inkColor.copy(alpha = 0.85f * alpha),
             topLeft = Offset(p.point.x - mark.label.size.width / 2f, p.point.y + r + 5.dp.toPx()),
         )
     }
@@ -167,9 +168,9 @@ private fun DrawScope.drawMark(view: StageView, mark: StageMark, selected: Boole
 
 private class HeadPart(val point: Offset, val depth: Float, val radius: Float, val color: Color)
 
-private fun DrawScope.drawHead(view: StageView, listener: StageListener, selected: Boolean, on: Float, compact: Boolean) {
+private fun DrawScope.drawHead(view: StageView, listener: StageListener, selected: Boolean, on: Float, compact: Boolean, inkColor: Color) {
     val alpha = 0.7f + 0.3f * on
-    drawStem(view, listener.x, listener.y, listener.z, Color.White, alpha)
+    drawStem(view, listener.x, listener.y, listener.z, inkColor, alpha)
     val cx = view.worldX(listener.x)
     val cy = view.worldY(listener.y)
     val cz = view.worldZ(listener.z)
@@ -223,8 +224,8 @@ private fun DrawScope.drawHead(view: StageView, listener: StageListener, selecte
             moveTo(left.x, left.y)
             quadraticTo(control.x, control.y, right.x, right.y)
         },
-        Color.White.copy(alpha = 0.9f * alpha),
+        inkColor.copy(alpha = 0.9f * alpha),
         style = Stroke(max(1.5.dp.toPx(), radius * 0.16f), cap = StrokeCap.Round),
     )
-    if (selected) drawCircle(Color.White.copy(alpha = 0.9f), radius + 6.dp.toPx(), center.point, style = Stroke(1.5.dp.toPx()))
+    if (selected) drawCircle(inkColor.copy(alpha = 0.9f), radius + 6.dp.toPx(), center.point, style = Stroke(1.5.dp.toPx()))
 }

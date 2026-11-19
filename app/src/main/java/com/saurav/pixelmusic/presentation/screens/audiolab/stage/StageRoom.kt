@@ -98,6 +98,7 @@ internal fun StageRoom(
             .border(1.dp, LabColors.StageLine, RoundedCornerShape(26.dp))
             .damageBoundary(),
     ) {
+        val stageInk = LabColors.Primary
         Canvas(
             Modifier
                 .fillMaxSize()
@@ -177,7 +178,7 @@ internal fun StageRoom(
             val s = stage.value
             val view = StageView(size, s.box, yaw, pitch)
             frame.view = view
-            drawStage(view, marksOf(s, labels.value, levels, shown, s.enabled && isPlaying()), s.listener, selected, on)
+            drawStage(view, marksOf(s, labels.value, levels, shown, s.enabled && isPlaying()), s.listener, selected, on, inkColor = stageInk)
         }
 
         Column(
@@ -208,11 +209,11 @@ private fun RoomButton(icon: Int, description: String, onClick: () -> Unit) {
         modifier = Modifier
             .size(34.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.08f))
+            .background(LabColors.Row)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painterResource(icon), description, tint = Color.White, modifier = Modifier.size(17.dp))
+        Icon(painterResource(icon), description, tint = LabColors.Primary, modifier = Modifier.size(17.dp))
     }
 }
 

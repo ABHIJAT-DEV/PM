@@ -51,6 +51,7 @@ internal fun StageCard(viewModel: AudioLabViewModel, onOpen: () -> Unit) {
 @Composable
 private fun StagePicture(settings: StageSettings) {
     val on by animateFloatAsState(if (settings.enabled) 1f else 0f, tween(400), label = "stageCardOn")
+    val stageInk = LabColors.Primary
     PictureCanvas { t, clock ->
         val yaw = DefaultCameraYaw + sin(t * 0.35f) * 22f * (0.4f + 0.6f * on)
         val view = StageView(size, settings.box, yaw, DefaultCameraPitch + 6f)
@@ -70,6 +71,6 @@ private fun StagePicture(settings: StageSettings) {
                 spread = if (o.source == StageSource.Ambience) o.width * min(3f, box.width * 0.35f) / (box.width / 2) else 0f,
             )
         }
-        drawStage(view, marks, settings.listener, selected = null, on = on, compact = true)
+        drawStage(view, marks, settings.listener, selected = null, on = on, compact = true, inkColor = stageInk)
     }
 }
