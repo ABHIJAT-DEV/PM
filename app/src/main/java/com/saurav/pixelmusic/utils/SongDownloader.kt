@@ -48,8 +48,13 @@ import dagger.hilt.components.SingletonComponent
 import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
 import com.saurav.pixelmusic.data.repository.LyricsRepository
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 object SongDownloader {
+
+    private val _activeDownloadProgress = MutableStateFlow<Map<Int, Float>>(emptyMap())
+    val activeDownloadProgress = _activeDownloadProgress.asStateFlow()
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
@@ -697,10 +702,12 @@ try {
                 .clearActions()
                 .setContentIntent(pendingIntent)
             updateNotification(notificationManager, notificationId, notificationBuilder)
+            _activeDownloadProgress.value = _activeDownloadProgress.value - notificationId
 
             return@withContext true
 
         } catch (e: Exception) {
+            _activeDownloadProgress.value = _activeDownloadProgress.value - notificationId
             insertedUri?.let { uri -> runCatching { context.contentResolver.delete(uri, null, null) } }
             if (e.message == "Cancelled by user") {
                 notificationManager.cancel(notificationId)
@@ -751,6 +758,13 @@ try {
         totalBytes: Long,
         playlistProgress: String?
     ) {
+        _activeDownloadProgress.value = _activeDownloadProgress.value + (
+            notificationId to if (totalBytes > 0L) {
+                (currentBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+            } else {
+                -1f
+            }
+        )
         builder.clearActions()
         
         if (isPaused) {
