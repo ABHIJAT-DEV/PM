@@ -2,8 +2,7 @@ package com.saurav.pixelmusic.presentation.screens
 
 import androidx.annotation.OptIn
 import androidx.compose.ui.platform.LocalContext
-import com.saurav.pixelmusic.data.equalizer.EqualizerType
-import com.saurav.pixelmusic.presentation.components.EqualizerTypeSelector
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -733,43 +732,7 @@ fun ExperimentalSettingsScreen(
                 }
             }
             
-            if (hasSystemEqualizer) {
-                item(key = "divider_audio_engine") {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "Audio & Equalizer",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        androidx.compose.material3.HorizontalDivider(
-                            modifier = Modifier
-                                .weight(3f)
-                                .padding(start = 8.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
-                }
 
-                item(key = "equalizer_engine_section") {
-                    val currentEqualizerType by playerViewModel.userPreferencesRepository.equalizerTypeFlow
-                        .collectAsStateWithLifecycle(initialValue = EqualizerType.IN_APP)
-                    val coroutineScope = rememberCoroutineScope()
-
-                    EqualizerTypeSelector(
-                        selectedType = currentEqualizerType,
-                        onTypeSelected = { selected ->
-                            coroutineScope.launch {
-                                playerViewModel.userPreferencesRepository.setEqualizerType(selected)
-                            }
-                        }
-                    )
-                }
-            }
 
 
 

@@ -146,10 +146,6 @@ class MusicService : MediaLibraryService() {
     @Inject
     lateinit var engagementDao: com.saurav.pixelmusic.data.database.EngagementDao
     @Inject
-    lateinit var equalizerManager: com.saurav.pixelmusic.data.equalizer.EqualizerManager
-    @Inject
-    lateinit var equalizerPreferencesRepository: com.saurav.pixelmusic.data.preferences.EqualizerPreferencesRepository
-    @Inject
     lateinit var externalAudioEffectSession: com.saurav.pixelmusic.data.equalizer.ExternalAudioEffectSession
 
     private var scrobbleManager: com.saurav.pixelmusic.data.lastfm.ScrobbleManager? = null
@@ -431,37 +427,7 @@ class MusicService : MediaLibraryService() {
 
         // Restore equalizer state from preferences and only attach audio effects when
         // the user actually has at least one effect enabled for the current session.
-        serviceScope.launch {
-            val enabled = equalizerPreferencesRepository.equalizerEnabledFlow.first()
-            val presetName = equalizerPreferencesRepository.equalizerPresetFlow.first()
-            val customBands = equalizerPreferencesRepository.equalizerCustomBandsFlow.first()
-            val bassBoostEnabled = equalizerPreferencesRepository.bassBoostEnabledFlow.first()
-            val bassBoost = equalizerPreferencesRepository.bassBoostStrengthFlow.first()
-            val virtualizerEnabled = equalizerPreferencesRepository.virtualizerEnabledFlow.first()
-            val virtualizer = equalizerPreferencesRepository.virtualizerStrengthFlow.first()
-            val loudnessEnabled = equalizerPreferencesRepository.loudnessEnhancerEnabledFlow.first()
-            val loudnessStrength = equalizerPreferencesRepository.loudnessEnhancerStrengthFlow.first()
-
-            equalizerManager.restoreState(
-                enabled, presetName, customBands,
-                bassBoostEnabled, bassBoost,
-                virtualizerEnabled, virtualizer,
-                loudnessEnabled, loudnessStrength
-            )
-        }
-
-        serviceScope.launch {
-            equalizerPreferencesRepository.equalizerTypeFlow.collect { eqType ->
-                if (eqType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
-                    equalizerManager.release()
-                } else {
-                    val sessionId = engine.activeAudioSessionId.value
-                    if (sessionId != 0) {
-                        equalizerManager.attachToAudioSessionIfNeeded(sessionId)
-                    }
-                }
-            }
-        }
+        // Audio Lab DSP is managed directly in-process by DualPlayerEngine via AudioLabStore.
 
         serviceScope.launch {
             userPreferencesRepository.keepPlayingInBackgroundFlow.collect { enabled ->
@@ -508,10 +474,6 @@ class MusicService : MediaLibraryService() {
         serviceScope.launch {
             engine.activeAudioSessionId.collect { sessionId ->
                 notifySystemEqualizer(sessionId)
-                val eqType = equalizerPreferencesRepository.equalizerTypeFlow.first()
-                if (eqType == com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP) {
-                    equalizerManager.attachToAudioSessionIfNeeded(sessionId)
-                }
             }
         }
 
@@ -2033,7 +1995,6 @@ class MusicService : MediaLibraryService() {
             mediaSession = null
         }
         externalAudioEffectSession.close()
-        equalizerManager.release()
         engine.setOnPlayerAboutToBeReleasedListener {}
         engine.release()
         controller.release()

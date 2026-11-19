@@ -15,6 +15,9 @@ sealed class Screen(val route: String) {
     object Accounts : Screen("settings_accounts")
     object ListenTogetherSettings : Screen("listen_together_settings")
     object Equalizer : Screen("equalizer")
+    object AudioLabEq : Screen("audiolab_eq")
+    object AudioLabFx : Screen("audiolab_fx")
+    object AudioLabStage : Screen("audiolab_stage")
 
     object SettingsCategory : Screen("settings_category/{categoryId}?highlight={highlight}") {
         fun createRoute(categoryId: String) = "settings_category/$categoryId"

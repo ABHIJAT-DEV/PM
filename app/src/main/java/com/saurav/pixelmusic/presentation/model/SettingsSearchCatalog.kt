@@ -306,9 +306,9 @@ object SettingsSearchCatalog {
             listOf("scrobble", "lastfm", "track", "history"),
             SettingsCategory.LASTFM, Screen.SettingsCategory.createRoute(SettingsCategory.LASTFM.id)),
 
-        // ─── Equalizer ──────────────────────────────────────────────────────────────
-        SearchableSetting("Equalizer", "Launch audio effects, equalizer, and sound enhancement panel",
-            listOf("equalizer", "eq", "audio", "bass", "treble", "dolby", "sound", "effects"),
+        // ─── Audio FX ───────────────────────────────────────────────────────────────
+        SearchableSetting("Audio FX", "Parametric EQ, AutoEQ, 3D Sims, reverb, loudness, and spatial audio",
+            listOf("audio fx", "audio lab", "equalizer", "eq", "autoeq", "reverb", "spatial", "3d", "bass", "treble", "dolby", "sound", "effects"),
             SettingsCategory.EQUALIZER, Screen.Equalizer.route),
 
         // ─── Device Capabilities ────────────────────────────────────────────────────

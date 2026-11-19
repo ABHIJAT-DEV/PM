@@ -75,7 +75,11 @@ class DualPlayerEngine @Inject constructor(
     private val connectivityStateHolder: com.saurav.pixelmusic.presentation.viewmodel.ConnectivityStateHolder,
     private val exoCache: com.saurav.pixelmusic.data.remote.youtube.ExoCache,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val musicDaoLazy: dagger.Lazy<com.saurav.pixelmusic.data.database.MusicDao>
+    private val musicDaoLazy: dagger.Lazy<com.saurav.pixelmusic.data.database.MusicDao>,
+    private val equalizerService: com.saurav.pixelmusic.audiolab.EqualizerService,
+    private val audioFxService: com.saurav.pixelmusic.audiolab.AudioFxService,
+    private val audioLabStore: com.saurav.pixelmusic.audiolab.AudioLabStore,
+    private val audioOutputs: com.saurav.pixelmusic.audiolab.AudioOutputs,
 ) {
     private companion object {
         private const val AUDIO_OFFLOAD_BUFFERING_FALLBACK_MS = 4_000L
@@ -534,14 +538,27 @@ class DualPlayerEngine @Inject constructor(
         scope.launch {
             kotlinx.coroutines.flow.combine(
                 userPreferencesRepository.audioOffloadEnabledFlow,
-                userPreferencesRepository.isCrossfadeEnabledFlow
-            ) { offloadPref, crossfadePref ->
-                offloadPref && !crossfadePref && !sessionOffloadDisabled && !shouldDisableAudioOffloadByDefault()
+                userPreferencesRepository.isCrossfadeEnabledFlow,
+                audioLabStore.shapesSound,
+            ) { offloadPref, crossfadePref, shapesSound ->
+                offloadPref && !crossfadePref && !shapesSound && !sessionOffloadDisabled && !shouldDisableAudioOffloadByDefault()
             }.collect { effectiveEnabled ->
                 if (audioOffloadEnabled != effectiveEnabled) {
                     audioOffloadEnabled = effectiveEnabled
                     rebuildPlayersPreservingMasterState("Effective audio offload changed to $effectiveEnabled")
                 }
+            }
+        }
+        scope.launch {
+            audioLabStore.playback.collect { pb ->
+                val params = PlaybackParameters(pb.speed, pb.pitch)
+                if (::playerA.isInitialized) runCatching { playerA.playbackParameters = params }
+                if (::playerB.isInitialized) runCatching { playerB.playbackParameters = params }
+            }
+        }
+        scope.launch {
+            audioOutputs.activeInfo.collect { info ->
+                audioLabStore.setStageOutput(com.saurav.pixelmusic.audiolab.stage.StageOutput.of(context, info))
             }
         }
         scope.launch {
@@ -798,13 +815,20 @@ class DualPlayerEngine @Inject constructor(
                 enableFloatOutput: Boolean,
                 enableAudioOutputPlaybackParams: Boolean
             ): AudioSink {
+                val eqProcessor = com.saurav.pixelmusic.audiolab.audio.CustomEqualizerAudioProcessor()
+                equalizerService.addAudioProcessor(eqProcessor)
                 return DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(hiFiModeEnabled)
                     .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                     .setAudioProcessorChain(
                         DefaultAudioSink.DefaultAudioProcessorChain(
                             HiResSampleRateCapAudioProcessor(),
-                            SurroundDownmixProcessor()
+                            com.saurav.pixelmusic.audiolab.audio.StageAudioProcessor(audioFxService),
+                            SurroundDownmixProcessor(),
+                            eqProcessor,
+                            com.saurav.pixelmusic.audiolab.audio.SpatialAudioProcessor(audioFxService),
+                            com.saurav.pixelmusic.audiolab.audio.ReverbAudioProcessor(audioFxService),
+                            com.saurav.pixelmusic.audiolab.audio.LoudnessAudioProcessor(audioFxService),
                         )
                     )
                     .build()

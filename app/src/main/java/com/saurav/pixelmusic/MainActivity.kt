@@ -1040,26 +1040,7 @@ class MainActivity : ComponentActivity() {
                             popUpTo(Screen.Home.route) { inclusive = true }
                         }
                         DrawerDestination.Equalizer -> {
-                            scope.launch {
-                                val selectedType = playerViewModel.userPreferencesRepository.equalizerTypeFlow.first()
-                                if (selectedType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
-                                    val audioSessionId = playerViewModel.activeAudioSessionId.value
-                                    val intent = android.content.Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-                                        putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-                                        putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
-                                        if (audioSessionId != 0) {
-                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
-                                        }
-                                    }
-                                    try {
-                                        startActivity(intent)
-                                    } catch (e: Exception) {
-                                        android.widget.Toast.makeText(this@MainActivity, "System equalizer not available", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                } else {
-                                    navController.navigateSafely(Screen.Equalizer.route)
-                                }
-                            }
+                            navController.navigateSafely(Screen.Equalizer.route)
                         }
                         DrawerDestination.Settings -> navController.navigateSafely(Screen.Settings.route)
                     }

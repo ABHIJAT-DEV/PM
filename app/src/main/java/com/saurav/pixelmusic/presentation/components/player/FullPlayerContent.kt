@@ -2116,26 +2116,7 @@ fun FullPlayerContent(
                                         },
                                         onClick = {
                                             smoothDismiss {
-                                                coroutineScope.launch {
-                                                    val selectedType = playerViewModel.userPreferencesRepository.equalizerTypeFlow.first()
-                                                    if (selectedType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
-                                                        val audioSessionId = playerViewModel.activeAudioSessionId.value
-                                                        val intent = android.content.Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-                                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-                                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
-                                                            if (audioSessionId != 0) {
-                                                                putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
-                                                            }
-                                                        }
-                                                        try {
-                                                            context.startActivity(intent)
-                                                        } catch (e: Exception) {
-                                                            android.widget.Toast.makeText(context, "System equalizer not available", android.widget.Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    } else {
-                                                        playerViewModel.triggerEqualizerNavigation()
-                                                    }
-                                                }
+                                                playerViewModel.triggerEqualizerNavigation()
                                             }
                                         }
                                     )

@@ -310,9 +310,6 @@ fun SettingsScreen(
                     } else {
                         Color(0xFFE0E0E0) to Color(0xFF000000)
                     }
-                    val equalizerType by playerViewModel.userPreferencesRepository.equalizerTypeFlow
-                        .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.data.equalizer.EqualizerType.IN_APP)
-
                     for (category in mainCategories) {
                         val colors = if (isBw) {
                             bwCategoryColors
@@ -320,46 +317,12 @@ fun SettingsScreen(
                             getCategoryColors(category, isDark)
                         }
 
-                        val isEq = category == SettingsCategory.EQUALIZER
-                        val eqSubtitle = if (isEq && equalizerType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
-                            "System Equalizer Active • Tap to open"
-                        } else null
-
                         ExpressiveCategoryItem(
                             category = category,
                             customColors = colors,
-                            subtitleOverride = eqSubtitle,
-                            trailingContent = if (isEq && equalizerType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
-                                {
-                                    IconButton(
-                                        onClick = { navController.navigateSafely(Screen.Equalizer.route) }
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.rounded_tune_24),
-                                            contentDescription = "Configure Equalizer",
-                                            tint = colors.second
-                                        )
-                                    }
-                                }
-                            } else null,
                             onClick = {
                                 if (category == SettingsCategory.EQUALIZER) {
-                                    if (equalizerType == com.saurav.pixelmusic.data.equalizer.EqualizerType.SYSTEM) {
-                                        val intent = android.content.Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-                                            putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
-                                            if (audioSessionId != 0) {
-                                                putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
-                                            }
-                                        }
-                                        try {
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            android.widget.Toast.makeText(context, "System equalizer not available", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    } else {
-                                        navController.navigateSafely(Screen.Equalizer.route)
-                                    }
+                                    navController.navigateSafely(Screen.Equalizer.route)
                                 } else if (category == SettingsCategory.LISTEN_TOGETHER) {
                                     navController.navigateSafely(Screen.ListenTogetherSettings.route)
                                 } else {
