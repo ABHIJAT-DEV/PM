@@ -1,5 +1,10 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
+
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.components.BackupModuleSelectionDialog
 import com.saurav.pixelmusic.data.preferences.AiPreferencesRepository
@@ -397,7 +402,11 @@ fun SettingsCategoryScreen(
         }
     }
 
-    CompositionLocalProvider(LocalSettingsHighlightTitle provides highlightTitle) {
+    val categoryGlassState = rememberGlassState()
+    CompositionLocalProvider(
+        LocalSettingsHighlightTitle provides highlightTitle,
+        LocalScreenGlassState provides categoryGlassState
+    ) {
         Box(
             modifier = Modifier
                 .nestedScroll(nestedScrollConnection)
@@ -409,6 +418,7 @@ fun SettingsCategoryScreen(
                 state = lazyListState,
                 modifier = Modifier
                     .fillMaxSize()
+                    .glassRoot(categoryGlassState)
                     .scrollMotionBlur(
                         lazyListState = lazyListState,
                         enabled = uiState.isUiMotionBlurEnabled
@@ -765,26 +775,6 @@ fun SettingsCategoryScreen(
                                             }
                                         }
                                     )
-                                    SwitchSettingItem(
-                                        title = "AMOLED Black",
-                                        subtitle = "Use pure black for dark theme backgrounds",
-                                        checked = uiState.amoledBlackModeEnabled,
-                                        onCheckedChange = { isChecked ->
-                                            if (themeTransitionController != null) {
-                                                themeTransitionController.transitionThemeChange(
-                                                    view = view,
-                                                    scope = coroutineScope
-                                                ) {
-                                                    settingsViewModel.setAmoledBlackMode(isChecked)
-                                                }
-                                            } else {
-                                                settingsViewModel.setAmoledBlackMode(isChecked)
-                                            }
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_light_mode_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_app_font_label),
                                         description = stringResource(R.string.setcat_app_font_desc),
@@ -823,15 +813,6 @@ fun SettingsCategoryScreen(
                                                     settingsViewModel.setColorPalette(newPalette)
                                                 }
                                             }
-                                        }
-                                    )
-                                    SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_smooth_corners_title),
-                                        subtitle = stringResource(R.string.setcat_smooth_corners_subtitle),
-                                        checked = useSmoothCorners,
-                                        onCheckedChange = settingsViewModel::setUseSmoothCorners,
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_rounded_corner_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                 }
@@ -951,26 +932,6 @@ fun SettingsCategoryScreen(
                                     )
                                 }
 
-                                SettingsSubsection(title = "Home Screen Quick Picks") {
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.settings_home_quick_picks_style_title),
-                                        description = stringResource(R.string.settings_home_quick_picks_style_desc),
-                                        options = mapOf(
-                                            com.saurav.pixelmusic.data.preferences.QuickPicksSectionStyle.CURRENT.name to stringResource(R.string.settings_home_quick_picks_style_current),
-                                            com.saurav.pixelmusic.data.preferences.QuickPicksSectionStyle.MATERIAL_YOU_EXPRESSIVE.name to stringResource(R.string.settings_home_quick_picks_style_expressive)
-                                        ),
-                                        selectedKey = uiState.homeQuickPicksStyle.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setHomeQuickPicksStyle(
-                                                com.saurav.pixelmusic.data.preferences.QuickPicksSectionStyle.valueOf(key)
-                                            )
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_view_carousel_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                }
-
                                 SettingsSubsection(title = stringResource(R.string.setcat_home_collage)) {
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_collage_pattern_label),
@@ -982,15 +943,6 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_view_column_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_auto_rotate_patterns_title),
-                                        subtitle = stringResource(R.string.setcat_auto_rotate_patterns_subtitle),
-                                        checked = uiState.collageAutoRotate,
-                                        onCheckedChange = { settingsViewModel.setCollageAutoRotate(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_shuffle_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                 }
@@ -1028,21 +980,6 @@ fun SettingsCategoryScreen(
                                     title = stringResource(R.string.setcat_app_navigation_section),
                                     addBottomSpace = false
                                 ) {
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_default_tab_label),
-                                        description = stringResource(R.string.setcat_default_tab_desc),
-                                        options = mapOf(
-                                            LaunchTab.HOME to stringResource(R.string.tab_home),
-                                            LaunchTab.EXPLORE to stringResource(R.string.tab_explore),
-                                            LaunchTab.SEARCH to stringResource(R.string.search),
-                                            LaunchTab.LIBRARY to stringResource(R.string.tab_library),
-                                        ),
-                                        selectedKey = uiState.launchTab,
-                                        onSelectionChanged = { settingsViewModel.setLaunchTab(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.tab_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_library_navigation_label),
                                         description = stringResource(R.string.setcat_library_navigation_desc),
@@ -1229,103 +1166,52 @@ fun SettingsCategoryScreen(
                                     )
                                 }
 
-                                SettingsSubsection(title = stringResource(R.string.setcat_replaygain_section)) {
-                                    SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_replaygain_enable_title),
-                                        subtitle = stringResource(R.string.setcat_replaygain_enable_subtitle),
-                                        checked = uiState.replayGainEnabled,
-                                        onCheckedChange = { settingsViewModel.setReplayGainEnabled(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_volume_down_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    AnimatedVisibility(
-                                        visible = uiState.replayGainEnabled,
-                                        enter = expandVertically(animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)) + fadeIn(animationSpec = spring(stiffness = 400f)),
-                                        exit = shrinkVertically(animationSpec = spring(stiffness = 500f)) + fadeOut(animationSpec = spring(stiffness = 500f))
-                                    ) {
-                                        ThemeSelectorItem(
-                                            label = stringResource(R.string.setcat_gain_mode_label),
-                                            description = stringResource(R.string.setcat_gain_mode_desc),
-                                            options = mapOf(
-                                                "track" to stringResource(R.string.setcat_gain_mode_track),
-                                                "album" to stringResource(R.string.setcat_gain_mode_album)
-                                            ),
-                                            selectedKey = if (uiState.replayGainUseAlbumGain) "album" else "track",
-                                            onSelectionChanged = { settingsViewModel.setReplayGainUseAlbumGain(it == "album") },
-                                            leadingIcon = {
-                                                Icon(painterResource(R.drawable.rounded_volume_down_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                            }
-                                        )
-                                    }
-                                }
-
-                                SettingsSubsection(title = stringResource(R.string.setcat_cast)) {
+                                SettingsSubsection(title = stringResource(R.string.setcat_streaming_title)) {
                                     ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_cast_autoplay_label),
-                                        description = stringResource(R.string.setcat_cast_autoplay_desc),
-                                        options = mapOf(
-                                            "false" to stringResource(R.string.label_enabled),
-                                            "true" to stringResource(R.string.label_disabled)
-                                        ),
-                                        selectedKey = if (uiState.disableCastAutoplay) "true" else "false",
-                                        onSelectionChanged = { settingsViewModel.setDisableCastAutoplay(it.toBoolean()) },
+                                        label = stringResource(R.string.setcat_streaming_audio_quality_wifi_title),
+                                        description = stringResource(R.string.setcat_streaming_audio_quality_wifi_desc),
+                                        options = StreamingAudioQuality.entries.associate { it.name to it.label },
+                                        selectedKey = uiState.streamingAudioQualityWifi.name,
+                                        onSelectionChanged = { key ->
+                                            settingsViewModel.setStreamingAudioQualityWifi(StreamingAudioQuality.valueOf(key))
+                                        },
                                         leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_cast_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_wifi_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
-                                }
-
-                                SettingsSubsection(title = stringResource(R.string.setcat_headphones)) {
-                                    SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_headphones_resume_title),
-                                        subtitle = stringResource(R.string.setcat_headphones_resume_subtitle),
-                                        checked = uiState.resumeOnHeadsetReconnect,
-                                        onCheckedChange = { settingsViewModel.setResumeOnHeadsetReconnect(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_headphones_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                }
-
-                                SettingsSubsection(title = stringResource(R.string.setcat_queue_transitions)) {
                                     ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_crossfade_label),
-                                        description = stringResource(R.string.setcat_crossfade_desc),
-                                        options = mapOf(
-                                            "true" to stringResource(R.string.label_enabled),
-                                            "false" to stringResource(R.string.label_disabled)
-                                        ),
-                                        selectedKey = if (uiState.isCrossfadeEnabled) "true" else "false",
-                                        onSelectionChanged = { settingsViewModel.setCrossfadeEnabled(it.toBoolean()) },
+                                        label = stringResource(R.string.setcat_streaming_audio_quality_mobile_title),
+                                        description = stringResource(R.string.setcat_streaming_audio_quality_mobile_desc),
+                                        options = StreamingAudioQuality.entries.associate { it.name to it.label },
+                                        selectedKey = uiState.streamingAudioQualityMobile.name,
+                                        onSelectionChanged = { key ->
+                                            settingsViewModel.setStreamingAudioQualityMobile(StreamingAudioQuality.valueOf(key))
+                                        },
                                         leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_align_justify_space_even_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_mobile_speaker_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
-                                    if (uiState.isCrossfadeEnabled) {
-                                        SliderSettingsItem(
-                                            label = stringResource(R.string.setcat_crossfade_duration),
-                                            value = uiState.crossfadeDuration.toFloat(),
-                                            valueRange = 1000f..12000f,
-                                            steps = 10,
-                                            onValueChange = { settingsViewModel.setCrossfadeDuration(it.toInt()) },
-                                            valueText = { value -> "${(value / 1000).toInt()}s" }
-                                        )
-
-                                    }
                                     SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_hifi_mode_title),
-                                        subtitle = if (uiState.hiFiModeDeviceSupported)
-                                            stringResource(R.string.setcat_hifi_mode_subtitle_supported)
-                                        else
-                                            stringResource(R.string.setcat_hifi_mode_subtitle_unsupported),
-                                        checked = uiState.hiFiModeEnabled,
-                                        onCheckedChange = { settingsViewModel.setHiFiModeEnabled(it) },
-                                        enabled = uiState.hiFiModeDeviceSupported,
+                                        title = stringResource(R.string.setcat_force_high_quality_mobile_title),
+                                        subtitle = stringResource(R.string.setcat_force_high_quality_mobile_desc),
+                                        checked = uiState.forceHighQualityOnMobile,
+                                        onCheckedChange = { settingsViewModel.setForceHighQualityOnMobile(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
+                                    SwitchSettingItem(
+                                        title = "Download on like",
+                                        subtitle = "Automatically download audio of liked YouTube songs to the public Music folder.",
+                                        checked = uiState.cacheLikedSongsOffline,
+                                        onCheckedChange = { settingsViewModel.setCacheLikedSongsOffline(it) },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.round_favorite_border_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                }
+
+                                SettingsSubsection(title = "Queue Settings") {
                                     SwitchSettingItem(
                                         title = stringResource(R.string.setcat_persistent_shuffle_title),
                                         subtitle = stringResource(R.string.setcat_persistent_shuffle_subtitle),
@@ -1397,47 +1283,44 @@ fun SettingsCategoryScreen(
                                     }
                                 }
 
-                                SettingsSubsection(title = stringResource(R.string.setcat_streaming_title)) {
+                                SettingsSubsection(title = "Download Management") {
                                     ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_streaming_audio_quality_wifi_title),
-                                        description = stringResource(R.string.setcat_streaming_audio_quality_wifi_desc),
+                                        label = "Download Audio Quality",
+                                        description = "Select the default audio quality for offline music downloads.",
                                         options = StreamingAudioQuality.entries.associate { it.name to it.label },
-                                        selectedKey = uiState.streamingAudioQualityWifi.name,
+                                        selectedKey = uiState.downloadAudioQuality.name,
                                         onSelectionChanged = { key ->
-                                            settingsViewModel.setStreamingAudioQualityWifi(StreamingAudioQuality.valueOf(key))
+                                            settingsViewModel.setDownloadAudioQuality(StreamingAudioQuality.valueOf(key))
                                         },
                                         leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_wifi_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_streaming_audio_quality_mobile_title),
-                                        description = stringResource(R.string.setcat_streaming_audio_quality_mobile_desc),
-                                        options = StreamingAudioQuality.entries.associate { it.name to it.label },
-                                        selectedKey = uiState.streamingAudioQualityMobile.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setStreamingAudioQualityMobile(StreamingAudioQuality.valueOf(key))
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_mobile_speaker_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_download_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_force_high_quality_mobile_title),
-                                        subtitle = stringResource(R.string.setcat_force_high_quality_mobile_desc),
-                                        checked = uiState.forceHighQualityOnMobile,
-                                        onCheckedChange = { settingsViewModel.setForceHighQualityOnMobile(it) },
+                                        title = "Embed Rich Metadata & Lyrics",
+                                        subtitle = "Embed full song tags, high-resolution artwork, and synchronized lyrics directly into downloaded files (increases file size)",
+                                        checked = uiState.embedFullMetadataOnDownload,
+                                        onCheckedChange = { settingsViewModel.setEmbedFullMetadataOnDownload(it) },
                                         leadingIcon = {
-                                            Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
-                                    SwitchSettingItem(
-                                        title = "Download on like",
-                                        subtitle = "Automatically download audio of liked YouTube songs to the public Music folder.",
-                                        checked = uiState.cacheLikedSongsOffline,
-                                        onCheckedChange = { settingsViewModel.setCacheLikedSongsOffline(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.round_favorite_border_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                    SliderSettingsItem(
+                                        label = stringResource(R.string.setcat_music_storage_limit_desc),
+                                        value = storageLimitDraft,
+                                        valueRange = 0f..10240f,
+                                        steps = 20,
+                                        onValueChange = { storageLimitDraft = it },
+                                        onValueChangeFinished = {
+                                            val selectedLimit = storageLimitDraft.toInt()
+                                            if (selectedLimit != uiState.storageLimitMb) {
+                                                settingsViewModel.setStorageLimitMb(selectedLimit)
+                                            }
+                                        },
+                                        valueText = { value ->
+                                            if (value.toInt() == 0) "Unlimited"
+                                            else if (value >= 1024) "${(value / 1024).toInt()} GB"
+                                            else "${value.toInt()} MB"
                                         }
                                     )
                                 }
@@ -1454,10 +1337,7 @@ fun SettingsCategoryScreen(
                                     )
                                 }
 
-                                SettingsSubsection(
-                                    title = stringResource(R.string.setcat_lyrics_management),
-                                    addBottomSpace = false
-                                ) {
+                                SettingsSubsection(title = stringResource(R.string.setcat_lyrics_management)) {
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_lyrics_source_priority_label),
                                         description = stringResource(R.string.setcat_lyrics_source_priority_desc),
@@ -1505,7 +1385,10 @@ fun SettingsCategoryScreen(
                                     )
                                 }
 
-                                SettingsSubsection(title = stringResource(R.string.presentation_batch_f_exp_visual_quality)) {
+                                SettingsSubsection(
+                                    title = stringResource(R.string.presentation_batch_f_exp_visual_quality),
+                                    addBottomSpace = false
+                                ) {
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_album_art_quality_wifi_title),
                                         description = stringResource(R.string.setcat_album_art_quality_wifi_desc),
@@ -1534,48 +1417,6 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_mobile_speaker_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                }
-
-                                SettingsSubsection(title = "Download Management") {
-                                    ThemeSelectorItem(
-                                        label = "Download Audio Quality",
-                                        description = "Select the default audio quality for offline music downloads.",
-                                        options = StreamingAudioQuality.entries.associate { it.name to it.label },
-                                        selectedKey = uiState.downloadAudioQuality.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setDownloadAudioQuality(StreamingAudioQuality.valueOf(key))
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_download_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    SwitchSettingItem(
-                                        title = "Embed Rich Metadata & Lyrics",
-                                        subtitle = "Embed full song tags, high-resolution artwork, and synchronized lyrics directly into downloaded files (increases file size)",
-                                        checked = uiState.embedFullMetadataOnDownload,
-                                        onCheckedChange = { settingsViewModel.setEmbedFullMetadataOnDownload(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    SliderSettingsItem(
-                                        label = stringResource(R.string.setcat_music_storage_limit_desc),
-                                        value = storageLimitDraft,
-                                        valueRange = 0f..10240f,
-                                        steps = 20,
-                                        onValueChange = { storageLimitDraft = it },
-                                        onValueChangeFinished = {
-                                            val selectedLimit = storageLimitDraft.toInt()
-                                            if (selectedLimit != uiState.storageLimitMb) {
-                                                settingsViewModel.setStorageLimitMb(selectedLimit)
-                                            }
-                                        },
-                                        valueText = { value ->
-                                            if (value.toInt() == 0) "Unlimited"
-                                            else if (value >= 1024) "${(value / 1024).toInt()} GB"
-                                            else "${value.toInt()} MB"
                                         }
                                     )
                                 }
@@ -2748,38 +2589,45 @@ private fun BackupSectionSelectionDialog(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                         contentWindowInsets = WindowInsets.systemBars,
                         topBar = {
-                            CenterAlignedTopAppBar(
-                                title = {
-                                    Text(
-                                        text = title,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontSize = 24.sp,
-                                            textGeometricTransform = TextGeometricTransform(scaleX = 1.2f),
-                                        ),
-                                        fontFamily = GoogleSansRounded,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                navigationIcon = {
-                                    FilledIconButton(
-                                        modifier = Modifier.padding(start = 6.dp),
-                                        onClick = { closeDialog(onDismiss) },
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                                            contentColor = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Close,
-                                            contentDescription = stringResource(R.string.cd_close)
-                                        )
-                                    }
-                                },
-                                colors = TopAppBarDefaults.topAppBarColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            Box {
+                                ProgressiveHeaderBackdrop(
+                                    scrimColor = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier.matchParentSize()
                                 )
-                            )
+                                CenterAlignedTopAppBar(
+                                    title = {
+                                        Text(
+                                            text = title,
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontSize = 24.sp,
+                                                textGeometricTransform = TextGeometricTransform(scaleX = 1.2f),
+                                            ),
+                                            fontFamily = GoogleSansRounded,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    navigationIcon = {
+                                        FilledIconButton(
+                                            modifier = Modifier.padding(start = 6.dp),
+                                            onClick = { closeDialog(onDismiss) },
+                                            colors = IconButtonDefaults.filledIconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                                contentColor = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Close,
+                                                contentDescription = stringResource(R.string.cd_close)
+                                            )
+                                        }
+                                    },
+                                    colors = TopAppBarDefaults.topAppBarColors(
+                                        containerColor = Color.Transparent,
+                                        scrolledContainerColor = Color.Transparent
+                                    )
+                                )
+                            }
                         },
                         bottomBar = {
                             BottomAppBar(
@@ -3283,38 +3131,45 @@ private fun ImportFileSelectionDialog(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                         contentWindowInsets = WindowInsets.systemBars,
                         topBar = {
-                            CenterAlignedTopAppBar(
-                                title = {
-                                    Text(
-                                        text = stringResource(R.string.import_backup_toolbar_title),
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontSize = 24.sp,
-                                            textGeometricTransform = TextGeometricTransform(scaleX = 1.2f),
-                                        ),
-                                        fontFamily = GoogleSansRounded,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                navigationIcon = {
-                                    FilledIconButton(
-                                        modifier = Modifier.padding(start = 6.dp),
-                                        onClick = { closeDialog(onDismiss) },
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                                            contentColor = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Close,
-                                            contentDescription = stringResource(R.string.cd_close)
-                                        )
-                                    }
-                                },
-                                colors = TopAppBarDefaults.topAppBarColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            Box {
+                                ProgressiveHeaderBackdrop(
+                                    scrimColor = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier.matchParentSize()
                                 )
-                            )
+                                CenterAlignedTopAppBar(
+                                    title = {
+                                        Text(
+                                            text = stringResource(R.string.import_backup_toolbar_title),
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontSize = 24.sp,
+                                                textGeometricTransform = TextGeometricTransform(scaleX = 1.2f),
+                                            ),
+                                            fontFamily = GoogleSansRounded,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    navigationIcon = {
+                                        FilledIconButton(
+                                            modifier = Modifier.padding(start = 6.dp),
+                                            onClick = { closeDialog(onDismiss) },
+                                            colors = IconButtonDefaults.filledIconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                                contentColor = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Close,
+                                                contentDescription = stringResource(R.string.cd_close)
+                                            )
+                                        }
+                                    },
+                                    colors = TopAppBarDefaults.topAppBarColors(
+                                        containerColor = Color.Transparent,
+                                        scrolledContainerColor = Color.Transparent
+                                    )
+                                )
+                            }
                         },
                         bottomBar = {
                             BottomAppBar(

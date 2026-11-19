@@ -59,7 +59,7 @@ class ThemePreferencesRepository @Inject constructor(
         }
 
     val amoledBlackModeFlow: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[Keys.AMOLED_BLACK_MODE] ?: false
+        preferences[Keys.AMOLED_BLACK_MODE] ?: true
     }
 
     suspend fun setAmoledBlackMode(enabled: Boolean) =

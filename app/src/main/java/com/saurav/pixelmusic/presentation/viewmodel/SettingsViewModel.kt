@@ -76,7 +76,7 @@ data class SettingsUiState(
     val appLanguageTag: String = AppLanguage.SYSTEM.tag,
     val appThemeMode: String = AppThemeMode.DARK,
     val appFontMode: String = AppFontMode.APP_DEFAULT,
-    val amoledBlackModeEnabled: Boolean = false,
+    val amoledBlackModeEnabled: Boolean = true,
     val playerThemePreference: String = ThemePreference.ALBUM_ART,
     val colorPalette: String = "DYNAMIC",
     val albumArtPaletteStyle: AlbumArtPaletteStyle = AlbumArtPaletteStyle.default,

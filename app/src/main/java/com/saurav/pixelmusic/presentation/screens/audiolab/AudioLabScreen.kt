@@ -25,11 +25,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.saurav.pixelmusic.presentation.viewmodel.SettingsUiState
+import com.saurav.pixelmusic.presentation.viewmodel.SettingsViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +79,7 @@ import kotlin.math.sin
 fun AudioLabScreen(
     navController: NavController,
     viewModel: AudioLabViewModel = hiltViewModel(),
+    settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val eq by viewModel.eq.collectAsState()
     val presets by viewModel.presets.collectAsState()
@@ -76,6 +90,7 @@ fun AudioLabScreen(
     val volume by viewModel.volume.collectAsState()
     val stage by viewModel.stage.collectAsState()
     val effects = activeEffects(reverb, loudness, spatial, playback, volume, stage)
+    val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
 
     ListenToAudio()
 
@@ -129,6 +144,10 @@ fun AudioLabScreen(
                         stageTile(Modifier.weight(1f).fillMaxHeight())
                         transition(Modifier.weight(1f).fillMaxHeight())
                     }
+                    AudioOutputPlaybackCard(
+                        uiState = settingsUiState,
+                        settingsViewModel = settingsViewModel,
+                    )
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -136,8 +155,195 @@ fun AudioLabScreen(
                     effect(Modifier)
                     stageTile(Modifier)
                     transition(Modifier)
+                    AudioOutputPlaybackCard(
+                        uiState = settingsUiState,
+                        settingsViewModel = settingsViewModel,
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AudioOutputPlaybackCard(
+    uiState: SettingsUiState,
+    settingsViewModel: SettingsViewModel,
+    modifier: Modifier = Modifier,
+) {
+    val activeLabels = buildList {
+        if (uiState.hiFiModeEnabled) add("HI-FI")
+        if (uiState.replayGainEnabled) add("REPLAYGAIN")
+        if (uiState.resumeOnHeadsetReconnect) add("HEADSET")
+        if (!uiState.disableCastAutoplay) add("CAST")
+    }
+    val statusText = if (activeLabels.isEmpty()) "ALL OFF" else activeLabels.joinToString(" · ")
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(26.dp))
+            .background(LabColors.HubCard)
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            StatusLine(status = statusText, on = activeLabels.isNotEmpty())
+            Text(
+                text = "Playback & Output",
+                fontFamily = InterFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                letterSpacing = (-0.025).em,
+                color = LabColors.Primary,
+            )
+        }
+
+        HorizontalDivider(color = LabColors.Border)
+
+        AudioOutputToggleRow(
+            iconRes = R.drawable.rounded_headphones_24,
+            title = stringResource(R.string.setcat_headphones_resume_title),
+            subtitle = stringResource(R.string.setcat_headphones_resume_subtitle),
+            checked = uiState.resumeOnHeadsetReconnect,
+            onCheckedChange = { settingsViewModel.setResumeOnHeadsetReconnect(it) },
+        )
+
+        HorizontalDivider(color = LabColors.Border)
+
+        AudioOutputToggleRow(
+            iconRes = R.drawable.rounded_cast_24,
+            title = stringResource(R.string.setcat_cast_autoplay_label),
+            subtitle = stringResource(R.string.setcat_cast_autoplay_desc),
+            checked = !uiState.disableCastAutoplay,
+            onCheckedChange = { enabled -> settingsViewModel.setDisableCastAutoplay(!enabled) },
+        )
+
+        HorizontalDivider(color = LabColors.Border)
+
+        AudioOutputToggleRow(
+            iconRes = R.drawable.rounded_volume_down_24,
+            title = stringResource(R.string.setcat_replaygain_enable_title),
+            subtitle = stringResource(R.string.setcat_replaygain_enable_subtitle),
+            checked = uiState.replayGainEnabled,
+            onCheckedChange = { settingsViewModel.setReplayGainEnabled(it) },
+        )
+
+        AnimatedVisibility(
+            visible = uiState.replayGainEnabled,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 36.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val trackSelected = !uiState.replayGainUseAlbumGain
+                ReplayGainModePill(
+                    label = stringResource(R.string.setcat_gain_mode_track),
+                    selected = trackSelected,
+                    onClick = { settingsViewModel.setReplayGainUseAlbumGain(false) },
+                    modifier = Modifier.weight(1f),
+                )
+                ReplayGainModePill(
+                    label = stringResource(R.string.setcat_gain_mode_album),
+                    selected = !trackSelected,
+                    onClick = { settingsViewModel.setReplayGainUseAlbumGain(true) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        HorizontalDivider(color = LabColors.Border)
+
+        AudioOutputToggleRow(
+            iconRes = R.drawable.outline_high_quality_24,
+            title = stringResource(R.string.setcat_hifi_mode_title),
+            subtitle = if (uiState.hiFiModeDeviceSupported) {
+                stringResource(R.string.setcat_hifi_mode_subtitle_supported)
+            } else {
+                stringResource(R.string.setcat_hifi_mode_subtitle_unsupported)
+            },
+            checked = uiState.hiFiModeEnabled,
+            enabled = uiState.hiFiModeDeviceSupported,
+            onCheckedChange = { settingsViewModel.setHiFiModeEnabled(it) },
+        )
+    }
+}
+
+@Composable
+private fun AudioOutputToggleRow(
+    iconRes: Int,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = if (enabled) MaterialTheme.colorScheme.secondary else LabColors.Faint,
+            modifier = Modifier.size(22.dp),
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                fontFamily = InterFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = if (enabled) LabColors.Primary else LabColors.Faint,
+            )
+            Text(
+                text = subtitle,
+                fontFamily = InterFontFamily,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = LabColors.Secondary,
+            )
+        }
+        AppSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+        )
+    }
+}
+
+@Composable
+private fun ReplayGainModePill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else LabColors.Secondary,
+        modifier = modifier.height(36.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
+            Text(
+                text = label,
+                fontFamily = InterFontFamily,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

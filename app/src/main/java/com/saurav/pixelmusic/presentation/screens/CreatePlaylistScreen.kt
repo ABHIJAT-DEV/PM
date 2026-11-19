@@ -417,9 +417,11 @@ private fun CreatePlaylistContent(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
-            )
+                )
+            }
         },
         floatingActionButton = {
             if (!showCropUi && !(currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL)) {

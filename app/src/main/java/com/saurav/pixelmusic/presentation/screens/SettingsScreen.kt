@@ -585,6 +585,7 @@ fun SettingsScreen(
             )
         }
     }
+    }
 }
 
 @Composable

@@ -447,6 +447,7 @@ fun SearchScreen(
                         modifier = Modifier.size(24.dp)
                     )
                 }
+                }
             }
 
             // ── Body: Browse Mode vs Active Search Results ──────────────────────

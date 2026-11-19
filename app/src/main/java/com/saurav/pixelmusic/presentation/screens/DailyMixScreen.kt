@@ -294,6 +294,7 @@ fun DailyMixScreen(
     }
 
 
+    val dailyMixGlassState = rememberGlassState()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -307,7 +308,6 @@ fun DailyMixScreen(
                 ContainedLoadingIndicator()
             }
         } else {
-            val dailyMixGlassState = rememberGlassState()
             LazyColumn(
                 state = lazyListState,
                 modifier = Modifier.fillMaxSize().glassRoot(dailyMixGlassState).scrollMotionBlur(lazyListState = lazyListState),
@@ -493,6 +493,7 @@ fun DailyMixScreen(
         ProgressiveStatusBarHeaderBackdrop(
             extraHeight = 60.dp,
             scrimColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            glassState = dailyMixGlassState,
             modifier = Modifier.align(Alignment.TopCenter)
         )
     }
