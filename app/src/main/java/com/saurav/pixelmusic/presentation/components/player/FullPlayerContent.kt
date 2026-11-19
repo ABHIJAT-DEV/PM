@@ -1888,6 +1888,15 @@ fun FullPlayerContent(
 
                             // Material You Expressive Separated Action Cards
                             var isDownloaded by remember(song.id) { mutableStateOf(false) }
+                            val activeDownloadProgress by com.saurav.pixelmusic.utils.SongDownloader.activeDownloadProgress.collectAsStateWithLifecycle()
+                            val downloadNotificationId = remember(song.id, song.youtubeId) { (song.youtubeId ?: song.id).hashCode() }
+                            val downloadProgress = activeDownloadProgress[downloadNotificationId]
+                            val isDownloading = downloadProgress != null
+                            val animatedDownloadProgress by animateFloatAsState(
+                                targetValue = (downloadProgress ?: 0f).coerceAtLeast(0f),
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                                label = "SongDownloadProgress"
+                            )
                             LaunchedEffect(song.id) {
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                     val musicDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC)
@@ -1941,13 +1950,36 @@ fun FullPlayerContent(
                                 ) {
                                     SongActionRow(
                                         painter = if (isDownloaded) rememberVectorPainter(Icons.Rounded.CheckCircle) else painterResource(R.drawable.rounded_download_24),
-                                        title = if (isDownloaded) "Downloaded" else "Download",
-                                        subtitle = if (isDownloaded) "Saved to device storage" else null,
+                                        title = when {
+                                            isDownloaded -> "Downloaded"
+                                            isDownloading && downloadProgress != null && downloadProgress >= 0f -> "Downloading · ${(animatedDownloadProgress * 100).toInt()}%"
+                                            isDownloading -> "Downloading…"
+                                            else -> "Download"
+                                        },
+                                        subtitle = when {
+                                            isDownloaded -> "Saved to device storage"
+                                            isDownloading && downloadProgress != null && downloadProgress >= 0f -> "Downloading song · ${(animatedDownloadProgress * 100).toInt()}% complete"
+                                            isDownloading -> "Preparing audio download…"
+                                            else -> null
+                                        },
                                         iconTint = if (isDownloaded) LocalMaterialTheme.current.onPrimaryContainer else defaultIconTint,
                                         iconBgColor = if (isDownloaded) LocalMaterialTheme.current.primaryContainer else defaultIconBg,
+                                        trailingContent = if (isDownloading) {
+                                            {
+                                                if (downloadProgress != null && downloadProgress < 0f) {
+                                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
+                                                } else {
+                                                    CircularProgressIndicator(
+                                                        progress = { animatedDownloadProgress },
+                                                        modifier = Modifier.size(24.dp),
+                                                        strokeWidth = 2.5.dp,
+                                                        trackColor = LocalMaterialTheme.current.onSurface.copy(alpha = 0.10f)
+                                                    )
+                                                }
+                                            }
+                                        } else null,
                                         onClick = {
-                                            if (!isDownloaded) {
-                                                smoothDismiss(null)
+                                            if (!isDownloaded && !isDownloading) {
                                                 fileImportScope.launch {
                                                     var currentLyricsObj = lyricsProvider()
                                                     if (currentLyricsObj == null) {
@@ -1966,11 +1998,12 @@ fun FullPlayerContent(
                                                         }
                                                     }
 
-                                                    com.saurav.pixelmusic.utils.SongDownloader.downloadAndTagSong(
+                                                    val success = com.saurav.pixelmusic.utils.SongDownloader.downloadAndTagSong(
                                                         context = context,
                                                         song = song,
                                                         lyricsText = lyricsText
                                                     )
+                                                    if (success) isDownloaded = true
                                                 }
                                             }
                                         }
