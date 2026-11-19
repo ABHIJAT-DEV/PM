@@ -21,6 +21,7 @@ data class TransitionUiState(
     val globalSettings: TransitionSettings = TransitionSettings(),
     val isLoading: Boolean = true,
     val isSaved: Boolean = false,
+    val saveCount: Int = 0,
     val useGlobalDefaults: Boolean = false,
     val playlistId: String? = null
 )
@@ -135,20 +136,42 @@ class TransitionViewModel @Inject constructor(
 
     fun saveSettings() {
         viewModelScope.launch {
-            val ruleToSave = _uiState.value.rule
+            val currentState = _uiState.value
+            val ruleToSave = currentState.rule
+            val currentSettings = getCurrentSettings()
 
             if (playlistId != null) {
                 when {
-                    _uiState.value.useGlobalDefaults -> transitionRepository.deletePlaylistDefaultRule(playlistId)
+                    currentState.useGlobalDefaults -> transitionRepository.deletePlaylistDefaultRule(playlistId)
                     ruleToSave != null && ruleToSave.settings.mode == TransitionMode.NONE ->
                         transitionRepository.deletePlaylistDefaultRule(playlistId)
                     ruleToSave != null -> transitionRepository.saveRule(ruleToSave)
                 }
+                val updatedRule = transitionRepository.getPlaylistDefaultRule(playlistId).first()
+                val updatedGlobal = transitionRepository.getGlobalSettings().first()
+                _uiState.update {
+                    it.copy(
+                        rule = updatedRule,
+                        globalSettings = updatedGlobal,
+                        useGlobalDefaults = updatedRule == null,
+                        isLoading = false,
+                        isSaved = true,
+                        saveCount = it.saveCount + 1
+                    )
+                }
             } else {
-                transitionRepository.saveGlobalSettings(getCurrentSettings())
+                transitionRepository.saveGlobalSettings(currentSettings)
+                _uiState.update {
+                    it.copy(
+                        rule = null,
+                        globalSettings = currentSettings,
+                        useGlobalDefaults = true,
+                        isLoading = false,
+                        isSaved = true,
+                        saveCount = it.saveCount + 1
+                    )
+                }
             }
-            loadSettings()
-            _uiState.update { it.copy(isSaved = true) }
         }
     }
 }

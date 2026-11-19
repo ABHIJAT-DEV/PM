@@ -66,7 +66,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -105,8 +107,9 @@ fun EditTransitionScreen(
     // Configuración para el comportamiento de la TopBar colapsable (Material 3)
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    LaunchedEffect(uiState.isSaved, isPlaylistScope, uiState.useGlobalDefaults) {
-        if (uiState.isSaved) {
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(uiState.saveCount) {
+        if (uiState.saveCount > 0 && uiState.isSaved) {
             val messageRes = if (isPlaylistScope && uiState.useGlobalDefaults) {
                 R.string.presentation_batch_d_transition_snackbar_using_global
             } else {
@@ -146,7 +149,10 @@ fun EditTransitionScreen(
                 actions = {
                     FilledTonalIconButton(
                         modifier = Modifier.padding(end = 10.dp),
-                        onClick = { viewModel.saveSettings() },
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.saveSettings()
+                        },
                         enabled = !uiState.isLoading,
                         colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer)
                     ){
@@ -469,14 +475,20 @@ private fun TransitionDurationSection(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+            val haptic = LocalHapticFeedback.current
+            val defaultDuration = TransitionSettings().durationMs
+            val isModified = settings.durationMs != defaultDuration
             FilledIconButton(
-                onClick = { onDurationChange(TransitionSettings().durationMs) },
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onDurationChange(defaultDuration)
+                },
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    containerColor = if (isModified) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (isModified) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
-                Icon(painterResource(R.drawable.rounded_tune_24), contentDescription = stringResource(R.string.presentation_batch_d_transition_reset_cd))
+                Icon(painterResource(R.drawable.outline_restart_alt_24), contentDescription = stringResource(R.string.presentation_batch_d_transition_reset_cd))
             }
         }
 
@@ -484,10 +496,10 @@ private fun TransitionDurationSection(
         CrossfadeVisualizer(durationMs = settings.durationMs)
 
         Slider(
-            value = settings.durationMs.toFloat(),
-            onValueChange = { onDurationChange(it.toInt()) },
-            valueRange = 0f..12000f,
-            steps = 11,
+            value = settings.durationMs.toFloat().coerceIn(1000f, 12000f),
+            onValueChange = { onDurationChange((it / 1000f).toInt().coerceIn(1, 12) * 1000) },
+            valueRange = 1000f..12000f,
+            steps = 10,
             colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,
                 activeTrackColor = MaterialTheme.colorScheme.primary,
