@@ -7,8 +7,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -79,8 +82,26 @@ fun ExternalPlayerOverlay(
     val navBarCornerRadius = sanitizeNavBarCornerRadius(navBarCornerRadiusRaw)
     val currentSong = stablePlayerState.currentSong
 
-    var sheetVisible by remember { mutableStateOf(true) }
+    var sheetVisible by remember { mutableStateOf(false) }
     var awaitingSong by remember { mutableStateOf(true) }
+    var pendingExitAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    fun triggerExit(action: () -> Unit) {
+        if (pendingExitAction == null) {
+            pendingExitAction = action
+            sheetVisible = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        sheetVisible = true
+    }
+
+    LaunchedEffect(pendingExitAction) {
+        val action = pendingExitAction ?: return@LaunchedEffect
+        delay(420L)
+        action()
+    }
 
     val sheetShape = remember(navBarCornerRadius) {
         val radiusDp = navBarCornerRadius.dp
@@ -106,15 +127,16 @@ fun ExternalPlayerOverlay(
     LaunchedEffect(currentSong) {
         if (currentSong != null) {
             awaitingSong = false
-            sheetVisible = true
+            if (pendingExitAction == null) {
+                sheetVisible = true
+            }
         } else if (!awaitingSong) {
-            sheetVisible = false
-            onDismiss()
+            triggerExit(onDismiss)
         }
     }
 
-    BackHandler(enabled = sheetVisible) {
-        onDismiss()
+    BackHandler(enabled = sheetVisible && pendingExitAction == null) {
+        triggerExit(onDismiss)
     }
 
     val backgroundScrim = MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)
@@ -124,8 +146,8 @@ fun ExternalPlayerOverlay(
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = sheetVisible,
-            enter = fadeIn(),
-            exit = fadeOut()
+            enter = fadeIn(animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing))
         ) {
             Box(
                 modifier = Modifier
@@ -134,14 +156,20 @@ fun ExternalPlayerOverlay(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) { onDismiss() }
+                    ) { triggerExit(onDismiss) }
             )
         }
 
         AnimatedVisibility(
             visible = sheetVisible,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing)),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             Surface(
@@ -150,6 +178,7 @@ fun ExternalPlayerOverlay(
                 shape = sheetShape,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(bottom = bottomPadding)
                     .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 if (currentSong == null) {
@@ -179,8 +208,7 @@ fun ExternalPlayerOverlay(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 24.dp)
-                            .padding(bottom = bottomPadding)
+                            .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 20.dp)
                     ) {
                         Box(
                             modifier = Modifier
@@ -318,7 +346,7 @@ fun ExternalPlayerOverlay(
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Button(
-                            onClick = onOpenFullPlayer,
+                            onClick = { triggerExit(onOpenFullPlayer) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = AbsoluteSmoothCornerShape(
                                 cornerRadiusTR = 16.dp,

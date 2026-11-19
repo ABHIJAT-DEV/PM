@@ -44,6 +44,13 @@ class ExternalPlayerActivity : ComponentActivity() {
             )
         )
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, 0, 0)
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
+        }
 
         setContent {
             val systemDarkTheme = isSystemInDarkTheme()
@@ -103,6 +110,14 @@ class ExternalPlayerActivity : ComponentActivity() {
                 }
                 clearExternalIntentPayload(intent)
             }
+        }
+    }
+
+    override fun finish() {
+        super.finish()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
         }
     }
 
