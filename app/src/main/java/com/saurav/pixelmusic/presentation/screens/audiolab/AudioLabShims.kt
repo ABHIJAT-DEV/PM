@@ -76,6 +76,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
+import com.saurav.pixelmusic.ui.blur.GlassState
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.theme.PixelMusicStatusBarStyle
 
 internal val InterFontFamily: FontFamily = FontFamily.SansSerif
@@ -188,17 +191,21 @@ internal fun SubSettingsScaffold(
     PixelMusicStatusBarStyle(color = bg)
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    Column(
+    val scrollState = rememberScrollState()
+    val glassState = remember { GlassState() }
+    val blurAlpha = (scrollState.value / 120f).coerceIn(0f, 1f)
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(bg),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             modifier = Modifier
                 .widthIn(max = 680.dp)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .glassRoot(glassState, isActive = { !scrollState.isScrollInProgress })
+                .verticalScroll(scrollState)
                 .padding(top = statusTop + 14.dp, bottom = navBottom + MiniPlayerHeight + 36.dp)
                 .padding(horizontal = 20.dp),
         ) {
@@ -246,6 +253,15 @@ internal fun SubSettingsScaffold(
             Spacer(Modifier.height(18.dp))
             content()
         }
+        ProgressiveHeaderBackdrop(
+            alpha = blurAlpha,
+            scrimColor = bg,
+            glassState = glassState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(statusTop + 72.dp)
+                .align(Alignment.TopCenter),
+        )
     }
 }
 

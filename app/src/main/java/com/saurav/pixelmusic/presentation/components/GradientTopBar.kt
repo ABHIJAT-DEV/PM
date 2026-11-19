@@ -42,6 +42,8 @@ import com.saurav.pixelmusic.ui.theme.PixelMusicStatusBarStyle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 import androidx.compose.runtime.*
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
@@ -137,9 +139,9 @@ fun HomeGradientTopBar(
     onMenuClick: () -> Unit = {},
     isScrolled: Boolean = false,
 ) {
-    val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHighest
+    val surfaceBase = MaterialTheme.colorScheme.background
 
-    PixelMusicStatusBarStyle(color = surfaceContainerHigh)
+    PixelMusicStatusBarStyle(color = surfaceBase)
 
     val animatedAlpha by animateFloatAsState(
         targetValue = if (isScrolled) 1f else 0f,
@@ -147,10 +149,15 @@ fun HomeGradientTopBar(
         label = "topbar_alpha_transition"
     )
 
-    TopAppBar(
-        modifier = Modifier
-            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(surfaceContainerHigh.copy(alpha = animatedAlpha)),
+    Box {
+        ProgressiveHeaderBackdrop(
+            alpha = animatedAlpha,
+            scrimColor = surfaceBase,
+            glassState = LocalScreenGlassState.current,
+            modifier = Modifier.matchParentSize(),
+        )
+        TopAppBar(
+            modifier = Modifier,
         title = { /* no title, only branding */ },
         navigationIcon = {
             Row(
@@ -173,8 +180,9 @@ fun HomeGradientTopBar(
             }
         },
         actions = { /* no actions — recognition lives on the FAB now */ },
-        colors = topAppBarColors(
-            containerColor = Color.Transparent
+            colors = topAppBarColors(
+                containerColor = Color.Transparent
+            )
         )
-    )
+    }
 }

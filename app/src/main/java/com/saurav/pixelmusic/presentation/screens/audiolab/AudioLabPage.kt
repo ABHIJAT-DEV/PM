@@ -64,6 +64,9 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
+import com.saurav.pixelmusic.ui.blur.GlassState
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
+import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.theme.PixelMusicStatusBarStyle
 import kotlin.math.roundToInt
 
@@ -132,8 +135,14 @@ fun AudioLabPage(
             }.map { it.measure(constraints) }
 
             val body = subcompose("body") {
+                val glassState = remember { GlassState() }
                 Box(Modifier.fillMaxSize().graphicsLayer()) {
-                    Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
+                    Column(
+                        Modifier
+                            .fillMaxSize()
+                            .glassRoot(glassState, isActive = { !scroll.isScrollInProgress })
+                            .verticalScroll(scroll)
+                    ) {
                         Spacer(Modifier.height(headerDp))
                         Column(
                             modifier = Modifier
@@ -153,7 +162,7 @@ fun AudioLabPage(
                             )
                         }
                     }
-                    TopScrim(scroll, headerHeight, statusTop)
+                    TopScrim(scroll, headerHeight, statusTop, glassState)
                     LabBackButton(onBack, Modifier.padding(start = inset, top = statusTop + 14.dp))
                 }
             }.map { it.measure(constraints) }
@@ -305,17 +314,22 @@ private fun LabBadge(text: String) {
 }
 
 @Composable
-private fun TopScrim(scroll: ScrollState, headerHeight: Int, statusTop: Dp) {
+private fun TopScrim(scroll: ScrollState, headerHeight: Int, statusTop: Dp, glassState: GlassState) {
     val sheetColor = LabColors.Sheet
-    Box(
+    val density = LocalDensity.current
+    val progress = remember(scroll.value, headerHeight, statusTop, density) {
+        with(density) {
+            val reach = headerHeight - (statusTop + 64.dp).toPx()
+            ((scroll.value - reach) / 48.dp.toPx()).coerceIn(0f, 1f)
+        }
+    }
+    ProgressiveHeaderBackdrop(
+        alpha = progress,
+        scrimColor = sheetColor,
+        glassState = glassState,
         modifier = Modifier
             .fillMaxWidth()
-            .height(statusTop + 64.dp)
-            .graphicsLayer {
-                val reach = headerHeight - (statusTop + 64.dp).toPx()
-                alpha = ((scroll.value - reach) / 48.dp.toPx()).coerceIn(0f, 1f)
-            }
-            .background(Brush.verticalGradient(listOf(sheetColor, sheetColor.copy(alpha = 0.85f), Color.Transparent))),
+            .height(statusTop + 88.dp),
     )
 }
 

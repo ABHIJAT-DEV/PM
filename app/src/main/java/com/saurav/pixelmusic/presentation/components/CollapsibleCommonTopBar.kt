@@ -29,6 +29,8 @@ import androidx.compose.ui.res.stringResource
 import com.saurav.pixelmusic.R
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 
 @Composable
 fun CollapsibleCommonTopBar(
@@ -65,25 +67,25 @@ fun CollapsibleCommonTopBar(
     // solidAlpha goes from 0 to 1 as collapseFraction goes from 0 to 0.5 (approx).
     // Actually GenreDetailScreen uses: (collapseFraction * 2f).coerceIn(0f, 1f)
     val solidAlpha = (collapseFraction * 2f).coerceIn(0f, 1f)
-    
-    val backgroundColor = containerColor ?: MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = solidAlpha)
-    val statusBarFallbackColor = backgroundColor.compositeOver(MaterialTheme.colorScheme.surface)
+    val scrimBase = containerColor ?: MaterialTheme.colorScheme.background
+    val statusBarFallbackColor = scrimBase.copy(alpha = solidAlpha).compositeOver(MaterialTheme.colorScheme.surface)
 
     if (syncStatusBarWithContainer) {
         PixelMusicStatusBarStyle(color = statusBarFallbackColor)
     }
-    // We can also fade the content color if we want, but usually onSurface is fine.
-    // GenreDetail interpolates content color, but for standard screens onSurface is usually correct for both states 
-    // (transparent surface vs surfaceContainer).
-    
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(headerHeight)
-            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(backgroundColor)
             .zIndex(5f)
     ) {
+        ProgressiveHeaderBackdrop(
+            alpha = solidAlpha,
+            scrimColor = scrimBase,
+            glassState = LocalScreenGlassState.current,
+            modifier = Modifier.fillMaxSize(),
+        )
         Box(
             modifier = Modifier
                 .fillMaxSize()
