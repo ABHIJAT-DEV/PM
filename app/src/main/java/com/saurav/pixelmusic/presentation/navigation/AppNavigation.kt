@@ -12,8 +12,11 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -919,15 +922,29 @@ private enum class MainRootDirection {
     BACKWARD
 }
 
-private const val BOTTOM_NAV_TRANSITION_DURATION = 380
+private const val BOTTOM_NAV_ENTER_DURATION = 280
+private const val BOTTOM_NAV_EXIT_DURATION = 180
 
-private val BottomNavEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+private val BottomNavEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+private val BottomNavExitEasing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
 
-private val MAIN_ROOT_TRANSITION_SPEC =
-    tween<IntOffset>(durationMillis = BOTTOM_NAV_TRANSITION_DURATION, easing = BottomNavEasing)
+private val MAIN_ROOT_ENTER_SLIDE_SPEC =
+    tween<IntOffset>(durationMillis = BOTTOM_NAV_ENTER_DURATION, easing = BottomNavEnterEasing)
 
-private val MAIN_ROOT_FADE_SPEC =
-    tween<Float>(durationMillis = BOTTOM_NAV_TRANSITION_DURATION / 2, easing = BottomNavEasing)
+private val MAIN_ROOT_EXIT_SLIDE_SPEC =
+    tween<IntOffset>(durationMillis = BOTTOM_NAV_EXIT_DURATION, easing = BottomNavExitEasing)
+
+private val MAIN_ROOT_ENTER_FADE_SPEC =
+    tween<Float>(durationMillis = 220, delayMillis = 35, easing = BottomNavEnterEasing)
+
+private val MAIN_ROOT_EXIT_FADE_SPEC =
+    tween<Float>(durationMillis = 150, easing = BottomNavExitEasing)
+
+private val MAIN_ROOT_ENTER_SCALE_SPEC =
+    tween<Float>(durationMillis = BOTTOM_NAV_ENTER_DURATION, easing = BottomNavEnterEasing)
+
+private val MAIN_ROOT_EXIT_SCALE_SPEC =
+    tween<Float>(durationMillis = BOTTOM_NAV_EXIT_DURATION, easing = BottomNavExitEasing)
 
 private fun mainRootDirection(
     fromRoute: String?,
@@ -946,15 +963,23 @@ private fun mainRootEnterTransition(
 ): EnterTransition = when (mainRootDirection(fromRoute, toRoute)) {
     MainRootDirection.FORWARD -> {
         slideInHorizontally(
-            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
-            initialOffsetX = { (it * 0.5f).toInt() }
-        ) + fadeIn(animationSpec = MAIN_ROOT_FADE_SPEC)
+            animationSpec = MAIN_ROOT_ENTER_SLIDE_SPEC,
+            initialOffsetX = { (it * 0.06f).toInt() }
+        ) + scaleIn(
+            animationSpec = MAIN_ROOT_ENTER_SCALE_SPEC,
+            initialScale = 0.965f,
+            transformOrigin = TransformOrigin.Center
+        ) + fadeIn(animationSpec = MAIN_ROOT_ENTER_FADE_SPEC)
     }
     MainRootDirection.BACKWARD -> {
         slideInHorizontally(
-            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
-            initialOffsetX = { -(it * 0.5f).toInt() }
-        ) + fadeIn(animationSpec = MAIN_ROOT_FADE_SPEC)
+            animationSpec = MAIN_ROOT_ENTER_SLIDE_SPEC,
+            initialOffsetX = { -(it * 0.06f).toInt() }
+        ) + scaleIn(
+            animationSpec = MAIN_ROOT_ENTER_SCALE_SPEC,
+            initialScale = 0.965f,
+            transformOrigin = TransformOrigin.Center
+        ) + fadeIn(animationSpec = MAIN_ROOT_ENTER_FADE_SPEC)
     }
     null -> fallback
 }
@@ -966,15 +991,23 @@ private fun mainRootExitTransition(
 ): ExitTransition = when (mainRootDirection(fromRoute, toRoute)) {
     MainRootDirection.FORWARD -> {
         slideOutHorizontally(
-            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
-            targetOffsetX = { -(it * 0.5f).toInt() }
-        ) + fadeOut(animationSpec = MAIN_ROOT_FADE_SPEC)
+            animationSpec = MAIN_ROOT_EXIT_SLIDE_SPEC,
+            targetOffsetX = { -(it * 0.06f).toInt() }
+        ) + scaleOut(
+            animationSpec = MAIN_ROOT_EXIT_SCALE_SPEC,
+            targetScale = 0.965f,
+            transformOrigin = TransformOrigin.Center
+        ) + fadeOut(animationSpec = MAIN_ROOT_EXIT_FADE_SPEC)
     }
     MainRootDirection.BACKWARD -> {
         slideOutHorizontally(
-            animationSpec = MAIN_ROOT_TRANSITION_SPEC,
-            targetOffsetX = { (it * 0.5f).toInt() }
-        ) + fadeOut(animationSpec = MAIN_ROOT_FADE_SPEC)
+            animationSpec = MAIN_ROOT_EXIT_SLIDE_SPEC,
+            targetOffsetX = { (it * 0.06f).toInt() }
+        ) + scaleOut(
+            animationSpec = MAIN_ROOT_EXIT_SCALE_SPEC,
+            targetScale = 0.965f,
+            transformOrigin = TransformOrigin.Center
+        ) + fadeOut(animationSpec = MAIN_ROOT_EXIT_FADE_SPEC)
     }
     null -> fallback
 }
