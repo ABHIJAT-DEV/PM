@@ -3,10 +3,10 @@ package com.saurav.pixelmusic.presentation.components
 import android.os.Build
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -94,54 +95,45 @@ fun TopHalfBackgroundLayer(
                         val primaryContainer = colorScheme.primaryContainer
                         val tertiaryContainer = colorScheme.tertiaryContainer
                         val intensity = if (isLightTheme) 0.55f else 0.72f
-                        val extraGlowBlur = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            Modifier.blur(36.dp)
-                        } else {
-                            Modifier
-                        }
-                        Canvas(
+                        Spacer(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .then(extraGlowBlur)
-                        ) {
-                            val w = size.width
-                            val h = size.height
-                            // Top-left Material You primary expressive orb
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        primary.copy(alpha = intensity),
-                                        primaryContainer.copy(alpha = intensity * 0.55f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(w * 0.18f, h * 0.16f),
-                                    radius = w * 0.88f
-                                )
-                            )
-                            // Top-right Material You tertiary expressive orb
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        tertiary.copy(alpha = intensity * 0.9f),
-                                        tertiaryContainer.copy(alpha = intensity * 0.45f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(w * 0.86f, h * 0.22f),
-                                    radius = w * 0.82f
-                                )
-                            )
-                            // Upper-center secondary wash to blend seamlessly like Gemini / YT Music
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        secondary.copy(alpha = intensity * 0.55f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(w * 0.50f, h * 0.42f),
-                                    radius = w * 0.75f
-                                )
-                            )
-                        }
+                                .drawWithCache {
+                                    val w = size.width
+                                    val h = size.height
+                                    val orb1 = Brush.radialGradient(
+                                        colors = listOf(
+                                            primary.copy(alpha = intensity),
+                                            primaryContainer.copy(alpha = intensity * 0.55f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(w * 0.18f, h * 0.16f),
+                                        radius = w * 0.88f
+                                    )
+                                    val orb2 = Brush.radialGradient(
+                                        colors = listOf(
+                                            tertiary.copy(alpha = intensity * 0.9f),
+                                            tertiaryContainer.copy(alpha = intensity * 0.45f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(w * 0.86f, h * 0.22f),
+                                        radius = w * 0.82f
+                                    )
+                                    val orb3 = Brush.radialGradient(
+                                        colors = listOf(
+                                            secondary.copy(alpha = intensity * 0.55f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(w * 0.50f, h * 0.42f),
+                                        radius = w * 0.75f
+                                    )
+                                    onDrawBehind {
+                                        drawRect(brush = orb1)
+                                        drawRect(brush = orb2)
+                                        drawRect(brush = orb3)
+                                    }
+                                }
+                        )
                     }
 
                     AppBackgroundStyle.MUSIC_NOTES -> {

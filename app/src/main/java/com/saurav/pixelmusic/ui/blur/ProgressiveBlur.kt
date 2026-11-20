@@ -186,9 +186,9 @@ fun Modifier.glassRoot(state: GlassState, isActive: () -> Boolean = { true }): M
     }
 
 internal fun glassDownscale(effectiveRadius: Float, low: Boolean = false): Int = when {
-    effectiveRadius >= 64f -> 4
-    low && effectiveRadius >= 32f -> 4
-    effectiveRadius >= 16f -> 2
+    effectiveRadius >= 20f -> 4
+    low && effectiveRadius >= 12f -> 4
+    effectiveRadius >= 6f -> 2
     low && effectiveRadius >= 2f -> 2
     else -> 1
 }
@@ -214,13 +214,13 @@ half4 main(float2 p) {
     float sigma = 0.57735 * r + 0.5;
     float rest = sigma * sigma - preSigma * preSigma;
     if (r < 0.5 || rest < 0.25) { return content.eval(p); }
-    float stepPx = sqrt(rest) * 0.25;
+    float stepPx = sqrt(rest) * 0.5;
     float4 sum = float4(0.0);
     float total = 0.0;
-    for (int i = -12; i <= 12; i++) {
+    for (int i = -6; i <= 6; i++) {
         float2 q = p + dir * (float(i) * stepPx);
         float inside = step(0.0, q.x) * step(q.x, size.x) * step(0.0, q.y) * step(q.y, size.y);
-        float w = exp(-0.03125 * float(i * i)) * inside;
+        float w = exp(-0.125 * float(i * i)) * inside;
         sum += float4(content.eval(q)) * w;
         total += w;
     }
@@ -748,7 +748,7 @@ fun ProgressiveHeaderBackdrop(
     modifier: Modifier = Modifier,
     scrimColor: Color = MaterialTheme.colorScheme.background,
     glassState: GlassState? = LocalScreenGlassState.current,
-    maxBlurRadius: Float = 38f,
+    maxBlurRadius: Float = 24f,
 ) {
     val clamped = alpha.coerceIn(0f, 1f)
     if (clamped <= 0.01f) return
@@ -762,7 +762,7 @@ fun ProgressiveHeaderBackdrop(
                 maxBlurRadius = { maxBlurRadius * clamped },
                 foundationColor = if (scrimFactor > 0.01f) scrimColor.copy(alpha = 0.55f * scrimFactor) else null,
                 direction = BlurDirection.BottomToTop,
-                steps = 4,
+                steps = 3,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -791,7 +791,7 @@ fun ProgressiveStatusBarHeaderBackdrop(
     alpha: Float = 1f,
     scrimColor: Color = MaterialTheme.colorScheme.surface,
     glassState: GlassState? = LocalScreenGlassState.current,
-    maxBlurRadius: Float = 38f,
+    maxBlurRadius: Float = 24f,
 ) {
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     ProgressiveHeaderBackdrop(
