@@ -849,7 +849,7 @@ fun HomeScreen(
 
         // Top progressive blur backdrop (Mochy style)
         ProgressiveHeaderBackdrop(
-            scrimColor = if (isCustomBackground) Color.Transparent else scrimTopColor,
+            scrimColor = if (isCustomBackground) MaterialTheme.colorScheme.background.copy(alpha = 0.35f) else scrimTopColor,
             glassState = homeGlassState,
             modifier = Modifier
                 .fillMaxWidth()

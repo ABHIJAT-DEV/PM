@@ -752,6 +752,7 @@ fun ProgressiveHeaderBackdrop(
 ) {
     val clamped = alpha.coerceIn(0f, 1f)
     if (clamped <= 0.01f) return
+    val scrimFactor = scrimColor.alpha
     Box(
         modifier = modifier.graphicsLayer { this.alpha = clamped }
     ) {
@@ -759,25 +760,27 @@ fun ProgressiveHeaderBackdrop(
             ProgressiveGlassBackground(
                 state = glassState,
                 maxBlurRadius = { maxBlurRadius * clamped },
-                foundationColor = scrimColor.copy(alpha = 0.55f),
+                foundationColor = if (scrimFactor > 0.01f) scrimColor.copy(alpha = 0.55f * scrimFactor) else null,
                 direction = BlurDirection.BottomToTop,
                 steps = 4,
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawWithCache {
-                    val gradient = Brush.verticalGradient(
-                        0f to scrimColor.copy(alpha = 0.92f),
-                        0.32f to scrimColor.copy(alpha = 0.62f),
-                        0.68f to scrimColor.copy(alpha = 0.24f),
-                        1f to Color.Transparent,
-                    )
-                    onDrawBehind { drawRect(brush = gradient) }
-                }
-        )
+        if (scrimFactor > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithCache {
+                        val gradient = Brush.verticalGradient(
+                            0f to scrimColor.copy(alpha = 0.92f * scrimFactor),
+                            0.32f to scrimColor.copy(alpha = 0.62f * scrimFactor),
+                            0.68f to scrimColor.copy(alpha = 0.24f * scrimFactor),
+                            1f to Color.Transparent,
+                        )
+                        onDrawBehind { drawRect(brush = gradient) }
+                    }
+            )
+        }
     }
 }
 

@@ -817,7 +817,7 @@ fun ExploreScreen(
 
         // Top progressive blur backdrop (Mochy style)
         ProgressiveHeaderBackdrop(
-            scrimColor = if (isCustomBackground) Color.Transparent else scrimTopColor,
+            scrimColor = if (isCustomBackground) colorScheme.background.copy(alpha = 0.35f) else scrimTopColor,
             glassState = exploreGlassState,
             modifier = Modifier
                 .fillMaxWidth()
