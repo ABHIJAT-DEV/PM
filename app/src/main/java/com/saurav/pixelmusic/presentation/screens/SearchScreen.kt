@@ -233,8 +233,6 @@ fun SearchScreen(
     }
 
     val colorScheme = MaterialTheme.colorScheme
-    val backgroundStyle by playerViewModel.userPreferencesRepository.appBackgroundStyleFlow.collectAsStateWithLifecycle(initialValue = AppBackgroundStyle.DEFAULT)
-    val isCustomBackground = backgroundStyle != AppBackgroundStyle.DEFAULT
     val isLightTheme = colorScheme.background.luminance() > 0.5f
     val surfaceColor = colorScheme.surface
     val primaryColor = colorScheme.primary
@@ -272,7 +270,7 @@ fun SearchScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(if (isCustomBackground) Modifier else Modifier.background(backgroundBrush))
+            .background(backgroundBrush)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()

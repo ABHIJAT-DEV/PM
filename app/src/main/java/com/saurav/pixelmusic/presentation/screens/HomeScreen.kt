@@ -4,6 +4,7 @@
 )
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.TopHalfBackgroundLayer
 import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.blur.rememberGlassState
@@ -606,8 +607,16 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .glassRoot(homeGlassState),
-            containerColor = if (isCustomBackground) Color.Transparent else MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (isCustomBackground) {
+                    TopHalfBackgroundLayer(
+                        userPreferencesRepository = playerViewModel.userPreferencesRepository,
+                        currentArtUri = currentSong?.albumArtUriString,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                }
             val pullRefreshState = rememberPullToRefreshState()
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
@@ -834,6 +843,7 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
             }
         }
 

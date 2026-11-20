@@ -1046,12 +1046,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             ) {
-                val backgroundStyle by playerViewModel.userPreferencesRepository.appBackgroundStyleFlow.collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.DEFAULT)
-                val backgroundCustomUri by playerViewModel.userPreferencesRepository.appBackgroundCustomUriFlow.collectAsStateWithLifecycle(initialValue = "")
-                val backgroundOpacity by playerViewModel.userPreferencesRepository.appBackgroundOpacityFlow.collectAsStateWithLifecycle(initialValue = 0.5f)
-                val backgroundBlur by playerViewModel.userPreferencesRepository.appBackgroundBlurFlow.collectAsStateWithLifecycle(initialValue = 0f)
-                
-                val currentSong by remember { playerViewModel.stablePlayerState.map { it.currentSong }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
                 val bottomSheetZoomProgress = com.saurav.pixelmusic.presentation.components.rememberBottomSheetZoomProgress()
                 Box(
                     modifier = Modifier
@@ -1069,79 +1063,10 @@ class MainActivity : ComponentActivity() {
                         }
                         .background(MaterialTheme.colorScheme.background)
                 ) {
-                    // 1. The Global Wallpaper (Drawn only once!)
-                    // We bundle the triggers into a single state so it only fades when these specific values change
-                    val backgroundTarget = remember(backgroundStyle, currentSong?.albumArtUriString, backgroundCustomUri) {
-                        listOf(backgroundStyle, currentSong?.albumArtUriString, backgroundCustomUri)
-                    }
-
-                    Crossfade(
-                        targetState = backgroundTarget,
-                        animationSpec = tween(durationMillis = 800), // Nice, slow 800ms fade
-                        label = "BackgroundCrossfade"
-                    ) { state ->
-                        val currentStyle = state[0] as com.saurav.pixelmusic.data.preferences.AppBackgroundStyle
-                        val currentArt = state[1] as String?
-                        val currentUri = state[2] as String?
-
-                        if (currentStyle != com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.DEFAULT) {
-                            // Reading these inside the lambda means sliders update instantly without triggering a crossfade!
-                            val alpha = backgroundOpacity 
-                            val blurMod = if (backgroundBlur > 0f) Modifier.blur(backgroundBlur.dp) else Modifier
-                            
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer { this.alpha = alpha }
-                                    .then(blurMod)
-                            ) {
-                                when (currentStyle) {
-                                    com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.MUSIC_NOTES -> {
-                                        Image(
-                                            painter = painterResource(id = R.drawable.bg_music_notes_tintable),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary),
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    }
-                                    com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.LIVE_BLUR -> {
-                                        if (currentArt != null) {
-                                            Box(modifier = Modifier.fillMaxSize()) {
-                                                com.saurav.pixelmusic.presentation.components.SmartImage(
-                                                    model = currentArt,
-                                                    contentDescription = null,
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.75f))
-                                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                                                )
-                                            }
-                                        }
-                                    }
-                                    com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.CUSTOM -> {
-                                        if (!currentUri.isNullOrBlank()) {
-                                            AsyncImage(
-                                                model = currentUri,
-                                                contentDescription = null,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize()
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // 2. The Main Content Scaffold (Transparent so background shows through)
+                    // Background wallpaper is now scoped exclusively to the top half of Home & Explore screens
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
-                        containerColor = Color.Transparent,
+                        containerColor = MaterialTheme.colorScheme.background,
                         bottomBar = {
                     if (shouldRenderNavigationBar) {
                         val currentSongId by remember {

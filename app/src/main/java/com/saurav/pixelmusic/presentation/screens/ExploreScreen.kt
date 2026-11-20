@@ -4,6 +4,7 @@
 )
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.TopHalfBackgroundLayer
 import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.blur.rememberGlassState
@@ -265,6 +266,9 @@ fun ExploreScreen(
     val isMotionBlurEnabled by playerViewModel.userPreferencesRepository.uiMotionBlurEnabledFlow
         .collectAsStateWithLifecycle(initialValue = true)
     val quickPicksDisplayMode by playerViewModel.quickPicksDisplayMode.collectAsStateWithLifecycle()
+    val currentArtUri by remember(playerViewModel.stablePlayerState) {
+        playerViewModel.stablePlayerState.map { it.currentSong?.albumArtUriString }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = null)
     val backgroundStyle by playerViewModel.userPreferencesRepository.appBackgroundStyleFlow
         .collectAsStateWithLifecycle(initialValue = AppBackgroundStyle.DEFAULT)
     val isCustomBackground = backgroundStyle != AppBackgroundStyle.DEFAULT
@@ -370,8 +374,16 @@ fun ExploreScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .glassRoot(exploreGlassState),
-            containerColor = if (isCustomBackground) Color.Transparent else colorScheme.background
+            containerColor = colorScheme.background
         ) { innerPadding ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (isCustomBackground) {
+                    TopHalfBackgroundLayer(
+                        userPreferencesRepository = playerViewModel.userPreferencesRepository,
+                        currentArtUri = currentArtUri,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                }
             PullToRefreshBox(
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = {
@@ -793,6 +805,7 @@ fun ExploreScreen(
                         }
                     }
                 }
+            }
             }
         }
 

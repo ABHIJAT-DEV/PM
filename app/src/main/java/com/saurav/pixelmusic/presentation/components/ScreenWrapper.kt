@@ -111,9 +111,6 @@ fun ScreenWrapper(
         label = "dimAlpha"
     )
 
-    // Fetch background style to determine if the ScreenWrapper should become transparent
-    val backgroundStyle by playerViewModel.userPreferencesRepository.appBackgroundStyleFlow.collectAsStateWithLifecycle(initialValue = AppBackgroundStyle.DEFAULT)
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -132,8 +129,7 @@ fun ScreenWrapper(
                     Modifier
                 }
             )
-            // If using a custom wallpaper, make the wrapper transparent so the MainActivity background shows through!
-            .background(if (backgroundStyle != AppBackgroundStyle.DEFAULT) Color.Transparent else MaterialTheme.colorScheme.background)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         content()
 

@@ -183,7 +183,7 @@ enum class AlbumArtQuality(val maxSize: Int, val label: String) {
 }
 
 enum class AppBackgroundStyle {
-    DEFAULT, MUSIC_NOTES, LIVE_BLUR, CUSTOM
+    DEFAULT, GRADIENT_BLUR, MUSIC_NOTES, LIVE_BLUR, CUSTOM
 }
 
 enum class DynamicIslandStyle {

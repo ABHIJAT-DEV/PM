@@ -693,6 +693,7 @@ fun SettingsCategoryScreen(
                                 SettingsSubsection(title = "App Background") {
                                     val bgOptions = buildMap {
                                         put(com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.DEFAULT.name, "Default (Solid Color)")
+                                        put(com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.GRADIENT_BLUR.name, "Gradient Blur (Material You)")
                                         put(com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.MUSIC_NOTES.name, "Music Notes (Auto Dark/Light)")
                                         if (AndroidVersionCompat.supportsHardwareBlur) {
                                             put(com.saurav.pixelmusic.data.preferences.AppBackgroundStyle.LIVE_BLUR.name, "Live Blur (Now Playing Art)")
@@ -702,7 +703,7 @@ fun SettingsCategoryScreen(
                                     ThemeSelectorItem(
                                         label = "Background Wallpaper",
                                         showBetaBadge = true,
-                                        description = "Choose a custom background to show behind the app interface",
+                                        description = "Choose a top-half ambient background for Home and Explore screens",
                                         options = bgOptions,
                                         selectedKey = currentBgStyle.name,
                                         onSelectionChanged = { key ->
