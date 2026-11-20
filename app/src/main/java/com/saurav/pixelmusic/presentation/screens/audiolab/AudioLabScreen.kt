@@ -199,7 +199,9 @@ private fun AudioOutputPlaybackCard(
             )
         }
 
-        HorizontalDivider(color = LabColors.Border)
+        val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+
+        HorizontalDivider(color = dividerColor)
 
         AudioOutputToggleRow(
             iconRes = R.drawable.rounded_headphones_24,
@@ -209,7 +211,7 @@ private fun AudioOutputPlaybackCard(
             onCheckedChange = { settingsViewModel.setResumeOnHeadsetReconnect(it) },
         )
 
-        HorizontalDivider(color = LabColors.Border)
+        HorizontalDivider(color = dividerColor)
 
         AudioOutputToggleRow(
             iconRes = R.drawable.rounded_cast_24,
@@ -219,7 +221,7 @@ private fun AudioOutputPlaybackCard(
             onCheckedChange = { enabled -> settingsViewModel.setDisableCastAutoplay(!enabled) },
         )
 
-        HorizontalDivider(color = LabColors.Border)
+        HorizontalDivider(color = dividerColor)
 
         AudioOutputToggleRow(
             iconRes = R.drawable.rounded_volume_down_24,
@@ -257,7 +259,7 @@ private fun AudioOutputPlaybackCard(
             }
         }
 
-        HorizontalDivider(color = LabColors.Border)
+        HorizontalDivider(color = dividerColor)
 
         AudioOutputToggleRow(
             iconRes = R.drawable.outline_high_quality_24,

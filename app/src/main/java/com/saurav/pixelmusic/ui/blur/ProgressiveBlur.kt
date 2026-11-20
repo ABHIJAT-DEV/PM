@@ -740,6 +740,9 @@ fun ProgressiveGlassBackground(
  * falls back to a smooth multi-stop progressive scrim.
  */
 @Composable
+fun rememberGlassState(): GlassState = remember { GlassState() }
+
+@Composable
 fun ProgressiveHeaderBackdrop(
     alpha: Float = 1f,
     modifier: Modifier = Modifier,
