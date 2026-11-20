@@ -1388,8 +1388,9 @@ private fun DailyMixTimePeriodGrid(
 }
 
 /**
- * Clean Material You Expressive morphing chip without overflowing drawBehind shadows,
- * preventing any clipping inside cards/rows or overlapping section titles.
+ * Clean Material You Expressive morphing chip: shape + colour morphing only.
+ * No drawBehind glow — the stacked rounded rects read as a second, larger pill
+ * around every chip and bleed over neighbouring chips and section titles.
  */
 @Composable
 internal fun DailyMixMorphChip(
@@ -1432,20 +1433,6 @@ internal fun DailyMixMorphChip(
         label = "dm_morph_chip_fg"
     )
 
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val restingChipShadow = remember(selectedContainerColor, isDark) {
-        if (isDark) lerp(Color.Black, selectedContainerColor, 0.40f) else lerp(Color.Black, selectedContainerColor, 0.55f)
-    }
-    val selectedFraction by animateFloatAsState(
-        targetValue = if (selected || isPressed) 1f else 0f,
-        animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
-        label = "dm_morph_chip_glow"
-    )
-    val chipGlowColor = lerp(restingChipShadow, selectedContainerColor, selectedFraction)
-    val chipSpread = 4.dp + 7.dp * selectedFraction
-    val chipOffsetY = 1.5.dp + 2.dp * selectedFraction
-    val chipMaxAlpha = (if (isDark) 0.14f else 0.08f) + (if (isDark) 0.22f else 0.16f) * selectedFraction
-
     Surface(
         onClick = onClick,
         interactionSource = interactionSource,
@@ -1459,13 +1446,6 @@ internal fun DailyMixMorphChip(
                 scaleX = scale
                 scaleY = scale
             }
-            .aiSoftSurfaceGlow(
-                color = chipGlowColor,
-                cornerRadius = cornerRadius,
-                spread = chipSpread,
-                offsetY = chipOffsetY,
-                maxAlpha = chipMaxAlpha
-            )
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 10.dp),
