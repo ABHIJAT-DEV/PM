@@ -1586,18 +1586,6 @@ private fun DailyMixModePill(
     )
 
     val isHighlighted = isPressed || isSelected
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val restingPillShadowColor = remember(primaryColor, isDark) {
-        if (isDark) lerp(Color.Black, primaryColor, 0.42f) else lerp(Color.Black, primaryColor, 0.58f)
-    }
-    val clampedMorph = morphFraction.coerceIn(0f, 1f)
-    val pillGlowColor = lerp(restingPillShadowColor, primaryColor, clampedMorph)
-    val pillGlowSpread = 4.dp + 7.dp * clampedMorph
-    val pillGlowOffsetY = 1.5.dp + 2.dp * clampedMorph
-    val basePillGlowAlpha = if (isDark) 0.16f else 0.09f
-    val activePillGlowAlpha = if (isDark) 0.30f else 0.20f
-    val pillGlowMaxAlpha = basePillGlowAlpha + (activePillGlowAlpha - basePillGlowAlpha) * clampedMorph
 
     val containerColor by animateColorAsState(
         targetValue = if (isHighlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -1654,13 +1642,6 @@ private fun DailyMixModePill(
                 scaleY = scale
                 rotationZ = pillTilt
             }
-            .aiSoftSurfaceGlow(
-                color = pillGlowColor,
-                cornerRadius = 24.dp,
-                spread = pillGlowSpread,
-                offsetY = pillGlowOffsetY,
-                maxAlpha = pillGlowMaxAlpha
-            )
     ) {
         Row(
             modifier = Modifier

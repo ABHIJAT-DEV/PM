@@ -1749,20 +1749,6 @@ private fun CreatePlaylistGlowPill(
         label = "cp_pill_fg"
     )
 
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val restingShadow = remember(selectedContainerColor, isDark) {
-        if (isDark) lerp(Color.Black, selectedContainerColor, 0.40f) else lerp(Color.Black, selectedContainerColor, 0.55f)
-    }
-    val selectedFraction by animateFloatAsState(
-        targetValue = if (selected || isPressed) 1f else 0f,
-        animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
-        label = "cp_pill_glow"
-    )
-    val glowColor = lerp(restingShadow, selectedContainerColor, selectedFraction)
-    val glowSpread = 4.dp + 7.dp * selectedFraction
-    val glowOffsetY = 1.5.dp + 2.dp * selectedFraction
-    val glowMaxAlpha = (if (isDark) 0.14f else 0.08f) + (if (isDark) 0.22f else 0.16f) * selectedFraction
-
     Surface(
         onClick = onClick,
         interactionSource = interactionSource,
@@ -1776,13 +1762,6 @@ private fun CreatePlaylistGlowPill(
                 scaleX = scale
                 scaleY = scale
             }
-            .aiSoftSurfaceGlow(
-                color = glowColor,
-                cornerRadius = cornerRadius,
-                spread = glowSpread,
-                offsetY = glowOffsetY,
-                maxAlpha = glowMaxAlpha
-            )
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp),
@@ -1814,7 +1793,6 @@ fun ExpressiveButtonGroup(
     onItemClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val primaryColor = MaterialTheme.colorScheme.primary
     val haptic = LocalHapticFeedback.current
 
@@ -1847,15 +1825,6 @@ fun ExpressiveButtonGroup(
                 animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
                 label = "ContentColor"
             )
-            val selectedFraction by animateFloatAsState(
-                targetValue = if (isSelected || isPressed) 1f else 0f,
-                animationSpec = tween(durationMillis = 320, easing = AiSmoothMorphEasing),
-                label = "ebg_glow"
-            )
-            val restingShadow = remember(primaryColor, isDark) {
-                if (isDark) lerp(Color.Black, primaryColor, 0.40f) else lerp(Color.Black, primaryColor, 0.55f)
-            }
-
             Surface(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -1873,13 +1842,6 @@ fun ExpressiveButtonGroup(
                         scaleX = scale
                         scaleY = scale
                     }
-                    .aiSoftSurfaceGlow(
-                        color = lerp(restingShadow, primaryColor, selectedFraction),
-                        cornerRadius = cornerRadius,
-                        spread = 4.dp + 7.dp * selectedFraction,
-                        offsetY = 1.5.dp + 2.dp * selectedFraction,
-                        maxAlpha = (if (isDark) 0.14f else 0.08f) + (if (isDark) 0.22f else 0.16f) * selectedFraction
-                    )
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

@@ -2927,18 +2927,6 @@ private fun ExpressiveQuickSelectPill(
     )
 
     val isHighlighted = isPressed || isSelected
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val restingPillShadowColor = remember(primaryColor, isDark) {
-        if (isDark) lerp(Color.Black, primaryColor, 0.42f) else lerp(Color.Black, primaryColor, 0.58f)
-    }
-    val clampedMorph = morphFraction.coerceIn(0f, 1f)
-    val pillGlowColor = lerp(restingPillShadowColor, primaryColor, clampedMorph)
-    val pillGlowSpread = 5.dp + 9.dp * clampedMorph
-    val pillGlowOffsetY = 2.dp + 2.5.dp * clampedMorph
-    val basePillGlowAlpha = if (isDark) 0.20f else 0.11f
-    val activePillGlowAlpha = if (isDark) 0.36f else 0.25f
-    val pillGlowMaxAlpha = basePillGlowAlpha + (activePillGlowAlpha - basePillGlowAlpha) * clampedMorph
 
     val containerColor by animateColorAsState(
         targetValue = if (isHighlighted) {
@@ -2999,13 +2987,6 @@ private fun ExpressiveQuickSelectPill(
                 scaleY = scale
                 rotationZ = pillTilt
             }
-            .aiSoftSurfaceGlow(
-                color = pillGlowColor,
-                cornerRadius = 24.dp,
-                spread = pillGlowSpread,
-                offsetY = pillGlowOffsetY,
-                maxAlpha = pillGlowMaxAlpha
-            )
     ) {
         Row(
             modifier = Modifier
@@ -3109,20 +3090,6 @@ internal fun ExpressiveChoiceChip(
     }
 
     val chipShape = remember(cornerRadius) { AbsoluteSmoothCornerShape(cornerRadius, 60) }
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val restingChipShadow = remember(primaryColor, isDark) {
-        if (isDark) lerp(Color.Black, primaryColor, 0.40f) else lerp(Color.Black, primaryColor, 0.55f)
-    }
-    val selectedFraction by animateFloatAsState(
-        targetValue = if (selected || isPressed) 1f else 0f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "chip_glow_fraction"
-    )
-    val chipGlowColor = lerp(restingChipShadow, primaryColor, selectedFraction)
-    val chipSpread = 4.dp + 7.dp * selectedFraction
-    val chipOffsetY = 1.5.dp + 2.dp * selectedFraction
-    val chipMaxAlpha = (if (isDark) 0.14f else 0.08f) + (if (isDark) 0.22f else 0.16f) * selectedFraction
 
     Surface(
         onClick = onClick,
@@ -3136,13 +3103,6 @@ internal fun ExpressiveChoiceChip(
                 scaleX = scale
                 scaleY = scale
             }
-            .aiSoftSurfaceGlow(
-                color = chipGlowColor,
-                cornerRadius = cornerRadius,
-                spread = chipSpread,
-                offsetY = chipOffsetY,
-                maxAlpha = chipMaxAlpha
-            )
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
