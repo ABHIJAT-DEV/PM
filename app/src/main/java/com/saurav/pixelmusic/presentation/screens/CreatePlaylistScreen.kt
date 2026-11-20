@@ -151,8 +151,6 @@ import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextGeometricTransform
@@ -162,7 +160,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing
-import com.saurav.pixelmusic.presentation.components.aiSoftSurfaceGlow
 import com.saurav.pixelmusic.presentation.screens.TabAnimation
 
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
