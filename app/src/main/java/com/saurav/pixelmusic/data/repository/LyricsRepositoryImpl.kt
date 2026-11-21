@@ -336,6 +336,27 @@ class LyricsRepositoryImpl @Inject constructor(
         if (cachedJson != null && !cachedJson.synced.isNullOrEmpty()) return@withContext cachedJson
 
         try {
+            // 1. Primary: Mochy 10-provider Lyrics Engine (Apple Music TTML, YouLyPlus, PaxSenix, lrc.red, SimpMusic, LRCLIB, Deezer, NetEase, QQ Music, KuGou)
+            val durationSec = if (song.duration > 0) (song.duration / 1000L).toInt() else -1
+            val ytVideoId = song.youtubeId?.takeIf { it.length == 11 }
+                ?: song.id.removePrefix("youtube_").takeIf { it.length == 11 }
+            val mochyResult = com.saurav.pixelmusic.lyrics.MochyLyricsEngine.fetchBestLyrics(
+                context = context,
+                title = song.title,
+                artist = song.displayArtist,
+                durationSec = durationSec,
+                album = song.album.takeIf { it.isNotBlank() },
+                youtubeId = ytVideoId,
+            )
+            if (mochyResult != null && mochyResult.lyrics.isValid()) {
+                val isSynced = !mochyResult.lyrics.synced.isNullOrEmpty()
+                saveToDbAndCache(song, mochyResult.rawLrc, isSynced = isSynced)
+                if (isSynced) {
+                    return@withContext mochyResult.lyrics
+                }
+            }
+
+            // 2. Secondary fallback: existing SmartLyricsMatcher
             val localTrack = LocalTrack(
                 title = song.title,
                 artist = song.displayArtist,
@@ -345,7 +366,6 @@ class LyricsRepositoryImpl @Inject constructor(
             
             val candidates = FilenameParser.candidates(song.title, song.displayArtist, song.path)
             
-            // The magic happens here! Concurrently search all 7 providers
             val hits = smartLyricsMatcher.search(localTrack, candidates)
             val eligibleHits = hits.filter { it.tier == MatchTier.AUTO_ACCEPT || it.tier == MatchTier.REVIEW }
             
