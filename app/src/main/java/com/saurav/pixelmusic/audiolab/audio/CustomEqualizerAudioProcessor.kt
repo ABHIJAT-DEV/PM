@@ -80,7 +80,7 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
             if (tailPending) drainTail()
             return
         }
-        if (channels == 0) ensureFormatApplied()
+        ensureFormatApplied()
         if (channels == 0) {
             val out = replaceOutputBuffer(bytes)
             out.put(inputBuffer)

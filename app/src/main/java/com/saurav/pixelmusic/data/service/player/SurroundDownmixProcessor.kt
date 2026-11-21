@@ -157,6 +157,10 @@ class SurroundDownmixProcessor : AudioProcessor {
 
     override fun queueEndOfStream() { inputEnded = true }
 
+    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
+        flush()
+    }
+
     @Deprecated("Media3 AudioProcessor now prefers flush(StreamMetadata); kept for interface compatibility")
     @Suppress("DEPRECATION")
     override fun flush() {

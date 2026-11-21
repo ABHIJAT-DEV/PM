@@ -235,6 +235,9 @@ class DualPlayerEngine @Inject constructor(
             if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
                 cancelNext()
             }
+            if (!transitionRunning && ::playerA.isInitialized && playerA.volume < 0.01f) {
+                playerA.volume = 1f
+            }
 
             preResolutionJob?.cancel()
         preResolutionJob = scope.launch {

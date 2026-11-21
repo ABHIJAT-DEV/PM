@@ -77,7 +77,7 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
-        if (channels == 0) ensureFormatApplied()
+        ensureFormatApplied()
         if (channels == 0) {
             val out = replaceOutputBuffer(bytes)
             out.put(inputBuffer)

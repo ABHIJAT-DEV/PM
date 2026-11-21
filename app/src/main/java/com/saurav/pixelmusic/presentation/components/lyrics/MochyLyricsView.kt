@@ -50,7 +50,10 @@ import com.saurav.pixelmusic.lyrics.MochyLyricsPreferences
 import com.saurav.pixelmusic.lyrics.MochyRomanizer
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.AppMotion
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LocalLyricsHighlight
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.sp
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsAlignment
+import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsBackdropBlend
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsEntry
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsGlowLine
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsInterludeDots
@@ -61,7 +64,9 @@ import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsSmoothRe
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsStagger
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.MinInterludeGapMs
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.RubyPlacement
+import com.saurav.pixelmusic.presentation.components.lyrics.mochy.SoftLightSupported
 import com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp
+import com.saurav.pixelmusic.presentation.components.lyrics.mochy.lyricsEdgeFade
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -78,7 +83,7 @@ private const val IdleRecenterDelayMs = 3_500L
 private const val TopFadeFraction = 0.10f
 private const val BottomFadeStart = 0.62f
 private const val NoInterlude = Int.MIN_VALUE
-private const val LineLeadInMs = 300L
+private const val LineLeadInMs = 220L
 private const val UntimedLineDurationMs = 5_000L
 
 private fun recenterEasingFor(risesWords: Boolean) =
@@ -247,18 +252,43 @@ private fun lyricsReadRtl(lines: List<LyricsEntry>): Boolean {
     return rtl > ltr
 }
 
-/** Playback position nudged forward between the player's polls, so the sweep glides instead of stepping. */
-private class LyricsClock(private val sample: () -> Long) {
-    private var lastValue = Long.MIN_VALUE
-    private var lastNanos = 0L
+/**
+ * Smoothly interpolates playback position between the player's 250ms ticks so word-by-word sweeps
+ * and GPU shaders glide at 60–120fps without freezing or jumping between polls.
+ */
+private class LyricsClock(
+    private val sample: () -> Long,
+    private val isPlaying: () -> Boolean,
+) {
+    private var lastSample = Long.MIN_VALUE
+    private var anchorMs = 0L
+    private var anchorNanos = 0L
+
     fun now(): Long {
         val value = sample()
         val t = System.nanoTime()
-        if (value != lastValue) {
-            lastValue = value
-            lastNanos = t
+        if (!isPlaying()) {
+            lastSample = value
+            anchorMs = value
+            anchorNanos = t
+            return value
         }
-        return value + ((t - lastNanos) / 1_000_000L).coerceIn(0L, 100L)
+        if (lastSample == Long.MIN_VALUE) {
+            lastSample = value
+            anchorMs = value
+            anchorNanos = t
+            return value
+        }
+        val extrapolated = anchorMs + ((t - anchorNanos) / 1_000_000L).coerceIn(0L, 350L)
+        if (value != lastSample) {
+            lastSample = value
+            val drift = value - extrapolated
+            // Blend small poll jitter smoothly; snap immediately on real seeks or track jumps
+            anchorMs = if (abs(drift) <= 60L) extrapolated + (drift / 2L) else value
+            anchorNanos = t
+            return anchorMs
+        }
+        return extrapolated
     }
 }
 
@@ -284,6 +314,8 @@ fun MochySyncedLyricsView(
     onLineClick: (SyncedLine) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    isPlaying: Boolean = true,
+    blurStrength: Float = 2.5f,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val density = LocalDensity.current
@@ -291,6 +323,10 @@ fun MochySyncedLyricsView(
         .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.MOTION)
     val softLight by remember(context) { MochyLyricsPreferences.softLightFlow(context) }
         .collectAsStateWithLifecycle(initialValue = true)
+    val textSizeSp by remember(context) { MochyLyricsPreferences.textSizeFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = 26f)
+    val lineSpacing by remember(context) { MochyLyricsPreferences.lineSpacingFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = 1.25f)
     val autoTranslate by remember(context) { MochyLyricsPreferences.autoTranslateFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
     val translateLang by remember(context) { MochyLyricsPreferences.translateLanguageFlow(context) }
@@ -303,13 +339,20 @@ fun MochySyncedLyricsView(
     val cascade = style.risesWords
     val shaded = style.shaded
     val lineBlurAllowed = softLight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val useSoftLightBlend = softLight && SoftLightSupported
     SideEffect { AppMotion.elementBlur = lineBlurAllowed }
 
     // position, read only inside lambdas and derived states so a playback tick doesn't recompose the page
     val rawPosition = playbackPositionFlow.collectAsStateWithLifecycle()
     val currentOffset by rememberUpdatedState(lyricsSyncOffset)
     val currentOverride by rememberUpdatedState(positionOverrideMs)
-    val clock = remember { LyricsClock { (currentOverride ?: rawPosition.value) + currentOffset } }
+    val currentPlaying by rememberUpdatedState(isPlaying)
+    val clock = remember {
+        LyricsClock(
+            sample = { (currentOverride ?: rawPosition.value) + currentOffset },
+            isPlaying = { currentPlaying && currentOverride == null },
+        )
+    }
     val positionProvider: () -> Long = remember(clock) { { clock.now().coerceAtLeast(0L) } }
     val statePosition = remember { derivedStateOf { ((currentOverride ?: rawPosition.value) + currentOffset).coerceAtLeast(0L) } }
 
@@ -418,9 +461,20 @@ fun MochySyncedLyricsView(
     }
 
     val listPadding = remember { LyricsListPadding() }
+    val blend = remember(useSoftLightBlend, listState, stagger) {
+        if (useSoftLightBlend) {
+            LyricsBackdropBlend(TopFadeFraction, BottomFadeStart) {
+                listState.firstVisibleItemIndex
+                listState.firstVisibleItemScrollOffset
+                stagger.anchorRow
+            }
+        } else {
+            null
+        }
+    }
     CompositionLocalProvider(
         LocalContentColor provides contentColor,
-        LocalLyricsHighlight provides contentColor,
+        LocalLyricsHighlight provides Color.White,
     ) {
         Box(
             modifier = modifier
@@ -437,19 +491,27 @@ fun MochySyncedLyricsView(
                 contentPadding = listPadding,
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                    .drawWithCache {
-                        val fade = Brush.verticalGradient(
-                            0f to Color.Transparent,
-                            TopFadeFraction to Color.Black,
-                            BottomFadeStart to Color.Black,
-                            1f to Color.Transparent,
-                        )
-                        onDrawWithContent {
-                            drawContent()
-                            drawRect(brush = fade, blendMode = BlendMode.DstIn)
+                    .onGloballyPositioned { blend?.list = it }
+                    .then(
+                        if (blend == null) {
+                            Modifier
+                                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                                .drawWithCache {
+                                    val fade = Brush.verticalGradient(
+                                        0f to Color.Transparent,
+                                        TopFadeFraction to Color.Black,
+                                        BottomFadeStart to Color.Black,
+                                        1f to Color.Transparent,
+                                    )
+                                    onDrawWithContent {
+                                        drawContent()
+                                        drawRect(brush = fade, blendMode = BlendMode.DstIn)
+                                    }
+                                }
+                        } else {
+                            Modifier
                         }
-                    },
+                    ),
             ) {
                 itemsIndexed(
                     items = rows,
@@ -459,12 +521,14 @@ fun MochySyncedLyricsView(
                     when (row) {
                         is LyricRow.Interlude -> {
                             LyricsInterludeDots(
-                                modifier = Modifier.graphicsLayer { translationY = stagger.lagOf(listIndex) },
+                                modifier = Modifier
+                                    .lyricsEdgeFade(blend)
+                                    .graphicsLayer { translationY = stagger.lagOf(listIndex) },
                                 startMs = row.startMs,
                                 endMs = row.endMs,
                                 positionProvider = positionProvider,
                                 bloom = shaded,
-                                highBloom = true,
+                                highBloom = style.risesWords,
                                 visible = activeInterlude == row.afterIndex,
                                 collapseEasing = recenterEasingFor(cascade),
                                 alignment = entries.getOrNull(row.afterIndex + 1)
@@ -501,7 +565,12 @@ fun MochySyncedLyricsView(
                                 alignment = alignmentFor(row.entry, useAgentAlignment, mirrored),
                                 waveEnabled = shaded && !suppressEffects,
                                 motionStyle = style,
-                                highBloom = true,
+                                // Style 1 keeps full 8-tap bloom; Style 2 uses 4-tap diagonal halo to eliminate shader lag
+                                highBloom = style.risesWords,
+                                blend = blend,
+                                fontSize = textSizeSp.sp,
+                                lineHeightMultiplier = lineSpacing,
+                                blurStrength = blurStrength,
                                 onClick = {
                                     onLineClick(source)
                                     followPlayback = true
@@ -516,6 +585,7 @@ fun MochySyncedLyricsView(
                         providerName = providerName,
                         contentColor = contentColor,
                         modifier = Modifier
+                            .lyricsEdgeFade(blend)
                             .graphicsLayer { translationY = stagger.lagOf(rows.size) }
                             .padding(horizontal = com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsHeaderArtX),
                     )

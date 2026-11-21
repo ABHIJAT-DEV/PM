@@ -111,9 +111,10 @@ private val LyricsLineHeight = 40.sp
 
 private val BlurStageRadii = floatArrayOf(0f, 5f, 12f)
 
+private const val MaxBlurRadiusPx = 48f
 private const val BlurQuantStepPx = 0.5f
 private val BlurEffectCache: Array<androidx.compose.ui.graphics.RenderEffect?> =
-    arrayOfNulls((BlurStageRadii.max() / BlurQuantStepPx).toInt() + 2)
+    arrayOfNulls((MaxBlurRadiusPx / BlurQuantStepPx).toInt() + 2)
 
 // a lyric line's or a note's own blur, so it goes with element blur switched off
 internal fun blurEffectForRadius(radius: Float): androidx.compose.ui.graphics.RenderEffect? {
@@ -257,13 +258,16 @@ fun LyricsGlowLine(
 
     // set when the page sits right on a cover background: the resting look is white soft-lit onto it
     blend: LyricsBackdropBlend? = null,
+    fontSize: androidx.compose.ui.unit.TextUnit = LyricsFontSize,
+    lineHeightMultiplier: Float = 1.25f,
+    blurStrength: Float = 2.5f,
 ) {
     val wordMotion = motionStyle.risesWords
     val targetAlpha = restingAlphaOf(state)
     val targetScale = restingScaleOf(state)
 
     // every ease below starts only when its target changes, so the page's lines mount without six coroutines each
-    val animSpec = tween<Float>(durationMillis = 600)
+    val animSpec = tween<Float>(durationMillis = 480, easing = androidx.compose.animation.core.FastOutSlowInEasing)
     val alpha by com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateFloatOnChange(targetAlpha, animSpec)
     val scale by com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateFloatOnChange(targetScale, animSpec)
     // how sung the line is: the wave's strength, and the plain copy's share while it soft-lights
@@ -278,20 +282,23 @@ fun LyricsGlowLine(
         target = if (state == LyricsLineState.ACTIVE || !wholeLineRise) 0f else 1f,
         spec = androidx.compose.animation.core.spring(
             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
-            stiffness = androidx.compose.animation.core.Spring.StiffnessVeryLow,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessLow,
         ),
     )
 
+    val blurScale = (blurStrength / 1.5f).coerceIn(0.25f, 3.5f)
+    val targetBlurRadius = (BlurStageRadii[blurStage.coerceIn(0, BlurStageRadii.lastIndex)] * blurScale)
+        .coerceIn(0f, MaxBlurRadiusPx)
     val blurRadius by com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateFloatOnChange(
-        target = BlurStageRadii[blurStage.coerceIn(0, BlurStageRadii.lastIndex)],
-        spec = tween(durationMillis = 350),
+        target = targetBlurRadius,
+        spec = tween(durationMillis = 320, easing = androidx.compose.animation.core.FastOutSlowInEasing),
     )
 
     val baseColor = LocalContentColor.current
     // eased with the alpha and scale, and read only while drawing so the fade doesn't recompose the line every frame
     val lineColor = com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateColorOnChange(
         target = if (state == LyricsLineState.ACTIVE) LocalLyricsHighlight.current else baseColor,
-        spec = tween(durationMillis = 600),
+        spec = tween(durationMillis = 480, easing = androidx.compose.animation.core.FastOutSlowInEasing),
     )
     val textColor = remember(lineColor) { ColorProducer { lineColor.value } }
     val unsungAlpha = if (blend != null) TintedUnsungAlpha else ActiveUnsungAlpha
@@ -314,6 +321,8 @@ fun LyricsGlowLine(
     }
 
     val insets = lyricsLineInsets(alignment)
+    val resolvedLineHeight = (fontSize.value * lineHeightMultiplier.coerceIn(1.0f, 1.7f)).sp
+    val rowVerticalPad = (10.dp + ((lineHeightMultiplier - 1f).coerceIn(0f, 0.7f) * 18f).dp) - LyricsTapPadV
 
     // the pieces as the source timed them: this style sweeps along the line's own text,
     // syllable by syllable, so it never shows the gaps other styles put between them
@@ -326,8 +335,8 @@ fun LyricsGlowLine(
     val sweepsWords = !words.isNullOrEmpty() && leadText.isNotEmpty()
     val hasRuby = !ruby.isNullOrEmpty()
     val leadStyle = MaterialTheme.typography.headlineSmall.copy(
-        fontSize = LyricsFontSize,
-        lineHeight = if (hasRuby) (LyricsLineHeight.value + RubyHeadroomSp).sp else LyricsLineHeight,
+        fontSize = fontSize,
+        lineHeight = if (hasRuby) (resolvedLineHeight.value + RubyHeadroomSp).sp else resolvedLineHeight,
         lineHeightStyle = if (hasRuby) rubyLineHeightStyle(rubyPlacement) else null,
         textAlign = textAlign,
     ).withLetterMotionFeatures(wordMotion)
@@ -350,8 +359,8 @@ fun LyricsGlowLine(
             .padding(
                 start = insets.start,
                 end = insets.end,
-                top = insets.top,
-                bottom = insets.top,
+                top = rowVerticalPad,
+                bottom = rowVerticalPad,
             )
             .graphicsLayer {
                 if (blend == null) this.alpha = alpha
@@ -450,6 +459,8 @@ fun LyricsGlowLine(
                 baseColor = unsungColor,
 
                 highlightColor = LocalLyricsHighlight.current,
+                fontSize = fontSize,
+                lineHeight = resolvedLineHeight,
                 // The reading is drawn below, in one place for both paths. It used to move into
                 // the karaoke block when the line went active (above any backing vocal, and at a
                 // dimmer colour) and back out when it ended, so it jumped every line change.
@@ -1758,7 +1769,7 @@ private fun rememberLegacyWaveModifier(
 
 private const val WaveCutoff = 0.02f
 
-private const val WaveHeadStepPx = 0.5f
+private const val WaveHeadStepPx = 1.25f
 private const val WaveAmpStep = 0.02f
 
 private class WaveEffectCache {
@@ -1981,8 +1992,8 @@ private fun dampedStep(
 /** Gaps up to this count as "the next word starts as this one ends". */
 private const val NoGapSec = 0.03
 
-private const val FastSecPerChar = 0.1f
-private const val SlowSecPerChar = 0.34f
+private const val FastSecPerChar = 0.08f
+private const val SlowSecPerChar = 0.28f
 
 // a kanji, kana or hangul block is a whole syllable, about three latin letters' worth, so it's weighed as that much when telling a held note
 private const val SyllableGlyphWeight = 3

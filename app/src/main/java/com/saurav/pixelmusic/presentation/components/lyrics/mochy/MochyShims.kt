@@ -112,6 +112,6 @@ fun Modifier.damageBoundary(): Modifier =
 val LocalLyricsHighlight = androidx.compose.runtime.compositionLocalOf { Color.White }
 
 // the lyrics page's recenter scroll; the instrumental dots collapse on the same curve
-internal const val LyricsRecenterDurationMs = 950
+internal const val LyricsRecenterDurationMs = 720
 internal val LyricsRecenterEasing = androidx.compose.animation.core.CubicBezierEasing(0.5f, 0.45f, 0f, 1f)
 internal val LyricsSmoothRecenterEasing = androidx.compose.animation.core.CubicBezierEasing(0.42f, 0f, 0.16f, 1f)

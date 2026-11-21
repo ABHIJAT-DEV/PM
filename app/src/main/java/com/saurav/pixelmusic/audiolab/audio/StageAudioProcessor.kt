@@ -64,7 +64,7 @@ class StageAudioProcessor(private val service: AudioFxService) : AudioProcessor 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
-        if (handle == 0L || channels == 0) ensureNativeReady()
+        ensureNativeReady()
         if (handle == 0L || channels == 0) {
             if (pendingFormat.channelCount == 2) {
                 val out = replaceOutputBuffer(bytes)

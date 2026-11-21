@@ -253,6 +253,10 @@ class HiResSampleRateCapAudioProcessor(
         inputEnded = true
     }
 
+    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
+        flush()
+    }
+
     @Deprecated("Media3 AudioProcessor now prefers flush(StreamMetadata); kept for interface compatibility")
     override fun flush() {
         outputBuffer = AudioProcessor.EMPTY_BUFFER
