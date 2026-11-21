@@ -57,7 +57,7 @@ internal fun FxPresetsSection(viewModel: AudioLabViewModel) {
         pickedId?.let { id ->
             val picked = presets.firstOrNull { it.id == id }
             if (picked != null) {
-                LabTextAction(stringResource(R.string.fx_preset_edit), R.drawable.ic_lab_tune) {
+                LabTextAction(stringResource(R.string.fx_preset_edit), R.drawable.rounded_edit_24) {
                     editing = picked
                 }
             }
