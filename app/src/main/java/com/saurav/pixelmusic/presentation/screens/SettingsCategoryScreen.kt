@@ -1272,27 +1272,54 @@ fun SettingsCategoryScreen(
                                 }
 
                                 SettingsSubsection(title = stringResource(R.string.setcat_lyrics_management)) {
-                                    var showLyricsStudioSheet by remember { mutableStateOf(false) }
-                                    val currentMochyStyle by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.styleFlow(context)
+                                    var showLyricsProvidersSheet by remember { mutableStateOf(false) }
+                                    val lyricsProviderOrder by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.providerOrderFlow(context)
                                     }.collectAsStateWithLifecycle(
-                                        initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.MOTION
+                                        initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.DefaultProviderOrder
                                     )
-                                    if (showLyricsStudioSheet) {
-                                        com.saurav.pixelmusic.presentation.components.lyrics.MochyLyricsStudioSheet(
-                                            onDismiss = { showLyricsStudioSheet = false }
+                                    val autoRomanize by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.autoRomanizeFlow(context)
+                                    }.collectAsStateWithLifecycle(initialValue = false)
+                                    val romanizationAsMain by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.romanizationAsMainFlow(context)
+                                    }.collectAsStateWithLifecycle(initialValue = false)
+                                    val autoTranslate by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.autoTranslateFlow(context)
+                                    }.collectAsStateWithLifecycle(initialValue = false)
+                                    val translateLang by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.translateLanguageFlow(context)
+                                    }.collectAsStateWithLifecycle(initialValue = "en")
+                                    val lyricsTextSize by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.textSizeFlow(context)
+                                    }.collectAsStateWithLifecycle(initialValue = 26f)
+                                    val lyricsLineSpacing by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.lineSpacingFlow(context)
+                                    }.collectAsStateWithLifecycle(initialValue = 1.25f)
+                                    val lyricsSoftLight by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.softLightFlow(context)
+                                    }.collectAsStateWithLifecycle(initialValue = true)
+
+                                    if (showLyricsProvidersSheet) {
+                                        com.saurav.pixelmusic.presentation.components.lyrics.LyricsProvidersReorderSheet(
+                                            onDismiss = { showLyricsProvidersSheet = false }
                                         )
                                     }
+
                                     SettingsItem(
-                                        title = "Lyrics Style & Providers",
-                                        subtitle = "Style: ${currentMochyStyle.displayName} · Text size, translation, romanization & 10-provider order",
+                                        title = "Lyrics Providers",
+                                        subtitle = "Drag to reorder priority · ${
+                                            lyricsProviderOrder.take(3).joinToString(" → ") {
+                                                com.saurav.pixelmusic.lyrics.MochyLyricsEngine.getDisplayName(it)
+                                            }
+                                        }",
                                         leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         trailingIcon = {
                                             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
-                                        onClick = { showLyricsStudioSheet = true }
+                                        onClick = { showLyricsProvidersSheet = true }
                                     )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_auto_hide_delay_label),
@@ -1310,70 +1337,107 @@ fun SettingsCategoryScreen(
                                         }
                                     )
                                     SwitchSettingItem(
-                                        title = stringResource(R.string.presentation_batch_f_exp_animated_lyrics_title),
-                                        subtitle = stringResource(R.string.presentation_batch_f_exp_animated_lyrics_subtitle),
-                                        checked = uiState.useAnimatedLyrics,
-                                        onCheckedChange = settingsViewModel::setUseAnimatedLyrics,
+                                        title = "Romanisation",
+                                        subtitle = "Show Latin script reading for Hindi, Cyrillic, and Japanese Kana",
+                                        checked = autoRomanize,
+                                        onCheckedChange = { enabled ->
+                                            coroutineScope.launch {
+                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setAutoRomanize(context, enabled)
+                                            }
+                                        },
                                         leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_music_note_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_text_format_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
-                                    if (uiState.useAnimatedLyrics && AndroidVersionCompat.supportsHardwareBlur) {
+                                    if (autoRomanize) {
                                         SwitchSettingItem(
-                                            title = stringResource(R.string.presentation_batch_f_exp_lyric_blur_title),
-                                            subtitle = stringResource(R.string.presentation_batch_f_exp_lyric_blur_subtitle),
-                                            checked = uiState.animatedLyricsBlurEnabled,
-                                            onCheckedChange = settingsViewModel::setAnimatedLyricsBlurEnabled,
+                                            title = "Romanisation as the main line",
+                                            subtitle = "Put romanised lyrics on top and original script underneath",
+                                            checked = romanizationAsMain,
+                                            onCheckedChange = { enabled ->
+                                                coroutineScope.launch {
+                                                    com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setRomanizationAsMain(context, enabled)
+                                                }
+                                            },
                                             leadingIcon = {
-                                                Icon(painterResource(R.drawable.rounded_blur_on_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                                Icon(painterResource(R.drawable.rounded_text_format_24), null, tint = MaterialTheme.colorScheme.secondary)
                                             }
                                         )
-                                        if (uiState.animatedLyricsBlurEnabled) {
-                                            SliderSettingsItem(
-                                                label = stringResource(R.string.presentation_batch_f_exp_blur_strength),
-                                                value = uiState.animatedLyricsBlurStrength,
-                                                valueRange = 0.1f..2.0f,
-                                                steps = 10,
-                                                onValueChange = { settingsViewModel.setAnimatedLyricsBlurStrength(it) },
-                                                valueText = { String.format(java.util.Locale.US, "%.1fx", it) }
-                                            )
-                                        }
                                     }
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_lyrics_source_priority_label),
-                                        description = stringResource(R.string.setcat_lyrics_source_priority_desc),
-                                        options = mapOf(
-                                            LyricsSourcePreference.EMBEDDED_FIRST.name to stringResource(R.string.setcat_lyrics_embedded_first),
-                                            LyricsSourcePreference.API_FIRST.name to stringResource(R.string.setcat_lyrics_online_first),
-                                            LyricsSourcePreference.LOCAL_FIRST.name to stringResource(R.string.setcat_lyrics_local_first)
-                                        ),
-                                        selectedKey = uiState.lyricsSourcePreference.name,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setLyricsSourcePreference(
-                                                LyricsSourcePreference.fromName(key)
-                                            )
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
                                     SwitchSettingItem(
-                                        title = "AI Lyrics Search (β)",
-                                        subtitle = "Feed the YouTube Music song link to AI to generate synced timed lyrics when standard providers fail",
-                                        checked = uiState.isAiLyricsRescueEnabled,
+                                        title = "Translation",
+                                        subtitle = "Translate lyrics on the fly with Google Translate (no API key needed)",
+                                        checked = autoTranslate,
                                         onCheckedChange = { enabled ->
-                                            if (enabled && currentAiApiKey.isBlank()) {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Please configure an AI API key in Settings > AI Integration first",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                            } else {
-                                                settingsViewModel.setAiLyricsRescueEnabled(enabled)
+                                            coroutineScope.launch {
+                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setAutoTranslate(context, enabled)
                                             }
                                         },
                                         leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            Icon(painterResource(R.drawable.rounded_translate_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    if (autoTranslate) {
+                                        ThemeSelectorItem(
+                                            label = "Translation Language",
+                                            description = "Target language for automatic lyrics translation",
+                                            options = com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.SupportedTranslateLanguages.toMap(),
+                                            selectedKey = translateLang,
+                                            onSelectionChanged = { code ->
+                                                coroutineScope.launch {
+                                                    com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setTranslateLanguage(context, code)
+                                                }
+                                            },
+                                            leadingIcon = {
+                                                Icon(painterResource(R.drawable.rounded_translate_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            }
+                                        )
+                                    }
+                                    SliderSettingsItem(
+                                        label = "Text Size",
+                                        value = lyricsTextSize,
+                                        valueRange = 18f..36f,
+                                        steps = 17,
+                                        onValueChange = { sizeSp ->
+                                            coroutineScope.launch {
+                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setTextSize(context, sizeSp)
+                                            }
+                                        },
+                                        valueText = { "${it.roundToInt()} sp" }
+                                    )
+                                    SliderSettingsItem(
+                                        label = "Line Spacing",
+                                        value = lyricsLineSpacing,
+                                        valueRange = 1.0f..1.7f,
+                                        steps = 13,
+                                        onValueChange = { spacing ->
+                                            coroutineScope.launch {
+                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setLineSpacing(context, spacing)
+                                            }
+                                        },
+                                        valueText = { "${(it * 100).roundToInt()}%" }
+                                    )
+                                    if (AndroidVersionCompat.supportsHardwareBlur) {
+                                        SliderSettingsItem(
+                                            label = stringResource(R.string.presentation_batch_f_exp_blur_strength),
+                                            value = uiState.animatedLyricsBlurStrength.coerceIn(0.5f, 5.0f),
+                                            valueRange = 0.5f..5.0f,
+                                            steps = 8,
+                                            onValueChange = { settingsViewModel.setAnimatedLyricsBlurStrength(it) },
+                                            valueText = { String.format(java.util.Locale.US, "%.1fx", it) }
+                                        )
+                                    }
+                                    SwitchSettingItem(
+                                        title = "Soft Light & Depth Blur",
+                                        subtitle = "Subtly blur inactive lines to keep focus on the active lyric",
+                                        checked = lyricsSoftLight,
+                                        onCheckedChange = { enabled ->
+                                            coroutineScope.launch {
+                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setSoftLight(context, enabled)
+                                            }
+                                        },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_blur_on_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
                                     SettingsItem(

@@ -120,7 +120,7 @@ data class SettingsUiState(
     val hapticsEnabled: Boolean = true,
     val immersiveLyricsEnabled: Boolean = true,
     val immersiveLyricsTimeout: Long = 4000L,
-    val useAnimatedLyrics: Boolean = false,
+    val useAnimatedLyrics: Boolean = true,
     val animatedLyricsBlurEnabled: Boolean = true,
     val animatedLyricsBlurStrength: Float = 2.5f,
     val backupInfoDismissed: Boolean = false,
@@ -136,7 +136,6 @@ data class SettingsUiState(
     val replayGainEnabled: Boolean = false,
     val replayGainUseAlbumGain: Boolean = false,
     val isSafeTokenLimitEnabled: Boolean = true,
-    val isAiLyricsRescueEnabled: Boolean = false,
     val streamingAudioQualityWifi: StreamingAudioQuality = StreamingAudioQuality.AUTO,
     val streamingAudioQualityMobile: StreamingAudioQuality = StreamingAudioQuality.AUTO,
     val downloadAudioQuality: StreamingAudioQuality = StreamingAudioQuality.HIGH,
@@ -941,12 +940,6 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.isAiLyricsRescueEnabledFlow.collect { enabled ->
-                _uiState.update { it.copy(isAiLyricsRescueEnabled = enabled) }
-            }
-        }
-
-        viewModelScope.launch {
             userPreferencesRepository.streamingAudioQualityWifiFlow.collect { quality ->
                 _uiState.update { it.copy(streamingAudioQualityWifi = quality) }
             }
@@ -1676,12 +1669,6 @@ class SettingsViewModel @Inject constructor(
     fun setMinTracksPerAlbum(minTracks: Int) {
         viewModelScope.launch {
             userPreferencesRepository.setMinTracksPerAlbum(minTracks)
-        }
-    }
-
-    fun setAiLyricsRescueEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferencesRepository.setAiLyricsRescueEnabled(enabled)
         }
     }
 

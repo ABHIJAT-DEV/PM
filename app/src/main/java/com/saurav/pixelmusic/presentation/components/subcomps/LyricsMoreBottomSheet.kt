@@ -12,9 +12,17 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
@@ -59,7 +67,6 @@ fun LyricsMoreBottomSheet(
     showSyncedLyrics: Boolean,
     isSyncControlsVisible: Boolean,
     onManualSearchLyrics: () -> Unit = {},
-    onOpenStyleStudio: () -> Unit = {},
     onSaveLyricsAsLrc: () -> Unit,
     onResetImportedLyrics: () -> Unit,
     onToggleSyncControls: () -> Unit,
@@ -123,30 +130,6 @@ fun LyricsMoreBottomSheet(
                     text = stringResource(R.string.lyrics),
                     color = accentColor,
                     style = MaterialTheme.typography.bodyLargeEmphasized
-                )
-                // Mochy Lyrics Style, Translation, Romanization & Providers Studio
-                ListItem(
-                    headlineContent = { Text("Lyrics Style & Providers") },
-                    supportingContent = { Text("Choose showing style, translation, romanization & provider order") },
-                    leadingContent = {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_auto_awesome_24),
-                            contentDescription = null,
-                            tint = accentColor
-                        )
-                    },
-                    colors = ListItemDefaults.colors(
-                        containerColor = itemBackgroundColor,
-                        headlineColor = contentColor,
-                        supportingColor = contentColor.copy(alpha = 0.72f),
-                        leadingIconColor = accentColor
-                    ),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 6.dp, bottomEnd = 6.dp))
-                        .clickable {
-                            onDismissRequest()
-                            onOpenStyleStudio()
-                        }
                 )
                 // Search lyrics manually (Song ~ Artist)
                 ListItem(
@@ -413,15 +396,12 @@ fun LyricsMoreBottomSheet(
                                 )
                             },
                             trailingContent = {
-                                Switch(
+                                LyricsSheetSwitch(
                                     checked = showRomanization,
                                     onCheckedChange = onShowRomanizationChange,
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = onAccentColor,
-                                        checkedTrackColor = accentColor,
-                                        uncheckedThumbColor = contentColor,
-                                        uncheckedTrackColor = contentColor.copy(alpha = 0.3f)
-                                    )
+                                    accentColor = accentColor,
+                                    onAccentColor = onAccentColor,
+                                    contentColor = contentColor
                                 )
                             },
                             modifier = Modifier
@@ -454,15 +434,12 @@ fun LyricsMoreBottomSheet(
                                 )
                             },
                             trailingContent = {
-                                Switch(
+                                LyricsSheetSwitch(
                                     checked = showTranslation,
                                     onCheckedChange = onShowTranslationChange,
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = onAccentColor,
-                                        checkedTrackColor = accentColor,
-                                        uncheckedThumbColor = contentColor,
-                                        uncheckedTrackColor = contentColor.copy(alpha = 0.3f)
-                                    )
+                                    accentColor = accentColor,
+                                    onAccentColor = onAccentColor,
+                                    contentColor = contentColor
                                 )
                             },
                             modifier = Modifier
@@ -496,18 +473,14 @@ fun LyricsMoreBottomSheet(
                                 )
                             },
                             trailingContent = {
-                                Switch(
-                                    modifier = Modifier,
+                                LyricsSheetSwitch(
                                     checked = isImmersiveTemporarilyDisabled,
                                     onCheckedChange = {
                                         onSetImmersiveTemporarilyDisabled(it)
                                     },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = onAccentColor,
-                                        checkedTrackColor = accentColor,
-                                        uncheckedThumbColor = contentColor,
-                                        uncheckedTrackColor = contentColor.copy(alpha = 0.3f)
-                                    )
+                                    accentColor = accentColor,
+                                    onAccentColor = onAccentColor,
+                                    contentColor = contentColor
                                 )
                             },
                             modifier = Modifier
@@ -540,15 +513,12 @@ fun LyricsMoreBottomSheet(
                                 )
                             },
                             trailingContent = {
-                                Switch(
+                                LyricsSheetSwitch(
                                     checked = keepScreenOn,
                                     onCheckedChange = onKeepScreenOnChange,
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = onAccentColor,
-                                        checkedTrackColor = accentColor,
-                                        uncheckedThumbColor = contentColor,
-                                        uncheckedTrackColor = contentColor.copy(alpha = 0.3f)
-                                    )
+                                    accentColor = accentColor,
+                                    onAccentColor = onAccentColor,
+                                    contentColor = contentColor
                                 )
                             },
                             modifier = Modifier
@@ -598,4 +568,39 @@ fun LyricsMoreBottomSheet(
             }
         }
     }
+}
+
+@Composable
+private fun LyricsSheetSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    accentColor: Color,
+    onAccentColor: Color,
+    contentColor: Color,
+) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        thumbContent = {
+            AnimatedContent(
+                targetState = checked,
+                transitionSpec = { fadeIn(tween(100)) togetherWith fadeOut(tween(100)) },
+                label = "lyrics_switch_thumb_icon"
+            ) { isChecked ->
+                Icon(
+                    imageVector = if (isChecked) Icons.Rounded.Check else Icons.Rounded.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                )
+            }
+        },
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = onAccentColor,
+            checkedTrackColor = accentColor,
+            checkedIconColor = accentColor,
+            uncheckedThumbColor = contentColor,
+            uncheckedTrackColor = contentColor.copy(alpha = 0.3f),
+            uncheckedIconColor = contentColor.copy(alpha = 0.3f)
+        )
+    )
 }

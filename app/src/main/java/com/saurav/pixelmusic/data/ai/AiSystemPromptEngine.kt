@@ -11,8 +11,7 @@ enum class AiSystemPromptType {
     MOOD_ANALYSIS,
     PERSONA,
     DAILY_MIX,
-    GENERAL,
-    LYRICS_RESCUE
+    GENERAL
 }
 
 @Singleton
@@ -101,14 +100,6 @@ class AiSystemPromptEngine @Inject constructor() {
                 Assist the user with any complex queries or actions inside their music ecosystem.
                 </strategy>
             """.trimIndent()
-
-            AiSystemPromptType.LYRICS_RESCUE -> """
-                Generate the complete Timed Lyrics for the provided song link in [mm:ss] or [mm:ss.xx] format (one lyric line per timestamp, starting from [00:00]). For Hindi, Punjabi, Urdu, or regional Indian songs, write the lyrics in clean Romanized / Hinglish script; for English and other international tracks, use their standard sung script. Output only the timed lyrics lines.
-            """.trimIndent()
-        }
-
-        if (type == AiSystemPromptType.LYRICS_RESCUE) {
-            return requirementLayer
         }
 
         val contextLayer = if (context.isNotBlank()) {

@@ -98,7 +98,6 @@ fun MochySyncedLyricsView(
     performanceModeEnabled: Boolean,
     immersiveMode: Boolean,
     onLineClick: (SyncedLine) -> Unit,
-    onOpenStyleStudio: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(top = 128.dp, bottom = 110.dp),
 ) {
@@ -313,10 +312,7 @@ fun MochySyncedLyricsView(
         item(key = "mochy_source_footer") {
             MochySourceFooter(
                 providerName = providerName,
-                styleName = style.displayName,
-                accentColor = accentColor,
                 contentColor = contentColor,
-                onOpenStudio = onOpenStyleStudio,
                 modifier = Modifier.graphicsLayer {
                     if (cascade) {
                         translationY = stagger.lagOf(lines.size + introOffset)
@@ -539,51 +535,22 @@ fun MochyInterludeDots(
 @Composable
 fun MochySourceFooter(
     providerName: String?,
-    styleName: String,
-    accentColor: Color,
     contentColor: Color,
-    onOpenStudio: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (providerName.isNullOrBlank()) return
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(top = 20.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (!providerName.isNullOrBlank()) {
-            Text(
-                text = "Lyrics provided by $providerName",
-                style = MaterialTheme.typography.labelMedium,
-                fontFamily = GoogleSansRounded,
-                color = contentColor.copy(alpha = 0.55f),
-                textAlign = TextAlign.Center,
-            )
-        }
-        Surface(
-            onClick = onOpenStudio,
-            shape = RoundedCornerShape(50),
-            color = accentColor.copy(alpha = 0.14f),
-            contentColor = accentColor,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.rounded_auto_awesome_24),
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    text = "Style: $styleName · Customize",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontFamily = GoogleSansRounded,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
+        Text(
+            text = "Lyrics provided by $providerName",
+            style = MaterialTheme.typography.labelMedium,
+            fontFamily = GoogleSansRounded,
+            color = contentColor.copy(alpha = 0.55f),
+            textAlign = TextAlign.Center,
+        )
     }
 }

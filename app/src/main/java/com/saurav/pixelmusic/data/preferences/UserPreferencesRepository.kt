@@ -315,7 +315,6 @@ constructor(
         val PLAYLIST_SONG_ORDER_MODES = stringPreferencesKey("playlist_song_order_modes")
 
         // Sort Option Keys
-        val AI_LYRICS_RESCUE_ENABLED = booleanPreferencesKey("ai_lyrics_rescue_enabled")
         val SONGS_SORT_OPTION = stringPreferencesKey("songs_sort_option")
         val SONGS_SORT_OPTION_MIGRATED = booleanPreferencesKey("songs_sort_option_migrated_v2")
         val ALBUMS_SORT_OPTION = stringPreferencesKey("albums_sort_option")
@@ -1322,16 +1321,6 @@ constructor(
             )
         }
 
-    val isAiLyricsRescueEnabledFlow: Flow<Boolean> =
-        dataStore.data.map { preferences ->
-            preferences[PreferencesKeys.AI_LYRICS_RESCUE_ENABLED] ?: false
-        }
-
-    suspend fun setAiLyricsRescueEnabled(enabled: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[PreferencesKeys.AI_LYRICS_RESCUE_ENABLED] = enabled
-        }
-    }
     val downloadAudioQualityFlow: Flow<StreamingAudioQuality> =
         dataStore.data.map { preferences ->
             StreamingAudioQuality.fromName(
@@ -2124,21 +2113,15 @@ constructor(
         }
     }
 
-    val useAnimatedLyricsFlow: Flow<Boolean> = dataStore.data
-        .map { preferences ->
-            preferences[PreferencesKeys.USE_ANIMATED_LYRICS] ?: false
-        }
+    val useAnimatedLyricsFlow: Flow<Boolean> = kotlinx.coroutines.flow.flowOf(true)
 
     suspend fun setUseAnimatedLyrics(enabled: Boolean) {
         dataStore.edit { preferences ->
-            preferences[PreferencesKeys.USE_ANIMATED_LYRICS] = enabled
+            preferences[PreferencesKeys.USE_ANIMATED_LYRICS] = true
         }
     }
 
-    val animatedLyricsBlurEnabledFlow: Flow<Boolean> = dataStore.data
-        .map { preferences ->
-            preferences[PreferencesKeys.ANIMATED_LYRICS_BLUR_ENABLED] ?: true
-        }
+    val animatedLyricsBlurEnabledFlow: Flow<Boolean> = kotlinx.coroutines.flow.flowOf(true)
 
     suspend fun setAnimatedLyricsBlurEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->

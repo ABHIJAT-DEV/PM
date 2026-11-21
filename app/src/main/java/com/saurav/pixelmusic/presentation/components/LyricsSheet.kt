@@ -329,22 +329,15 @@ fun LyricsSheet(
     }
     val showLyricsRomanization by showLyricsRomanizationFlow.collectAsStateWithLifecycle(initialValue = true)
 
-    // Read animated lyrics preference internally from DataStore
-    val useAnimatedLyricsFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("use_animated_lyrics")] ?: false }
-    }
-    val useAnimatedLyrics by useAnimatedLyricsFlow.collectAsStateWithLifecycle(initialValue = false)
+    // Animated lyrics and depth blur are enabled by default
+    val useAnimatedLyrics = true
 
     val performanceModeEnabledFlow = remember(context) {
         context.dataStore.data.map { it[booleanPreferencesKey("performance_mode_enabled")] ?: false }
     }
     val performanceModeEnabled by performanceModeEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
 
-    val animatedLyricsBlurEnabledFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("animated_lyrics_blur_enabled")] ?: true }
-    }
-    val animatedLyricsBlurEnabledRaw by animatedLyricsBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-    val animatedLyricsBlurEnabled = animatedLyricsBlurEnabledRaw && !performanceModeEnabled
+    val animatedLyricsBlurEnabled = !performanceModeEnabled
 
     val animatedLyricsBlurStrengthFlow = remember(context) {
         context.dataStore.data.map { it[androidx.datastore.preferences.core.floatPreferencesKey("animated_lyrics_blur_strength")] ?: 2.5f }
@@ -428,7 +421,6 @@ fun LyricsSheet(
     var hasDismissedDialogForSong by remember(currentSong?.id) { mutableStateOf(false) }
     // Save lyrics dialog state
     var showSaveLyricsDialog by remember { mutableStateOf(false) }
-    var showMochyStyleStudio by remember { mutableStateOf(false) }
     var showSyncControls by remember { mutableStateOf(false) }
     var previewSeekPositionMs by remember(currentSong?.id) { mutableStateOf<Long?>(null) }
 
@@ -819,13 +811,7 @@ fun LyricsSheet(
                                         item(key = "mochy_source_footer_pixelmusic") {
                                             com.saurav.pixelmusic.presentation.components.lyrics.MochySourceFooter(
                                                 providerName = lyrics?.providerName,
-                                                styleName = activeLyricsStyle.displayName,
-                                                accentColor = lyricHighlightColor,
                                                 contentColor = contentColor,
-                                                onOpenStudio = {
-                                                    resetImmersiveTimer()
-                                                    showMochyStyleStudio = true
-                                                }
                                             )
                                         }
                                     }
@@ -857,10 +843,6 @@ fun LyricsSheet(
                                             )
                                         )
                                         resetImmersiveTimer()
-                                    },
-                                    onOpenStyleStudio = {
-                                        resetImmersiveTimer()
-                                        showMochyStyleStudio = true
                                     }
                                 )
                             }
@@ -1077,10 +1059,6 @@ fun LyricsSheet(
                         wasResetTriggered = true
                         resetLyricsForCurrentSong()
                     },
-                    onOpenStyleStudio = {
-                        resetImmersiveTimer()
-                        showMochyStyleStudio = true
-                    },
                     onToggleSyncControls = {
                         resetImmersiveTimer()
                         showSyncControls = !showSyncControls
@@ -1146,18 +1124,6 @@ fun LyricsSheet(
                 )
             }
         }
-
-       if (showMochyStyleStudio) {
-           MaterialTheme(
-               colorScheme = colorScheme,
-               typography = MaterialTheme.typography,
-               shapes = MaterialTheme.shapes
-           ) {
-               com.saurav.pixelmusic.presentation.components.lyrics.MochyLyricsStudioSheet(
-                   onDismiss = { showMochyStyleStudio = false }
-               )
-           }
-       }
 
        // Show Controls Button (Overlay)
        AnimatedVisibility(

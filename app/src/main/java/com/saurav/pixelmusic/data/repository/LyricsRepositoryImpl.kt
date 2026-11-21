@@ -73,159 +73,6 @@ class LyricsRepositoryImpl @Inject constructor(
     private val aiOrchestrator: javax.inject.Provider<com.saurav.pixelmusic.data.ai.AiOrchestrator>? = null
 ) : LyricsRepository {
 
-    private val ytUrlIdRegex = Regex(
-        "(?:https?://)?(?:music\\.|www\\.|m\\.)?youtube\\.com/watch\\?v=([a-zA-Z0-9_-]{11})|(?:https?://)?youtu\\.be/([a-zA-Z0-9_-]{11})",
-        RegexOption.IGNORE_CASE
-    )
-
-    private val aiBracketTimestampRegex = Regex(
-        """^\s*(?:[-*•]\s*)?(?:\*\*|`)?\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?](?:\*\*|`)?\s*(.*)$"""
-    )
-
-    private val aiLooseTimestampRegex = Regex(
-        """^\s*(?:[-*•]\s*)?(?:\*\*|`)?\(?(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\)?(?:\*\*|`)?\s*(?:[-–—:]\s*|\s+)(.+)$"""
-    )
-
-    private suspend fun resolveYtMusicVideoId(song: Song): String? {
-        val directVideoId = song.youtubeId?.trim()?.takeIf { it.matches(Regex("^[a-zA-Z0-9_-]{11}$")) }
-            ?: song.id.removePrefix("youtube_").takeIf { it.matches(Regex("^[a-zA-Z0-9_-]{11}$")) }
-            ?: song.contentUriString.removePrefix("youtube://").takeIf { it.matches(Regex("^[a-zA-Z0-9_-]{11}$")) }
-            ?: ytUrlIdRegex.find(song.contentUriString)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }
-            ?: ytUrlIdRegex.find(song.title)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }
-
-        if (directVideoId != null) return directVideoId
-
-        val query = listOfNotNull(
-            song.title.trim().takeIf { it.isNotBlank() },
-            song.displayArtist.trim().takeIf { it.isNotBlank() && !it.equals("Unknown Artist", ignoreCase = true) }
-        ).joinToString(" ").trim()
-
-        if (query.isBlank()) return null
-
-        val songItemId = runCatching {
-            saurav.shru.pixelmusic.innertube.YouTube.search(
-                query,
-                saurav.shru.pixelmusic.innertube.YouTube.SearchFilter.FILTER_SONG
-            ).getOrNull()?.items?.filterIsInstance<saurav.shru.pixelmusic.innertube.models.SongItem>()?.firstOrNull()?.id
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-
-        if (songItemId != null) return songItemId
-
-        return runCatching {
-            saurav.shru.pixelmusic.innertube.YouTube.search(
-                query,
-                saurav.shru.pixelmusic.innertube.YouTube.SearchFilter.FILTER_VIDEO
-            ).getOrNull()?.items?.filterIsInstance<saurav.shru.pixelmusic.innertube.models.SongItem>()?.firstOrNull()?.id
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
-
-    private fun extractLyricsFromAiReply(rawResponse: String): String? {
-        val cleaned = rawResponse
-            .replace(Regex("```[a-zA-Z]*"), "")
-            .replace("```", "")
-            .trim()
-        if (cleaned.isBlank()) return null
-
-        val lrcLines = mutableListOf<String>()
-        val plainCandidateLines = mutableListOf<String>()
-
-        for (rawLine in cleaned.lines()) {
-            val trimmed = rawLine.trim()
-            if (trimmed.isEmpty()) continue
-
-            val match = aiBracketTimestampRegex.matchEntire(trimmed)
-                ?: aiLooseTimestampRegex.matchEntire(trimmed)
-
-            if (match != null) {
-                val min = match.groupValues[1].toIntOrNull()?.coerceIn(0, 99) ?: continue
-                val sec = match.groupValues[2].toIntOrNull()?.coerceIn(0, 59) ?: continue
-                val fracStr = match.groupValues.getOrNull(3).orEmpty()
-                val hundredths = when (fracStr.length) {
-                    1 -> (fracStr.toIntOrNull() ?: 0) * 10
-                    2 -> fracStr.toIntOrNull() ?: 0
-                    3 -> (fracStr.toIntOrNull() ?: 0) / 10
-                    else -> 0
-                }.coerceIn(0, 99)
-                val lyricText = match.groupValues[4].trim()
-                lrcLines += String.format(java.util.Locale.US, "[%02d:%02d.%02d]%s", min, sec, hundredths, lyricText)
-            } else if (!trimmed.startsWith("Here are", ignoreCase = true) &&
-                !trimmed.startsWith("Sure,", ignoreCase = true) &&
-                !trimmed.startsWith("{") &&
-                !trimmed.endsWith("}")
-            ) {
-                plainCandidateLines += trimmed
-            }
-        }
-
-        if (lrcLines.size >= 2) {
-            return lrcLines.joinToString("\n")
-        }
-
-        return plainCandidateLines.takeIf { it.size >= 4 }?.joinToString("\n")
-    }
-
-    private suspend fun aiLyricsRescue(song: Song): List<LyricsSearchResult> {
-        val orchestrator = aiOrchestrator?.get() ?: return emptyList()
-        val prefs = userPreferencesRepository ?: return emptyList()
-        val isEnabled = runCatching { prefs.isAiLyricsRescueEnabledFlow.first() }.getOrDefault(false)
-        if (!isEnabled) return emptyList()
-
-        return try {
-            val videoId = resolveYtMusicVideoId(song)
-            val ytMusicLink = videoId?.let { "https://music.youtube.com/watch?v=$it" }
-
-            val prompt = if (ytMusicLink != null) {
-                "$ytMusicLink\n\nTimed Lyrics"
-            } else {
-                val trackLabel = listOfNotNull(
-                    song.title.trim().takeIf { it.isNotBlank() },
-                    song.displayArtist.trim().takeIf { it.isNotBlank() && !it.equals("Unknown Artist", ignoreCase = true) }
-                ).joinToString(" - ")
-                if (trackLabel.isBlank()) return emptyList()
-                "$trackLabel\n\nTimed Lyrics"
-            }
-
-            val response = orchestrator.generateContent(
-                prompt = prompt,
-                type = com.saurav.pixelmusic.data.ai.AiSystemPromptType.LYRICS_RESCUE
-            )
-            if (response.isBlank()) return emptyList()
-
-            val extractedLyrics = extractLyricsFromAiReply(response) ?: return emptyList()
-            val parsedLyrics = LyricsUtils.parseLyrics(extractedLyrics).copy(areFromRemote = true)
-            if (!parsedLyrics.isValid()) return emptyList()
-
-            val hasSynced = !parsedLyrics.synced.isNullOrEmpty()
-            val durationSec = if (song.duration > 0) song.duration / 1000.0 else null
-            val aiHit = ScoredHit(
-                provider = com.saurav.pixelmusic.data.remote.lyrics_providers.util.Providers.LYRICSPLUS,
-                strategy = com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.MatchStrategy.TAGS,
-                result = com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.ProviderResult(
-                    title = song.title,
-                    artist = song.displayArtist,
-                    durationSec = durationSec,
-                    album = song.album,
-                    hasSyncedLyrics = hasSynced
-                ),
-                confidence = com.saurav.pixelmusic.data.remote.lyrics_providers.util.matching.ConfidenceBreakdown(
-                    score = 0.95,
-                    title = 1.0,
-                    artist = 1.0,
-                    duration = 1.0,
-                    album = 1.0,
-                    tier = MatchTier.AUTO_ACCEPT,
-                    durationMatched = true
-                ),
-                inlineLyrics = extractedLyrics,
-                neteaseId = null
-            )
-            listOf(LyricsSearchResult(aiHit, parsedLyrics, extractedLyrics))
-        } catch (e: Exception) {
-            Log.w(TAG, "AI lyrics rescue error: ${e.message}")
-            emptyList()
-        }
-    }
-
     companion object {
         private const val TAG = "LyricsRepository"
         private const val MAX_LYRICS_CACHE_SIZE = 150
@@ -384,17 +231,6 @@ class LyricsRepositoryImpl @Inject constructor(
                     }
                 }
             }
-            val aiResults = aiLyricsRescue(song)
-            val bestAi = aiResults.firstOrNull { !it.lyrics.synced.isNullOrEmpty() } ?: aiResults.firstOrNull()
-            if (bestAi != null && bestAi.lyrics.isValid()) {
-                saveToDbAndCache(
-                    song = song,
-                    rawLyrics = bestAi.rawLyrics,
-                    isSynced = !bestAi.lyrics.synced.isNullOrEmpty()
-                )
-                return@withContext bestAi.lyrics
-            }
-
             if (fallbackPlainResult != null) {
                 saveToDbAndCache(song, lyricsToRawContent(fallbackPlainResult) ?: "", isSynced = false)
                 return@withContext fallbackPlainResult
@@ -870,13 +706,6 @@ class LyricsRepositoryImpl @Inject constructor(
                 }.awaitAll().filterNotNull()
             }
 
-            if (results.none { !it.lyrics.synced.isNullOrEmpty() }) {
-                val aiResults = aiLyricsRescue(song)
-                if (aiResults.isNotEmpty()) {
-                    results = aiResults + results
-                }
-            }
-
             val query = "${song.title} ${song.displayArtist}".trim()
             if (results.isNotEmpty()) {
                 Result.success(Pair(query, results))
@@ -911,14 +740,6 @@ class LyricsRepositoryImpl @Inject constructor(
                         LyricsSearchResult(hit, parsed, rawLyrics)
                     }
                 }.awaitAll().filterNotNull()
-            }
-
-            if (results.none { !it.lyrics.synced.isNullOrEmpty() }) {
-                val dummySong = Song.emptySong().copy(title = cleanTitle, artist = cleanArtist.orEmpty())
-                val aiResults = aiLyricsRescue(dummySong)
-                if (aiResults.isNotEmpty()) {
-                    results = aiResults + results
-                }
             }
 
             if (results.isEmpty()) {
