@@ -32,9 +32,9 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import com.saurav.pixelmusic.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -452,17 +452,29 @@ private fun MochyLyricLineItem(
             } else {
                 null
             }
-            val textStyle = TextStyle(
-                fontFamily = GoogleSansRounded,
-                fontSize = fontSize,
-                lineHeight = lineHeight,
-                fontWeight = fontWeight,
-                fontStyle = if (line.isBackground) FontStyle.Italic else FontStyle.Normal,
-                textAlign = textAlign,
-                shadow = glowShadow,
-                brush = activeBrush,
-                color = if (activeBrush != null) Color.Unspecified else if (isActive) accentColor else contentColor,
-            )
+            val textStyle = if (activeBrush != null) {
+                TextStyle(
+                    brush = activeBrush,
+                    fontFamily = GoogleSansRounded,
+                    fontSize = fontSize,
+                    lineHeight = lineHeight,
+                    fontWeight = fontWeight,
+                    fontStyle = if (line.isBackground) FontStyle.Italic else FontStyle.Normal,
+                    textAlign = textAlign,
+                    shadow = glowShadow,
+                )
+            } else {
+                TextStyle(
+                    color = if (isActive) accentColor else contentColor,
+                    fontFamily = GoogleSansRounded,
+                    fontSize = fontSize,
+                    lineHeight = lineHeight,
+                    fontWeight = fontWeight,
+                    fontStyle = if (line.isBackground) FontStyle.Italic else FontStyle.Normal,
+                    textAlign = textAlign,
+                    shadow = glowShadow,
+                )
+            }
             Text(
                 text = line.line,
                 style = textStyle,
@@ -595,7 +607,7 @@ fun MochySourceFooter(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
+                    painter = painterResource(R.drawable.rounded_auto_awesome_24),
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                 )

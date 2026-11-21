@@ -227,7 +227,7 @@ object MochyRomanizer {
         'ं' to "n", 'ँ' to "n", 'ः' to "h",
     )
 
-    private val devanagariConsonants = mapOf(
+    private val devanagariConsonants: Map<Char, String> = mapOf(
         'क' to "k", 'ख' to "kh", 'ग' to "g", 'घ' to "gh", 'ङ' to "ng",
         'च' to "ch", 'छ' to "chh", 'ज' to "j", 'झ' to "jh", 'ञ' to "ny",
         'ट' to "t", 'ठ' to "th", 'ड' to "d", 'ढ' to "dh", 'ण' to "n",
@@ -235,7 +235,8 @@ object MochyRomanizer {
         'प' to "p", 'फ' to "ph", 'ब' to "b", 'भ' to "bh", 'म' to "m",
         'य' to "y", 'र' to "r", 'ल' to "l", 'व' to "v",
         'श' to "sh", 'ष' to "sh", 'स' to "s", 'ह' to "h",
-        'क़' to "q", 'ख़' to "kh", 'ग़' to "gh", 'ज़' to "z", 'ड़' to "r", 'ढ़' to "rh", 'फ़' to "f",
+        '\u0958' to "q", '\u0959' to "kh", '\u095A' to "gh", '\u095B' to "z",
+        '\u095C' to "r", '\u095D' to "rh", '\u095E' to "f",
     )
 
     private val cyrillicMap = mapOf(
