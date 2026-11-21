@@ -33,12 +33,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -133,6 +137,8 @@ fun FeatureCompatibilityScreen(
         }
     }
 
+    val glassState = rememberGlassState()
+    CompositionLocalProvider(LocalScreenGlassState provides glassState) {
     Box(
         modifier = Modifier
             .nestedScroll(nestedScrollConnection)
@@ -151,6 +157,7 @@ fun FeatureCompatibilityScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxSize()
+                .glassRoot(glassState)
                 .scrollMotionBlur(lazyListState)
         ) {
             item {
@@ -246,6 +253,7 @@ fun FeatureCompatibilityScreen(
             collapsedTitleStartPadding = 68.dp,
             maxLines = 2
         )
+    }
     }
 }
 

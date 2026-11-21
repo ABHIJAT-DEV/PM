@@ -49,6 +49,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -56,6 +57,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -166,6 +170,8 @@ fun DeviceCapabilitiesScreen(
         }
     }
 
+    val glassState = rememberGlassState()
+    CompositionLocalProvider(LocalScreenGlassState provides glassState) {
     Box(
         modifier = Modifier
             .nestedScroll(nestedScrollConnection)
@@ -196,8 +202,10 @@ fun DeviceCapabilitiesScreen(
                 onNavigateToFeatureCompatibility = {
                     navController.navigateSafely(Screen.FeatureCompatibility.route)
                 },
-                modifier = Modifier.fillMaxSize()
-                .scrollMotionBlur(lazyListState, enabled = isMotionBlurEnabled)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .glassRoot(glassState)
+                    .scrollMotionBlur(lazyListState, enabled = isMotionBlurEnabled)
             )
         }
 
@@ -210,6 +218,7 @@ fun DeviceCapabilitiesScreen(
             collapsedTitleStartPadding = 68.dp,
             maxLines = 2
         )
+    }
     }
 }
 
@@ -939,7 +948,7 @@ private fun FeatureCompatibilitySummaryCard(
         modifier = modifier
     ) {
         Text(
-            text = "Platform compatibility breakdown for Android API-dependent features (blurs, AGSL animations, theming, dynamic island, and video sharing).",
+            text = "Platform compatibility breakdown for Android API & hardware features (Progressive Glass Blur, AGSL Lyrics Shaders, Hi-Fi 32-bit Float DSP, Dolby Atmos Spatializer, Dynamic Island, and Video Export).",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

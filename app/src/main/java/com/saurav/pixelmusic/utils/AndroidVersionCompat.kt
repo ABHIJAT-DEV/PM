@@ -2,6 +2,7 @@ package com.saurav.pixelmusic.utils
 
 import android.media.MediaCodecList
 import android.os.Build
+import com.saurav.pixelmusic.data.service.player.HiFiCapabilityChecker
 
 data class FeatureCompatibilityItem(
     val id: String,
@@ -58,6 +59,19 @@ object AndroidVersionCompat {
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
     /**
+     * Android Spatializer API ([android.media.AudioManager.getSpatializer]) was introduced in
+     * Android 12L (API 32, S_V2), and hardware E-AC3-JOC decoders expose Dolby Atmos bitstreams.
+     */
+    val supportsAndroidSpatializerApi: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2
+
+    /**
+     * Hardware 32-bit float PCM AudioTrack output support.
+     */
+    val supportsHiFiPcmFloat: Boolean
+        get() = HiFiCapabilityChecker.isSupported()
+
+    /**
      * Predictive back gestures in Compose require Android 14+ (API 34, UPSIDE_DOWN_CAKE).
      */
     val supportsPredictiveBack: Boolean
@@ -96,10 +110,6 @@ object AndroidVersionCompat {
     }
 
     /**
-     * 30-second Video Sharing Engine requires Media3 Transformer video encoding support,
-     * which reliably needs Android 11+ (API 30, R) and an available H.264 (AVC) video encoder.
-     */
-    /**
      * Checks if the device has a system equalizer / audio effects control panel
      * capable of handling [android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL].
      */
@@ -112,6 +122,10 @@ object AndroidVersionCompat {
         }
     }
 
+    /**
+     * 30-second Video Sharing Engine requires Media3 Transformer video encoding support,
+     * which reliably needs Android 11+ (API 30, R) and an available H.264 (AVC) video encoder.
+     */
     fun supportsVideoSharing(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
         return try {
@@ -131,34 +145,74 @@ object AndroidVersionCompat {
     fun getCompatibilityItems(): List<FeatureCompatibilityItem> {
         return listOf(
             FeatureCompatibilityItem(
-                id = "motion_blur",
-                name = "Motion Blur",
-                category = "Graphics & Animation",
+                id = "progressive_header_blur",
+                name = "Progressive Header & Glass Blur",
+                category = "Graphics & UI",
+                requiredVersionLabel = "Android 12+ (API 31) • AGSL Variable Blur on Android 13+",
+                minApi = 31,
+                isSupported = supportsHardwareBlur,
+                description = "Real-time RenderNode glass backdrop blur across top headers, using multi-band AGSL variable-radius shaders on Android 13+.",
+                limitationNote = "Requires Android 12+ RenderNode & RenderEffect blur. On Android 10/11, headers use a smooth multi-stop progressive gradient scrim."
+            ),
+            FeatureCompatibilityItem(
+                id = "agsl_lyrics_shaders",
+                name = "AGSL Lyrics Bloom & Wave Shaders",
+                category = "Lyrics & Animation",
                 requiredVersionLabel = "Android 13+ (API 33)",
                 minApi = 33,
-                isSupported = supportsMotionBlur,
-                description = "Applies real-time directional velocity blur when scrolling song and album lists.",
-                limitationNote = "Requires AGSL (Android Graphics Shading Language) RuntimeShader introduced in Android 13."
+                isSupported = supportsAgsl,
+                description = "GPU RuntimeShader bloom glow, held-note swell, and wave-lift effects on word-synced lyrics.",
+                limitationNote = "Requires AGSL (Android Graphics Shading Language) RuntimeShader introduced in Android 13. On Android 10–12, lyrics use smooth shadow and alpha highlights."
             ),
             FeatureCompatibilityItem(
                 id = "hardware_blur",
-                name = "Hardware & Live Artwork Blur",
+                name = "Live Lyrics Depth & Wallpaper Blur",
                 category = "Graphics & UI",
                 requiredVersionLabel = "Android 12+ (API 31)",
                 minApi = 31,
                 isSupported = supportsHardwareBlur,
-                description = "Hardware-accelerated RenderEffect blurs for wallpaper backgrounds, sheet backdrops, and lyric focus.",
-                limitationNote = "GPU RenderEffect blurring is only available in Android 12 and above. On Android 10/11, solid/tint scrims are used."
+                description = "Hardware-accelerated depth-of-field blur (2.5x default) on inactive lyrics, top-half Home/Explore wallpapers, and modal sheets.",
+                limitationNote = "GPU RenderEffect blurring is only available in Android 12 and above. On Android 10/11, soft opacity dimming is used instead."
+            ),
+            FeatureCompatibilityItem(
+                id = "motion_blur",
+                name = "Scroll Motion Blur",
+                category = "Graphics & Animation",
+                requiredVersionLabel = "Android 12+ (API 31)",
+                minApi = 31,
+                isSupported = supportsMotionBlur,
+                description = "Applies real-time directional velocity blur when scrolling song, album, and settings lists.",
+                limitationNote = "Requires Android 12+ directional RenderEffect blur."
+            ),
+            FeatureCompatibilityItem(
+                id = "hifi_float_audio",
+                name = "Hi-Fi 32-Bit Float Audio & Audio FX DSP",
+                category = "Audio & DSP",
+                requiredVersionLabel = "PCM_FLOAT AudioTrack Hardware Support",
+                minApi = 29,
+                isSupported = supportsHiFiPcmFloat,
+                description = "Outputs 32-bit IEEE float PCM from the 64-bit Audio FX DSP chain (Parametric EQ, AutoEQ, 3D Sims, 8D Audio, Reverb, Loudness, and Spatial Crossfeed).",
+                limitationNote = "Your device's AudioTrack driver rejected ENCODING_PCM_FLOAT; Audio FX DSP still runs in full precision and dithers to 16-bit PCM output."
+            ),
+            FeatureCompatibilityItem(
+                id = "dolby_atmos_spatializer",
+                name = "Dolby Atmos & Android Spatializer",
+                category = "Audio & DSP",
+                requiredVersionLabel = "Android 12L+ (API 32) Spatializer • Built-in Head Model on All Versions",
+                minApi = 32,
+                isSupported = supportsAndroidSpatializerApi,
+                description = "Renders 5.1, 7.1, and Atmos beds in 3D using PixelMusic's binaural head model and passes multichannel beds to the Android Spatializer when available.",
+                limitationNote = "System Spatializer inspection requires Android 12L+ (API 32), though PixelMusic's built-in 3D Sims, 8D Audio, and binaural surround work on all supported Android versions."
             ),
             FeatureCompatibilityItem(
                 id = "dynamic_color",
-                name = "Material You Dynamic Theming",
+                name = "Material You Dynamic Theming & Gradient Blur",
                 category = "Theming & Appearance",
                 requiredVersionLabel = "Android 12+ (API 31)",
                 minApi = 31,
                 isSupported = supportsDynamicColor,
-                description = "Extracts accent and surface colors from your system wallpaper using Google Monet.",
-                limitationNote = "Wallpaper color extraction requires Android 12+. Preset themes (Album Art, Black & White, Sage, etc.) are available on all versions."
+                description = "Extracts system Monet wallpaper colors and drives the top-half Material You Gradient Blur background on Home and Explore.",
+                limitationNote = "System wallpaper color extraction requires Android 12+. Live Album Art, Black & White, and Monochrome Yellow palettes work on all versions."
             ),
             FeatureCompatibilityItem(
                 id = "music_live_wallpaper",
@@ -167,8 +221,8 @@ object AndroidVersionCompat {
                 requiredVersionLabel = "Android 12+ (API 31)",
                 minApi = 31,
                 isSupported = supportsMusicLiveWallpaper,
-                description = "Live wallpaper that draws the playing album art over your gallery fallback image, with Material You colors taken from the fallback.",
-                limitationNote = "Requires Android 12+ for wallpaper color reporting and hardware blur. On Android 10/11 the feature, its settings entry, and the live wallpaper are removed."
+                description = "Live wallpaper that draws the playing album art with Material You morphing shapes over your fallback wallpaper.",
+                limitationNote = "Requires Android 12+ for WallpaperColors reporting and hardware RenderEffect blur."
             ),
             FeatureCompatibilityItem(
                 id = "live_island",
@@ -208,7 +262,7 @@ object AndroidVersionCompat {
                 minApi = 33,
                 isSupported = supportsPostNotifications,
                 description = "Runtime permission prompt required to display background media playback controls.",
-                limitationNote = "On Android 10-12, notifications are granted automatically at install time and do not need runtime requests."
+                limitationNote = "On Android 10–12, notifications are granted automatically at install time and do not need runtime requests."
             )
         )
     }

@@ -185,7 +185,7 @@ fun SettingsItem(
         onClick: () -> Unit
 ) {
     val highlightTitle = LocalSettingsHighlightTitle.current
-    val highlighted = highlightTitle != null && title == highlightTitle
+    val highlighted = highlightTitle != null && title.equals(highlightTitle, ignoreCase = true)
     val shape = RoundedCornerShape(10.dp)
 
     Box(
@@ -249,7 +249,11 @@ fun SwitchSettingItem(
     val view = LocalView.current
     val appHapticsConfig = LocalAppHapticsConfig.current
     val highlightTitle = LocalSettingsHighlightTitle.current
-    val highlighted = highlightTitle != null && title == highlightTitle
+    val highlighted = highlightTitle != null && (
+        title.equals(highlightTitle, ignoreCase = true) ||
+            (highlightTitle.equals("Live Activity / Dynamic Island", ignoreCase = true) &&
+                title.contains("Dynamic Island", ignoreCase = true))
+        )
     val shape = RoundedCornerShape(10.dp)
     val themeTransitionController = LocalThemeTransitionController.current
     var switchCenter by remember { mutableStateOf(Offset.Zero) }
@@ -1269,38 +1273,55 @@ fun SliderSettingsItem(
         onValueChangeFinished: (() -> Unit)? = null,
         valueText: (Float) -> String
 ) {
-    Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+    val highlightTitle = LocalSettingsHighlightTitle.current
+    val highlighted = highlightTitle != null && (
+        label.equals(highlightTitle, ignoreCase = true) ||
+            (highlightTitle.equals("Music Storage Limit", ignoreCase = true) &&
+                label.contains("storage", ignoreCase = true))
+        )
+    val shape = RoundedCornerShape(10.dp)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .autoBringIntoViewWhenHighlighted(highlighted)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                        text = label,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                        text = valueText(value),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false
+        Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier.fillMaxWidth().clip(shape)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                            text = label,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                            text = valueText(value),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                    )
+                }
+                Slider(
+                    value = value,
+                    onValueChange = onValueChange,
+                    onValueChangeFinished = onValueChangeFinished,
+                    valueRange = valueRange,
+                    steps = steps
                 )
             }
-            Slider(
-                value = value,
-                onValueChange = onValueChange,
-                onValueChangeFinished = onValueChangeFinished,
-                valueRange = valueRange,
-                steps = steps
-            )
+        }
+        if (highlighted) {
+            HighlightPulseOverlay(shape = shape)
         }
     }
 }
@@ -1313,9 +1334,23 @@ fun RefreshLibraryItem(
         onFullSync: () -> Unit,
         onRebuild: () -> Unit
 ) {
+    val highlightTitle = LocalSettingsHighlightTitle.current
+    val title = stringResource(R.string.presentation_batch_f_refresh_library_title)
+    val highlighted = highlightTitle != null && (
+        title.equals(highlightTitle, ignoreCase = true) ||
+            highlightTitle.equals("Full Rescan", ignoreCase = true) ||
+            highlightTitle.equals("Rebuild Database", ignoreCase = true)
+        )
+    val shape = RoundedCornerShape(10.dp)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .autoBringIntoViewWhenHighlighted(highlighted)
+    ) {
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -1434,6 +1469,10 @@ fun RefreshLibraryItem(
                 }
             }
         }
+    }
+    if (highlighted) {
+        HighlightPulseOverlay(shape = shape)
+    }
     }
 }
 
@@ -1629,6 +1668,12 @@ fun AiApiKeyItem(
     var localApiKey by remember(apiKey) { mutableStateOf(apiKey) }
     val hasChanges = localApiKey != apiKey
     var showSaved by remember { mutableStateOf(false) }
+    val highlightTitle = LocalSettingsHighlightTitle.current
+    val highlighted = highlightTitle != null && (
+        title.equals(highlightTitle, ignoreCase = true) ||
+            highlightTitle.equals("AI API Key", ignoreCase = true)
+        )
+    val shape = RoundedCornerShape(10.dp)
 
     LaunchedEffect(showSaved) {
         if (showSaved) {
@@ -1637,9 +1682,14 @@ fun AiApiKeyItem(
         }
     }
 
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .autoBringIntoViewWhenHighlighted(highlighted)
+    ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+        modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -1687,6 +1737,10 @@ fun AiApiKeyItem(
             }
         }
     }
+    if (highlighted) {
+        HighlightPulseOverlay(shape = shape)
+    }
+    }
 }
 
 @Composable
@@ -1702,6 +1756,12 @@ fun AiSystemPromptItem(
     val hasChanges = localPrompt != systemPrompt
     val isDefault = systemPrompt == defaultPrompt
     var showSaved by remember { mutableStateOf(false) }
+    val highlightTitle = LocalSettingsHighlightTitle.current
+    val highlighted = highlightTitle != null && (
+        title.equals(highlightTitle, ignoreCase = true) ||
+            highlightTitle.equals("AI System Prompt", ignoreCase = true)
+        )
+    val shape = RoundedCornerShape(10.dp)
     val presets = listOf(
         stringResource(R.string.presentation_batch_f_ai_preset_professional_curator_name) to
             stringResource(R.string.presentation_batch_f_ai_preset_professional_curator_prompt),
@@ -1724,9 +1784,14 @@ fun AiSystemPromptItem(
         }
     }
 
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .autoBringIntoViewWhenHighlighted(highlighted)
+    ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+        modifier = Modifier.fillMaxWidth().clip(shape)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -1802,5 +1867,9 @@ fun AiSystemPromptItem(
                 }
             }
         }
+    }
+    if (highlighted) {
+        HighlightPulseOverlay(shape = shape)
+    }
     }
 }
