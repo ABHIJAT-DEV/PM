@@ -212,7 +212,8 @@ class MusicService : MediaLibraryService() {
         // JSON+DataStore rewrite on every Media3 event (track transition fires 3-4 listeners
         // within ~200ms) is unnecessary work. 1500ms coalesces those without harming restore.
         private const val PLAYBACK_SNAPSHOT_DEBOUNCE_MS = 1500L
-        private const val FORCED_WIDGET_STATE_DEBOUNCE_MS = 250L
+        private const val PLAYBACK_SNAPSHOT_PERIODIC_PERSIST_MS = 15_000L
+        private const val FORCED_WIDGET_STATE_DEBOUNCE_MS = 0L
         private const val MEDIA_SESSION_BUTTON_DEBOUNCE_MS = 250L
         private val pendingMediaButtonForegroundStarts = AtomicInteger(0)
 
@@ -1118,12 +1119,15 @@ class MusicService : MediaLibraryService() {
                 PlayerActions.PLAY_PAUSE -> {
                     if (player.mediaItemCount == 0) {
                         isRestoringForWidgetAction = true
+                        pushOptimisticWidgetState { it.copy(isPlaying = true) }
                         restoreAndPlayLastQueueFromWidget(action)
                     } else {
                         if (player.playbackState == Player.STATE_IDLE) {
                             player.prepare()
                         }
-                        player.playWhenReady = !player.playWhenReady
+                        val targetPlay = !player.playWhenReady
+                        player.playWhenReady = targetPlay
+                        pushOptimisticWidgetState { it.copy(isPlaying = targetPlay) }
                         requestWidgetFullUpdate(force = true)
                     }
                 }
@@ -1147,7 +1151,14 @@ class MusicService : MediaLibraryService() {
                 }
                 PlayerActions.FAVORITE -> {
                     val songId = player.currentMediaItem?.mediaId
-                    if (!songId.isNullOrBlank()) {
+                    if (songId.isNullOrBlank()) {
+                        isRestoringForWidgetAction = true
+                        pushOptimisticWidgetState { it.copy(isFavorite = !it.isFavorite) }
+                        restoreAndPlayLastQueueFromWidget(action)
+                    } else {
+                        val optimisticFavorite = !favoriteSongIds.contains(songId)
+                        pushOptimisticWidgetState { it.copy(isFavorite = optimisticFavorite) }
+                        isRestoringForWidgetAction = true
                         serviceScope.launch {
                             val updatedFavorite = musicRepository.toggleFavoriteStatus(songId)
                             favoriteSongIds = if (updatedFavorite) {
@@ -1155,7 +1166,6 @@ class MusicService : MediaLibraryService() {
                             } else {
                                 favoriteSongIds - songId
                             }
-                        
                             mediaSession?.let { refreshMediaSessionUi(it) }
                             requestWidgetFullUpdate(force = true)
                         }
@@ -1164,39 +1174,65 @@ class MusicService : MediaLibraryService() {
                 PlayerActions.PLAY_FROM_QUEUE -> {
                     val songId = intent.getLongExtra("song_id", -1L)
                     if (songId != -1L) {
-                        val timeline = player.currentTimeline
-                        if (!timeline.isEmpty) {
-                            val window = Timeline.Window()
-                            for (i in 0 until timeline.windowCount) {
-                                timeline.getWindow(i, window)
-                                if (window.mediaItem.mediaId.toLongOrNull() == songId) {
-                                    player.seekTo(i, C.TIME_UNSET)
-                                    player.prepare()
-                                    player.play()
-                                    break
+                        if (player.mediaItemCount == 0) {
+                            isRestoringForWidgetAction = true
+                            restoreAndPlayLastQueueFromWidget(action, targetSongId = songId)
+                        } else {
+                            val timeline = player.currentTimeline
+                            if (!timeline.isEmpty) {
+                                val window = Timeline.Window()
+                                for (i in 0 until timeline.windowCount) {
+                                    timeline.getWindow(i, window)
+                                    if (window.mediaItem.mediaId.toLongOrNull() == songId) {
+                                        player.seekTo(i, C.TIME_UNSET)
+                                        player.prepare()
+                                        player.play()
+                                        requestWidgetFullUpdate(force = true)
+                                        break
+                                    }
                                 }
                             }
                         }
                     }
                 }
                 PlayerActions.SHUFFLE -> {
-                    val newState = !isManualShuffleEnabled
-                    mediaSession?.let { session ->
-                        updateManualShuffleState(session, enabled = newState, broadcast = true)
-                    } ?: run {
-                        // Fallback if session not ready
-                        isManualShuffleEnabled = newState
-                        requestWidgetFullUpdate(force = true)
+                    if (player.mediaItemCount == 0) {
+                        isRestoringForWidgetAction = true
+                        pushOptimisticWidgetState { it.copy(isShuffleEnabled = !it.isShuffleEnabled) }
+                        restoreAndPlayLastQueueFromWidget(action)
+                    } else {
+                        val newState = !isManualShuffleEnabled
+                        pushOptimisticWidgetState { it.copy(isShuffleEnabled = newState) }
+                        mediaSession?.let { session ->
+                            updateManualShuffleState(session, enabled = newState, broadcast = true)
+                        } ?: run {
+                            isManualShuffleEnabled = newState
+                            requestWidgetFullUpdate(force = true)
+                        }
                     }
                 }
                 PlayerActions.REPEAT -> {
-                    val newMode = when (player.repeatMode) {
-                        Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
-                        Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
-                        else -> Player.REPEAT_MODE_OFF
+                    if (player.mediaItemCount == 0) {
+                        isRestoringForWidgetAction = true
+                        pushOptimisticWidgetState { current ->
+                            val nextMode = when (current.repeatMode) {
+                                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
+                                Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
+                                else -> Player.REPEAT_MODE_OFF
+                            }
+                            current.copy(repeatMode = nextMode)
+                        }
+                        restoreAndPlayLastQueueFromWidget(action)
+                    } else {
+                        val newMode = when (player.repeatMode) {
+                            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
+                            Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
+                            else -> Player.REPEAT_MODE_OFF
+                        }
+                        player.repeatMode = newMode
+                        pushOptimisticWidgetState { it.copy(repeatMode = newMode) }
+                        requestWidgetFullUpdate(force = true)
                     }
-                    player.repeatMode = newMode
-                    requestWidgetFullUpdate(force = true)
                 }
                 ACTION_SLEEP_TIMER_EXPIRED -> {
                     Timber.tag(TAG).d("Sleep timer expired action received. Pausing player.")
@@ -2196,8 +2232,11 @@ class MusicService : MediaLibraryService() {
         )
     }
 
-    private fun restoreAndPlayLastQueueFromWidget(action: String) {
-        serviceScope.launch(Dispatchers.IO) {
+    private var widgetRestoreJob: Job? = null
+
+    private fun restoreAndPlayLastQueueFromWidget(action: String, targetSongId: Long = -1L) {
+        widgetRestoreJob?.cancel()
+        widgetRestoreJob = serviceScope.launch(Dispatchers.IO) {
             val snapshot = runCatching {
                 userPreferencesRepository.getPlaybackQueueSnapshotOnce()
             }.getOrNull()
@@ -2205,6 +2244,7 @@ class MusicService : MediaLibraryService() {
             val restoredItems = snapshot?.items?.mapNotNull(::buildMediaItemFromSnapshot).orEmpty()
             if (restoredItems.isEmpty()) {
                 withContext(Dispatchers.Main.immediate) {
+                    pushOptimisticWidgetState { it.copy(isPlaying = false) }
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }
@@ -2212,6 +2252,10 @@ class MusicService : MediaLibraryService() {
             }
 
             val resolvedIndex = when {
+                action == PlayerActions.PLAY_FROM_QUEUE && targetSongId != -1L -> {
+                    restoredItems.indexOfFirst { it.mediaId.toLongOrNull() == targetSongId }
+                        .takeIf { it >= 0 } ?: 0
+                }
                 snapshot!!.currentIndex in restoredItems.indices -> snapshot.currentIndex
                 !snapshot.currentMediaId.isNullOrBlank() -> {
                     restoredItems.indexOfFirst { it.mediaId == snapshot.currentMediaId }
@@ -2220,10 +2264,16 @@ class MusicService : MediaLibraryService() {
                 else -> 0
             }
 
+            val startPositionMs = if (action == PlayerActions.PLAY_FROM_QUEUE && targetSongId != -1L) {
+                0L
+            } else {
+                snapshot!!.currentPositionMs.coerceAtLeast(0L)
+            }
+
             withContext(Dispatchers.Main.immediate) {
                 val player = mediaSession?.player ?: engine.masterPlayer
                 if (player.mediaItemCount == 0) {
-                    val safeRepeatMode = when (snapshot.repeatMode) {
+                    val safeRepeatMode = when (snapshot!!.repeatMode) {
                         Player.REPEAT_MODE_OFF,
                         Player.REPEAT_MODE_ONE,
                         Player.REPEAT_MODE_ALL -> snapshot.repeatMode
@@ -2234,22 +2284,68 @@ class MusicService : MediaLibraryService() {
                         player.setMediaItems(
                             restoredItems,
                             resolvedIndex,
-                            snapshot.currentPositionMs.coerceAtLeast(0L)
+                            startPositionMs
                         )
                         player.repeatMode = safeRepeatMode
                         player.shuffleModeEnabled = false
                         isManualShuffleEnabled = snapshot.shuffleEnabled
+                        engine.forceRefreshQueueSnapshot()
                     } finally {
                         isRestoringPlaybackSnapshot = false
                     }
                 }
 
                 when (action) {
-                    PlayerActions.NEXT -> if (player.hasNextMediaItem()) player.seekToNext()
-                    PlayerActions.PREVIOUS -> if (player.hasPreviousMediaItem()) player.seekToPrevious()
+                    PlayerActions.PLAY_PAUSE -> {
+                        player.prepare()
+                        player.play()
+                    }
+                    PlayerActions.NEXT -> {
+                        if (player.hasNextMediaItem()) player.seekToNext()
+                        player.prepare()
+                        player.play()
+                    }
+                    PlayerActions.PREVIOUS -> {
+                        if (player.hasPreviousMediaItem()) player.seekToPrevious()
+                        player.prepare()
+                        player.play()
+                    }
+                    PlayerActions.PLAY_FROM_QUEUE -> {
+                        player.prepare()
+                        player.play()
+                    }
+                    PlayerActions.FAVORITE -> {
+                        val songId = player.currentMediaItem?.mediaId
+                        if (!songId.isNullOrBlank()) {
+                            serviceScope.launch {
+                                val updatedFavorite = musicRepository.toggleFavoriteStatus(songId)
+                                favoriteSongIds = if (updatedFavorite) favoriteSongIds + songId else favoriteSongIds - songId
+                                mediaSession?.let { refreshMediaSessionUi(it) }
+                                requestWidgetFullUpdate(force = true)
+                            }
+                        }
+                        player.prepare()
+                    }
+                    PlayerActions.SHUFFLE -> {
+                        val newState = !isManualShuffleEnabled
+                        mediaSession?.let { session ->
+                            updateManualShuffleState(session, enabled = newState, broadcast = true)
+                        } ?: run {
+                            isManualShuffleEnabled = newState
+                        }
+                        player.prepare()
+                    }
+                    PlayerActions.REPEAT -> {
+                        val newMode = when (player.repeatMode) {
+                            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
+                            Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
+                            else -> Player.REPEAT_MODE_OFF
+                        }
+                        player.repeatMode = newMode
+                        player.prepare()
+                    }
                 }
-                player.prepare()
-                player.play()
+                schedulePlaybackSnapshotPersist(immediate = true)
                 mediaSession?.let { refreshMediaSessionUi(it) }
                 requestWidgetFullUpdate(force = true)
             }
@@ -2534,6 +2630,17 @@ class MusicService : MediaLibraryService() {
     }
 
     private var lastWidgetPlayerInfo: PlayerInfo? = null
+    private var lastPeriodicSnapshotPersistAtMs: Long = 0L
+
+    private fun pushOptimisticWidgetState(transform: (PlayerInfo) -> PlayerInfo) {
+        val base = lastWidgetPlayerInfo ?: return
+        val optimistic = transform(base)
+        if (optimistic == base) return
+        lastWidgetPlayerInfo = optimistic
+        serviceScope.launch {
+            updateGlanceWidgets(optimistic)
+        }
+    }
 
     private fun shouldUpdateWidget(old: PlayerInfo, new: PlayerInfo): Boolean {
         if (old.songTitle != new.songTitle) return true
@@ -2561,12 +2668,19 @@ class MusicService : MediaLibraryService() {
         val shouldUpdateWidgets = oldInfo == null || shouldUpdateWidget(oldInfo, playerInfo)
 
         if (shouldUpdateWidgets) {
-    lastWidgetPlayerInfo = playerInfo
-        }
-
-        if (shouldUpdateWidgets) {
+            lastWidgetPlayerInfo = playerInfo
             updateGlanceWidgets(playerInfo)
             triggerLiveProgressTrackerUpdate()
+        }
+
+        // Periodically checkpoint playback position while playing so cold-start restore after
+        // force-stop or reboot resumes near the exact position.
+        if (playerInfo.isPlaying) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastPeriodicSnapshotPersistAtMs >= PLAYBACK_SNAPSHOT_PERIODIC_PERSIST_MS) {
+                lastPeriodicSnapshotPersistAtMs = now
+                schedulePlaybackSnapshotPersist(immediate = false)
+            }
         }
     }
 
@@ -2583,7 +2697,7 @@ class MusicService : MediaLibraryService() {
 
         withContext(Dispatchers.Main) {
             currentItem = player.currentMediaItem
-            isPlaying = player.isPlaying
+            isPlaying = player.isPlaying || (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING)
             repeatMode = player.repeatMode
             currentPosition = player.currentPosition
             totalDuration = player.duration.coerceAtLeast(0)
@@ -3042,42 +3156,154 @@ class MusicService : MediaLibraryService() {
         return output.toByteArray().takeIf { it.isNotEmpty() }
     }
 
-    private suspend fun updateGlanceWidgets(playerInfo: PlayerInfo) = withContext(Dispatchers.IO) {
-        try {
-            val glanceManager = GlanceAppWidgetManager(applicationContext)
-            val widgetPlayerInfo = playerInfo.toWidgetTransportState()
+    private data class BarWidgetDigest(
+        val songTitle: String,
+        val artistName: String,
+        val isPlaying: Boolean,
+        val albumArtUri: String?,
+        val themeColors: WidgetThemeColors?,
+    )
 
-            val glanceIds = glanceManager.getGlanceIds(PixelMusicGlanceWidget::class.java)
-            glanceIds.forEach { id ->
-                updateAppWidgetState(applicationContext, PlayerInfoStateDefinition, id) { widgetPlayerInfo }
-                PixelMusicGlanceWidget().update(applicationContext, id)
-            }
+    private data class ControlWidgetDigest(
+        val songTitle: String,
+        val artistName: String,
+        val isPlaying: Boolean,
+        val albumArtUri: String?,
+        val themeColors: WidgetThemeColors?,
+        val isShuffleEnabled: Boolean,
+        val repeatMode: Int,
+    )
 
-            val barGlanceIds = glanceManager.getGlanceIds(BarWidget4x1::class.java)
-            barGlanceIds.forEach { id ->
-                updateAppWidgetState(applicationContext, PlayerInfoStateDefinition, id) { widgetPlayerInfo }
-                BarWidget4x1().update(applicationContext, id)
-            }
+    private data class MainWidgetDigest(
+        val songTitle: String,
+        val artistName: String,
+        val isPlaying: Boolean,
+        val albumArtUri: String?,
+        val themeColors: WidgetThemeColors?,
+        val isFavorite: Boolean,
+        val queue: List<QueueItem>,
+        val totalDurationMs: Long,
+        val positionBucket: Long,
+    )
 
-            val controlGlanceIds = glanceManager.getGlanceIds(ControlWidget4x2::class.java)
-            controlGlanceIds.forEach { id ->
-                updateAppWidgetState(applicationContext, PlayerInfoStateDefinition, id) { widgetPlayerInfo }
-                ControlWidget4x2().update(applicationContext, id)
-            }
+    private var lastPersistedWidgetArtKey: String? = null
+    private var lastPersistedWidgetArtFileUri: String? = null
+    private var lastPushedBarDigest: BarWidgetDigest? = null
+    private var lastPushedControlDigest: ControlWidgetDigest? = null
+    private var lastPushedMainDigest: MainWidgetDigest? = null
 
-            if (glanceIds.isNotEmpty() || barGlanceIds.isNotEmpty() || controlGlanceIds.isNotEmpty()) {
-                Timber.tag(TAG)
-                    .d("Widgets actualizados: ${playerInfo.songTitle} (Original: ${glanceIds.size}, Bar: ${barGlanceIds.size}, Control: ${controlGlanceIds.size})")
-            } else {
-                timber.log.Timber.tag("MusicService").d("No active Glance app widgets found for update.")
+    private fun resolveWidgetArtFileUri(playerInfo: PlayerInfo): String? {
+        val bytes = playerInfo.albumArtBitmapData
+        if (bytes == null || bytes.isEmpty()) {
+            return playerInfo.albumArtUri
+        }
+        val artKey = "${playerInfo.songTitle}|${playerInfo.artistName}|${playerInfo.albumArtUri}|${bytes.size}"
+        if (artKey == lastPersistedWidgetArtKey && lastPersistedWidgetArtFileUri != null) {
+            return lastPersistedWidgetArtFileUri
+        }
+        return runCatching {
+            val hash = artKey.hashCode().toUInt().toString(16)
+            val targetFile = java.io.File(applicationContext.filesDir, "widget_art_$hash.jpg")
+            if (!targetFile.exists() || targetFile.length() != bytes.size.toLong()) {
+                applicationContext.filesDir.listFiles { f ->
+                    f.name.startsWith("widget_art_") && f.name.endsWith(".jpg") && f.name != targetFile.name
+                }?.forEach { runCatching { it.delete() } }
+                targetFile.writeBytes(bytes)
             }
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error al actualizar el widget")
+            val fileUri = Uri.fromFile(targetFile).toString()
+            lastPersistedWidgetArtKey = artKey
+            lastPersistedWidgetArtFileUri = fileUri
+            fileUri
+        }.getOrElse {
+            playerInfo.albumArtUri
         }
     }
 
-    private fun PlayerInfo.toWidgetTransportState(): PlayerInfo {
+    private suspend fun updateGlanceWidgets(playerInfo: PlayerInfo) = withContext(Dispatchers.IO) {
+        try {
+            val glanceManager = GlanceAppWidgetManager(applicationContext)
+            val glanceIds = glanceManager.getGlanceIds(PixelMusicGlanceWidget::class.java)
+            val barGlanceIds = glanceManager.getGlanceIds(BarWidget4x1::class.java)
+            val controlGlanceIds = glanceManager.getGlanceIds(ControlWidget4x2::class.java)
+
+            val firstGlanceId = glanceIds.firstOrNull()
+                ?: barGlanceIds.firstOrNull()
+                ?: controlGlanceIds.firstOrNull()
+                ?: return@withContext
+
+            val artUri = resolveWidgetArtFileUri(playerInfo)
+            val widgetPlayerInfo = playerInfo.toWidgetTransportState(resolvedArtFileUri = artUri)
+
+            val mainDigest = MainWidgetDigest(
+                songTitle = widgetPlayerInfo.songTitle,
+                artistName = widgetPlayerInfo.artistName,
+                isPlaying = widgetPlayerInfo.isPlaying,
+                albumArtUri = widgetPlayerInfo.albumArtUri,
+                themeColors = widgetPlayerInfo.themeColors,
+                isFavorite = widgetPlayerInfo.isFavorite,
+                queue = widgetPlayerInfo.queue,
+                totalDurationMs = widgetPlayerInfo.totalDurationMs,
+                positionBucket = widgetPlayerInfo.currentPositionMs / 3000L,
+            )
+            val barDigest = BarWidgetDigest(
+                songTitle = widgetPlayerInfo.songTitle,
+                artistName = widgetPlayerInfo.artistName,
+                isPlaying = widgetPlayerInfo.isPlaying,
+                albumArtUri = widgetPlayerInfo.albumArtUri,
+                themeColors = widgetPlayerInfo.themeColors,
+            )
+            val controlDigest = ControlWidgetDigest(
+                songTitle = widgetPlayerInfo.songTitle,
+                artistName = widgetPlayerInfo.artistName,
+                isPlaying = widgetPlayerInfo.isPlaying,
+                albumArtUri = widgetPlayerInfo.albumArtUri,
+                themeColors = widgetPlayerInfo.themeColors,
+                isShuffleEnabled = widgetPlayerInfo.isShuffleEnabled,
+                repeatMode = widgetPlayerInfo.repeatMode,
+            )
+
+            val mainChanged = glanceIds.isNotEmpty() && mainDigest != lastPushedMainDigest
+            val barChanged = barGlanceIds.isNotEmpty() && barDigest != lastPushedBarDigest
+            val controlChanged = controlGlanceIds.isNotEmpty() && controlDigest != lastPushedControlDigest
+
+            if (!mainChanged && !barChanged && !controlChanged) {
+                return@withContext
+            }
+
+            // All widgets share PlayerInfoStateDefinition's single DataStore: write state once
+            // (with albumArtBitmapData omitted once persisted to file) and only redraw changed widgets.
+            updateAppWidgetState(applicationContext, PlayerInfoStateDefinition, firstGlanceId) { widgetPlayerInfo }
+
+            if (mainChanged) {
+                lastPushedMainDigest = mainDigest
+                glanceIds.forEach { id -> PixelMusicGlanceWidget().update(applicationContext, id) }
+            }
+            if (barChanged) {
+                lastPushedBarDigest = barDigest
+                barGlanceIds.forEach { id -> BarWidget4x1().update(applicationContext, id) }
+            }
+            if (controlChanged) {
+                lastPushedControlDigest = controlDigest
+                controlGlanceIds.forEach { id -> ControlWidget4x2().update(applicationContext, id) }
+            }
+
+            Timber.tag(TAG).d(
+                "Widgets updated: %s (main=%b/%d, bar=%b/%d, control=%b/%d)",
+                playerInfo.songTitle,
+                mainChanged, glanceIds.size,
+                barChanged, barGlanceIds.size,
+                controlChanged, controlGlanceIds.size,
+            )
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error updating Glance widgets")
+        }
+    }
+
+    private fun PlayerInfo.toWidgetTransportState(resolvedArtFileUri: String?): PlayerInfo {
+        val useFileArt = !resolvedArtFileUri.isNullOrBlank() && resolvedArtFileUri.startsWith("file://")
         return copy(
+            albumArtUri = resolvedArtFileUri ?: albumArtUri,
+            albumArtBitmapData = if (useFileArt) null else albumArtBitmapData,
             lyrics = null,
             isLoadingLyrics = false,
             queue = queue.take(WIDGET_QUEUE_PREVIEW_LIMIT),

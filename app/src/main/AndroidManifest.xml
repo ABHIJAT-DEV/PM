@@ -277,11 +277,7 @@
                 tools:node="remove" />
         </provider>
 
-        <receiver android:name=".ui.glancewidget.WidgetUpdateReceiver" android:exported="false">
-            <intent-filter>
-                <action android:name="com.saurav.pixelmusic.ACTION_WIDGET_UPDATE_PLAYBACK_STATE" />
-            </intent-filter>
-        </receiver>
+
 
         <service
             android:name=".data.service.http.MediaFileHttpServerService"
