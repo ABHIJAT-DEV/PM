@@ -493,44 +493,6 @@ class DualPlayerEngine @Inject constructor(
 
     fun getAudioSessionId(): Int = playerA.audioSessionId
 
-    private var eightDReverb: android.media.audiofx.PresetReverb? = null
-    private var eightDReverbSessionId: Int = C.AUDIO_SESSION_ID_UNSET
-
-    private fun updateEightDReverb(settings: com.saurav.pixelmusic.audiolab.EightDSettings, sessionId: Int) {
-        val level = settings.reverbLevel.coerceIn(0f, 1f)
-        if (!settings.enabled || level <= 0f || sessionId <= 0 || sessionId == C.AUDIO_SESSION_ID_UNSET) {
-            releaseEightDReverb()
-            return
-        }
-        try {
-            if (eightDReverb != null && eightDReverbSessionId != sessionId) releaseEightDReverb()
-            val effect = eightDReverb ?: android.media.audiofx.PresetReverb(0, sessionId).also {
-                eightDReverb = it
-                eightDReverbSessionId = sessionId
-            }
-            effect.preset = when {
-                level < 0.4f -> android.media.audiofx.PresetReverb.PRESET_SMALLROOM
-                level < 0.75f -> android.media.audiofx.PresetReverb.PRESET_MEDIUMROOM
-                else -> android.media.audiofx.PresetReverb.PRESET_LARGEROOM
-            }
-            effect.enabled = true
-        } catch (e: Exception) {
-            Timber.tag("AudioLab").e(e, "Failed to configure 8D room reverb")
-            releaseEightDReverb()
-        }
-    }
-
-    private fun releaseEightDReverb() {
-        try {
-            eightDReverb?.release()
-        } catch (e: Exception) {
-            Timber.tag("AudioLab").e(e, "Failed to release 8D room reverb")
-        } finally {
-            eightDReverb = null
-            eightDReverbSessionId = C.AUDIO_SESSION_ID_UNSET
-        }
-    }
-
     private var isReleased = false
     private val playerErrorRetryCounts = java.util.concurrent.ConcurrentHashMap<String, Int>()
     internal val resolvedUriCache = LruCache<String, Uri>(100)
@@ -602,15 +564,7 @@ class DualPlayerEngine @Inject constructor(
                 audioLabStore.setStageOutput(com.saurav.pixelmusic.audiolab.stage.StageOutput.of(context, info))
             }
         }
-        scope.launch {
-            kotlinx.coroutines.flow.combine(
-                audioLabStore.eightD,
-                activeAudioSessionId,
-            ) { settings, sessionId -> settings to sessionId }
-                .collect { (settings, sessionId) ->
-                    updateEightDReverb(settings, sessionId)
-                }
-        }
+
         scope.launch {
             var isFirstEmission = true
             kotlinx.coroutines.flow.combine(
@@ -822,6 +776,7 @@ class DualPlayerEngine @Inject constructor(
         playerA.removeListener(masterPlayerListener)
         playerA.removeAnalyticsListener(masterPlayerListener)
         onPlayerAboutToBeReleasedListener?.invoke(playerA)
+        equalizerService.release()
         playerA.release()
         playerB.release()
 
@@ -1682,7 +1637,6 @@ private val inFlightResolutions = java.util.concurrent.ConcurrentHashMap<String,
         transitionJob?.cancel()
         preResolutionJob?.cancel()
         cancelAudioOffloadFallback()
-        releaseEightDReverb()
         abandonAudioFocus()
         if (::playerA.isInitialized) {
             playerA.removeListener(masterPlayerListener)

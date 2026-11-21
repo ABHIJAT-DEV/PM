@@ -2,6 +2,7 @@ package com.saurav.pixelmusic.audiolab.audio
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import com.saurav.pixelmusic.audiolab.AudioFxService
 import java.nio.ByteBuffer
@@ -25,16 +26,10 @@ data class ReverbParams(
 )
 
 @UnstableApi
-@Suppress("DEPRECATION")
-class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor {
+class ReverbAudioProcessor(private val service: AudioFxService) : BaseAudioProcessor() {
 
-    private var pendingFormat = AudioProcessor.AudioFormat.NOT_SET
     private var sampleRate = 0
     private var channels = 0
-
-    private var buffer: ByteBuffer = EMPTY_BUFFER
-    private var outputBuffer: ByteBuffer = EMPTY_BUFFER
-    private var inputEnded = false
 
     private var combsL: Array<Comb> = emptyArray()
     private var combsR: Array<Comb> = emptyArray()
@@ -52,49 +47,60 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
     private var mix = 0f
     private var roomEmpty = true
 
-    override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+    override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount !in 1..2) {
-            pendingFormat = AudioProcessor.AudioFormat.NOT_SET
             return AudioProcessor.AudioFormat.NOT_SET
         }
-        pendingFormat = inputAudioFormat
         return inputAudioFormat
     }
 
-    override fun isActive(): Boolean = pendingFormat != AudioProcessor.AudioFormat.NOT_SET
-
-    private fun ensureFormatApplied() {
-        val format = pendingFormat
-        if (format != AudioProcessor.AudioFormat.NOT_SET &&
-            (format.sampleRate != sampleRate || format.channelCount != channels)
-        ) {
-            sampleRate = format.sampleRate
-            channels = format.channelCount
-            build(sampleRate)
+    private fun effectiveParams(): ReverbParams {
+        val reverb = service.reverb
+        if (reverb.enabled) return reverb
+        val eightD = service.eightD
+        val level = eightD.reverbLevel.coerceIn(0f, 1f)
+        if (eightD.enabled && level > 0f) {
+            return ReverbParams(
+                enabled = true,
+                mix = (0.18f + 0.32f * level).coerceIn(0f, 1f),
+                roomSize = (0.45f + 0.35f * level).coerceIn(0f, 1f),
+                damping = 0.45f,
+                wet = (0.35f + 0.35f * level).coerceIn(0f, 1f),
+                dry = 1f,
+                width = 1f,
+                preDelayMs = 14f,
+                lowCutHz = 180f,
+            )
         }
+        return reverb
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
-        ensureFormatApplied()
-        if (channels == 0) {
+        val input = inputBuffer.order(ByteOrder.nativeOrder())
+        if (channels <= 0 || sampleRate <= 0 || combsL.isEmpty()) {
             val out = replaceOutputBuffer(bytes)
-            out.put(inputBuffer)
+            out.put(input)
             out.flip()
             return
         }
-        val params = service.reverb
+        val params = effectiveParams()
         val target = if (params.enabled) 1f else 0f
         val out = replaceOutputBuffer(bytes)
         if (target == 0f && amount == 0f) {
             if (!roomEmpty) clearRoom()
-            out.put(inputBuffer)
+            out.put(input)
+            out.flip()
+            return
+        }
+        val frames = bytes / (2 * channels)
+        if (frames == 0) {
+            out.put(input)
             out.flip()
             return
         }
         roomEmpty = false
-        val frames = bytes / (2 * channels)
 
         val feedback = params.roomSize.coerceIn(0f, 1f) * ScaleRoom + OffsetRoom
         val damp = params.damping.coerceIn(0f, 1f) * ScaleDamp
@@ -120,8 +126,8 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
 
         val scale = 1f / 32768f
         for (f in 0 until frames) {
-            val inL = inputBuffer.getShort() * scale
-            val inR = if (channels == 2) inputBuffer.getShort() * scale else inL
+            val inL = input.getShort() * scale
+            val inR = if (channels == 2) input.getShort() * scale else inL
 
             amount = if (target > amount) minOf(target, amount + toggleStep) else maxOf(target, amount - toggleStep)
             wet1 += dWet1
@@ -136,15 +142,16 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
             preDelayIndex = if (preDelayIndex + 1 == preDelay.size) 0 else preDelayIndex + 1
             val delayed = preDelay[read]
             lowCutState = lowCut * (lowCutState + delayed - lowCutInput)
+            if (!lowCutState.isFinite()) lowCutState = 0f
             lowCutInput = delayed
-            val input = lowCutState + AntiDenormal
+            val reverbInput = lowCutState + AntiDenormal
 
             var accL = 0f
             var accR = 0f
-            for (c in combsL) accL += c.process(input)
+            for (c in combsL) accL += c.process(reverbInput)
             for (a in allpassL) accL = a.process(accL)
             if (channels == 2) {
-                for (c in combsR) accR += c.process(input)
+                for (c in combsR) accR += c.process(reverbInput)
                 for (a in allpassR) accR = a.process(accR)
             }
 
@@ -189,45 +196,18 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
         clearRoom()
     }
 
-    private fun replaceOutputBuffer(size: Int): ByteBuffer {
-        if (buffer.capacity() < size) {
-            buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
+    override fun onFlush(streamMetadata: AudioProcessor.StreamMetadata) {
+        val format = inputAudioFormat
+        if (format != AudioProcessor.AudioFormat.NOT_SET &&
+            (format.sampleRate != sampleRate || format.channelCount != channels || combsL.isEmpty())
+        ) {
+            sampleRate = format.sampleRate
+            channels = format.channelCount
+            build(sampleRate)
         } else {
-            buffer.clear()
-        }
-        outputBuffer = buffer
-        return buffer
-    }
-
-    override fun queueEndOfStream() { inputEnded = true }
-
-    override fun getOutput(): ByteBuffer {
-        val out = outputBuffer
-        outputBuffer = EMPTY_BUFFER
-        return out
-    }
-
-    override fun isEnded(): Boolean = inputEnded && outputBuffer === EMPTY_BUFFER
-
-    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
-        onFlush()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun flush() {
-        onFlush()
-    }
-
-    private fun onFlush() {
-        outputBuffer = EMPTY_BUFFER
-        inputEnded = false
-        val prevRate = sampleRate
-        val prevChannels = channels
-        ensureFormatApplied()
-        if (sampleRate == prevRate && channels == prevChannels) {
             clearRoom()
         }
-        val params = service.reverb
+        val params = effectiveParams()
         amount = if (params.enabled) 1f else 0f
         val width = params.width.coerceIn(0f, 1f)
         val wetLevel = params.wet.coerceIn(0f, 1f) * ScaleWet
@@ -237,11 +217,14 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
         mix = params.mix.coerceIn(0f, 1f)
     }
 
-    override fun reset() {
-        flush()
-        pendingFormat = AudioProcessor.AudioFormat.NOT_SET
+    override fun onReset() {
+        clearRoom()
         sampleRate = 0
         channels = 0
+        combsL = emptyArray()
+        combsR = emptyArray()
+        allpassL = emptyArray()
+        allpassR = emptyArray()
     }
 
     private class Comb(size: Int) {
@@ -260,10 +243,13 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
 
         fun process(input: Float): Float {
             val output = line[index]
-            store = output * damp2 + store * damp1
-            line[index] = input + store * feedback
+            var nextStore = output * damp2 + store * damp1
+            if (!nextStore.isFinite()) nextStore = 0f
+            store = nextStore
+            val written = input + store * feedback
+            line[index] = if (written.isFinite()) written else 0f
             index = if (index + 1 == line.size) 0 else index + 1
-            return output
+            return if (output.isFinite()) output else 0f
         }
 
         fun clear() {
@@ -278,16 +264,17 @@ class ReverbAudioProcessor(private val service: AudioFxService) : AudioProcessor
 
         fun process(input: Float): Float {
             val buffered = line[index]
-            line[index] = input + buffered * 0.5f
+            val written = input + buffered * 0.5f
+            line[index] = if (written.isFinite()) written else 0f
             index = if (index + 1 == line.size) 0 else index + 1
-            return buffered - input
+            val out = buffered - input
+            return if (out.isFinite()) out else 0f
         }
 
         fun clear() = line.fill(0f)
     }
 
     companion object {
-        private val EMPTY_BUFFER: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
         private val CombTuning = intArrayOf(1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617)
         private val AllpassTuning = intArrayOf(556, 441, 341, 225)
         private const val StereoSpread = 23

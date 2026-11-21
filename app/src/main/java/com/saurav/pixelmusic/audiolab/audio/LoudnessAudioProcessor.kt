@@ -2,6 +2,7 @@ package com.saurav.pixelmusic.audiolab.audio
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import com.saurav.pixelmusic.audiolab.AudioFxService
 import java.nio.ByteBuffer
@@ -21,16 +22,10 @@ data class LoudnessParams(
 )
 
 @UnstableApi
-@Suppress("DEPRECATION")
-class LoudnessAudioProcessor(private val service: AudioFxService) : AudioProcessor {
+class LoudnessAudioProcessor(private val service: AudioFxService) : BaseAudioProcessor() {
 
-    private var pendingFormat = AudioProcessor.AudioFormat.NOT_SET
     private var sampleRate = 0
     private var channels = 0
-
-    private var buffer: ByteBuffer = EMPTY_BUFFER
-    private var outputBuffer: ByteBuffer = EMPTY_BUFFER
-    private var inputEnded = false
 
     private var amount = 0f
     private var envelope = 0f
@@ -40,37 +35,20 @@ class LoudnessAudioProcessor(private val service: AudioFxService) : AudioProcess
     private var release = 0f
     private var limiterRelease = 0f
 
-    override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+    override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount !in 1..2) {
-            pendingFormat = AudioProcessor.AudioFormat.NOT_SET
             return AudioProcessor.AudioFormat.NOT_SET
         }
-        pendingFormat = inputAudioFormat
         return inputAudioFormat
-    }
-
-    override fun isActive(): Boolean = pendingFormat != AudioProcessor.AudioFormat.NOT_SET
-
-    private fun ensureFormatApplied() {
-        val format = pendingFormat
-        if (format != AudioProcessor.AudioFormat.NOT_SET &&
-            (format.sampleRate != sampleRate || format.channelCount != channels)
-        ) {
-            sampleRate = format.sampleRate
-            channels = format.channelCount
-            attack = 1f - exp(-1f / (0.008f * sampleRate))
-            release = 1f - exp(-1f / (0.18f * sampleRate))
-            limiterRelease = 1f - exp(-1f / (0.08f * sampleRate))
-        }
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
-        ensureFormatApplied()
-        if (channels == 0) {
+        val input = inputBuffer.order(ByteOrder.nativeOrder())
+        if (channels <= 0 || sampleRate <= 0) {
             val out = replaceOutputBuffer(bytes)
-            out.put(inputBuffer)
+            out.put(input)
             out.flip()
             return
         }
@@ -79,7 +57,13 @@ class LoudnessAudioProcessor(private val service: AudioFxService) : AudioProcess
         val out = replaceOutputBuffer(bytes)
         if (target == 0f && amount == 0f) {
             service.loudnessReductionDb = 0f
-            out.put(inputBuffer)
+            out.put(input)
+            out.flip()
+            return
+        }
+        val frames = bytes / (2 * channels)
+        if (frames == 0) {
+            out.put(input)
             out.flip()
             return
         }
@@ -91,21 +75,22 @@ class LoudnessAudioProcessor(private val service: AudioFxService) : AudioProcess
         val boost = params.boostDb.coerceIn(0f, 12f)
         val toggleStep = 1f / (sampleRate * ToggleSeconds)
 
-        val frames = bytes / (2 * channels)
         val scale = 1f / 32768f
         var deepest = 1f
         var mostReduction = 0f
         var f = 0
         while (f < frames) {
             val block = minOf(Block, frames - f)
+            if (!envelope.isFinite() || envelope < 0f) envelope = 0f
+            if (!gain.isFinite() || gain <= 0f) gain = 1f
             val levelDb = 20f * log10(max(envelope, 1e-6f))
             val reduction = if (compression > 0f && levelDb > threshold) (threshold - levelDb) * slope else 0f
             if (reduction < mostReduction) mostReduction = reduction
             val targetGain = 10f.pow((boost + makeup + reduction) / 20f)
             val gainStep = (targetGain - gain) / block
             for (b in 0 until block) {
-                val inL = inputBuffer.getShort() * scale
-                val inR = if (channels == 2) inputBuffer.getShort() * scale else inL
+                val inL = input.getShort() * scale
+                val inR = if (channels == 2) input.getShort() * scale else inL
                 val peakIn = max(abs(inL), abs(inR))
                 envelope = if (peakIn > envelope) envelope + (peakIn - envelope) * attack
                 else envelope + (peakIn - envelope) * release
@@ -131,39 +116,17 @@ class LoudnessAudioProcessor(private val service: AudioFxService) : AudioProcess
         out.flip()
     }
 
-    private fun replaceOutputBuffer(size: Int): ByteBuffer {
-        if (buffer.capacity() < size) {
-            buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
-        } else {
-            buffer.clear()
+    override fun onFlush(streamMetadata: AudioProcessor.StreamMetadata) {
+        val format = inputAudioFormat
+        if (format != AudioProcessor.AudioFormat.NOT_SET &&
+            (format.sampleRate != sampleRate || format.channelCount != channels)
+        ) {
+            sampleRate = format.sampleRate
+            channels = format.channelCount
+            attack = 1f - exp(-1f / (0.008f * sampleRate))
+            release = 1f - exp(-1f / (0.18f * sampleRate))
+            limiterRelease = 1f - exp(-1f / (0.08f * sampleRate))
         }
-        outputBuffer = buffer
-        return buffer
-    }
-
-    override fun queueEndOfStream() { inputEnded = true }
-
-    override fun getOutput(): ByteBuffer {
-        val out = outputBuffer
-        outputBuffer = EMPTY_BUFFER
-        return out
-    }
-
-    override fun isEnded(): Boolean = inputEnded && outputBuffer === EMPTY_BUFFER
-
-    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
-        onFlush()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun flush() {
-        onFlush()
-    }
-
-    private fun onFlush() {
-        outputBuffer = EMPTY_BUFFER
-        inputEnded = false
-        ensureFormatApplied()
         val params = service.loudness
         amount = if (params.enabled) 1f else 0f
         envelope = 0f
@@ -171,15 +134,16 @@ class LoudnessAudioProcessor(private val service: AudioFxService) : AudioProcess
         gain = 10f.pow(params.boostDb.coerceIn(0f, 12f) / 20f)
     }
 
-    override fun reset() {
-        flush()
-        pendingFormat = AudioProcessor.AudioFormat.NOT_SET
+    override fun onReset() {
         sampleRate = 0
         channels = 0
+        amount = 0f
+        envelope = 0f
+        limiterGain = 1f
+        gain = 1f
     }
 
     companion object {
-        private val EMPTY_BUFFER: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
         private const val Block = 32
         private const val ToggleSeconds = 0.15f
         private const val Ceiling = 0.944f

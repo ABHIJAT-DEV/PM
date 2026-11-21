@@ -2,6 +2,7 @@ package com.saurav.pixelmusic.audiolab.audio
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import com.saurav.pixelmusic.audiolab.AudioFxService
 import java.nio.ByteBuffer
@@ -29,18 +30,11 @@ data class SpatialParams(
 )
 
 @UnstableApi
-@Suppress("DEPRECATION")
-class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcessor {
+class SpatialAudioProcessor(private val service: AudioFxService) : BaseAudioProcessor() {
 
-    private var pendingFormat = AudioProcessor.AudioFormat.NOT_SET
-    private var pendingSurround = false
     private var sampleRate = 0
     private var inChannels = 0
     private var surround = false
-
-    private var buffer: ByteBuffer = EMPTY_BUFFER
-    private var outputBuffer: ByteBuffer = EMPTY_BUFFER
-    private var inputEnded = false
 
     private var amount = 0f
     private var monoAmount = 0f
@@ -48,56 +42,39 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
     private var head: HeadRenderer? = null
     private var headAngle = Float.NaN
 
-    override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+    override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         val params = service.spatial
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) return notSet()
-        return when (inputAudioFormat.channelCount) {
-            2 -> {
-                pendingSurround = false
-                pendingFormat = inputAudioFormat
-                inputAudioFormat
-            }
-            in 3..8 -> if (params.surround) {
-                pendingSurround = true
-                pendingFormat = inputAudioFormat
-                AudioProcessor.AudioFormat(inputAudioFormat.sampleRate, 2, C.ENCODING_PCM_16BIT)
-            } else notSet()
-            else -> notSet()
+        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
+            return AudioProcessor.AudioFormat.NOT_SET
         }
-    }
-
-    private fun notSet(): AudioProcessor.AudioFormat {
-        pendingFormat = AudioProcessor.AudioFormat.NOT_SET
-        return AudioProcessor.AudioFormat.NOT_SET
-    }
-
-    override fun isActive(): Boolean = pendingFormat != AudioProcessor.AudioFormat.NOT_SET
-
-    private fun ensureFormatApplied() {
-        val format = pendingFormat
-        if (format != AudioProcessor.AudioFormat.NOT_SET &&
-            (format.sampleRate != sampleRate || format.channelCount != inChannels || pendingSurround != surround)
-        ) {
-            sampleRate = format.sampleRate
-            inChannels = format.channelCount
-            surround = pendingSurround
-            crossfeed = null
-            head = null
-            headAngle = Float.NaN
+        return when (inputAudioFormat.channelCount) {
+            2 -> inputAudioFormat
+            in 3..8 -> if (params.surround) {
+                AudioProcessor.AudioFormat(inputAudioFormat.sampleRate, 2, C.ENCODING_PCM_16BIT)
+            } else {
+                AudioProcessor.AudioFormat.NOT_SET
+            }
+            else -> AudioProcessor.AudioFormat.NOT_SET
         }
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
-        ensureFormatApplied()
-        if (inChannels == 0) {
+        val input = inputBuffer.order(ByteOrder.nativeOrder())
+        if (inChannels <= 0 || sampleRate <= 0) {
             val out = replaceOutputBuffer(bytes)
-            out.put(inputBuffer)
+            out.put(input)
             out.flip()
             return
         }
         val frames = bytes / (2 * inChannels)
+        if (frames == 0) {
+            val out = replaceOutputBuffer(bytes)
+            out.put(input)
+            out.flip()
+            return
+        }
         val params = service.spatial
         val scale = 1f / 32768f
 
@@ -106,7 +83,7 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
             val out = replaceOutputBuffer(frames * 4)
             val frame = FloatArray(inChannels)
             for (f in 0 until frames) {
-                for (c in 0 until inChannels) frame[c] = inputBuffer.getShort() * scale
+                for (c in 0 until inChannels) frame[c] = input.getShort() * scale
                 renderer.render(frame)
                 out.putShort(toPcm(renderer.left * SurroundGain))
                 out.putShort(toPcm(renderer.right * SurroundGain))
@@ -119,7 +96,7 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
         val monoTarget = if (params.mono) 1f else 0f
         val out = replaceOutputBuffer(bytes)
         if (target == 0f && amount == 0f && monoTarget == 0f && monoAmount == 0f) {
-            out.put(inputBuffer)
+            out.put(input)
             out.flip()
             return
         }
@@ -129,8 +106,8 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
                 val cf = crossfeed?.takeIf { it.matches(params.cutoffHz, params.feedDb) }
                     ?: Crossfeed(sampleRate, params.cutoffHz, params.feedDb, crossfeed).also { crossfeed = it }
                 for (f in 0 until frames) {
-                    var l = inputBuffer.getShort() * scale
-                    var r = inputBuffer.getShort() * scale
+                    var l = input.getShort() * scale
+                    var r = input.getShort() * scale
                     monoAmount = glide(monoAmount, monoTarget, step)
                     if (monoAmount > 0f) {
                         val m = (l + r) * 0.5f
@@ -149,8 +126,8 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
                     ?: HeadRenderer(sampleRate, floatArrayOf(-angle, angle)).also { head = it; headAngle = angle }
                 val frame = FloatArray(2)
                 for (f in 0 until frames) {
-                    var l = inputBuffer.getShort() * scale
-                    var r = inputBuffer.getShort() * scale
+                    var l = input.getShort() * scale
+                    var r = input.getShort() * scale
                     monoAmount = glide(monoAmount, monoTarget, step)
                     if (monoAmount > 0f) {
                         val m = (l + r) * 0.5f
@@ -172,52 +149,33 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
     private fun glide(value: Float, target: Float, step: Float): Float =
         if (target > value) minOf(target, value + step) else maxOf(target, value - step)
 
-    private fun replaceOutputBuffer(size: Int): ByteBuffer {
-        if (buffer.capacity() < size) {
-            buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
-        } else {
-            buffer.clear()
+    override fun onFlush(streamMetadata: AudioProcessor.StreamMetadata) {
+        val format = inputAudioFormat
+        val nextSurround = format.channelCount in 3..8 && outputAudioFormat.channelCount == 2
+        if (format != AudioProcessor.AudioFormat.NOT_SET &&
+            (format.sampleRate != sampleRate || format.channelCount != inChannels || nextSurround != surround)
+        ) {
+            sampleRate = format.sampleRate
+            inChannels = format.channelCount
+            surround = nextSurround
+            crossfeed = null
+            head = null
+            headAngle = Float.NaN
         }
-        outputBuffer = buffer
-        return buffer
-    }
-
-    override fun queueEndOfStream() { inputEnded = true }
-
-    override fun getOutput(): ByteBuffer {
-        val out = outputBuffer
-        outputBuffer = EMPTY_BUFFER
-        return out
-    }
-
-    override fun isEnded(): Boolean = inputEnded && outputBuffer === EMPTY_BUFFER
-
-    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
-        onFlush()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun flush() {
-        onFlush()
-    }
-
-    private fun onFlush() {
-        outputBuffer = EMPTY_BUFFER
-        inputEnded = false
-        ensureFormatApplied()
         crossfeed?.clear()
         head?.clear()
         val params = service.spatial
-        amount = if (params.enabled) params.amount.coerceIn(0f, 1f) else 0f
+        amount = if (params.enabled && !service.stage.enabled) params.amount.coerceIn(0f, 1f) else 0f
         monoAmount = if (params.mono) 1f else 0f
     }
 
-    override fun reset() {
-        flush()
-        pendingFormat = AudioProcessor.AudioFormat.NOT_SET
+    override fun onReset() {
         sampleRate = 0
         inChannels = 0
         surround = false
+        crossfeed = null
+        head = null
+        headAngle = Float.NaN
     }
 
     private class Crossfeed(sampleRate: Int, private val cutoff: Float, private val feed: Float, previous: Crossfeed?) {
@@ -377,7 +335,6 @@ class SpatialAudioProcessor(private val service: AudioFxService) : AudioProcesso
     }
 
     companion object {
-        private val EMPTY_BUFFER: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
         private const val ToggleSeconds = 0.15f
         private const val SpeakerGain = 0.6f
         private const val SurroundGain = 0.28f

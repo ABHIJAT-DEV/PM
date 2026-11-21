@@ -2,6 +2,7 @@ package com.saurav.pixelmusic.audiolab.audio
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import com.saurav.pixelmusic.audiolab.data.ParametricEQ
 import java.nio.ByteBuffer
@@ -9,10 +10,8 @@ import java.nio.ByteOrder
 import kotlin.math.pow
 
 @UnstableApi
-@Suppress("DEPRECATION")
-class CustomEqualizerAudioProcessor : AudioProcessor {
+class CustomEqualizerAudioProcessor : BaseAudioProcessor() {
 
-    private var pendingFormat = AudioProcessor.AudioFormat.NOT_SET
     private var sampleRate = 0
     private var channels = 0
 
@@ -32,9 +31,6 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
     private var pcm = ShortArray(0)
     private val limiter = PeakLimiter()
 
-    private var buffer: ByteBuffer = EMPTY_BUFFER
-    private var outputBuffer: ByteBuffer = EMPTY_BUFFER
-    private var inputEnded = false
     private var tailPending = false
     private val tapId = System.identityHashCode(this)
 
@@ -50,28 +46,11 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
 
     fun isEnabled(): Boolean = design != null
 
-    override fun configure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+    override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount !in 1..8) {
-            pendingFormat = AudioProcessor.AudioFormat.NOT_SET
             return AudioProcessor.AudioFormat.NOT_SET
         }
-        pendingFormat = inputAudioFormat
         return inputAudioFormat
-    }
-
-    override fun isActive(): Boolean = pendingFormat != AudioProcessor.AudioFormat.NOT_SET
-
-    private fun ensureFormatApplied() {
-        val format = pendingFormat
-        if (format != AudioProcessor.AudioFormat.NOT_SET &&
-            (format.sampleRate != sampleRate || format.channelCount != channels)
-        ) {
-            sampleRate = format.sampleRate
-            channels = format.channelCount
-            bank = null
-            builtVersion = -1
-            limiter.configure(sampleRate, channels)
-        }
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -80,27 +59,32 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
             if (tailPending) drainTail()
             return
         }
-        ensureFormatApplied()
-        if (channels == 0) {
+        val input = inputBuffer.order(ByteOrder.nativeOrder())
+        if (channels <= 0 || sampleRate <= 0) {
             val out = replaceOutputBuffer(bytes)
-            out.put(inputBuffer)
+            out.put(input)
             out.flip()
             return
         }
         syncDesign()
         if (bank == null && !fading && limiter.isResting && !AudioTap.wanted) {
             val out = replaceOutputBuffer(bytes)
-            out.put(inputBuffer)
+            out.put(input)
             out.flip()
             return
         }
         val frames = bytes / (2 * channels)
-        if (frames == 0) return
+        if (frames == 0) {
+            val out = replaceOutputBuffer(bytes)
+            out.put(input)
+            out.flip()
+            return
+        }
         val count = frames * channels
         ensureWork(count)
         val scale = 1.0 / 32768.0
-        inputBuffer.asShortBuffer().get(pcm, 0, count)
-        inputBuffer.position(inputBuffer.position() + count * 2)
+        input.asShortBuffer().get(pcm, 0, count)
+        input.position(input.position() + count * 2)
         for (i in 0 until count) work[i] = pcm[i] * scale
         render(frames, replaceOutputBuffer(count * 2))
     }
@@ -126,7 +110,9 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
 
     private fun drainTail() {
         tailPending = false
+        if (channels <= 0 || sampleRate <= 0) return
         val frames = limiter.latencyFrames
+        if (frames <= 0) return
         val count = frames * channels
         ensureWork(count)
         work.fill(0.0, 0, count)
@@ -178,20 +164,9 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
         bank = next
     }
 
-    private fun replaceOutputBuffer(size: Int): ByteBuffer {
-        if (buffer.capacity() < size) {
-            buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
-        } else {
-            buffer.clear()
-        }
-        outputBuffer = buffer
-        return buffer
-    }
-
-    override fun queueEndOfStream() {
-        inputEnded = true
+    override fun onQueueEndOfStream() {
         if (channels > 0 && (bank != null || fading || !limiter.isResting)) {
-            if (outputBuffer === EMPTY_BUFFER) {
+            if (!hasPendingOutput()) {
                 drainTail()
             } else {
                 tailPending = true
@@ -202,30 +177,26 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
     }
 
     override fun getOutput(): ByteBuffer {
-        if (outputBuffer === EMPTY_BUFFER && tailPending) {
+        if (!hasPendingOutput() && tailPending) {
             drainTail()
         }
-        val buffer = outputBuffer
-        outputBuffer = EMPTY_BUFFER
-        return buffer
+        return super.getOutput()
     }
 
-    override fun isEnded(): Boolean = inputEnded && !tailPending && outputBuffer === EMPTY_BUFFER
+    override fun isEnded(): Boolean = super.isEnded() && !tailPending
 
-    override fun flush(streamMetadata: AudioProcessor.StreamMetadata) {
-        onFlush()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun flush() {
-        onFlush()
-    }
-
-    private fun onFlush() {
-        outputBuffer = EMPTY_BUFFER
-        inputEnded = false
+    override fun onFlush(streamMetadata: AudioProcessor.StreamMetadata) {
         tailPending = false
-        ensureFormatApplied()
+        val format = inputAudioFormat
+        if (format != AudioProcessor.AudioFormat.NOT_SET &&
+            (format.sampleRate != sampleRate || format.channelCount != channels)
+        ) {
+            sampleRate = format.sampleRate
+            channels = format.channelCount
+            bank = null
+            builtVersion = -1
+            limiter.configure(sampleRate, channels)
+        }
         bank?.reset()
         limiter.reset()
         fading = false
@@ -233,13 +204,14 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
         if (bank == null) snapNextDesign = true
     }
 
-    override fun reset() {
-        flush()
-        pendingFormat = AudioProcessor.AudioFormat.NOT_SET
+    override fun onReset() {
+        tailPending = false
         sampleRate = 0
         channels = 0
         bank = null
         builtVersion = -1
+        fading = false
+        fadingFrom = null
         snapNextDesign = true
     }
 
@@ -268,11 +240,19 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
                     var i = c
                     for (f in 0 until frames) {
                         val x = buffer[i]
-                        val y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
-                        x2 = x1
-                        x1 = x
-                        y2 = y1
-                        y1 = y
+                        var y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+                        if (!y.isFinite()) {
+                            x1 = 0.0
+                            x2 = 0.0
+                            y1 = 0.0
+                            y2 = 0.0
+                            y = 0.0
+                        } else {
+                            x2 = x1
+                            x1 = x
+                            y2 = y1
+                            y1 = y
+                        }
                         buffer[i] = y
                         i += channels
                     }
@@ -312,7 +292,6 @@ class CustomEqualizerAudioProcessor : AudioProcessor {
 
     companion object {
         private const val FadeSeconds = 0.03
-        private val EMPTY_BUFFER: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
     }
 }
 
