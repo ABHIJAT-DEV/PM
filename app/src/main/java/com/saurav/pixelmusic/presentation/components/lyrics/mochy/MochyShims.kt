@@ -3,10 +3,9 @@
 
 package com.saurav.pixelmusic.presentation.components.lyrics.mochy
 
-import android.annotation.SuppressLint
-import android.graphics.RenderEffect
-import android.graphics.RuntimeShader
+import android.graphics.RenderNode
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Animatable as FloatAnimatable
@@ -15,8 +14,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
 import com.saurav.pixelmusic.lyrics.MochyLyricsStyle
 
@@ -51,32 +53,60 @@ fun animateColorOnChange(target: Color, spec: AnimationSpec<Color>): State<Color
     return anim.asState()
 }
 
-/** A row repaints on its own layer, so one moving line doesn't redraw its neighbours. */
-fun Modifier.damageBoundary(): Modifier = this.graphicsLayer { }
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun damageNode(width: Int, height: Int): Any =
+    RenderNode("DamageBoundary").apply {
+        setPosition(0, 0, width, height)
+        // the whole point: the renderer only bounds a change by a node's size when the node clips
+        // to it. Compose's own layers clip by outline instead, so to the renderer a change in any
+        // of them is a change to the entire screen
+        setClipToBounds(true)
+    }
 
-// AGSL helpers. The shader travels as Any so older phones never load RuntimeShader.
-@SuppressLint("NewApi")
-fun createAgslShader(source: String): Any? =
-    if (Build.VERSION.SDK_INT >= 33) runCatching { RuntimeShader(source) }.getOrNull() else null
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun damageNodeBeginRecording(node: Any): android.graphics.Canvas = (node as RenderNode).beginRecording()
 
-@SuppressLint("NewApi")
-fun agslRenderEffect(shader: Any, inputName: String): RenderEffect =
-    RenderEffect.createRuntimeShaderEffect(shader as RuntimeShader, inputName)
-
-@SuppressLint("NewApi")
-fun Any.setAgslUniform(name: String, value: Float) {
-    (this as RuntimeShader).setFloatUniform(name, value)
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun damageNodeEndRecording(node: Any) {
+    (node as RenderNode).endRecording()
 }
 
-@SuppressLint("NewApi")
-fun Any.setAgslUniform(name: String, v1: Float, v2: Float) {
-    (this as RuntimeShader).setFloatUniform(name, v1, v2)
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun android.graphics.Canvas.drawDamageNode(node: Any) {
+    drawRenderNode(node as RenderNode)
 }
 
-@SuppressLint("NewApi")
-fun Any.setAgslUniform(name: String, v1: Float, v2: Float, v3: Float) {
-    (this as RuntimeShader).setFloatUniform(name, v1, v2, v3)
-}
+/**
+ * Keeps whatever animates inside this from counting as a change to the rest of the screen.
+ * Ported verbatim from Mochy's GlassKit.kt.
+ */
+fun Modifier.damageBoundary(): Modifier =
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        this
+    } else {
+        this.drawWithCache {
+            val width = size.width.toInt()
+            val height = size.height.toInt()
+            val node = if (width > 0 && height > 0) damageNode(width, height) else null
+            onDrawWithContent {
+                val target = drawContext.canvas
+                if (node == null || !target.nativeCanvas.isHardwareAccelerated) {
+                    drawContent()
+                    return@onDrawWithContent
+                }
+                drawContext.canvas = Canvas(damageNodeBeginRecording(node))
+                try {
+                    drawContent()
+                } finally {
+                    drawContext.canvas = target
+                    damageNodeEndRecording(node)
+                }
+                target.nativeCanvas.drawDamageNode(node)
+            }
+        }
+            // a plain layer inside, so content that draws itself repaints only this rectangle
+            .graphicsLayer()
+    }
 
 /** The colour of the sung words. Mochy draws them white; PixelMusic hands in its own content colour. */
 val LocalLyricsHighlight = androidx.compose.runtime.compositionLocalOf { Color.White }

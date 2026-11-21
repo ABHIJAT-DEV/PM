@@ -302,7 +302,7 @@ fun MochySyncedLyricsView(
 
     val cascade = style.risesWords
     val shaded = style.shaded
-    val lineBlurAllowed = softLight && !performanceModeEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val lineBlurAllowed = softLight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     SideEffect { AppMotion.elementBlur = lineBlurAllowed }
 
     // position, read only inside lambdas and derived states so a playback tick doesn't recompose the page
@@ -499,7 +499,7 @@ fun MochySyncedLyricsView(
                                 rubyPlacement = if (translation != null) RubyPlacement.ABOVE else RubyPlacement.BELOW,
                                 translation = translation,
                                 alignment = alignmentFor(row.entry, useAgentAlignment, mirrored),
-                                waveEnabled = shaded && !suppressEffects && !performanceModeEnabled,
+                                waveEnabled = shaded && !suppressEffects,
                                 motionStyle = style,
                                 highBloom = true,
                                 onClick = {
