@@ -818,9 +818,7 @@ fun LyricsSheet(
                                 )
                             } else {
                                 com.saurav.pixelmusic.presentation.components.lyrics.MochySyncedLyricsView(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 24.dp),
+                                    modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
                                     lines = synced,
                                     listState = syncedListState,

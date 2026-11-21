@@ -17,25 +17,25 @@ enum class MochyLyricsStyle(
 ) {
     MOTION(
         displayName = "Style 1",
-        description = "Words rise as they're sung, long notes swell & glow, lines cascade",
+        description = "Words rise as they're sung, long notes swell, lines cascade",
         risesWords = true,
         shaded = true,
     ),
     LEGACY(
         displayName = "Style 2",
-        description = "Glowing wave across the sung letters, list scrolls as one piece",
+        description = "The original wave across the sung letters",
         risesWords = false,
         shaded = true,
     ),
     BORING(
         displayName = "Boring",
-        description = "Style 1's word rise & cascade, without the glow",
+        description = "Style 1's rise, without the glow",
         risesWords = true,
         shaded = false,
     ),
     PLAIN(
         displayName = "Plain",
-        description = "Style 2's smooth sweep, without the glow or the wave",
+        description = "Style 2's sweep, without the glow or the wave",
         risesWords = false,
         shaded = false,
     ),

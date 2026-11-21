@@ -1306,6 +1306,29 @@ fun SettingsCategoryScreen(
                                         )
                                     }
 
+                                    val lyricsStyle by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.styleFlow(context)
+                                    }.collectAsStateWithLifecycle(
+                                        initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.MOTION
+                                    )
+                                    ThemeSelectorItem(
+                                        label = "Lyrics Style",
+                                        description = lyricsStyle.description,
+                                        options = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.values()
+                                            .associate { it.name to it.displayName },
+                                        selectedKey = lyricsStyle.name,
+                                        onSelectionChanged = { key ->
+                                            coroutineScope.launch {
+                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setStyle(
+                                                    context,
+                                                    com.saurav.pixelmusic.lyrics.MochyLyricsStyle.fromName(key)
+                                                )
+                                            }
+                                        },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
                                     SettingsItem(
                                         title = "Lyrics Providers",
                                         subtitle = "Drag to reorder priority · ${
