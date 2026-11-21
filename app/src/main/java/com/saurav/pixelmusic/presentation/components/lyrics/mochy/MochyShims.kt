@@ -13,7 +13,6 @@ import androidx.compose.animation.core.Animatable as FloatAnimatable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -80,7 +79,7 @@ fun Any.setAgslUniform(name: String, v1: Float, v2: Float, v3: Float) {
 }
 
 /** The colour of the sung words. Mochy draws them white; PixelMusic hands in its own content colour. */
-val LocalLyricsHighlight = compositionLocalOf { Color.White }
+val LocalLyricsHighlight = androidx.compose.runtime.compositionLocalOf { Color.White }
 
 // the lyrics page's recenter scroll; the instrumental dots collapse on the same curve
 internal const val LyricsRecenterDurationMs = 950

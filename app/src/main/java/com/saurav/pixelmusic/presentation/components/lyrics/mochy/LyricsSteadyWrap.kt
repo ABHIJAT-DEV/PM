@@ -63,9 +63,9 @@ internal class SteadyWrap(
     }
 }
 
-// the wraps worked out so far, by the width, density and font they were measured at
+// the wraps worked out so far, by the width, density and font they were measured at; songs to come are worked out off the main thread
 internal object SteadyWraps {
-    // the size and font a kind of line was last laid out at
+    // the size and font a kind of line was last laid out at, so the next song's lines can be measured the same way ahead of time
     private class Profile(val width: Int, val density: Density, val style: TextStyle, val fonts: FontFamily.Resolver, val direction: LayoutDirection)
 
     private val wraps = LruCache<String, String>(1_000)
@@ -95,6 +95,29 @@ internal object SteadyWraps {
         val last = profiles[sk]
         if (last != null && last.width == width && last.density.density == density.density && last.density.fontScale == density.fontScale) return
         profiles[sk] = Profile(width, Density(density.density, density.fontScale), style, fonts, direction)
+    }
+
+    // called on a background thread with a song's lines; a failure only means those lines work it out themselves later
+    @Suppress("unused")
+    private fun warm(texts: List<String>) {
+        profiles.values.forEach { profile ->
+            val sk = styleKey(profile.style)
+            val measurer = TextMeasurer(profile.fonts, profile.density, profile.direction, 0)
+            texts.forEach { text ->
+                val k = key(profile.width, profile.density, sk, text)
+                if (text.isEmpty() || wraps.get(k) != null) return@forEach
+                runCatching {
+                    val bold = measurer.measure(
+                        text = text,
+                        style = profile.style,
+                        constraints = Constraints(maxWidth = profile.width),
+                        layoutDirection = profile.direction,
+                        density = profile.density,
+                    )
+                    wraps.put(k, breakLike(text, bold))
+                }
+            }
+        }
     }
 }
 

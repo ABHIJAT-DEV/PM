@@ -37,7 +37,7 @@ data class LyricsEntry(
     val isBackground: Boolean = false,
     /**
      * The timed pieces exactly as the source sent them, when they were syllables that
-     * were merged into whole [words]. Null when [words] already are those
+     * [LyricsUtils.parseLyrics] merged into whole [words]. Null when [words] already are those
      * pieces. The main lyrics style sweeps along the line's own text and wants these.
      */
     val syllables: List<WordTimestamp>? = null,
