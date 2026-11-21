@@ -324,6 +324,7 @@ fun LabChips(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     onLongPress: ((String) -> Unit)? = null,
+    leading: @Composable RowScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
@@ -331,6 +332,7 @@ fun LabChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        leading()
         chips.forEach { chip ->
             val selected = chip.key == selectedKey
             val bg by animateColorAsState(if (selected) LabColors.Accent else LabColors.Chip, tween(180), label = "chipBg")

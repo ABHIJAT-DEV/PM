@@ -68,9 +68,11 @@ object MochyLyricsPreferences {
     val AutoRomanizeKey = booleanPreferencesKey("mochy_lyrics_auto_romanize")
     val RomanizationAsMainKey = booleanPreferencesKey("mochy_lyrics_romanization_main")
     val ProviderOrderKey = stringPreferencesKey("mochy_lyrics_provider_order")
+    val LyricsOrderOverrideKey = booleanPreferencesKey("mochy_lyrics_order_override")
 
     val DefaultProviderOrder: List<String> = listOf(
         "BetterLyrics",
+        "Unison",
         "YouLyPlus",
         "Paxsenix",
         "LrcRed",
@@ -123,13 +125,23 @@ object MochyLyricsPreferences {
     fun romanizationAsMainFlow(context: Context): Flow<Boolean> =
         context.dataStore.data.map { it[RomanizationAsMainKey] ?: false }
 
+    fun orderOverrideFlow(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[LyricsOrderOverrideKey] ?: false }
+
     fun providerOrderFlow(context: Context): Flow<List<String>> =
-        context.dataStore.data.map { deserializeProviderOrder(it[ProviderOrderKey].orEmpty()) }
+        context.dataStore.data.map { effectiveProviderOrder(it[ProviderOrderKey].orEmpty()) }
 
     fun deserializeProviderOrder(raw: String): List<String> {
         if (raw.isBlank()) return DefaultProviderOrder
         val saved = raw.split(",").map { it.trim() }.filter { it in DefaultProviderOrder }.distinct()
         return saved + DefaultProviderOrder.filter { it !in saved }
+    }
+
+    fun effectiveProviderOrder(orderString: String, preferredProviderId: String? = null): List<String> {
+        if (orderString.isNotBlank()) return deserializeProviderOrder(orderString)
+        val preferred = preferredProviderId?.takeIf { it in DefaultProviderOrder }
+            ?: return DefaultProviderOrder
+        return listOf(preferred) + DefaultProviderOrder.filter { it != preferred }
     }
 
     suspend fun setStyle(context: Context, style: MochyLyricsStyle) {
@@ -162,6 +174,10 @@ object MochyLyricsPreferences {
 
     suspend fun setRomanizationAsMain(context: Context, enabled: Boolean) {
         context.dataStore.edit { it[RomanizationAsMainKey] = enabled }
+    }
+
+    suspend fun setOrderOverride(context: Context, enabled: Boolean) {
+        context.dataStore.edit { it[LyricsOrderOverrideKey] = enabled }
     }
 
     suspend fun setProviderOrder(context: Context, order: List<String>) {

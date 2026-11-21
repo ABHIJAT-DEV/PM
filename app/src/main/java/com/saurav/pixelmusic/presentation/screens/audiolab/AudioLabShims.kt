@@ -271,8 +271,9 @@ internal fun TextFieldDialog(
     placeholder: @Composable () -> Unit,
     onDone: (String) -> Unit,
     onDismiss: () -> Unit,
+    initialValue: String = "",
 ) {
-    var text by remember { mutableStateOf("") }
+    var text by remember(initialValue) { mutableStateOf(initialValue) }
     val cs = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = onDismiss,

@@ -74,6 +74,8 @@ fun AudioFxScreen(
         onBack = { navController.navigateUp() },
         art = { hidden -> FxCardStack(effects, hidden) },
     ) {
+        FxPresetsSection(viewModel)
+        Spacer(Modifier.height(18.dp))
         StageCard(viewModel) { navController.navigate(Screen.AudioLabStage.route) }
         Spacer(Modifier.height(14.dp))
         ReverbCard(viewModel)

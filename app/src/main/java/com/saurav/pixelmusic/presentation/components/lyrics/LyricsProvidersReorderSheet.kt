@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -78,6 +79,8 @@ fun LyricsProvidersReorderSheet(
 
     val savedOrder by remember(context) { MochyLyricsPreferences.providerOrderFlow(context) }
         .collectAsStateWithLifecycle(initialValue = MochyLyricsPreferences.DefaultProviderOrder)
+    val orderOverride by remember(context) { MochyLyricsPreferences.orderOverrideFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = false)
 
     var localOrder by remember { mutableStateOf(savedOrder) }
     val listState = rememberLazyListState()
@@ -170,11 +173,46 @@ fun LyricsProvidersReorderSheet(
                 }
             }
 
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Prioritize my order",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Pick your top provider over extra features like duets or word timing.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Switch(
+                        checked = orderOverride,
+                        onCheckedChange = { enabled ->
+                            scope.launch { MochyLyricsPreferences.setOrderOverride(context, enabled) }
+                        },
+                    )
+                }
+            }
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 440.dp),
+                    .heightIn(max = 400.dp),
                 contentPadding = PaddingValues(vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {

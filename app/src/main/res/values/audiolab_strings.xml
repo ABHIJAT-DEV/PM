@@ -278,6 +278,11 @@
     <string name="stage_walls_wood">Wood</string>
     <string name="stage_width">Width</string>
     <string name="stage_you">You</string>
+    <string name="fx_presets">Presets</string>
+    <string name="fx_preset_save">Save FX preset</string>
+    <string name="fx_preset_save_hint">Late night, Bass room…</string>
+    <string name="fx_preset_edit">Edit</string>
+    <string name="fx_preset_rename">Edit FX preset</string>
     <plurals name="eqx_filters_count">
         <item quantity="one">%1$d filter</item>
         <item quantity="other">%1$d filters</item>
