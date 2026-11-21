@@ -63,10 +63,11 @@ fun AudioFxScreen(
     val reverb by viewModel.reverb.collectAsState()
     val loudness by viewModel.loudness.collectAsState()
     val spatial by viewModel.spatial.collectAsState()
+    val eightD by viewModel.eightD.collectAsState()
     val playback by viewModel.playback.collectAsState()
     val volume by viewModel.volume.collectAsState()
     val stage by viewModel.stage.collectAsState()
-    val effects = activeEffects(reverb, loudness, spatial, playback, volume, stage)
+    val effects = activeEffects(reverb, loudness, spatial, eightD, playback, volume, stage)
 
     AudioLabPage(
         title = LabTitle(stringResource(R.string.fx_title_audio), "FX", firstSize = 40.sp, secondSize = 84.sp, firstDim = true),
@@ -76,6 +77,8 @@ fun AudioFxScreen(
         StageCard(viewModel) { navController.navigate(Screen.AudioLabStage.route) }
         Spacer(Modifier.height(14.dp))
         ReverbCard(viewModel)
+        Spacer(Modifier.height(14.dp))
+        EightDAudioCard(viewModel)
         Spacer(Modifier.height(14.dp))
         LoudnessCard(viewModel)
         Spacer(Modifier.height(14.dp))

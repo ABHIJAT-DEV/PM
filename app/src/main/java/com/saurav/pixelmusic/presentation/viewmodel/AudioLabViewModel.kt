@@ -65,6 +65,7 @@ class AudioLabViewModel @Inject constructor(
     val reverb = store.reverb
     val loudness = store.loudness
     val spatial = store.spatial
+    val eightD = store.eightD
     val playback = store.playback
     val volume = store.volume
     val normalize = store.normalize
@@ -223,6 +224,7 @@ class AudioLabViewModel @Inject constructor(
     fun updateReverb(transform: (ReverbSettings) -> ReverbSettings) = store.updateReverb(transform)
     fun updateLoudness(transform: (LoudnessSettings) -> LoudnessSettings) = store.updateLoudness(transform)
     fun updateSpatial(transform: (SpatialSettings) -> SpatialSettings) = store.updateSpatial(transform)
+    fun updateEightD(transform: (com.saurav.pixelmusic.audiolab.EightDSettings) -> com.saurav.pixelmusic.audiolab.EightDSettings) = store.updateEightD(transform)
     fun updatePlayback(transform: (PlaybackSettings) -> PlaybackSettings) = store.updatePlayback(transform)
     fun updateVolume(transform: (VolumeSettings) -> VolumeSettings) = store.updateVolume(transform)
     fun updateNormalize(transform: (NormalizeSettings) -> NormalizeSettings) = store.updateNormalize(transform)

@@ -1,5 +1,6 @@
 package com.saurav.pixelmusic.audiolab
 
+import com.saurav.pixelmusic.audiolab.audio.EightDParams
 import com.saurav.pixelmusic.audiolab.audio.LoudnessParams
 import com.saurav.pixelmusic.audiolab.audio.ReplayGainParams
 import com.saurav.pixelmusic.audiolab.audio.ReverbParams
@@ -13,6 +14,9 @@ import javax.inject.Singleton
 /** the audio fx settings every player's effects read at the start of each buffer */
 @Singleton
 class AudioFxService @Inject constructor() {
+    @Volatile
+    var eightD: EightDParams = EightDParams()
+
     @Volatile
     var reverb: ReverbParams = ReverbParams()
 
