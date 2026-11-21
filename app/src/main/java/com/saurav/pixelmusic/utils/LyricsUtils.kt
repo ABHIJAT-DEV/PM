@@ -99,6 +99,19 @@ object LyricsUtils {
             return Lyrics(plain = emptyList(), synced = emptyList())
         }
 
+        // Preserve Mochy word-span sidecar (<word:start:end|...>) and duet/bg tags
+        if (lyricsText.contains("{agent:") || lyricsText.contains("{bg}") ||
+            (lyricsText.contains("\n<") && lyricsText.contains("|") && lyricsText.contains(">"))
+        ) {
+            val mochyParsed = com.saurav.pixelmusic.lyrics.MochyLyricsParser.parse(
+                raw = lyricsText,
+                areFromRemote = false
+            )
+            if (!mochyParsed.synced.isNullOrEmpty() || !mochyParsed.plain.isNullOrEmpty()) {
+                return mochyParsed
+            }
+        }
+
         val normalizedInput = stripLeadingLyricsDocumentNoise(lyricsText)
         if (looksLikeTtmlDocument(normalizedInput)) {
             val converted = TtmlLyricsParser.parseToEnhancedLrc(normalizedInput)

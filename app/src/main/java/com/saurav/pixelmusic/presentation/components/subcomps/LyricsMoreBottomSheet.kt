@@ -59,6 +59,7 @@ fun LyricsMoreBottomSheet(
     showSyncedLyrics: Boolean,
     isSyncControlsVisible: Boolean,
     onManualSearchLyrics: () -> Unit = {},
+    onOpenStyleStudio: () -> Unit = {},
     onSaveLyricsAsLrc: () -> Unit,
     onResetImportedLyrics: () -> Unit,
     onToggleSyncControls: () -> Unit,
@@ -122,6 +123,30 @@ fun LyricsMoreBottomSheet(
                     text = stringResource(R.string.lyrics),
                     color = accentColor,
                     style = MaterialTheme.typography.bodyLargeEmphasized
+                )
+                // Mochy Lyrics Style, Translation, Romanization & Providers Studio
+                ListItem(
+                    headlineContent = { Text("Lyrics Style & Providers") },
+                    supportingContent = { Text("Choose showing style, translation, romanization & provider order") },
+                    leadingContent = {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_auto_awesome_24),
+                            contentDescription = null,
+                            tint = accentColor
+                        )
+                    },
+                    colors = ListItemDefaults.colors(
+                        containerColor = itemBackgroundColor,
+                        headlineColor = contentColor,
+                        supportingColor = contentColor.copy(alpha = 0.72f),
+                        leadingIconColor = accentColor
+                    ),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 6.dp, bottomEnd = 6.dp))
+                        .clickable {
+                            onDismissRequest()
+                            onOpenStyleStudio()
+                        }
                 )
                 // Search lyrics manually (Song ~ Artist)
                 ListItem(

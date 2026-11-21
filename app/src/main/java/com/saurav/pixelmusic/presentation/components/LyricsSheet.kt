@@ -428,6 +428,7 @@ fun LyricsSheet(
     var hasDismissedDialogForSong by remember(currentSong?.id) { mutableStateOf(false) }
     // Save lyrics dialog state
     var showSaveLyricsDialog by remember { mutableStateOf(false) }
+    var showMochyStyleStudio by remember { mutableStateOf(false) }
     var showSyncControls by remember { mutableStateOf(false) }
     var previewSeekPositionMs by remember(currentSong?.id) { mutableStateOf<Long?>(null) }
 
@@ -777,7 +778,7 @@ fun LyricsSheet(
 
                     true -> {
                         lyrics?.synced?.let { synced ->
-                            SyncedLyricsList(
+                            com.saurav.pixelmusic.presentation.components.lyrics.MochySyncedLyricsView(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(horizontal = 24.dp),
@@ -788,8 +789,14 @@ fun LyricsSheet(
                                 lyricsSyncOffset = lyricsSyncOffset,
                                 positionOverrideMs = previewSeekPositionMs,
                                 accentColor = lyricHighlightColor,
-                                textStyle = scaledTextStyle,
-                                onLineClick = { syncedLine -> 
+                                contentColor = contentColor,
+                                providerName = lyrics?.providerName,
+                                lyricsAlignment = lyricsAlignment,
+                                showTranslationPref = showLyricsTranslation,
+                                showRomanizationPref = showLyricsRomanization,
+                                performanceModeEnabled = performanceModeEnabled,
+                                immersiveMode = immersiveMode,
+                                onLineClick = { syncedLine ->
                                     onSeekTo(
                                         resolveSeekPositionMs(
                                             lineTimeMs = syncedLine.time.toLong(),
@@ -798,30 +805,9 @@ fun LyricsSheet(
                                     )
                                     resetImmersiveTimer()
                                 },
-                                highlightZoneFraction = highlightZoneFraction,
-                                highlightOffsetDp = highlightOffsetDp,
-                                autoscrollAnimationSpec = resolvedAutoscrollSpec,
-                                useAnimatedLyrics = useAnimatedLyrics,
-                                animatedLyricsBlurEnabled = animatedLyricsBlurEnabled,
-                                animatedLyricsBlurStrength = animatedLyricsBlurStrength,
-                                immersiveMode = immersiveMode,
-                                lyricsAlignment = lyricsAlignment,
-                                showTranslation = showLyricsTranslation,
-                                showRomanization = showLyricsRomanization,
-                                footer = {
-                                    if (lyrics?.areFromRemote == true) {
-                                        item(key = "provider_text") {
-                                            ProviderText(
-                                                providerText = context.resources.getString(R.string.lyrics_provided_by),
-                                                uri = context.resources.getString(R.string.lrclib_uri),
-                                                textAlign = TextAlign.Center,
-                                                accentColor = lyricHighlightColor,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 16.dp)
-                                            )
-                                        }
-                                    }
+                                onOpenStyleStudio = {
+                                    resetImmersiveTimer()
+                                    showMochyStyleStudio = true
                                 }
                             )
                         }
@@ -1037,6 +1023,10 @@ fun LyricsSheet(
                         wasResetTriggered = true
                         resetLyricsForCurrentSong()
                     },
+                    onOpenStyleStudio = {
+                        resetImmersiveTimer()
+                        showMochyStyleStudio = true
+                    },
                     onToggleSyncControls = {
                         resetImmersiveTimer()
                         showSyncControls = !showSyncControls
@@ -1102,6 +1092,18 @@ fun LyricsSheet(
                 )
             }
         }
+
+       if (showMochyStyleStudio) {
+           MaterialTheme(
+               colorScheme = colorScheme,
+               typography = MaterialTheme.typography,
+               shapes = MaterialTheme.shapes
+           ) {
+               com.saurav.pixelmusic.presentation.components.lyrics.MochyLyricsStudioSheet(
+                   onDismiss = { showMochyStyleStudio = false }
+               )
+           }
+       }
 
        // Show Controls Button (Overlay)
        AnimatedVisibility(
