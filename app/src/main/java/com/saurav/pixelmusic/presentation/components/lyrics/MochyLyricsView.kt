@@ -491,7 +491,7 @@ fun MochySyncedLyricsView(
     val blend: LyricsBackdropBlend? = null
     CompositionLocalProvider(
         LocalContentColor provides contentColor,
-        LocalLyricsHighlight provides Color.White,
+        LocalLyricsHighlight provides contentColor,
     ) {
         Box(
             modifier = modifier
