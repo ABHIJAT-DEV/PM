@@ -675,44 +675,6 @@ fun LyricsSheet(
         // Removed TopBar and FAB
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
-            // Full-screen high-blur album art backdrop (also gives Mochy Soft Light real colors to blend onto)
-            androidx.compose.animation.Crossfade(
-                targetState = currentSong?.albumArtUriString,
-                animationSpec = tween(durationMillis = 600),
-                modifier = Modifier.fillMaxSize(),
-                label = "lyricsArtBackdrop"
-            ) { artUri ->
-                if (!artUri.isNullOrBlank()) {
-                    SmartImage(
-                        model = artUri,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                scaleX = 1.25f
-                                scaleY = 1.25f
-                            }
-                            .blur(
-                                radius = 85.dp,
-                                edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded
-                            )
-                    )
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.48f),
-                                Color.Black.copy(alpha = 0.36f),
-                                Color.Black.copy(alpha = 0.54f),
-                            )
-                        )
-                    )
-            )
             Column(
                 modifier = Modifier
                     .fillMaxSize()

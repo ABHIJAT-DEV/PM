@@ -101,16 +101,37 @@ private class LyricsListPadding : PaddingValues {
 
 // ---- PixelMusic lyrics -> Mochy's entries ----
 
-private fun SyncedLine.toMochyEntry(primaryText: String, useWords: Boolean): LyricsEntry {
+private fun SyncedLine.toMochyEntry(
+    primaryText: String,
+    useWords: Boolean,
+    nextLineTimeMs: Int?,
+): LyricsEntry {
     val pieces = words
     if (!useWords || pieces.isNullOrEmpty()) {
         return LyricsEntry(time = time.toLong(), text = primaryText, agent = agent, isBackground = isBackground)
     }
-    val lineEndSec = (pieces.last().endTime ?: (time + 3_500)) / 1000.0
+    val lastStartMs = pieces.last().time
+    val avgWordMs = if (pieces.size >= 2) {
+        ((lastStartMs - pieces.first().time) / (pieces.size - 1)).coerceIn(280, 900)
+    } else {
+        650
+    }
+    val fallbackLastEndMs = when {
+        nextLineTimeMs != null && nextLineTimeMs > lastStartMs -> {
+            val gapToNext = nextLineTimeMs - lastStartMs
+            lastStartMs + gapToNext.coerceIn(260, maxOf(avgWordMs * 2, 1_800))
+        }
+        else -> lastStartMs + maxOf(avgWordMs, 900)
+    }
     val timed = pieces.mapIndexed { i, w ->
-        val start = w.time / 1000.0
-        val end = (w.endTime ?: pieces.getOrNull(i + 1)?.time)?.div(1000.0) ?: lineEndSec
-        WordTimestamp(text = w.word, startTime = start, endTime = end.coerceAtLeast(start))
+        val startMs = w.time
+        val nextStartMs = pieces.getOrNull(i + 1)?.time
+        val rawEndMs = w.endTime?.takeIf { it > startMs }
+            ?: nextStartMs?.takeIf { it > startMs }
+            ?: if (i == pieces.lastIndex) fallbackLastEndMs else (startMs + avgWordMs)
+        val start = startMs / 1000.0
+        val end = rawEndMs.coerceAtLeast(startMs + 120) / 1000.0
+        WordTimestamp(text = w.word, startTime = start, endTime = end)
     }
     // pieces the source split into syllables are merged into whole words, the pieces themselves kept for the sweep
     val merged = ArrayList<WordTimestamp>(timed.size)
@@ -375,7 +396,12 @@ fun MochySyncedLyricsView(
         lines.mapIndexed { i, line ->
             val rom = romanized.getOrNull(i)?.takeIf { it.isNotBlank() && it != line.line }
             val swap = romanizationAsMain && rom != null
-            line.toMochyEntry(primaryText = if (swap) rom!! else line.line, useWords = !swap)
+            val nextLineTimeMs = lines.getOrNull(i + 1)?.time
+            line.toMochyEntry(
+                primaryText = if (swap) rom!! else line.line,
+                useWords = !swap,
+                nextLineTimeMs = nextLineTimeMs,
+            )
         }
     }
     val rows = remember(entries) { buildLyricRows(entries) }
@@ -461,17 +487,8 @@ fun MochySyncedLyricsView(
     }
 
     val listPadding = remember { LyricsListPadding() }
-    val blend = remember(useSoftLightBlend, listState, stagger) {
-        if (useSoftLightBlend) {
-            LyricsBackdropBlend(TopFadeFraction, BottomFadeStart) {
-                listState.firstVisibleItemIndex
-                listState.firstVisibleItemScrollOffset
-                stagger.anchorRow
-            }
-        } else {
-            null
-        }
-    }
+    // Keep blend null on the solid container background so resting lines don't dim against a flat backdrop
+    val blend: LyricsBackdropBlend? = null
     CompositionLocalProvider(
         LocalContentColor provides contentColor,
         LocalLyricsHighlight provides Color.White,
