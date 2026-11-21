@@ -1276,7 +1276,7 @@ fun SettingsCategoryScreen(
                                     val currentMochyStyle by remember(context) {
                                         com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.styleFlow(context)
                                     }.collectAsStateWithLifecycle(
-                                        initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.APPLE
+                                        initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.MOTION
                                     )
                                     if (showLyricsStudioSheet) {
                                         com.saurav.pixelmusic.presentation.components.lyrics.MochyLyricsStudioSheet(

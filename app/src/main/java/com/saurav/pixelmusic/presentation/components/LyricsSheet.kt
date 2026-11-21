@@ -780,7 +780,7 @@ fun LyricsSheet(
                         val activeLyricsStyle by remember(context) {
                             com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.styleFlow(context)
                         }.collectAsStateWithLifecycle(
-                            initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.APPLE
+                            initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.MOTION
                         )
                         lyrics?.synced?.let { synced ->
                             if (activeLyricsStyle == com.saurav.pixelmusic.lyrics.MochyLyricsStyle.PIXELMUSIC) {

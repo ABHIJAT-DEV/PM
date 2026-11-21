@@ -12,23 +12,49 @@ import kotlinx.coroutines.flow.map
 enum class MochyLyricsStyle(
     val displayName: String,
     val description: String,
+    val risesWords: Boolean = false,
+    val shaded: Boolean = false,
 ) {
-    PIXELMUSIC("PixelMusic Original", "Original PixelMusic spring-animated synced lyrics"),
-    APPLE("Apple Motion", "Words rise and glow as sung with soft depth blur"),
-    APPLE_V2("Apple V2", "Crisp syllable sweep with smooth vertical spring"),
-    MOCHY_1("Mochy 1", "Expressive gradient highlight with subtle pulse"),
-    LYRICS_V2("Lyrics V2", "Clean balanced typography with smooth crossfade"),
-    METRO_LYRICS("Metro", "Bold editorial contrast with rhythmic reveal"),
-    KARAOKE("Karaoke", "Progressive left-to-right syllable fill"),
-    GLOW("Glow", "Luminous soft-light halo on the active line"),
-    LEGACY("Wave", "Classic wave sweep across sung letters"),
-    SLIDE("Slide", "Gentle directional glide on active line change"),
-    FADE("Fade", "Minimal smooth opacity focus"),
-    NONE("Classic", "Clean static highlight without motion");
+    MOTION(
+        displayName = "Style 1",
+        description = "Words rise as they're sung, long notes swell & glow, lines cascade",
+        risesWords = true,
+        shaded = true,
+    ),
+    LEGACY(
+        displayName = "Style 2",
+        description = "Glowing wave across the sung letters, list scrolls as one piece",
+        risesWords = false,
+        shaded = true,
+    ),
+    BORING(
+        displayName = "Boring",
+        description = "Style 1's word rise & cascade, without the glow",
+        risesWords = true,
+        shaded = false,
+    ),
+    PLAIN(
+        displayName = "Plain",
+        description = "Style 2's smooth sweep, without the glow or the wave",
+        risesWords = false,
+        shaded = false,
+    ),
+    PIXELMUSIC(
+        displayName = "PixelMusic",
+        description = "Original PixelMusic spring-animated synced lyrics",
+        risesWords = false,
+        shaded = false,
+    );
 
     companion object {
-        fun fromName(name: String?): MochyLyricsStyle =
-            entries.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: APPLE
+        fun fromName(name: String?): MochyLyricsStyle = when (name?.uppercase()) {
+            "MOTION", "APPLE", "APPLE_V2", "MOCHY_1", "GLOW" -> MOTION
+            "LEGACY", "KARAOKE", "METRO_LYRICS" -> LEGACY
+            "BORING", "SLIDE" -> BORING
+            "PLAIN", "LYRICS_V2", "FADE", "NONE" -> PLAIN
+            "PIXELMUSIC" -> PIXELMUSIC
+            else -> MOTION
+        }
     }
 }
 
@@ -40,6 +66,7 @@ object MochyLyricsPreferences {
     val AutoTranslateKey = booleanPreferencesKey("mochy_lyrics_auto_translate")
     val TranslateLanguageKey = stringPreferencesKey("mochy_lyrics_translate_lang")
     val AutoRomanizeKey = booleanPreferencesKey("mochy_lyrics_auto_romanize")
+    val RomanizationAsMainKey = booleanPreferencesKey("mochy_lyrics_romanization_main")
     val ProviderOrderKey = stringPreferencesKey("mochy_lyrics_provider_order")
 
     val DefaultProviderOrder: List<String> = listOf(
@@ -93,6 +120,9 @@ object MochyLyricsPreferences {
     fun autoRomanizeFlow(context: Context): Flow<Boolean> =
         context.dataStore.data.map { it[AutoRomanizeKey] ?: false }
 
+    fun romanizationAsMainFlow(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[RomanizationAsMainKey] ?: false }
+
     fun providerOrderFlow(context: Context): Flow<List<String>> =
         context.dataStore.data.map { deserializeProviderOrder(it[ProviderOrderKey].orEmpty()) }
 
@@ -128,6 +158,10 @@ object MochyLyricsPreferences {
 
     suspend fun setAutoRomanize(context: Context, enabled: Boolean) {
         context.dataStore.edit { it[AutoRomanizeKey] = enabled }
+    }
+
+    suspend fun setRomanizationAsMain(context: Context, enabled: Boolean) {
+        context.dataStore.edit { it[RomanizationAsMainKey] = enabled }
     }
 
     suspend fun setProviderOrder(context: Context, order: List<String>) {

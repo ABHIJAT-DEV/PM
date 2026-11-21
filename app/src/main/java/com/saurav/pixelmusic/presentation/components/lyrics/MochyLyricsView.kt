@@ -1,18 +1,17 @@
 package com.saurav.pixelmusic.presentation.components.lyrics
 
 import android.os.Build
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,8 +32,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.ui.res.painterResource
-import com.saurav.pixelmusic.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,27 +41,25 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.SyncedLine
 import com.saurav.pixelmusic.lyrics.GoogleTranslateEngine
 import com.saurav.pixelmusic.lyrics.MochyLyricsPreferences
@@ -74,13 +69,18 @@ import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.abs
 
+private val MochySmoothRecenterEasing = CubicBezierEasing(0.22f, 1.0f, 0.36f, 1.0f)
+private val MochyLegacyRecenterEasing = CubicBezierEasing(0.32f, 0.72f, 0.0f, 1.0f)
+
 /**
- * Mochy-powered lyrics view rendered inside PixelMusic's LyricsSheet viewport
+ * Mochy-powered synced lyrics view rendered inside PixelMusic's LyricsSheet viewport
  * (preserving PixelMusic's floating top song pill and bottom playback/Synced-Static controls).
  *
- * Supports all 11 Mochy showing styles, word-by-word rise/sweep/glow, duet alignment,
- * background vocals, 3-dot instrumental interlude indicator, on-the-fly Google Translate,
- * offline romanization, and provider attribution footer.
+ * Authentically renders Mochy's 4 styles:
+ * - Style 1 (MOTION): word rise + held-note swell + AGSL bloom + staggered line cascade
+ * - Style 2 (LEGACY): AGSL wave-lift/zoom + trailing bloom + unified scroll
+ * - Boring (BORING): Style 1's word rise & staggered cascade without glow
+ * - Plain (PLAIN): Style 2's smooth sweep without glow or wave
  */
 @Composable
 fun MochySyncedLyricsView(
@@ -104,7 +104,7 @@ fun MochySyncedLyricsView(
 ) {
     val context = LocalContext.current
     val style by remember(context) { MochyLyricsPreferences.styleFlow(context) }
-        .collectAsStateWithLifecycle(initialValue = MochyLyricsStyle.APPLE)
+        .collectAsStateWithLifecycle(initialValue = MochyLyricsStyle.MOTION)
     val textSizeSp by remember(context) { MochyLyricsPreferences.textSizeFlow(context) }
         .collectAsStateWithLifecycle(initialValue = 26f)
     val lineSpacing by remember(context) { MochyLyricsPreferences.lineSpacingFlow(context) }
@@ -117,9 +117,12 @@ fun MochySyncedLyricsView(
         .collectAsStateWithLifecycle(initialValue = "en")
     val autoRomanize by remember(context) { MochyLyricsPreferences.autoRomanizeFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
+    val romanizationAsMain by remember(context) { MochyLyricsPreferences.romanizationAsMainFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = false)
 
     val rawPositionMs by playbackPositionFlow.collectAsStateWithLifecycle()
     val effectivePosMs = ((positionOverrideMs ?: rawPositionMs) + lyricsSyncOffset).coerceAtLeast(0L)
+    val currentPosProvider by rememberUpdatedState { effectivePosMs }
 
     // Live Google Translate cache for this song + language
     var liveTranslations by remember(lines, translateLang, autoTranslate) {
@@ -156,12 +159,56 @@ fun MochySyncedLyricsView(
         }
     }
 
-    // Smooth auto-scroll keeping the active line near the upper-center focus zone
-    LaunchedEffect(currentIndex) {
-        if (currentIndex >= 0 && !listState.isScrollInProgress) {
-            val targetIndex = (currentIndex).coerceIn(0, (lines.size).coerceAtLeast(0))
+    // Mochy's Style 1 / Boring staggered line cascade
+    val cascade = style.risesWords
+    val stagger = remember(lines.size) { MochyLyricsStagger(lines.size + 2) }
+    LaunchedEffect(stagger) { stagger.run() }
+    LaunchedEffect(cascade) { if (!cascade) stagger.reset() }
+
+    // Detect intro interlude before the first lyric line
+    val firstLineTime = lines.firstOrNull()?.time?.toLong() ?: 0L
+    val showIntroDots = firstLineTime >= 4_000L && effectivePosMs < firstLineTime - 300L
+    val introOffset = if (showIntroDots) 1 else 0
+
+    // Smooth auto-scroll keeping the active line in the upper-center focus zone,
+    // driving MochyLyricsStagger on Style 1 & Boring so lines below cascade into place.
+    LaunchedEffect(currentIndex, style) {
+        if (currentIndex < 0 || listState.isScrollInProgress) return@LaunchedEffect
+        val targetItemIndex = (currentIndex + introOffset).coerceIn(0, (lines.size + introOffset).coerceAtLeast(0))
+        val visible = listState.layoutInfo.visibleItemsInfo
+        val targetInfo = visible.firstOrNull { it.index == targetItemIndex }
+        val viewportHeight = listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset
+        val desiredOffset = (viewportHeight * 0.24f).toInt()
+
+        if (targetInfo != null) {
+            val distance = (targetInfo.offset - desiredOffset).toFloat()
+            if (abs(distance) > 2f) {
+                stagger.anchorRow = targetItemIndex
+                val easing = if (cascade) MochySmoothRecenterEasing else MochyLegacyRecenterEasing
+                runCatching {
+                    listState.scroll {
+                        var previous = 0f
+                        animate(
+                            initialValue = 0f,
+                            targetValue = distance,
+                            animationSpec = tween(durationMillis = 520, easing = easing),
+                        ) { value, _ ->
+                            val consumed = scrollBy(value - previous)
+                            previous += consumed
+                            if (cascade && consumed != 0f) {
+                                for (item in listState.layoutInfo.visibleItemsInfo) {
+                                    if (item.index > targetItemIndex) {
+                                        stagger.holdBack(item.index, consumed)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
             runCatching {
-                listState.animateScrollToItem(index = targetIndex, scrollOffset = -180)
+                listState.animateScrollToItem(index = targetItemIndex, scrollOffset = -desiredOffset)
             }
         }
     }
@@ -171,12 +218,8 @@ fun MochySyncedLyricsView(
         "right" -> TextAlign.End
         else -> TextAlign.Start
     }
-    val effectiveScale = if (immersiveMode) 1.15f else 1f
+    val effectiveScale = if (immersiveMode) 1.12f else 1f
     val allowBlur = softLightEnabled && !performanceModeEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-
-    // Detect intro interlude before the first lyric line
-    val firstLineTime = lines.firstOrNull()?.time?.toLong() ?: 0L
-    val showIntroDots = firstLineTime >= 4_000L && effectivePosMs < firstLineTime - 300L
 
     LazyColumn(
         state = listState,
@@ -202,13 +245,23 @@ fun MochySyncedLyricsView(
             items = lines,
             key = { index, line -> "${index}_${line.time}" },
         ) { index, line ->
+            val listItemIndex = index + introOffset
             val isActive = index == currentIndex
             val isPast = currentIndex >= 0 && index < currentIndex
             val distance = if (currentIndex < 0) 0 else abs(index - currentIndex)
             val nextLineTime = lines.getOrNull(index + 1)?.time?.toLong()
+            val lineEndMs = line.words?.lastOrNull()?.endTime?.toLong()
+                ?: nextLineTime
+                ?: (line.time.toLong() + 3_500L)
+
             val translationText = line.translation?.takeIf { it.isNotBlank() && showTranslationPref }
                 ?: liveTranslations?.getOrNull(index)?.takeIf { it.isNotBlank() && it != line.line }
-            val romanizationText = romanizedLines.getOrNull(index)
+            val romanizationText = romanizedLines.getOrNull(index)?.takeIf { it.isNotBlank() && it != line.line }
+
+            val swapRom = romanizationAsMain && !romanizationText.isNullOrBlank()
+            val primaryText = if (swapRom) romanizationText!! else line.line
+            val secondaryRomText = if (swapRom) line.line else romanizationText
+            val effectiveWords = if (swapRom) null else line.words
 
             val lineAlign = when {
                 line.isBackground -> TextAlign.Center
@@ -217,13 +270,18 @@ fun MochySyncedLyricsView(
             }
 
             MochyLyricLineItem(
-                line = line,
+                primaryText = primaryText,
+                words = effectiveWords,
+                lineStartMs = line.time.toLong(),
+                lineEndMs = lineEndMs,
+                isBackground = line.isBackground,
                 isActive = isActive,
                 isPast = isPast,
                 distance = distance,
-                effectivePosMs = effectivePosMs,
-                nextLineTimeMs = nextLineTime,
+                positionProvider = currentPosProvider,
                 style = style,
+                stagger = stagger,
+                staggerRowIndex = listItemIndex,
                 textSizeSp = textSizeSp * effectiveScale,
                 lineSpacing = lineSpacing,
                 allowBlur = allowBlur,
@@ -231,16 +289,16 @@ fun MochySyncedLyricsView(
                 contentColor = contentColor,
                 textAlign = lineAlign,
                 translationText = translationText,
-                romanizationText = romanizationText,
+                romanizationText = secondaryRomText,
                 onClick = { onLineClick(line) },
             )
 
-            // Instrumental interlude dots between widely spaced lines (>= 6s gap)
+            // Instrumental interlude dots between widely spaced lines (>= 5s gap)
             if (isActive && nextLineTime != null) {
-                val lineEndMs = line.words?.lastOrNull()?.endTime?.toLong() ?: (line.time + 3_500L)
-                val gapMs = nextLineTime - lineEndMs
-                if (gapMs >= 5_000L && effectivePosMs > lineEndMs + 400L && effectivePosMs < nextLineTime - 300L) {
-                    val gapProgress = ((effectivePosMs - lineEndMs).toFloat() / gapMs.coerceAtLeast(1L)).coerceIn(0f, 1f)
+                val sungEndMs = line.words?.lastOrNull()?.endTime?.toLong() ?: (line.time + 3_500L)
+                val gapMs = nextLineTime - sungEndMs
+                if (gapMs >= 5_000L && effectivePosMs > sungEndMs + 400L && effectivePosMs < nextLineTime - 300L) {
+                    val gapProgress = ((effectivePosMs - sungEndMs).toFloat() / gapMs.coerceAtLeast(1L)).coerceIn(0f, 1f)
                     Spacer(Modifier.height(10.dp))
                     MochyInterludeDots(
                         progress = gapProgress,
@@ -259,6 +317,11 @@ fun MochySyncedLyricsView(
                 accentColor = accentColor,
                 contentColor = contentColor,
                 onOpenStudio = onOpenStyleStudio,
+                modifier = Modifier.graphicsLayer {
+                    if (cascade) {
+                        translationY = stagger.lagOf(lines.size + introOffset)
+                    }
+                },
             )
         }
     }
@@ -266,13 +329,18 @@ fun MochySyncedLyricsView(
 
 @Composable
 private fun MochyLyricLineItem(
-    line: SyncedLine,
+    primaryText: String,
+    words: List<com.saurav.pixelmusic.data.model.WordEntry>?,
+    lineStartMs: Long,
+    lineEndMs: Long,
+    isBackground: Boolean,
     isActive: Boolean,
     isPast: Boolean,
     distance: Int,
-    effectivePosMs: Long,
-    nextLineTimeMs: Long?,
+    positionProvider: () -> Long,
     style: MochyLyricsStyle,
+    stagger: MochyLyricsStagger,
+    staggerRowIndex: Int,
     textSizeSp: Float,
     lineSpacing: Float,
     allowBlur: Boolean,
@@ -285,54 +353,27 @@ private fun MochyLyricLineItem(
 ) {
     val targetAlpha = when {
         isActive -> 1f
-        style == MochyLyricsStyle.NONE -> if (isPast) 0.42f else 0.55f
-        style == MochyLyricsStyle.METRO_LYRICS -> if (isPast) 0.28f else 0.40f
+        isPast -> 0.28f
         else -> when (distance) {
-            1 -> if (isPast) 0.36f else 0.52f
-            2 -> 0.34f
-            else -> 0.22f
+            1 -> 0.52f
+            2 -> 0.38f
+            else -> 0.26f
         }
     }
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = tween(durationMillis = if (style == MochyLyricsStyle.NONE) 80 else 280),
+        animationSpec = tween(durationMillis = 280),
         label = "lyric_alpha",
     )
 
-    val targetScale = when {
-        !isActive -> if (style == MochyLyricsStyle.METRO_LYRICS) 0.94f else 0.96f
-        style == MochyLyricsStyle.METRO_LYRICS -> 1.07f
-        style == MochyLyricsStyle.APPLE || style == MochyLyricsStyle.APPLE_V2 || style == MochyLyricsStyle.MOCHY_1 -> 1.04f
-        style == MochyLyricsStyle.NONE || style == MochyLyricsStyle.FADE -> 1.0f
-        else -> 1.02f
-    }
+    val targetScale = if (isActive) 1.04f else 0.96f
     val animatedScale by animateFloatAsState(
         targetValue = targetScale,
-        animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessMediumLow),
         label = "lyric_scale",
     )
 
-    val targetOffsetY = when {
-        isActive && (style == MochyLyricsStyle.APPLE || style == MochyLyricsStyle.APPLE_V2 || style == MochyLyricsStyle.SLIDE) -> -4f
-        else -> 0f
-    }
-    val animatedOffsetY by animateFloatAsState(
-        targetValue = targetOffsetY,
-        animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow),
-        label = "lyric_rise",
-    )
-
-    val targetOffsetX = when {
-        isActive && style == MochyLyricsStyle.SLIDE -> 6f
-        else -> 0f
-    }
-    val animatedOffsetX by animateFloatAsState(
-        targetValue = targetOffsetX,
-        animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow),
-        label = "lyric_slide",
-    )
-
-    val blurDp = if (allowBlur && !isActive && style != MochyLyricsStyle.NONE && style != MochyLyricsStyle.METRO_LYRICS) {
+    val blurDp = if (allowBlur && !isActive) {
         when (distance) {
             1 -> 1.2f
             2 -> 2.4f
@@ -342,11 +383,10 @@ private fun MochyLyricLineItem(
         0f
     }
 
-    val fontSize = (if (line.isBackground) textSizeSp * 0.78f else textSizeSp).sp
+    val fontSize = (if (isBackground) textSizeSp * 0.78f else textSizeSp).sp
     val lineHeight = (fontSize.value * lineSpacing).sp
     val fontWeight = when {
-        line.isBackground -> FontWeight.Medium
-        style == MochyLyricsStyle.METRO_LYRICS && isActive -> FontWeight.Black
+        isBackground -> FontWeight.Medium
         isActive -> FontWeight.ExtraBold
         else -> FontWeight.Bold
     }
@@ -357,14 +397,15 @@ private fun MochyLyricLineItem(
         else -> 0f
     }
 
-    val glowShadow = if (isActive && (style == MochyLyricsStyle.GLOW || style == MochyLyricsStyle.APPLE || style == MochyLyricsStyle.MOCHY_1)) {
-        Shadow(
-            color = accentColor.copy(alpha = if (style == MochyLyricsStyle.GLOW) 0.55f else 0.30f),
-            blurRadius = if (style == MochyLyricsStyle.GLOW) 22f else 12f,
-        )
-    } else {
-        null
-    }
+    val lineTextStyle = TextStyle(
+        fontFamily = GoogleSansRounded,
+        fontSize = fontSize,
+        lineHeight = lineHeight,
+        fontWeight = fontWeight,
+        fontStyle = if (isBackground) FontStyle.Italic else FontStyle.Normal,
+        textAlign = textAlign,
+        color = if (isActive) accentColor else contentColor,
+    )
 
     Column(
         modifier = Modifier
@@ -373,8 +414,9 @@ private fun MochyLyricLineItem(
                 alpha = animatedAlpha
                 scaleX = animatedScale
                 scaleY = animatedScale
-                translationY = animatedOffsetY
-                translationX = animatedOffsetX
+                if (style.risesWords) {
+                    translationY = stagger.lagOf(staggerRowIndex)
+                }
                 transformOrigin = TransformOrigin(pivotX, 0.5f)
             }
             .then(if (blurDp > 0.2f) Modifier.blur(blurDp.dp) else Modifier)
@@ -385,99 +427,23 @@ private fun MochyLyricLineItem(
             )
             .padding(vertical = 4.dp),
     ) {
-        val words = line.words
-        val useWordSync = isActive && !words.isNullOrEmpty() && style in WordSyncStyles
-
-        if (useWordSync && words != null) {
-            val annotated = buildAnnotatedString {
-                words.forEachIndexed { idx, w ->
-                    val wordStart = w.time.toLong()
-                    val wordEnd = w.endTime?.toLong()
-                        ?: words.getOrNull(idx + 1)?.time?.toLong()
-                        ?: nextLineTimeMs
-                        ?: (wordStart + 450L)
-                    val spanMs = (wordEnd - wordStart).coerceAtLeast(80L)
-                    val progress = ((effectivePosMs - wordStart).toFloat() / spanMs).coerceIn(0f, 1f)
-
-                    val wordColor = when {
-                        progress >= 0.99f -> accentColor
-                        progress > 0f -> {
-                            val blend = if (style == MochyLyricsStyle.KARAOKE) 1f else progress
-                            androidx.compose.ui.graphics.lerp(
-                                contentColor.copy(alpha = 0.42f),
-                                accentColor,
-                                blend,
-                            )
-                        }
-                        else -> contentColor.copy(alpha = 0.36f)
-                    }
-                    val wordShadow = if (progress in 0.05f..0.99f && (style == MochyLyricsStyle.APPLE || style == MochyLyricsStyle.MOCHY_1 || style == MochyLyricsStyle.GLOW)) {
-                        Shadow(color = accentColor.copy(alpha = 0.45f), blurRadius = 14f)
-                    } else {
-                        glowShadow
-                    }
-
-                    withStyle(
-                        SpanStyle(
-                            color = wordColor,
-                            fontWeight = if (progress > 0f) FontWeight.ExtraBold else FontWeight.Bold,
-                            shadow = wordShadow,
-                        )
-                    ) {
-                        append(w.word)
-                    }
-                    if (idx < words.lastIndex) {
-                        val nextStartsNew = words[idx + 1].startsNewWord
-                        if (nextStartsNew) append(" ")
-                    }
-                }
-            }
-            Text(
-                text = annotated,
-                style = TextStyle(
-                    fontFamily = GoogleSansRounded,
-                    fontSize = fontSize,
-                    lineHeight = lineHeight,
-                    fontWeight = fontWeight,
-                    fontStyle = if (line.isBackground) FontStyle.Italic else FontStyle.Normal,
-                    textAlign = textAlign,
-                ),
+        if (isActive) {
+            MochyKaraokeSweepLine(
+                text = primaryText,
+                words = words,
+                lineStartMs = lineStartMs,
+                lineEndMs = lineEndMs,
+                positionProvider = positionProvider,
+                style = style,
+                accentColor = accentColor,
+                unsungColor = contentColor.copy(alpha = 0.36f),
+                textStyle = lineTextStyle,
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
-            val activeBrush = if (isActive && style == MochyLyricsStyle.MOCHY_1) {
-                Brush.horizontalGradient(
-                    colors = listOf(accentColor, MaterialTheme.colorScheme.tertiary, accentColor)
-                )
-            } else {
-                null
-            }
-            val textStyle = if (activeBrush != null) {
-                TextStyle(
-                    brush = activeBrush,
-                    fontFamily = GoogleSansRounded,
-                    fontSize = fontSize,
-                    lineHeight = lineHeight,
-                    fontWeight = fontWeight,
-                    fontStyle = if (line.isBackground) FontStyle.Italic else FontStyle.Normal,
-                    textAlign = textAlign,
-                    shadow = glowShadow,
-                )
-            } else {
-                TextStyle(
-                    color = if (isActive) accentColor else contentColor,
-                    fontFamily = GoogleSansRounded,
-                    fontSize = fontSize,
-                    lineHeight = lineHeight,
-                    fontWeight = fontWeight,
-                    fontStyle = if (line.isBackground) FontStyle.Italic else FontStyle.Normal,
-                    textAlign = textAlign,
-                    shadow = glowShadow,
-                )
-            }
             Text(
-                text = line.line,
-                style = textStyle,
+                text = primaryText,
+                style = lineTextStyle,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -621,13 +587,3 @@ fun MochySourceFooter(
         }
     }
 }
-
-private val WordSyncStyles = setOf(
-    MochyLyricsStyle.APPLE,
-    MochyLyricsStyle.APPLE_V2,
-    MochyLyricsStyle.MOCHY_1,
-    MochyLyricsStyle.KARAOKE,
-    MochyLyricsStyle.LEGACY,
-    MochyLyricsStyle.GLOW,
-    MochyLyricsStyle.METRO_LYRICS,
-)
