@@ -35,7 +35,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
-import com.saurav.pixelmusic.data.model.WordEntry
+import com.saurav.pixelmusic.data.model.SyncedWord
 import com.saurav.pixelmusic.lyrics.MochyLyricsStyle
 import kotlinx.coroutines.flow.first
 import kotlin.math.abs
@@ -288,7 +288,7 @@ private fun buildWordRanges(text: String): List<IntRange> {
 
 private fun buildTimedSpans(
     text: String,
-    words: List<WordEntry>?,
+    words: List<SyncedWord>?,
     lineStartMs: Long,
     lineEndMs: Long,
 ): List<TimedSpan> {
@@ -408,7 +408,7 @@ private fun Modifier.layerBleed(bleedDp: androidx.compose.ui.unit.Dp): Modifier 
 @Composable
 internal fun MochyKaraokeSweepLine(
     text: String,
-    words: List<WordEntry>?,
+    words: List<SyncedWord>?,
     lineStartMs: Long,
     lineEndMs: Long,
     positionProvider: () -> Long,

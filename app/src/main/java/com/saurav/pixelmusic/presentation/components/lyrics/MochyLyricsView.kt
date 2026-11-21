@@ -330,7 +330,7 @@ fun MochySyncedLyricsView(
 @Composable
 private fun MochyLyricLineItem(
     primaryText: String,
-    words: List<com.saurav.pixelmusic.data.model.WordEntry>?,
+    words: List<com.saurav.pixelmusic.data.model.SyncedWord>?,
     lineStartMs: Long,
     lineEndMs: Long,
     isBackground: Boolean,
