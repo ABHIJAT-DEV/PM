@@ -3181,7 +3181,7 @@ class MusicService : MediaLibraryService() {
         val albumArtUri: String?,
         val themeColors: WidgetThemeColors?,
         val isFavorite: Boolean,
-        val queue: List<QueueItem>,
+        val queue: List<com.saurav.pixelmusic.data.model.QueueItem>,
         val totalDurationMs: Long,
         val positionBucket: Long,
     )
