@@ -777,39 +777,93 @@ fun LyricsSheet(
                     }
 
                     true -> {
+                        val activeLyricsStyle by remember(context) {
+                            com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.styleFlow(context)
+                        }.collectAsStateWithLifecycle(
+                            initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.APPLE
+                        )
                         lyrics?.synced?.let { synced ->
-                            com.saurav.pixelmusic.presentation.components.lyrics.MochySyncedLyricsView(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 24.dp),
-                                contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
-                                lines = synced,
-                                listState = syncedListState,
-                                playbackPositionFlow = playbackPositionFlow,
-                                lyricsSyncOffset = lyricsSyncOffset,
-                                positionOverrideMs = previewSeekPositionMs,
-                                accentColor = lyricHighlightColor,
-                                contentColor = contentColor,
-                                providerName = lyrics?.providerName,
-                                lyricsAlignment = lyricsAlignment,
-                                showTranslationPref = showLyricsTranslation,
-                                showRomanizationPref = showLyricsRomanization,
-                                performanceModeEnabled = performanceModeEnabled,
-                                immersiveMode = immersiveMode,
-                                onLineClick = { syncedLine ->
-                                    onSeekTo(
-                                        resolveSeekPositionMs(
-                                            lineTimeMs = syncedLine.time.toLong(),
-                                            lyricsSyncOffsetMs = lyricsSyncOffset
+                            if (activeLyricsStyle == com.saurav.pixelmusic.lyrics.MochyLyricsStyle.PIXELMUSIC) {
+                                SyncedLyricsList(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 24.dp),
+                                    contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
+                                    lines = synced,
+                                    listState = syncedListState,
+                                    playbackPositionFlow = playbackPositionFlow,
+                                    lyricsSyncOffset = lyricsSyncOffset,
+                                    positionOverrideMs = previewSeekPositionMs,
+                                    accentColor = lyricHighlightColor,
+                                    textStyle = scaledTextStyle,
+                                    onLineClick = { syncedLine ->
+                                        onSeekTo(
+                                            resolveSeekPositionMs(
+                                                lineTimeMs = syncedLine.time.toLong(),
+                                                lyricsSyncOffsetMs = lyricsSyncOffset
+                                            )
                                         )
-                                    )
-                                    resetImmersiveTimer()
-                                },
-                                onOpenStyleStudio = {
-                                    resetImmersiveTimer()
-                                    showMochyStyleStudio = true
-                                }
-                            )
+                                        resetImmersiveTimer()
+                                    },
+                                    highlightZoneFraction = highlightZoneFraction,
+                                    highlightOffsetDp = highlightOffsetDp,
+                                    autoscrollAnimationSpec = resolvedAutoscrollSpec,
+                                    useAnimatedLyrics = useAnimatedLyrics,
+                                    animatedLyricsBlurEnabled = animatedLyricsBlurEnabled,
+                                    animatedLyricsBlurStrength = animatedLyricsBlurStrength,
+                                    immersiveMode = immersiveMode,
+                                    lyricsAlignment = lyricsAlignment,
+                                    showTranslation = showLyricsTranslation,
+                                    showRomanization = showLyricsRomanization,
+                                    footer = {
+                                        item(key = "mochy_source_footer_pixelmusic") {
+                                            com.saurav.pixelmusic.presentation.components.lyrics.MochySourceFooter(
+                                                providerName = lyrics?.providerName,
+                                                styleName = activeLyricsStyle.displayName,
+                                                accentColor = lyricHighlightColor,
+                                                contentColor = contentColor,
+                                                onOpenStudio = {
+                                                    resetImmersiveTimer()
+                                                    showMochyStyleStudio = true
+                                                }
+                                            )
+                                        }
+                                    }
+                                )
+                            } else {
+                                com.saurav.pixelmusic.presentation.components.lyrics.MochySyncedLyricsView(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 24.dp),
+                                    contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
+                                    lines = synced,
+                                    listState = syncedListState,
+                                    playbackPositionFlow = playbackPositionFlow,
+                                    lyricsSyncOffset = lyricsSyncOffset,
+                                    positionOverrideMs = previewSeekPositionMs,
+                                    accentColor = lyricHighlightColor,
+                                    contentColor = contentColor,
+                                    providerName = lyrics?.providerName,
+                                    lyricsAlignment = lyricsAlignment,
+                                    showTranslationPref = showLyricsTranslation,
+                                    showRomanizationPref = showLyricsRomanization,
+                                    performanceModeEnabled = performanceModeEnabled,
+                                    immersiveMode = immersiveMode,
+                                    onLineClick = { syncedLine ->
+                                        onSeekTo(
+                                            resolveSeekPositionMs(
+                                                lineTimeMs = syncedLine.time.toLong(),
+                                                lyricsSyncOffsetMs = lyricsSyncOffset
+                                            )
+                                        )
+                                        resetImmersiveTimer()
+                                    },
+                                    onOpenStyleStudio = {
+                                        resetImmersiveTimer()
+                                        showMochyStyleStudio = true
+                                    }
+                                )
+                            }
                         }
                     }
 

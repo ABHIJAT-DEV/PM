@@ -914,15 +914,7 @@ constructor(
     }
 
     val nowPlayingLyricsStyleFlow: Flow<NowPlayingLyricsStyle> =
-    dataStore.data.map { preferences ->
-        try {
-            NowPlayingLyricsStyle.valueOf(
-                preferences[PreferencesKeys.NOW_PLAYING_LYRICS_STYLE] ?: NowPlayingLyricsStyle.HIDDEN.name
-            )
-        } catch (e: Exception) {
-            NowPlayingLyricsStyle.HIDDEN
-        }
-    }.distinctUntilChanged()
+        kotlinx.coroutines.flow.flowOf(NowPlayingLyricsStyle.HIDDEN)
 
     suspend fun setNowPlayingLyricsStyle(style: NowPlayingLyricsStyle) {
     dataStore.edit { preferences ->
@@ -1126,7 +1118,7 @@ constructor(
 
     val immersiveLyricsEnabledFlow: Flow<Boolean> =
             dataStore.data.map { preferences ->
-                preferences[PreferencesKeys.IMMERSIVE_LYRICS_ENABLED] ?: false
+                preferences[PreferencesKeys.IMMERSIVE_LYRICS_ENABLED] ?: true
             }
 
     val immersiveLyricsTimeoutFlow: Flow<Long> =

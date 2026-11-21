@@ -860,44 +860,6 @@ fun SettingsCategoryScreen(
                                             )
                                         }
                                     )
-                                    AnimatedVisibility(
-                                        visible = playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE ||
-                                            playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE_EXTENDED,
-                                        enter = expandVertically() + fadeIn(),
-                                        exit = shrinkVertically() + fadeOut()
-                                    ) {
-                                        val lyricsDisplayOptions = buildMap {
-                                            put(com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.HIDDEN.name, "Hidden")
-                                            put(com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.KARAOKE.name, "Karaoke Style")
-                                            put(com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.WORD_BY_WORD.name, "Word by Word")
-                                            put(com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.SINGLE_WORD.name, "Single Word Pop")
-                                            if (AndroidVersionCompat.supportsHardwareBlur) {
-                                                put(com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.BLUR_FOCUS.name, "Blur Focus")
-                                            }
-                                            put(com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.GRADIENT_SWEEP.name, "Gradient Sweep")
-                                            put(com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.SLIDE_FADE.name, "Slide & Fade")
-                                        }
-                                        ThemeSelectorItem(
-                                            label = "Immersive Lyrics Display",
-                                            description = "Choose lyrics display style inside the immersive player",
-                                            options = lyricsDisplayOptions,
-                                            selectedKey = nowPlayingLyricsStyle.name,
-                                            onSelectionChanged = { key ->
-                                                coroutineScope.launch {
-                                                    playerViewModel.userPreferencesRepository.setNowPlayingLyricsStyle(
-                                                        com.saurav.pixelmusic.data.preferences.NowPlayingLyricsStyle.valueOf(key)
-                                                    )
-                                                }
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    painterResource(R.drawable.rounded_lyrics_24),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.secondary
-                                                )
-                                            }
-                                        )
-                                    }
                                     SwitchSettingItem(
                                         title = stringResource(R.string.setcat_show_player_file_info_title),
                                         subtitle = stringResource(R.string.setcat_show_player_file_info_subtitle),
@@ -946,35 +908,6 @@ fun SettingsCategoryScreen(
                                             Icon(painterResource(R.drawable.rounded_view_column_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
-                                }
-
-                                SettingsSubsection(title = stringResource(R.string.setcat_lyrics_screen)) {
-                                    SwitchSettingItem(
-                                        title = stringResource(R.string.setcat_immersive_lyrics_title),
-                                        subtitle = stringResource(R.string.setcat_immersive_lyrics_subtitle),
-                                        checked = uiState.immersiveLyricsEnabled,
-                                        onCheckedChange = { settingsViewModel.setImmersiveLyricsEnabled(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    if (uiState.immersiveLyricsEnabled) {
-                                        ThemeSelectorItem(
-                                            label = stringResource(R.string.setcat_auto_hide_delay_label),
-                                            description = stringResource(R.string.setcat_auto_hide_delay_desc),
-                                            options = mapOf(
-                                                "3000" to stringResource(R.string.setcat_lyrics_delay_3s),
-                                                "4000" to stringResource(R.string.setcat_lyrics_delay_4s),
-                                                "5000" to stringResource(R.string.setcat_lyrics_delay_5s),
-                                                "6000" to stringResource(R.string.setcat_lyrics_delay_6s)
-                                            ),
-                                            selectedKey = uiState.immersiveLyricsTimeout.toString(),
-                                            onSelectionChanged = { settingsViewModel.setImmersiveLyricsTimeout(it.toLong()) },
-                                            leadingIcon = {
-                                                Icon(painterResource(R.drawable.rounded_timer_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                            }
-                                        )
-                                    }
                                 }
 
                                 SettingsSubsection(
@@ -1339,6 +1272,73 @@ fun SettingsCategoryScreen(
                                 }
 
                                 SettingsSubsection(title = stringResource(R.string.setcat_lyrics_management)) {
+                                    var showLyricsStudioSheet by remember { mutableStateOf(false) }
+                                    val currentMochyStyle by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.styleFlow(context)
+                                    }.collectAsStateWithLifecycle(
+                                        initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.APPLE
+                                    )
+                                    if (showLyricsStudioSheet) {
+                                        com.saurav.pixelmusic.presentation.components.lyrics.MochyLyricsStudioSheet(
+                                            onDismiss = { showLyricsStudioSheet = false }
+                                        )
+                                    }
+                                    SettingsItem(
+                                        title = "Lyrics Style & Providers",
+                                        subtitle = "Style: ${currentMochyStyle.displayName} · Text size, translation, romanization & 10-provider order",
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        },
+                                        trailingIcon = {
+                                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        },
+                                        onClick = { showLyricsStudioSheet = true }
+                                    )
+                                    ThemeSelectorItem(
+                                        label = stringResource(R.string.setcat_auto_hide_delay_label),
+                                        description = stringResource(R.string.setcat_auto_hide_delay_desc),
+                                        options = mapOf(
+                                            "3000" to stringResource(R.string.setcat_lyrics_delay_3s),
+                                            "4000" to stringResource(R.string.setcat_lyrics_delay_4s),
+                                            "5000" to stringResource(R.string.setcat_lyrics_delay_5s),
+                                            "6000" to stringResource(R.string.setcat_lyrics_delay_6s)
+                                        ),
+                                        selectedKey = uiState.immersiveLyricsTimeout.toString(),
+                                        onSelectionChanged = { settingsViewModel.setImmersiveLyricsTimeout(it.toLong()) },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_timer_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    SwitchSettingItem(
+                                        title = stringResource(R.string.presentation_batch_f_exp_animated_lyrics_title),
+                                        subtitle = stringResource(R.string.presentation_batch_f_exp_animated_lyrics_subtitle),
+                                        checked = uiState.useAnimatedLyrics,
+                                        onCheckedChange = settingsViewModel::setUseAnimatedLyrics,
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_music_note_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    if (uiState.useAnimatedLyrics && AndroidVersionCompat.supportsHardwareBlur) {
+                                        SwitchSettingItem(
+                                            title = stringResource(R.string.presentation_batch_f_exp_lyric_blur_title),
+                                            subtitle = stringResource(R.string.presentation_batch_f_exp_lyric_blur_subtitle),
+                                            checked = uiState.animatedLyricsBlurEnabled,
+                                            onCheckedChange = settingsViewModel::setAnimatedLyricsBlurEnabled,
+                                            leadingIcon = {
+                                                Icon(painterResource(R.drawable.rounded_blur_on_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            }
+                                        )
+                                        if (uiState.animatedLyricsBlurEnabled) {
+                                            SliderSettingsItem(
+                                                label = stringResource(R.string.presentation_batch_f_exp_blur_strength),
+                                                value = uiState.animatedLyricsBlurStrength,
+                                                valueRange = 0.1f..2.0f,
+                                                steps = 10,
+                                                onValueChange = { settingsViewModel.setAnimatedLyricsBlurStrength(it) },
+                                                valueText = { String.format(java.util.Locale.US, "%.1fx", it) }
+                                            )
+                                        }
+                                    }
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_lyrics_source_priority_label),
                                         description = stringResource(R.string.setcat_lyrics_source_priority_desc),

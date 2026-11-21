@@ -13,6 +13,7 @@ enum class MochyLyricsStyle(
     val displayName: String,
     val description: String,
 ) {
+    PIXELMUSIC("PixelMusic Original", "Original PixelMusic spring-animated synced lyrics"),
     APPLE("Apple Motion", "Words rise and glow as sung with soft depth blur"),
     APPLE_V2("Apple V2", "Crisp syllable sweep with smooth vertical spring"),
     MOCHY_1("Mochy 1", "Expressive gradient highlight with subtle pulse"),

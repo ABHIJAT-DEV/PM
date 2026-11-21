@@ -118,7 +118,7 @@ data class SettingsUiState(
     val albumArtCacheLimitMb: Int = 200,
     val tapBackgroundClosesPlayer: Boolean = false,
     val hapticsEnabled: Boolean = true,
-    val immersiveLyricsEnabled: Boolean = false,
+    val immersiveLyricsEnabled: Boolean = true,
     val immersiveLyricsTimeout: Long = 4000L,
     val useAnimatedLyrics: Boolean = false,
     val animatedLyricsBlurEnabled: Boolean = true,
