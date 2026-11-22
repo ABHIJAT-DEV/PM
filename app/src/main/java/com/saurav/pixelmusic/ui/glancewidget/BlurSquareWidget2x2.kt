@@ -13,6 +13,7 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -67,22 +68,75 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
         val title = playerInfo.songTitle.ifEmpty { "PixelMusic" }
         val artist = playerInfo.artistName.ifEmpty { "Tap to open" }
         val isPlaying = playerInfo.isPlaying
-        val colors = playerInfo.getWidgetColors()
+        val theme = playerInfo.themeColors
+
+        // Dynamically size padding & controls from the actual rendered widget bounds so buttons
+        // never clip even on narrow 2x2 launcher cells.
+        val widgetSize = LocalSize.current
+        val widgetWidth = widgetSize.width.takeIf { it.value > 0f } ?: 150.dp
+        val isCompactWidth = widgetWidth < 155.dp
+        val horizontalPadding = if (isCompactWidth) 10.dp else 14.dp
+        val verticalPadding = if (isCompactWidth) 12.dp else 14.dp
+        val buttonSpacing = if (isCompactWidth) 5.dp else 8.dp
+        val availableRowWidth = (widgetWidth - horizontalPadding * 2 - buttonSpacing * 2)
+            .coerceAtLeast(88.dp)
+        val skipWidth = (availableRowWidth * 0.30f).coerceIn(28.dp, 44.dp)
+        val playWidth = (availableRowWidth * 0.40f).coerceIn(36.dp, 54.dp)
+        val skipHeight = skipWidth.coerceIn(32.dp, 38.dp)
+        val playHeight = (skipHeight + 2.dp).coerceAtMost(42.dp)
+        val skipIconSize = if (skipWidth < 36.dp) 16.dp else 19.dp
+        val playIconSize = if (playWidth < 44.dp) 19.dp else 22.dp
 
         val widgetCornerRadius = 28.dp
         // Material You Expressive morphing shapes:
         // Play/Pause morphs between expressive squircle (playing) and full pill (paused).
         val playPauseCornerRadius = if (isPlaying) 14.dp else 22.dp
-        val skipButtonCornerRadius = 16.dp
+        val skipButtonCornerRadius = if (skipWidth < 36.dp) 12.dp else 16.dp
 
-        val headerAccentColor: GlanceColorProvider = playerInfo.themeColors?.let { theme ->
-            val lightAccent = lerp(Color(theme.lightPlayPauseBackground), Color.White, 0.45f)
-            val darkAccent = lerp(Color(theme.darkPlayPauseBackground), Color.White, 0.25f)
-            ColorProvider(day = lightAccent, night = darkAccent)
-        } ?: ColorProvider(day = Color(0xFFE8C88B), night = Color(0xFFE8C88B))
+        // Light, airy Material You tonal palette
+        val lightSurfaceTintArgb = theme?.let {
+            if (it.lightSurfaceContainerHigh != 0) it.lightSurfaceContainerHigh else it.lightSurfaceContainer
+        } ?: 0xFFF4EFF4.toInt()
 
-        val focalTextColor = ColorProvider(day = Color(0xF2FFFFFF), night = Color(0xF2FFFFFF))
-        val noteColor = ColorProvider(day = Color.White, night = Color.White)
+        val fallbackSurfaceColor: GlanceColorProvider = ColorProvider(
+            day = Color(lightSurfaceTintArgb),
+            night = Color(lightSurfaceTintArgb)
+        )
+        val headerAccentColor: GlanceColorProvider = theme?.let {
+            val primaryInk = Color(it.lightPlayPauseBackground)
+            ColorProvider(day = primaryInk, night = primaryInk)
+        } ?: ColorProvider(day = Color(0xFF6750A4), night = Color(0xFF6750A4))
+
+        val focalTextColor: GlanceColorProvider = theme?.let {
+            val ink = Color(it.lightTitle)
+            ColorProvider(day = ink, night = ink)
+        } ?: ColorProvider(day = Color(0xFF1C1B1F), night = Color(0xFF1C1B1F))
+
+        val subtitleTextColor: GlanceColorProvider = theme?.let {
+            val sub = Color(it.lightArtist)
+            ColorProvider(day = sub, night = sub)
+        } ?: ColorProvider(day = Color(0xFF49454F), night = Color(0xFF49454F))
+
+        val playBgColor: GlanceColorProvider = theme?.let {
+            val bg = Color(it.lightPlayPauseBackground)
+            ColorProvider(day = bg, night = bg)
+        } ?: ColorProvider(day = Color(0xFF6750A4), night = Color(0xFF6750A4))
+
+        val playIconColor: GlanceColorProvider = theme?.let {
+            val fg = Color(it.lightPlayPauseIcon)
+            ColorProvider(day = fg, night = fg)
+        } ?: ColorProvider(day = Color.White, night = Color.White)
+
+        val skipBgColor: GlanceColorProvider = theme?.let {
+            val softContainer = lerp(Color(it.lightPrevNextBackground), Color.White, 0.25f)
+            ColorProvider(day = softContainer, night = softContainer)
+        } ?: ColorProvider(day = Color(0xEBF7F2FA), night = Color(0xEBF7F2FA))
+
+        val skipIconColor: GlanceColorProvider = theme?.let {
+            val fg = Color(it.lightPrevNextIcon)
+            ColorProvider(day = fg, night = fg)
+        } ?: ColorProvider(day = Color(0xFF6750A4), night = Color(0xFF6750A4))
+
         val headerText = if (playerInfo.songTitle.isNotBlank() && playerInfo.artistName.isNotBlank()) {
             "${playerInfo.songTitle.uppercase()} · ${playerInfo.artistName}"
         } else {
@@ -93,7 +147,8 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
             context = context,
             bitmapData = playerInfo.albumArtBitmapData,
             albumArtUri = playerInfo.albumArtUri,
-            cornerRadiusDp = widgetCornerRadius.value
+            cornerRadiusDp = widgetCornerRadius.value,
+            lightSurfaceTintArgb = lightSurfaceTintArgb
         )
 
         Box(
@@ -113,7 +168,7 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
                 )
             } else {
                 WidgetRoundedBackgroundLayer(
-                    color = colors.surface,
+                    color = fallbackSurfaceColor,
                     cornerRadius = widgetCornerRadius
                 )
             }
@@ -121,7 +176,7 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
             Column(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                    .padding(horizontal = horizontalPadding, vertical = verticalPadding),
                 verticalAlignment = Alignment.Vertical.Top,
                 horizontalAlignment = Alignment.Horizontal.Start
             ) {
@@ -129,7 +184,7 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
                 Text(
                     text = headerText,
                     style = TextStyle(
-                        fontSize = 12.sp,
+                        fontSize = if (isCompactWidth) 11.sp else 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = headerAccentColor
                     ),
@@ -147,17 +202,17 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
                     Text(
                         text = "♪",
                         style = TextStyle(
-                            fontSize = 16.sp,
+                            fontSize = if (isCompactWidth) 14.sp else 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = noteColor
+                            color = headerAccentColor
                         ),
                         maxLines = 1
                     )
-                    Spacer(GlanceModifier.height(4.dp))
+                    Spacer(GlanceModifier.height(3.dp))
                     Text(
                         text = title,
                         style = TextStyle(
-                            fontSize = 17.sp,
+                            fontSize = if (isCompactWidth) 15.sp else 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = focalTextColor
                         ),
@@ -169,49 +224,46 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
                             text = artist,
                             style = TextStyle(
                                 fontSize = 12.sp,
-                                color = ColorProvider(
-                                    day = Color(0xB8FFFFFF),
-                                    night = Color(0xB8FFFFFF)
-                                )
+                                color = subtitleTextColor
                             ),
                             maxLines = 1
                         )
                     }
                 }
 
-                // Bottom Material You Expressive shaped controls
+                // Bottom Material You Expressive shaped controls (responsively sized to never clip)
                 Row(
                     modifier = GlanceModifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Vertical.CenterVertically,
                     horizontalAlignment = Alignment.Horizontal.CenterHorizontally
                 ) {
                     PreviousButton(
-                        modifier = GlanceModifier.size(width = 40.dp, height = 38.dp),
-                        backgroundColor = colors.prevNextBackground,
-                        iconColor = colors.prevNextIcon,
+                        modifier = GlanceModifier.size(width = skipWidth, height = skipHeight),
+                        backgroundColor = skipBgColor,
+                        iconColor = skipIconColor,
                         cornerRadius = skipButtonCornerRadius,
-                        iconSize = 19.dp
+                        iconSize = skipIconSize
                     )
 
-                    Spacer(GlanceModifier.width(8.dp))
+                    Spacer(GlanceModifier.width(buttonSpacing))
 
                     PlayPauseButton(
-                        modifier = GlanceModifier.size(width = 50.dp, height = 40.dp),
+                        modifier = GlanceModifier.size(width = playWidth, height = playHeight),
                         isPlaying = isPlaying,
-                        backgroundColor = colors.playPauseBackground,
-                        iconColor = colors.playPauseIcon,
+                        backgroundColor = playBgColor,
+                        iconColor = playIconColor,
                         cornerRadius = playPauseCornerRadius,
-                        iconSize = 22.dp
+                        iconSize = playIconSize
                     )
 
-                    Spacer(GlanceModifier.width(8.dp))
+                    Spacer(GlanceModifier.width(buttonSpacing))
 
                     NextButton(
-                        modifier = GlanceModifier.size(width = 40.dp, height = 38.dp),
-                        backgroundColor = colors.prevNextBackground,
-                        iconColor = colors.prevNextIcon,
+                        modifier = GlanceModifier.size(width = skipWidth, height = skipHeight),
+                        backgroundColor = skipBgColor,
+                        iconColor = skipIconColor,
                         cornerRadius = skipButtonCornerRadius,
-                        iconSize = 19.dp
+                        iconSize = skipIconSize
                     )
                 }
             }
@@ -222,14 +274,16 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
         context: Context,
         bitmapData: ByteArray?,
         albumArtUri: String?,
-        cornerRadiusDp: Float
+        cornerRadiusDp: Float,
+        lightSurfaceTintArgb: Int
     ): ImageProvider? {
         val density = context.resources.displayMetrics.density
         val targetPx = (180f * density).toInt().coerceIn(220, 360)
         val cornerRadiusPx = cornerRadiusDp * density
+        val tintKey = (lightSurfaceTintArgb and 0x00FFFFFF).toString(16)
 
         val bitmap: Bitmap? = bitmapData?.let { data ->
-            val cacheKey = "${AlbumArtBitmapCache.getKey(data)}_iosblur_${targetPx}_r${cornerRadiusDp.toInt()}"
+            val cacheKey = "${AlbumArtBitmapCache.getKey(data)}_m3lightblur_${targetPx}_r${cornerRadiusDp.toInt()}_$tintKey"
             AlbumArtBitmapCache.getBitmap(cacheKey) ?: runCatching {
                 val decoded = BitmapFactory.decodeByteArray(data, 0, data.size)
                 decoded?.let { src ->
@@ -237,7 +291,8 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
                         source = src,
                         targetWidthPx = targetPx,
                         targetHeightPx = targetPx,
-                        cornerRadiusPx = cornerRadiusPx
+                        cornerRadiusPx = cornerRadiusPx,
+                        lightSurfaceTintArgb = lightSurfaceTintArgb
                     ).also {
                         AlbumArtBitmapCache.putBitmap(cacheKey, it)
                         if (it !== src) src.recycle()
@@ -247,7 +302,7 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
                 Timber.tag("BlurSquareWidget").w(e, "Failed to blur widget bitmap bytes")
             }.getOrNull()
         } ?: albumArtUri?.takeIf { it.isNotBlank() }?.let { rawUri ->
-            val cacheKey = "uri:${rawUri}_iosblur_${targetPx}_r${cornerRadiusDp.toInt()}"
+            val cacheKey = "uri:${rawUri}_m3lightblur_${targetPx}_r${cornerRadiusDp.toInt()}_$tintKey"
             AlbumArtBitmapCache.getBitmap(cacheKey) ?: runCatching {
                 val decoded = decodeWidgetAlbumArtBitmap(
                     context = context,
@@ -260,7 +315,8 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
                         source = src,
                         targetWidthPx = targetPx,
                         targetHeightPx = targetPx,
-                        cornerRadiusPx = cornerRadiusPx
+                        cornerRadiusPx = cornerRadiusPx,
+                        lightSurfaceTintArgb = lightSurfaceTintArgb
                     ).also {
                         AlbumArtBitmapCache.putBitmap(cacheKey, it)
                         if (it !== src) src.recycle()

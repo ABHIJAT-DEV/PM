@@ -113,7 +113,8 @@ fun createBlurredRoundedAlbumArtBitmap(
     targetWidthPx: Int,
     targetHeightPx: Int,
     cornerRadiusPx: Float,
-    blurRadius: Int = 14
+    blurRadius: Int = 14,
+    lightSurfaceTintArgb: Int = 0xFFF4EFF4.toInt()
 ): Bitmap {
     if (source.width <= 0 || source.height <= 0) return source
     val outW = targetWidthPx.coerceAtLeast(64)
@@ -163,14 +164,20 @@ fun createBlurredRoundedAlbumArtBitmap(
     }
     canvas.drawRoundRect(rect, clampedRadius, clampedRadius, artPaint)
 
+    // Luminous Material You light frosted wash so blurred album hues glow through softly
+    // without turning darkish or muddy.
+    val tintRgb = lightSurfaceTintArgb and 0x00FFFFFF
+    val topVeil = (0x8C shl 24) or tintRgb       // ~55% Material You surface tint at top
+    val midVeil = (0x7A shl 24) or tintRgb       // ~48% in middle to let blurred colors bloom
+    val bottomVeil = (0xA6 shl 24) or tintRgb    // ~65% near bottom for crisp expressive controls
     val scrimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.shader = LinearGradient(
             0f,
             0f,
             0f,
             outH.toFloat(),
-            intArrayOf(0x52000000, 0x5C000000, 0x8A000000.toInt()),
-            floatArrayOf(0f, 0.52f, 1f),
+            intArrayOf(topVeil, midVeil, bottomVeil),
+            floatArrayOf(0f, 0.50f, 1f),
             Shader.TileMode.CLAMP
         )
     }
@@ -178,8 +185,8 @@ fun createBlurredRoundedAlbumArtBitmap(
 
     val rimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = (outW / 180f).coerceIn(1f, 2f)
-        color = 0x29FFFFFF
+        strokeWidth = (outW / 170f).coerceIn(1.2f, 2.2f)
+        color = 0x73FFFFFF
     }
     val inset = rimPaint.strokeWidth * 0.5f
     canvas.drawRoundRect(
