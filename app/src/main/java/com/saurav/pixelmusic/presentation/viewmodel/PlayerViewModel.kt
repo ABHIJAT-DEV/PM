@@ -6830,18 +6830,26 @@ private fun preCacheLyricsForSongs(songs: List<Song>, sourcePref: LyricsSourcePr
             return
         }
 
-        val songFile = java.io.File(song.path)
-        val lrcFile = java.io.File(songFile.parentFile, "${songFile.nameWithoutExtension}.lrc")
+        val isLocalPath = song.path.isNotBlank() &&
+            !song.path.startsWith("http://", ignoreCase = true) &&
+            !song.path.startsWith("https://", ignoreCase = true) &&
+            !song.path.startsWith("content://", ignoreCase = true)
 
-        // Android 11+ check: if file exists and we might not have permission
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R && lrcFile.exists() && !lrcFile.canWrite()) {
-            val uri = com.saurav.pixelmusic.utils.MediaStorePermissionHelper.getMediaStoreUri(context, lrcFile.absolutePath)
-            if (uri != null) {
-                val intentSender = com.saurav.pixelmusic.utils.MediaStorePermissionHelper.createWriteRequestIntentSender(context, listOf(uri))
-                if (intentSender != null) {
-                    pendingLyricsSave = PendingLyricsSave(song, lyrics, preferSynced)
-                    viewModelScope.launch { _writePermissionRequest.emit(intentSender) }
-                    return
+        if (isLocalPath && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val songFile = java.io.File(song.path)
+            val parentDir = songFile.parentFile
+            if (parentDir != null && parentDir.exists()) {
+                val lrcFile = java.io.File(parentDir, "${songFile.nameWithoutExtension}.lrc")
+                if (lrcFile.exists() && !lrcFile.canWrite()) {
+                    val uri = com.saurav.pixelmusic.utils.MediaStorePermissionHelper.getMediaStoreUri(context, lrcFile.absolutePath)
+                    if (uri != null) {
+                        val intentSender = com.saurav.pixelmusic.utils.MediaStorePermissionHelper.createWriteRequestIntentSender(context, listOf(uri))
+                        if (intentSender != null) {
+                            pendingLyricsSave = PendingLyricsSave(song, lyrics, preferSynced)
+                            viewModelScope.launch { _writePermissionRequest.emit(intentSender) }
+                            return
+                        }
+                    }
                 }
             }
         }
@@ -6852,20 +6860,136 @@ private fun preCacheLyricsForSongs(songs: List<Song>, sourcePref: LyricsSourcePr
     private fun performLyricsSave(song: Song, lyrics: Lyrics, preferSynced: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val songFile = java.io.File(song.path)
-                val lrcFile = java.io.File(songFile.parentFile, "${songFile.nameWithoutExtension}.lrc")
                 val lrcContent = LyricsUtils.toLrcString(lyrics, preferSynced)
+                if (lrcContent.isEmpty()) {
+                    _toastEvents.emit(context.getString(R.string.no_lyrics_to_save))
+                    return@launch
+                }
 
-                lrcFile.writeText(lrcContent, Charsets.UTF_8)
-                _toastEvents.emit(context.getString(R.string.lyrics_saved_successfully))
-                
-                // If it was the current song, we might want to refresh the lyrics in state if it migrated from remote to local
+                val isLocalPath = song.path.isNotBlank() &&
+                    !song.path.startsWith("http://", ignoreCase = true) &&
+                    !song.path.startsWith("https://", ignoreCase = true) &&
+                    !song.path.startsWith("content://", ignoreCase = true)
+                val songFile = if (isLocalPath) java.io.File(song.path) else null
+                val parentDir = songFile?.parentFile?.takeIf { it.exists() && it.isDirectory }
+
+                val rawBaseName = when {
+                    songFile != null && songFile.nameWithoutExtension.isNotBlank() -> songFile.nameWithoutExtension
+                    else -> listOf(song.displayArtist, song.title)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" - ")
+                        .ifBlank { "lyrics_${song.id}" }
+                }
+                val safeBaseName = rawBaseName
+                    .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+                    .take(120)
+                    .ifBlank { "lyrics_${song.id}" }
+                val lrcFileName = "$safeBaseName.lrc"
+
+                // 1. Try writing directly next to the local audio file when permitted.
+                val savedNextToSong = if (parentDir != null) {
+                    runCatching {
+                        val lrcFile = java.io.File(parentDir, lrcFileName)
+                        lrcFile.writeText(lrcContent, Charsets.UTF_8)
+                    }.isSuccess
+                } else {
+                    false
+                }
+
+                if (savedNextToSong) {
+                    _toastEvents.emit(context.getString(R.string.lyrics_saved_successfully))
+                } else {
+                    // 2. Fallback for Android 10+ Scoped Storage and streamed/online tracks:
+                    // save cleanly into Downloads/PixelMusic/Lyrics via MediaStore.
+                    saveLyricsToPublicDownloads(lrcFileName, lrcContent)
+                    _toastEvents.emit("${context.getString(R.string.lyrics_saved_successfully)} • Downloads/PixelMusic/Lyrics")
+                }
+
+                // Refresh lyrics if the active track was updated
                 if (playbackStateHolder.stablePlayerState.value.currentSong?.id == song.id) {
                     loadLyricsForCurrentSong()
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save lyrics to file")
                 _toastEvents.emit(context.getString(R.string.lyrics_save_failed))
+            }
+        }
+    }
+
+    private fun saveLyricsToPublicDownloads(lrcFileName: String, lrcContent: String) {
+        val bytes = lrcContent.toByteArray(Charsets.UTF_8)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            val relativePathNoSlash = "${android.os.Environment.DIRECTORY_DOWNLOADS}/PixelMusic/Lyrics"
+            val relativePathWithSlash = "$relativePathNoSlash/"
+
+            var existingUri: android.net.Uri? = null
+            runCatching {
+                resolver.query(
+                    collection,
+                    arrayOf(android.provider.MediaStore.Downloads._ID),
+                    "${android.provider.MediaStore.Downloads.DISPLAY_NAME} = ? AND (${android.provider.MediaStore.Downloads.RELATIVE_PATH} = ? OR ${android.provider.MediaStore.Downloads.RELATIVE_PATH} = ?)",
+                    arrayOf(lrcFileName, relativePathNoSlash, relativePathWithSlash),
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads._ID))
+                        existingUri = android.content.ContentUris.withAppendedId(collection, id)
+                    }
+                }
+            }
+
+            if (existingUri != null) {
+                val overwritten = runCatching {
+                    resolver.openOutputStream(existingUri!!, "wt")?.use { out ->
+                        out.write(bytes)
+                        out.flush()
+                    } != null
+                }.getOrDefault(false)
+                if (overwritten) return
+            }
+
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, lrcFileName)
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
+                put(android.provider.MediaStore.Downloads.RELATIVE_PATH, relativePathNoSlash)
+                put(android.provider.MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val insertedUri = resolver.insert(collection, values)
+                ?: throw java.io.IOException("Failed to create MediaStore entry for $lrcFileName")
+            try {
+                resolver.openOutputStream(insertedUri, "w")?.use { out ->
+                    out.write(bytes)
+                    out.flush()
+                } ?: throw java.io.IOException("Failed to open output stream for $insertedUri")
+
+                val finalizeValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Downloads.IS_PENDING, 0)
+                }
+                resolver.update(insertedUri, finalizeValues, null, null)
+            } catch (e: Exception) {
+                runCatching { resolver.delete(insertedUri, null, null) }
+                throw e
+            }
+        } else {
+            val publicDir = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                "PixelMusic/Lyrics"
+            )
+            val savedPublic = runCatching {
+                if (!publicDir.exists()) publicDir.mkdirs()
+                java.io.File(publicDir, lrcFileName).writeBytes(bytes)
+            }.isSuccess
+            if (!savedPublic) {
+                val appDir = java.io.File(
+                    context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS),
+                    "Lyrics"
+                )
+                if (!appDir.exists()) appDir.mkdirs()
+                java.io.File(appDir, lrcFileName).writeBytes(bytes)
             }
         }
     }

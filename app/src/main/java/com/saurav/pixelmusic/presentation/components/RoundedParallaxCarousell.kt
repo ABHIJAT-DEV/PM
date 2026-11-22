@@ -143,7 +143,7 @@ fun RoundedHorizontalMultiBrowseCarousel(
         CarouselStyle.NO_PEEK -> 0
         CarouselStyle.ONE_PEEK -> 1
         CarouselStyle.TWO_PEEK -> 2
-        else -> 1 // Default to one peek
+        else -> 0 // Default to no peek
     }
 
     if (carouselStyle == CarouselStyle.NO_PEEK && !suppressNoPeekSettleCorrection) {
@@ -207,13 +207,15 @@ fun RoundedHorizontalMultiBrowseCarousel(
                         add(smallSize) // Next peek
                     }
                 }
-                else -> multiBrowseKeylineList( // Default to one peek
+                else -> multiBrowseKeylineList( // Default to no peek
                     density = density,
                     carouselMainAxisSize = carouselWidthPx,
-                    preferredItemSize = carouselWidthPx * 0.8f,
+                    preferredItemSize = carouselWidthPx,
                     itemSpacing = spacingPx,
                     itemCount = itemCount,
-                    alignment = CarouselAlignment.Start
+                    largeCounts = intArrayOf(1),
+                    mediumCounts = intArrayOf(0),
+                    smallCounts = intArrayOf(0)
                 )
             }
         },
