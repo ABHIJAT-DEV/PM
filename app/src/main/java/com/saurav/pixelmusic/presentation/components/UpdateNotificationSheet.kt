@@ -584,11 +584,14 @@ fun UpdateNotificationSheet(
                                 ) {
                                     Text(
                                         text = resolvedApkName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontSize = 13.sp,
+                                            lineHeight = 17.sp
+                                        ),
+                                        fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        maxLines = 2,
+                                        softWrap = true
                                     )
                                     Text(
                                         text = "${context.packageName} · $sizeLabel",

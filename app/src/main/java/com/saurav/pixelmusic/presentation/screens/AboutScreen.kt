@@ -25,10 +25,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -322,6 +326,7 @@ private fun AboutHeroCard(
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Checking) }
     var showChangelogDialog by remember { mutableStateOf(false) }
     var isDowngradeSheetMode by remember { mutableStateOf(false) }
+    val downloadState by InAppUpdater.downloadState.collectAsStateWithLifecycle()
     val openUpdateSheetEvent by InAppUpdater.openUpdateSheetEvent.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
@@ -541,12 +546,22 @@ private fun AboutHeroCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .animateContentSize()
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = 0.9f,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        )
                 ) {
                     AnimatedContent<UpdateState>(
                         targetState = updateState,
                         transitionSpec = {
-                            fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                            (fadeIn(animationSpec = tween(360)) +
+                                scaleIn(initialScale = 0.97f, animationSpec = tween(360)))
+                                .togetherWith(
+                                    fadeOut(animationSpec = tween(240)) +
+                                        scaleOut(targetScale = 0.97f, animationSpec = tween(240))
+                                )
                         },
                         contentKey = { it::class },
                         label = "update_button_anim"
@@ -556,27 +571,69 @@ private fun AboutHeroCard(
                                 FilledTonalButton(
                                     onClick = { },
                                     enabled = false,
-                                    modifier = Modifier.fillMaxWidth()
+                                    shape = CircleShape,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
                                 ) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
                                         strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
-                                    Spacer(Modifier.width(8.dp))
+                                    Spacer(Modifier.width(10.dp))
                                     Text("Checking for updates...")
                                 }
                             }
                             is UpdateState.UpToDate -> {
                                 Column(modifier = Modifier.fillMaxWidth()) {
+                                    // If a download (e.g. downgrade) is active while sheet is closed, show live progress pill
+                                    if (downloadState is InAppUpdater.GlobalDownloadState.Downloading ||
+                                        downloadState is InAppUpdater.GlobalDownloadState.Finished
+                                    ) {
+                                        AboutUpdateActionPill(
+                                            defaultLabel = "Open download",
+                                            downloadState = downloadState,
+                                            onClick = {
+                                                showChangelogDialog = true
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+
                                     FilledTonalButton(
-                                        onClick = { },
-                                        enabled = false,
-                                        modifier = Modifier.fillMaxWidth()
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            updateState = UpdateState.Checking
+                                            coroutineScope.launch {
+                                                val startedAt = System.currentTimeMillis()
+                                                val result = InAppUpdater.checkForUpdate(versionName, forceRefresh = true)
+                                                val elapsed = System.currentTimeMillis() - startedAt
+                                                if (elapsed < 400L) {
+                                                    kotlinx.coroutines.delay(400L - elapsed)
+                                                }
+                                                updateState = result
+                                            }
+                                        },
+                                        shape = CircleShape,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(48.dp)
                                     ) {
                                         Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(8.dp))
-                                        Text("You are on the latest version")
+                                        Text(
+                                            text = "You are on the latest version",
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Icon(
+                                            imageVector = Icons.Rounded.Refresh,
+                                            contentDescription = "Check for updates",
+                                            modifier = Modifier.size(16.dp)
+                                        )
                                     }
 
                                     if (!latestChangelog.isNullOrBlank()) {
@@ -586,7 +643,10 @@ private fun AboutHeroCard(
                                                 isDowngradeSheetMode = false
                                                 showChangelogDialog = true
                                             },
-                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = CircleShape,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(48.dp),
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -602,20 +662,13 @@ private fun AboutHeroCard(
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Button(
                                             onClick = {
-                                                val appContext = context.applicationContext
-                                                val prevVer = state.previousVersionName ?: "previous"
-                                                InAppUpdater.createNotificationChannel(appContext)
-                                                InAppUpdater.startOrResumeDownload(
-                                                    context = appContext,
-                                                    url = state.previousDownloadUrl,
-                                                    versionName = prevVer,
-                                                    apkName = state.previousApkName,
-                                                    changelog = state.previousChangelog
-                                                )
                                                 isDowngradeSheetMode = true
                                                 showChangelogDialog = true
                                             },
-                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = CircleShape,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(48.dp),
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                                                 contentColor = MaterialTheme.colorScheme.onSurface
@@ -635,174 +688,14 @@ private fun AboutHeroCard(
                                 }
                             }
                             is UpdateState.Available -> {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    val isBwTheme = LocalIsBlackAndWhiteTheme.current
-                                    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                                    val downloadShape = AbsoluteSmoothCornerShape(16.dp, 60)
-
-                                    val primaryButtonColor = when {
-                                        isBwTheme -> if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary
-                                        isDark -> {
-                                            val hsl = FloatArray(3)
-                                            ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
-                                            hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
-                                            Color(ColorUtils.HSLToColor(hsl))
-                                        }
-                                        else -> MaterialTheme.colorScheme.primary
+                                AboutUpdateActionPill(
+                                    defaultLabel = "New version available · ${state.versionName}",
+                                    downloadState = downloadState,
+                                    onClick = {
+                                        isDowngradeSheetMode = false
+                                        showChangelogDialog = true
                                     }
-                                    val buttonContentColor = if (isBwTheme && !isDark) MaterialTheme.colorScheme.onPrimary else Color.White
-                                    if (!state.changelog.isNullOrBlank()) {
-                                        val previewLines = remember(state.changelog) {
-                                            val nonBlankLines = state.changelog
-                                                .lines()
-                                                .map { it.trim() }
-                                                .filter { it.isNotEmpty() }
-
-                                            if (nonBlankLines.size >= 3) {
-                                                nonBlankLines.take(3)
-                                            } else {
-                                                // Fallback if the changelog is a single uninterrupted block
-                                                val words = state.changelog.split(Regex("\\s+")).filter { it.isNotEmpty() }
-                                                if (words.size >= 6) {
-                                                    val chunkSize = (words.size + 2) / 3
-                                                    words.chunked(chunkSize).take(3).map { it.joinToString(" ") }
-                                                } else {
-                                                    nonBlankLines
-                                                }
-                                            }
-                                        }
-
-                                        Surface(
-                                            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-                                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(bottom = 12.dp)
-                                                .clip(AbsoluteSmoothCornerShape(16.dp, 60))
-                                                .clickable { showChangelogDialog = true }
-                                        ) {
-                                            Column(modifier = Modifier.padding(14.dp)) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(
-                                                            painter = painterResource(R.drawable.rounded_auto_awesome_24),
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(16.dp),
-                                                            tint = MaterialTheme.colorScheme.primary
-                                                        )
-                                                        Spacer(Modifier.width(8.dp))
-                                                        Text(
-                                                            text = "What's new in this update",
-                                                            style = MaterialTheme.typography.labelMedium,
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                    }
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.rounded_notes_24),
-                                                        contentDescription = "Read full changelog",
-                                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-
-                                                Spacer(modifier = Modifier.height(8.dp))
-
-                                                // 1st line: Clearly visible
-                                                if (previewLines.isNotEmpty()) {
-                                                    Text(
-                                                        text = previewLines[0],
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
-
-                                                // 2nd line: Mid blur + slight fade
-                                                if (previewLines.size > 1) {
-                                                    Spacer(modifier = Modifier.height(3.dp))
-                                                    Text(
-                                                        text = previewLines[1],
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        modifier = Modifier
-                                                            .blur(1.8.dp)
-                                                            .graphicsLayer { alpha = 0.65f }
-                                                    )
-                                                }
-
-                                                // 3rd line: High blur + heavier fade
-                                                if (previewLines.size > 2) {
-                                                    Spacer(modifier = Modifier.height(3.dp))
-                                                    Text(
-                                                        text = previewLines[2],
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        modifier = Modifier
-                                                            .blur(4.2.dp)
-                                                            .graphicsLayer { alpha = 0.35f }
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Button(
-                                        onClick = {
-                                            val appContext = context.applicationContext
-                                            val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                                val channel = android.app.NotificationChannel(
-                                                    "app_updates", 
-                                                    "App Updates", 
-                                                    android.app.NotificationManager.IMPORTANCE_LOW
-                                                )
-                                                notificationManager.createNotificationChannel(channel)
-                                            }
-
-                                            // Open the redesigned App Update bottom sheet and start downloading
-                                            InAppUpdater.startOrResumeDownload(
-                                                context = appContext,
-                                                url = state.downloadUrl,
-                                                versionName = state.versionName,
-                                                apkName = state.apkName,
-                                                changelog = state.changelog
-                                            )
-                                            showChangelogDialog = true
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(52.dp),
-                                        shape = downloadShape,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = primaryButtonColor,
-                                            contentColor = buttonContentColor
-                                        ),
-                                        elevation = ButtonDefaults.buttonElevation()
-                                    ) {
-                                        Icon(
-                                            painterResource(R.drawable.rounded_download_24), 
-                                            contentDescription = null, 
-                                            tint = buttonContentColor,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            "Download Version ${state.versionName}", 
-                                            fontWeight = FontWeight.Bold,
-                                            color = buttonContentColor
-                                        )
-                                    }
-                                }
+                                )
                             }
                         }
                     }
@@ -816,6 +709,170 @@ private fun AboutHeroCard(
         }
     }
 }
+@Composable
+private fun AboutUpdateActionPill(
+    defaultLabel: String,
+    downloadState: InAppUpdater.GlobalDownloadState,
+    onClick: () -> Unit
+) {
+    val isBwTheme = LocalIsBlackAndWhiteTheme.current
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val pillShape = CircleShape
+
+    val primaryButtonColor = when {
+        isBwTheme -> if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primary
+        isDark -> {
+            val hsl = FloatArray(3)
+            ColorUtils.colorToHSL(MaterialTheme.colorScheme.primary.toArgb(), hsl)
+            hsl[2] = (hsl[2] * 0.45f).coerceIn(0.20f, 0.38f)
+            Color(ColorUtils.HSLToColor(hsl))
+        }
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val buttonContentColor = if (isBwTheme && !isDark) MaterialTheme.colorScheme.onPrimary else Color.White
+
+    val phase = remember(downloadState) {
+        when (downloadState) {
+            is InAppUpdater.GlobalDownloadState.Downloading -> "DOWNLOADING"
+            is InAppUpdater.GlobalDownloadState.Finished -> "FINISHED"
+            else -> "IDLE"
+        }
+    }
+
+    AnimatedContent(
+        targetState = phase,
+        transitionSpec = {
+            (fadeIn(tween(340)) + scaleIn(initialScale = 0.97f, animationSpec = tween(340)))
+                .togetherWith(fadeOut(tween(220)) + scaleOut(targetScale = 0.97f, animationSpec = tween(220)))
+        },
+        label = "AboutUpdatePillPhase"
+    ) { currentPhase ->
+        when (currentPhase) {
+            "DOWNLOADING" -> {
+                val dl = downloadState as? InAppUpdater.GlobalDownloadState.Downloading
+                val rawProgress = (dl?.progress ?: 0f).coerceIn(0f, 1f)
+                val isPaused = dl?.isPaused ?: false
+                val animatedProgress by animateFloatAsState(
+                    targetValue = rawProgress,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessVeryLow
+                    ),
+                    label = "AboutPillDownloadProgress"
+                )
+                val percentInt = (animatedProgress * 100f).roundToInt().coerceIn(0, 100)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(pillShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable(onClick = onClick)
+                ) {
+                    if (animatedProgress > 0.005f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(fraction = animatedProgress)
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_download_24),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (isPaused) {
+                                "Paused · $percentInt%"
+                            } else {
+                                "Downloading... $percentInt%"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            "FINISHED" -> {
+                val fin = downloadState as? InAppUpdater.GlobalDownloadState.Finished
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = pillShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryButtonColor,
+                        contentColor = buttonContentColor
+                    )
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_done_all_24),
+                        contentDescription = null,
+                        tint = buttonContentColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (!fin?.versionName.isNullOrBlank()) {
+                            "Ready to install · ${fin?.versionName}"
+                        } else {
+                            "Ready to install"
+                        },
+                        fontWeight = FontWeight.Bold,
+                        color = buttonContentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            else -> {
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = pillShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryButtonColor,
+                        contentColor = buttonContentColor
+                    ),
+                    elevation = ButtonDefaults.buttonElevation()
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_auto_awesome_24),
+                        contentDescription = null,
+                        tint = buttonContentColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = defaultLabel,
+                        fontWeight = FontWeight.Bold,
+                        color = buttonContentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun SocialLinksRow() {
     val context = LocalContext.current

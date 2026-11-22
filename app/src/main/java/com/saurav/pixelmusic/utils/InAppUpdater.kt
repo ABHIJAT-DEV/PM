@@ -146,14 +146,23 @@ object InAppUpdater {
         return false
     }
 
-    suspend fun checkForUpdate(currentVersion: String): UpdateState = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdate(
+        currentVersion: String,
+        forceRefresh: Boolean = false
+    ): UpdateState = withContext(Dispatchers.IO) {
         try {
-            val targetUrl = if (UPDATE_CHECK_URL.contains("?")) {
+            val baseUrl = if (UPDATE_CHECK_URL.contains("?")) {
                 UPDATE_CHECK_URL
             } else if (currentVersion.contains("test-build", ignoreCase = true)) {
                 "$UPDATE_CHECK_URL?channel=test"
             } else {
                 UPDATE_CHECK_URL
+            }
+            val targetUrl = if (forceRefresh) {
+                val sep = if (baseUrl.contains("?")) "&" else "?"
+                "$baseUrl${sep}_t=${System.currentTimeMillis()}"
+            } else {
+                baseUrl
             }
 
             val request = Request.Builder()
