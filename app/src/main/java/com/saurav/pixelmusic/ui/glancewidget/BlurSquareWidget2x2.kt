@@ -158,7 +158,7 @@ class BlurSquareWidget2x2 : GlanceAppWidget() {
                         text = title,
                         style = TextStyle(
                             fontSize = 17.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Bold,
                             color = focalTextColor
                         ),
                         maxLines = 2
