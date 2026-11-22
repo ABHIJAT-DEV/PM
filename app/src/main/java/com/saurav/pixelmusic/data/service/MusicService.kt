@@ -204,7 +204,9 @@ class MusicService : MediaLibraryService() {
 
     companion object {
         private const val TAG = "MusicService_PixelMusic"
-        const val NOTIFICATION_ID = 101
+        // Must match DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID (1001) so Media3's
+        // playback notification atomically replaces the temporary foreground command notification.
+        const val NOTIFICATION_ID = 1001
         const val ACTION_SLEEP_TIMER_EXPIRED = "com.saurav.pixelmusic.ACTION_SLEEP_TIMER_EXPIRED"
         const val EXTRA_FORCE_FOREGROUND_ON_START =
             "com.saurav.pixelmusic.extra.FORCE_FOREGROUND_ON_START"
@@ -1096,22 +1098,22 @@ class MusicService : MediaLibraryService() {
 
     val isAlreadyFg = isServiceAlreadyForeground() // Evaluate once to prevent hijacking
 
-    val needsTemporaryForeground = forcedForegroundStart ||
-        pendingMediaButtonForegroundStart ||
-        (isMediaButtonIntent &&
-            !startedTemporaryForegroundInOnCreate &&
-            !isAlreadyFg) ||
-        (!isAlreadyFg && when (intent?.action) { // <-- Block if already foreground
-            PlayerActions.PLAY_PAUSE,
-            PlayerActions.NEXT,
-            PlayerActions.PREVIOUS,
-            PlayerActions.FAVORITE,
-            PlayerActions.PLAY_FROM_QUEUE,
-            PlayerActions.SHUFFLE,
-            PlayerActions.REPEAT,
-            ACTION_SLEEP_TIMER_EXPIRED -> true
-            else -> false
-        })
+    val needsTemporaryForeground = !isAlreadyFg && (
+        forcedForegroundStart ||
+            pendingMediaButtonForegroundStart ||
+            (isMediaButtonIntent && !startedTemporaryForegroundInOnCreate) ||
+            when (intent?.action) {
+                PlayerActions.PLAY_PAUSE,
+                PlayerActions.NEXT,
+                PlayerActions.PREVIOUS,
+                PlayerActions.FAVORITE,
+                PlayerActions.PLAY_FROM_QUEUE,
+                PlayerActions.SHUFFLE,
+                PlayerActions.REPEAT,
+                ACTION_SLEEP_TIMER_EXPIRED -> true
+                else -> false
+            }
+        )
 
     if (needsTemporaryForeground && !startedTemporaryForegroundInOnCreate) {
         startTemporaryForegroundForCommand()
@@ -1261,10 +1263,13 @@ class MusicService : MediaLibraryService() {
                     it.playbackState != Player.STATE_IDLE &&
                     it.playbackState != Player.STATE_ENDED
             } == true
-            // Fix: Only remove foreground service if nothing is queued and not restoring from widget tap.
-            if (!isActivelyPlaying && !hasQueueItems && !isRestoringForWidgetAction) {
+            // If playback isn't starting and no async widget restore is pending, clear the
+            // temporary "Processing playback action..." foreground notification so it never sticks.
+            if (!isActivelyPlaying && !isRestoringForWidgetAction) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelfResult(startId)
+                if (!hasQueueItems) {
+                    stopSelfResult(startId)
+                }
             }
         }
         return startCommandResult
@@ -2394,7 +2399,9 @@ class MusicService : MediaLibraryService() {
                                 requestWidgetFullUpdate(force = true)
                             }
                         }
-                        player.prepare()
+                        if (!player.playWhenReady) {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                        }
                     }
                     PlayerActions.SHUFFLE -> {
                         val newState = !isManualShuffleEnabled
@@ -2403,7 +2410,9 @@ class MusicService : MediaLibraryService() {
                         } ?: run {
                             isManualShuffleEnabled = newState
                         }
-                        player.prepare()
+                        if (!player.playWhenReady) {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                        }
                     }
                     PlayerActions.REPEAT -> {
                         val newMode = when (player.repeatMode) {
@@ -2412,7 +2421,9 @@ class MusicService : MediaLibraryService() {
                             else -> Player.REPEAT_MODE_OFF
                         }
                         player.repeatMode = newMode
-                        player.prepare()
+                        if (!player.playWhenReady) {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                        }
                     }
                 }
                 schedulePlaybackSnapshotPersist(immediate = true)

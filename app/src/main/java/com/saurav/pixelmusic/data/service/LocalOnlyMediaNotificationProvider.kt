@@ -19,7 +19,9 @@ import androidx.media3.common.Player
 class LocalOnlyMediaNotificationProvider(
     private val context: Context,
     private val delegate: DefaultMediaNotificationProvider =
-        DefaultMediaNotificationProvider.Builder(context).build(),
+        DefaultMediaNotificationProvider.Builder(context)
+            .setNotificationId(MusicService.NOTIFICATION_ID)
+            .build(),
 ) : MediaNotification.Provider {
 
     fun setSmallIcon(iconResId: Int) {
