@@ -623,6 +623,12 @@ class MusicService : MediaLibraryService() {
                     }
                     MusicNotificationProvider.CUSTOM_COMMAND_PLAY_PAUSE -> {
                         val activePlayer = session.player
+                        if (!activePlayer.isPlaying && !activePlayer.playWhenReady) {
+                            engine.ensureFreshStreamIfStaleForPlay(activePlayer)
+                            if (activePlayer.playbackState == Player.STATE_IDLE) {
+                                activePlayer.prepare()
+                            }
+                        }
                         if (!this@MusicService.controller.handlePlayPause(activePlayer)) {
                             if (activePlayer.isPlaying) activePlayer.pause() else activePlayer.play()
                         }
@@ -939,9 +945,10 @@ class MusicService : MediaLibraryService() {
             it.setSmallIcon(R.drawable.monochrome_player)
         }
         setMediaNotificationProvider(localOnlyProvider)
-        serviceScope.launch {
-            // Preserve any saved PlaybackQueueSnapshot so cold-start widget taps can restore
-            // the last queue and position without racing against onCreate().
+        snapshotRestoreJob = serviceScope.launch {
+            // Restore the last saved queue & position (paused) on cold start without wiping it,
+            // so opening the app brings back the last song and widget taps can resume immediately.
+            restorePlaybackQueueSnapshotIfNeeded()
             mediaSession?.let { refreshMediaSessionUi(it) }
         }
 
@@ -1123,10 +1130,13 @@ class MusicService : MediaLibraryService() {
                         pushOptimisticWidgetState { it.copy(isPlaying = true) }
                         restoreAndPlayLastQueueFromWidget(action)
                     } else {
-                        if (player.playbackState == Player.STATE_IDLE) {
-                            player.prepare()
-                        }
                         val targetPlay = !player.playWhenReady
+                        if (targetPlay) {
+                            engine.ensureFreshStreamIfStaleForPlay(player)
+                            if (player.playbackState == Player.STATE_IDLE) {
+                                player.prepare()
+                            }
+                        }
                         player.playWhenReady = targetPlay
                         pushOptimisticWidgetState { it.copy(isPlaying = targetPlay) }
                         requestWidgetFullUpdate(force = true)
@@ -2180,8 +2190,7 @@ class MusicService : MediaLibraryService() {
         for (index in 0 until mediaItemCount) {
             val mediaItem = player.getMediaItemAt(index)
             val metadata = mediaItem.mediaMetadata
-            val uri = mediaItem.localConfiguration?.uri?.toString()
-                ?: metadata.extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI)
+            val uri = canonicalizeSnapshotUri(mediaItem)
 
             if (mediaItem.mediaId.isBlank() || uri.isNullOrBlank()) {
                 continue
@@ -2234,12 +2243,58 @@ class MusicService : MediaLibraryService() {
             playWhenReady = playWhenReadyOverride ?: player.playWhenReady,
             repeatMode = safeRepeatMode,
             shuffleEnabled = isManualShuffleEnabled,
+            savedAtEpochMs = System.currentTimeMillis(),
         )
     }
 
+    /**
+     * Always persists canonical logical URIs (such as youtube://<videoId>, content://, file://)
+     * instead of ephemeral resolved HTTP/HTTPS googlevideo CDN URLs that expire after ~6 hours.
+     */
+    private fun canonicalizeSnapshotUri(mediaItem: MediaItem): String? {
+        val metadata = mediaItem.mediaMetadata
+        val extraContentUri = metadata.extras
+            ?.getString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI)
+            ?.takeIf { it.isNotBlank() }
+        if (extraContentUri != null &&
+            !extraContentUri.startsWith("http://", ignoreCase = true) &&
+            !extraContentUri.startsWith("https://", ignoreCase = true)
+        ) {
+            return extraContentUri
+        }
+
+        val localUri = mediaItem.localConfiguration?.uri?.toString()?.takeIf { it.isNotBlank() }
+        if (localUri != null &&
+            !localUri.startsWith("http://", ignoreCase = true) &&
+            !localUri.startsWith("https://", ignoreCase = true)
+        ) {
+            return localUri
+        }
+
+        val ytId = when {
+            mediaItem.mediaId.startsWith("youtube://") ->
+                mediaItem.mediaId.removePrefix("youtube://").removePrefix("youtube_")
+            mediaItem.mediaId.startsWith("youtube_") ->
+                mediaItem.mediaId.removePrefix("youtube_")
+            mediaItem.localConfiguration?.customCacheKey?.matches(Regex("^[a-zA-Z0-9_-]{11}$")) == true ->
+                mediaItem.localConfiguration?.customCacheKey
+            mediaItem.mediaId.matches(Regex("^[a-zA-Z0-9_-]{11}$")) ->
+                mediaItem.mediaId
+            else -> null
+        }?.takeIf { it.isNotBlank() && !it.startsWith("-15") }
+
+        if (ytId != null) {
+            return "youtube://$ytId"
+        }
+
+        return extraContentUri ?: localUri
+    }
+
+    private var snapshotRestoreJob: Job? = null
     private var widgetRestoreJob: Job? = null
 
     private fun restoreAndPlayLastQueueFromWidget(action: String, targetSongId: Long = -1L) {
+        snapshotRestoreJob?.cancel()
         widgetRestoreJob?.cancel()
         widgetRestoreJob = serviceScope.launch(Dispatchers.IO) {
             val snapshot = runCatching {
@@ -2275,10 +2330,18 @@ class MusicService : MediaLibraryService() {
                 snapshot!!.currentPositionMs.coerceAtLeast(0L)
             }
 
+            // Always evict stale cached stream URLs (especially after the 6-hour YouTube limit)
+            // so playback resolves a fresh stream URL from the cached track metadata.
+            engine.invalidateStreamCachesForFreshResume(
+                items = restoredItems,
+                snapshotSavedAtEpochMs = snapshot!!.savedAtEpochMs,
+                activeIndex = resolvedIndex
+            )
+
             withContext(Dispatchers.Main.immediate) {
                 val player = mediaSession?.player ?: engine.masterPlayer
                 if (player.mediaItemCount == 0) {
-                    val safeRepeatMode = when (snapshot!!.repeatMode) {
+                    val safeRepeatMode = when (snapshot.repeatMode) {
                         Player.REPEAT_MODE_OFF,
                         Player.REPEAT_MODE_ONE,
                         Player.REPEAT_MODE_ALL -> snapshot.repeatMode
@@ -2298,6 +2361,8 @@ class MusicService : MediaLibraryService() {
                     } finally {
                         isRestoringPlaybackSnapshot = false
                     }
+                } else {
+                    engine.ensureFreshStreamIfStaleForPlay(player)
                 }
 
                 when (action) {
@@ -2358,9 +2423,6 @@ class MusicService : MediaLibraryService() {
     }
 
     private suspend fun restorePlaybackQueueSnapshotIfNeeded() {
-        // Cold start queue restoration disabled: sessions start fresh
-        return
-
         val snapshot = runCatching {
             userPreferencesRepository.getPlaybackQueueSnapshotOnce()
         }.getOrNull() ?: return
@@ -2369,14 +2431,8 @@ class MusicService : MediaLibraryService() {
             return
         }
 
-        val allowBackgroundPlayback = runCatching {
-            userPreferencesRepository.keepPlayingInBackgroundFlow.first()
-        }.getOrDefault(keepPlayingInBackground)
-        val shouldRestorePlaying = snapshot.playWhenReady && allowBackgroundPlayback
-
         val restoredItems = snapshot.items.mapNotNull(::buildMediaItemFromSnapshot)
         if (restoredItems.isEmpty()) {
-            userPreferencesRepository.setPlaybackQueueSnapshot(null)
             return
         }
 
@@ -2389,15 +2445,19 @@ class MusicService : MediaLibraryService() {
             else -> 0
         }
 
-        val preparedItems = restoredItems.toMutableList()
-        // Do not block player restoration on resolving the track's streaming URI from network.
-        // Instead, restore immediately with the unresolved media item so the UI displays the song instantly.
-        // The URI resolution is launched asynchronously to warm up the cache.
-        preparedItems.getOrNull(resolvedIndex)?.let { currentItem ->
-            serviceScope.launch(Dispatchers.IO) {
-                runCatching { engine.resolveMediaItem(currentItem) }
-            }
-        }
+        // Evict stale cached stream URLs (especially if saved > 5h ago near YouTube's 6h limit)
+        // so when the user presses Play, a fresh stream URL is resolved from the cached song info.
+        engine.invalidateStreamCachesForFreshResume(
+            items = restoredItems,
+            snapshotSavedAtEpochMs = snapshot.savedAtEpochMs,
+            activeIndex = resolvedIndex
+        )
+
+        val currentUriStr = restoredItems.getOrNull(resolvedIndex)
+            ?.localConfiguration?.uri?.toString().orEmpty()
+        val isRemoteStream = currentUriStr.startsWith("youtube://", ignoreCase = true) ||
+            currentUriStr.startsWith("http://", ignoreCase = true) ||
+            currentUriStr.startsWith("https://", ignoreCase = true)
 
         withContext(Dispatchers.Main.immediate) {
             val player = engine.masterPlayer
@@ -2415,38 +2475,59 @@ class MusicService : MediaLibraryService() {
             isRestoringPlaybackSnapshot = true
             try {
                 player.setMediaItems(
-                    preparedItems,
+                    restoredItems,
                     resolvedIndex,
                     snapshot.currentPositionMs.coerceAtLeast(0L)
                 )
-                // Even paused restores must prepare the timeline so duration/seek state is
-                // available immediately when the UI opens after a cold start.
-                player.prepare()
                 player.repeatMode = safeRepeatMode
                 player.shuffleModeEnabled = false
                 isManualShuffleEnabled = snapshot.shuffleEnabled
-                if (shouldRestorePlaying) {
-                    player.playWhenReady = true
-                } else {
-                    player.playWhenReady = false
+                player.playWhenReady = false
+                // Prepare local files immediately for instant timeline/duration.
+                // Keep remote streaming tracks in STATE_IDLE until Play is pressed so we never
+                // burn an expiring YouTube URL before the user actually resumes playback.
+                if (!isRemoteStream) {
+                    player.prepare()
                 }
+                engine.forceRefreshQueueSnapshot()
             } finally {
                 isRestoringPlaybackSnapshot = false
             }
         }
 
         Timber.tag(TAG).i(
-            "Restored playback snapshot: items=%d index=%d playWhenReady=%s",
+            "Restored playback snapshot: items=%d index=%d posMs=%d ageMs=%d",
             restoredItems.size,
-            snapshot.currentIndex,
-            shouldRestorePlaying
+            resolvedIndex,
+            snapshot.currentPositionMs,
+            (System.currentTimeMillis() - snapshot.savedAtEpochMs).coerceAtLeast(0L)
         )
-        schedulePlaybackSnapshotPersist(immediate = true)
+        requestWidgetFullUpdate(force = true)
     }
 
     private fun buildMediaItemFromSnapshot(snapshotItem: PlaybackQueueItemSnapshot): MediaItem? {
         if (snapshotItem.mediaId.isBlank() || snapshotItem.uri.isBlank()) {
             return null
+        }
+
+        // Normalize any legacy snapshot that accidentally persisted an expiring HTTP/HTTPS URL
+        // for a YouTube track back to its canonical youtube://<videoId> URI.
+        val normalizedUri = if (
+            snapshotItem.uri.startsWith("http://", ignoreCase = true) ||
+            snapshotItem.uri.startsWith("https://", ignoreCase = true)
+        ) {
+            val ytId = when {
+                snapshotItem.mediaId.startsWith("youtube://") ->
+                    snapshotItem.mediaId.removePrefix("youtube://").removePrefix("youtube_")
+                snapshotItem.mediaId.startsWith("youtube_") ->
+                    snapshotItem.mediaId.removePrefix("youtube_")
+                snapshotItem.mediaId.matches(Regex("^[a-zA-Z0-9_-]{11}$")) ->
+                    snapshotItem.mediaId
+                else -> null
+            }?.takeIf { it.isNotBlank() && !it.startsWith("-15") }
+            if (ytId != null) "youtube://$ytId" else snapshotItem.uri
+        } else {
+            snapshotItem.uri
         }
 
         val metadataBuilder = MediaMetadata.Builder()
@@ -2462,7 +2543,7 @@ class MusicService : MediaLibraryService() {
                 MediaItemBuilder.EXTERNAL_EXTRA_FLAG,
                 snapshotItem.mediaId.startsWith("external:")
             )
-            putString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI, snapshotItem.uri)
+            putString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI, normalizedUri)
             snapshotItem.albumTitle?.takeIf { it.isNotBlank() }?.let {
                 putString(MediaItemBuilder.EXTERNAL_EXTRA_ALBUM, it)
             }
@@ -2475,11 +2556,19 @@ class MusicService : MediaLibraryService() {
         }
         metadataBuilder.setExtras(extras)
 
-        return MediaItem.Builder()
+        val itemBuilder = MediaItem.Builder()
             .setMediaId(snapshotItem.mediaId)
-            .setUri(MediaItemBuilder.playbackUri(snapshotItem.uri))
+            .setUri(MediaItemBuilder.playbackUri(normalizedUri))
             .setMediaMetadata(metadataBuilder.build())
-            .build()
+
+        if (normalizedUri.startsWith("youtube://", ignoreCase = true)) {
+            val ytId = normalizedUri.removePrefix("youtube://").removePrefix("youtube_")
+            if (ytId.isNotBlank() && !ytId.startsWith("-15")) {
+                itemBuilder.setCustomCacheKey(ytId)
+            }
+        }
+
+        return itemBuilder.build()
     }
 
     private fun getOpenAppPendingIntent(): PendingIntent {

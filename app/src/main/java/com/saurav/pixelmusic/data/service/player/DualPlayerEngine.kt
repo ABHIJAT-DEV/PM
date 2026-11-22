@@ -528,6 +528,108 @@ class DualPlayerEngine @Inject constructor(
         }
         return false
     }
+
+    private fun extractYoutubeIdFromMediaItem(item: MediaItem): String? {
+        val extras = item.mediaMetadata.extras
+        val contentUri = extras?.getString(com.saurav.pixelmusic.utils.MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI)
+        val localUri = item.localConfiguration?.uri?.toString()
+        val mediaId = item.mediaId
+        val cacheKey = item.localConfiguration?.customCacheKey
+        val candidate = when {
+            contentUri?.startsWith("youtube://") == true ->
+                contentUri.removePrefix("youtube://").removePrefix("youtube_")
+            localUri?.startsWith("youtube://") == true ->
+                localUri.removePrefix("youtube://").removePrefix("youtube_")
+            mediaId.startsWith("youtube://") ->
+                mediaId.removePrefix("youtube://").removePrefix("youtube_")
+            mediaId.startsWith("youtube_") ->
+                mediaId.removePrefix("youtube_")
+            cacheKey?.matches(Regex("^[a-zA-Z0-9_-]{11}$")) == true -> cacheKey
+            mediaId.matches(Regex("^[a-zA-Z0-9_-]{11}$")) -> mediaId
+            else -> null
+        }
+        return candidate?.takeIf { it.isNotBlank() && !it.startsWith("-15") }
+    }
+
+    /**
+     * Evicts cached stream URLs for tracks restored from a persisted queue snapshot so playback
+     * always resolves a fresh stream URL from the cached song metadata (even after YouTube's
+     * ~6-hour stream URL expiration window).
+     */
+    fun invalidateStreamCachesForFreshResume(
+        items: List<MediaItem>,
+        snapshotSavedAtEpochMs: Long = 0L,
+        activeIndex: Int = 0
+    ) {
+        val snapshotAgeMs = if (snapshotSavedAtEpochMs > 0L) {
+            (System.currentTimeMillis() - snapshotSavedAtEpochMs).coerceAtLeast(0L)
+        } else {
+            Long.MAX_VALUE
+        }
+        val exceedsRefreshWindow = snapshotAgeMs >= 5L * 60L * 60L * 1000L
+
+        if (exceedsRefreshWindow) {
+            resolvedUriCache.evictAll()
+            activePlaybackResolvedUris.clear()
+            com.saurav.pixelmusic.data.remote.youtube.YoutubeHelper.clearAllStreamCaches()
+        }
+
+        val activeYtId = items.getOrNull(activeIndex)?.let(::extractYoutubeIdFromMediaItem)
+        items.forEach { item ->
+            val ytId = extractYoutubeIdFromMediaItem(item) ?: return@forEach
+            val canonicalUri = "youtube://$ytId"
+            resolvedUriCache.remove(canonicalUri)
+            activePlaybackResolvedUris.remove(canonicalUri)
+            inFlightResolutions.remove(canonicalUri)
+            com.saurav.pixelmusic.data.remote.youtube.YoutubeHelper.invalidateStreamCache(ytId)
+        }
+
+        if (exceedsRefreshWindow && !activeYtId.isNullOrBlank()) {
+            runCatching {
+                com.saurav.pixelmusic.utils.InnerTubeXPlayer.invalidateAndRefreshSession(activeYtId)
+            }
+        }
+    }
+
+    /**
+     * Ensures the current track will resolve a fresh stream URL when Play is pressed after a long
+     * pause or cold-start restore, preserving the exact playback position.
+     */
+    fun ensureFreshStreamIfStaleForPlay(player: Player) {
+        val currentItem = player.currentMediaItem ?: return
+        val currentUri = currentItem.localConfiguration?.uri
+        val ytId = extractYoutubeIdFromMediaItem(currentItem) ?: return
+        val currentUriStr = currentUri?.toString().orEmpty()
+        val isHttpUri = currentUriStr.startsWith("http://") || currentUriStr.startsWith("https://")
+        val isExpiredHttp = isHttpUri && isUrlExpired(currentUri)
+        val isIdleRemote = player.playbackState == Player.STATE_IDLE
+
+        if (!isExpiredHttp && !isIdleRemote) {
+            return
+        }
+
+        val canonicalUriStr = "youtube://$ytId"
+        resolvedUriCache.remove(canonicalUriStr)
+        activePlaybackResolvedUris.remove(canonicalUriStr)
+        inFlightResolutions.remove(canonicalUriStr)
+        com.saurav.pixelmusic.data.remote.youtube.YoutubeHelper.invalidateStreamCache(ytId)
+
+        if (isExpiredHttp) {
+            val currentPos = player.currentPosition.coerceAtLeast(0L)
+            val currentIndex = player.currentMediaItemIndex
+            val canonicalItem = currentItem.buildUpon()
+                .setUri(Uri.parse(canonicalUriStr))
+                .setCustomCacheKey(ytId)
+                .build()
+            if (currentIndex in 0 until player.mediaItemCount) {
+                player.replaceMediaItem(currentIndex, canonicalItem)
+                player.seekTo(currentIndex, currentPos)
+            }
+            player.prepare()
+        } else if (isIdleRemote) {
+            player.prepare()
+        }
+    }
     private val localFilePathCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     fun registerLocalPath(youtubeUri: String, filePath: String) {
