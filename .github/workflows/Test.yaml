@@ -85,7 +85,7 @@ jobs:
         # --no-daemon: CI runners are fresh VMs (no daemon reuse benefit), and this
         # bypasses the broken gradle-daemon-jvm.properties toolchain spec entirely.
         run: |
-          ./gradlew :app:assembleRelease -PAPP_VERSION_NAME="test-build-${{ env.NEXT_NUM }}" --profile
+          ./gradlew :app:assembleRelease -PAPP_VERSION_CODE=40 -PAPP_VERSION_NAME="test-build-${{ env.NEXT_NUM }}" --profile
           python3 - << 'PY' || true
           import glob, re
           files = sorted(glob.glob("build/reports/profile/profile-*.html"))
@@ -104,6 +104,16 @@ jobs:
             cat changelog.txt >> release_notes.txt
           fi
 
+      - name: Rename APKs with Architecture & Version
+        run: |
+          mkdir -p dist-apk
+          for apk in app/build/outputs/apk/release/app-*-release.apk; do
+            [ -f "$apk" ] || continue
+            arch=$(basename "$apk" | sed -E 's/^app-(.+)-release\.apk$/\1/')
+            cp "$apk" "dist-apk/PixelMusic-${arch}-test-build-${{ env.NEXT_NUM }}.apk"
+          done
+          ls -lh dist-apk/
+
       - name: Upload to Testing Repository
         uses: softprops/action-gh-release@v2
         with:
@@ -113,19 +123,7 @@ jobs:
           name: Test Build ${{ env.NEXT_NUM }}
           make_latest: true
           body_path: release_notes.txt
-          files: app/build/outputs/apk/release/*.apk
-
-      - name: 🧹 Clean Up Older Releases (Keep Last 3)
-        env:
-          GH_TOKEN: ${{ secrets.TEST_REPO_PAT }}
-        run: |
-          echo "Keeping the last 3 releases and cleaning up older ones..."
-          gh release list --repo Test-px/PixelMusic --limit 100 --json tagName -q ".[].tagName" | tail -n +4 | while read -r tag; do
-            if [ -n "$tag" ] && [ "$tag" != "test-build-${{ env.NEXT_NUM }}" ]; then
-              echo "Deleting old release: $tag"
-              gh release delete "$tag" --repo Test-px/PixelMusic --cleanup-tag -y || true
-            fi
-          done
+          files: dist-apk/*.apk
 
       - name: Sync Fork Automatically (Test-px/PixelMusic, stripped)
         run: |

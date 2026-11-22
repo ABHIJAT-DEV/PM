@@ -65,10 +65,6 @@ class QuickPicksViewModel @Inject constructor(
 
     private val prefs by lazy { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     private var loadJob: Job? = null
-    private var backgroundRefillJob: Job? = null
-    // In-memory reserve pool of fresh discovery songs so pull-to-refresh updates immediately
-    @Volatile
-    private var discoveryPool: List<Song> = emptyList()
 
     init {
         // Immediately populate from cache so the UI shows something on relaunch
@@ -181,26 +177,10 @@ class QuickPicksViewModel @Inject constructor(
     // Main load entry point
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Added 'forceRefresh' parameter
+    // Added 'forceRefresh' parameter — manual refresh always pulls fresh personalized YouTube recommendations
     private fun loadQuickPicks(category: String, forceRefresh: Boolean = false) {
         if (!forceRefresh && _quickPicks.value.isNotEmpty()) {
             return
-        }
-
-        // Fast path for manual refresh on "All": if we already have enough unseen tracks in our
-        // reserve pool, swap them in immediately (0ms) and replenish the pool in the background.
-        if (forceRefresh && category == "All") {
-            val currentVisibleKeys = _quickPicks.value.take(15).map { songDedupKey(it) }.toSet()
-            val freshFromPool = discoveryPool.filterNot { songDedupKey(it) in currentVisibleKeys }
-            if (freshFromPool.size >= 15) {
-                val nextBatch = freshFromPool.shuffled().take(48)
-                val usedKeys = nextBatch.take(15).map { songDedupKey(it) }.toSet()
-                discoveryPool = discoveryPool.filterNot { songDedupKey(it) in usedKeys }
-                _quickPicks.value = nextBatch
-                saveToCache(nextBatch, _categories.value)
-                scheduleBackgroundPoolRefill()
-                return
-            }
         }
 
         loadJob?.cancel()
@@ -228,29 +208,6 @@ class QuickPicksViewModel @Inject constructor(
                 Timber.tag("QuickPicks").e(e, "Error loading quick picks")
             } finally {
                 _isLoading.value = false
-            }
-        }
-    }
-
-    private fun songDedupKey(song: Song): String =
-        song.youtubeId?.takeIf { it.isNotBlank() }
-            ?: "${song.title.lowercase()}|${song.artist.lowercase()}"
-
-    private fun scheduleBackgroundPoolRefill() {
-        if (backgroundRefillJob?.isActive == true) return
-        backgroundRefillJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val freshSongs = loadEnhancedQuickPicks(isManualRefresh = true)
-                if (freshSongs.isNotEmpty()) {
-                    val currentKeys = _quickPicks.value.take(15).map { songDedupKey(it) }.toSet()
-                    val merged = (freshSongs + discoveryPool)
-                        .distinctBy { songDedupKey(it) }
-                        .filterNot { songDedupKey(it) in currentKeys }
-                        .take(120)
-                    discoveryPool = merged
-                }
-            } catch (e: Exception) {
-                Timber.tag("QuickPicks").w(e, "Background quick picks pool refill failed")
             }
         }
     }
@@ -293,24 +250,19 @@ class QuickPicksViewModel @Inject constructor(
         val subscribedIdsDeferred = async(Dispatchers.IO) {
             runCatching { userPreferencesRepository.subscribedArtistIdsFlow.first().toList() }.getOrDefault(emptyList())
         }
+        // Fetch YouTube musicHistory concurrently with local DB queries under a tight timeout
+        val ytHistoryDeferred = async(Dispatchers.IO) {
+            withTimeoutOrNull(1_500L) {
+                runCatching { YouTube.musicHistory().getOrNull()?.sections?.flatMap { it.songs } ?: emptyList() }.getOrDefault(emptyList())
+            } ?: emptyList()
+        }
 
         val mostPlayedHistory = mostPlayedDeferred.await()
         val topEngagements = topEngagementsDeferred.await()
         val localHistoryList = localHistoryDeferred.await()
         val localFavoritesList = localFavoritesDeferred.await()
         val subscribedIds = subscribedIdsDeferred.await()
-
-        // Only call remote YouTube.musicHistory() if we don't already have local/played seeds
-        val hasLocalSignals = mostPlayedHistory.isNotEmpty() || localHistoryList.isNotEmpty() || localFavoritesList.isNotEmpty()
-        val ytHistoryList = if (!hasLocalSignals) {
-            withTimeoutOrNull(2_000L) {
-                withContext(Dispatchers.IO) {
-                    runCatching { YouTube.musicHistory().getOrNull()?.sections?.flatMap { it.songs } ?: emptyList() }.getOrDefault(emptyList())
-                }
-            } ?: emptyList()
-        } else {
-            emptyList()
-        }
+        val ytHistoryList = ytHistoryDeferred.await()
 
         // 2. Resolve actual Song objects for user's most listened tracks (indexing by both Room ID and YouTube ID)
         val allLookupIds = (
@@ -463,19 +415,19 @@ class QuickPicksViewModel @Inject constructor(
             prioritizedSeedSongs
         }
 
-        // Use single-hop parallel requests with tight per-call timeouts so pull-to-refresh
-        // completes in ~1-2s instead of stalling on 3-hop sequential search->artist->next chains.
-        val requestTimeoutMs = if (isManualRefresh) 2_500L else 4_000L
+        // Pull fresh personalized recommendations directly from YouTube in parallel
+        // (personalized Home + top seed Song Mix Radios + Related tab reusing the first radio's endpoint)
+        val requestTimeoutMs = if (isManualRefresh) 3_500L else 5_000L
 
-        // Bucket A: Song Mix Radios (single-hop YouTube.next radio mixes from rotated seeds)
-        val songMixesDeferred = seedPool.take(3).map { (videoId, _) ->
+        // Bucket A + A.2: Song Mix Radios (reusing relatedEndpoint from the primary seed so we never duplicate YouTube.next)
+        val songMixesDeferred = seedPool.take(3).mapIndexed { idx, (videoId, _) ->
             async(Dispatchers.IO) {
                 withTimeoutOrNull(requestTimeoutMs) {
                     try {
                         val radioResult = YouTube.next(
                             WatchEndpoint(videoId = videoId, playlistId = "RDAMVM$videoId")
                         ).getOrNull()
-                        radioResult?.items
+                        val radioSongs = radioResult?.items
                             ?.filterIsInstance<SongItem>()
                             ?.filter { it.id != videoId }
                             ?.filterExplicit(hideExplicit)
@@ -483,51 +435,59 @@ class QuickPicksViewModel @Inject constructor(
                             ?.filterDuration(minDurationSec)
                             ?.let { if (isManualRefresh) it.shuffled() else it }
                             ?: emptyList()
+
+                        val relatedSongs = if (idx == 0 && radioResult?.relatedEndpoint != null) {
+                            withTimeoutOrNull(1_800L) {
+                                YouTube.related(radioResult.relatedEndpoint!!).getOrNull()?.songs
+                                    ?.filterExplicit(hideExplicit)
+                                    ?.filterVideo(shouldFilterVideos)
+                                    ?.filterDuration(minDurationSec)
+                                    ?.let { if (isManualRefresh) it.shuffled() else it }
+                            } ?: emptyList()
+                        } else emptyList()
+
+                        radioSongs to relatedSongs
                     } catch (e: Exception) {
                         Timber.tag("QuickPicks").w(e, "Song mix radio fetch failed for videoId: $videoId")
+                        emptyList<SongItem>() to emptyList<SongItem>()
+                    }
+                } ?: (emptyList<SongItem>() to emptyList<SongItem>())
+            }
+        }
+
+        // Bucket B: Top Subscribed / Listened Artist Radio (1 parallel request with timeout)
+        val artistIdPool = if (isManualRefresh && prioritizedSeedArtistIds.size > 1) {
+            prioritizedSeedArtistIds.take(6).shuffled()
+        } else {
+            prioritizedSeedArtistIds
+        }
+        val artistRadiosDeferred = artistIdPool.take(1).map { artistId ->
+            async(Dispatchers.IO) {
+                withTimeoutOrNull(requestTimeoutMs) {
+                    try {
+                        val artistPage = YouTube.artist(artistId).getOrNull()
+                        val radioEndpoint = artistPage?.artist?.radioEndpoint
+                        if (radioEndpoint != null) {
+                            YouTube.next(radioEndpoint).getOrNull()?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
+                        } else {
+                            val songsSection = artistPage?.sections?.find {
+                                it.isSongsSection ||
+                                it.title.contains("songs", ignoreCase = true) ||
+                                it.title.contains("popular", ignoreCase = true)
+                            } ?: artistPage?.sections?.firstOrNull { section ->
+                                section.items.any { it is SongItem }
+                            }
+                            songsSection?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
+                        }
+                    } catch (e: Exception) {
+                        Timber.tag("QuickPicks").w(e, "Artist radio fetch failed for artistId: $artistId")
                         emptyList()
                     }
                 } ?: emptyList()
             }
         }
 
-        // Bucket B: Similar Artist Radio (only if we have few song seeds, bounded to 1 artist with timeout)
-        val artistIdPool = if (isManualRefresh && prioritizedSeedArtistIds.size > 1) {
-            prioritizedSeedArtistIds.take(6).shuffled()
-        } else {
-            prioritizedSeedArtistIds
-        }
-        val artistRadiosDeferred = if (seedPool.size < 2) {
-            artistIdPool.take(1).map { artistId ->
-                async(Dispatchers.IO) {
-                    withTimeoutOrNull(requestTimeoutMs) {
-                        try {
-                            val artistPage = YouTube.artist(artistId).getOrNull()
-                            val radioEndpoint = artistPage?.artist?.radioEndpoint
-                            if (radioEndpoint != null) {
-                                YouTube.next(radioEndpoint).getOrNull()?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
-                            } else {
-                                val songsSection = artistPage?.sections?.find {
-                                    it.isSongsSection ||
-                                    it.title.contains("songs", ignoreCase = true) ||
-                                    it.title.contains("popular", ignoreCase = true)
-                                } ?: artistPage?.sections?.firstOrNull { section ->
-                                    section.items.any { it is SongItem }
-                                }
-                                songsSection?.items?.filterIsInstance<SongItem>()?.filterExplicit(hideExplicit)?.filterVideo(shouldFilterVideos)?.filterDuration(minDurationSec) ?: emptyList()
-                            }
-                        } catch (e: Exception) {
-                            Timber.tag("QuickPicks").w(e, "Artist radio fetch failed for artistId: $artistId")
-                            emptyList()
-                        }
-                    } ?: emptyList()
-                }
-            }
-        } else {
-            emptyList()
-        }
-
-        // Bucket C: YouTube Music personalized Home page sections (single-hop)
+        // Bucket C: YouTube Music personalized Home page recommendations (directly pulled on every refresh)
         val ytHomeRecommendationsDeferred = async(Dispatchers.IO) {
             withTimeoutOrNull(requestTimeoutMs) {
                 try {
@@ -548,14 +508,16 @@ class QuickPicksViewModel @Inject constructor(
             } ?: emptyList()
         }
 
-        // Await all fast single-hop requests and interleave buckets
-        val songMixLists = songMixesDeferred.map { it.await() }
+        // Await all parallel YouTube recommendation sources and interleave buckets
+        val mixAndRelated = songMixesDeferred.map { it.await() }
+        val songMixLists = mixAndRelated.map { it.first }
+        val relatedLists = mixAndRelated.map { it.second }.filter { it.isNotEmpty() }
         val artistRadioLists = artistRadiosDeferred.map { it.await() }
         val homeRecSongs = ytHomeRecommendationsDeferred.await().let { if (isManualRefresh) it.shuffled() else it }
 
         val interleavedDiscoveryItems = mutableListOf<SongItem>()
         val allDiscoveryBuckets: List<List<SongItem>> =
-            songMixLists + artistRadioLists + listOf(homeRecSongs)
+            listOf(homeRecSongs) + songMixLists + relatedLists + artistRadioLists
         val maxBucketLen = allDiscoveryBuckets.maxOfOrNull { it.size } ?: 0
         for (idx in 0 until maxBucketLen) {
             for (bucket in allDiscoveryBuckets) {
@@ -633,14 +595,6 @@ class QuickPicksViewModel @Inject constructor(
             }
         } else {
             prioritizedList.addAll(if (isManualRefresh) filteredTopPlayed.shuffled().take(15) else filteredTopPlayed.take(15))
-        }
-
-        // Save overflow discovery tracks into the reserve pool so subsequent pull-to-refreshes are instant
-        if (orderedDiscovery.size > 15) {
-            val shownKeys = prioritizedList.take(15).map { songDedupKey(it) }.toSet()
-            discoveryPool = (orderedDiscovery.filterNot { songDedupKey(it) in shownKeys } + discoveryPool)
-                .distinctBy { songDedupKey(it) }
-                .take(120)
         }
 
         // 6. Fallback if still under 15 tracks (e.g. brand new install with no history)

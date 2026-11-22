@@ -41,11 +41,18 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
 
       - name: Build signed release APKs
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew :app:assembleRelease -PAPP_VERSION_CODE=40
 
-      - name: Zip all APKs
+      - name: Rename and Zip all APKs
         run: |
-          cd app/build/outputs/apk/release
+          VERSION_NAME=$(grep "^APP_VERSION_NAME=" gradle.properties | cut -d'=' -f2 | tr -d '\r' | tr -d ' ')
+          mkdir -p dist-apk
+          for apk in app/build/outputs/apk/release/app-*-release.apk; do
+            [ -f "$apk" ] || continue
+            arch=$(basename "$apk" | sed -E 's/^app-(.+)-release\.apk$/\1/')
+            cp "$apk" "dist-apk/PixelMusic-${arch}-v${VERSION_NAME}.apk"
+          done
+          cd dist-apk
           zip -j "$GITHUB_WORKSPACE/PixelMusic-signed-apks.zip" *.apk
           unzip -l "$GITHUB_WORKSPACE/PixelMusic-signed-apks.zip"
 

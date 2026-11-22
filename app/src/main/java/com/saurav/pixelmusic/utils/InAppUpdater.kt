@@ -26,7 +26,9 @@ data class GithubRelease(
     @SerializedName("body", alternate = ["changelog", "description", "notes"])
     val body: String? = null,
     @SerializedName("download_url", alternate = ["browser_download_url", "url"])
-    val downloadUrl: String? = null
+    val downloadUrl: String? = null,
+    @SerializedName("previous_release")
+    val previousRelease: GithubRelease? = null
 )
 
 data class GithubAsset(
@@ -45,14 +47,24 @@ sealed class UpdateState {
         val downloadUrl: String? = null,
         val changelog: String? = null,
         val apkName: String? = null,
-        val apkSizeBytes: Long? = null
+        val apkSizeBytes: Long? = null,
+        val previousVersionName: String? = null,
+        val previousDownloadUrl: String? = null,
+        val previousChangelog: String? = null,
+        val previousApkName: String? = null,
+        val previousApkSizeBytes: Long? = null
     ) : UpdateState()
     data class Available(
         val versionName: String, 
         val downloadUrl: String,
         val changelog: String? = null,
         val apkName: String? = null,
-        val apkSizeBytes: Long? = null
+        val apkSizeBytes: Long? = null,
+        val previousVersionName: String? = null,
+        val previousDownloadUrl: String? = null,
+        val previousChangelog: String? = null,
+        val previousApkName: String? = null,
+        val previousApkSizeBytes: Long? = null
     ) : UpdateState()
 }
 
@@ -96,7 +108,7 @@ object InAppUpdater {
         }
         val arch = getDeviceArchitecture()
         val cleanVer = versionName.ifBlank { "latest" }
-        return "app-$arch-release-$cleanVer.apk"
+        return "PixelMusic-$arch-$cleanVer.apk"
     }
 
     fun isNewerVersion(latest: String?, current: String?): Boolean {
@@ -166,6 +178,15 @@ object InAppUpdater {
                         val resolvedApkName = resolveApkFileName(downloadUrl, tagName, apkAsset?.name)
                         val resolvedApkSize = apkAsset?.size?.takeIf { it > 0L }
 
+                        // Resolve previous release (for in-place downgrade with frozen versionCode = 40)
+                        val prevRel = release.previousRelease
+                        val prevTag = prevRel?.tagName?.takeIf { it.isNotBlank() }
+                        val prevApkAssets = prevRel?.assets?.filter { it.name?.endsWith(".apk", ignoreCase = true) == true } ?: emptyList()
+                        val prevApkAsset = selectBestApkForDevice(prevApkAssets)
+                        val prevDownloadUrl = prevApkAsset?.downloadUrl ?: prevRel?.downloadUrl
+                        val prevApkName = prevTag?.let { resolveApkFileName(prevDownloadUrl, it, prevApkAsset?.name) }
+                        val prevApkSize = prevApkAsset?.size?.takeIf { it > 0L }
+
                         if (!downloadUrl.isNullOrBlank()) {
                             currentDownloadUrl = downloadUrl
                         }
@@ -182,7 +203,12 @@ object InAppUpdater {
                                 downloadUrl = downloadUrl,
                                 changelog = release.body,
                                 apkName = resolvedApkName,
-                                apkSizeBytes = resolvedApkSize
+                                apkSizeBytes = resolvedApkSize,
+                                previousVersionName = prevTag,
+                                previousDownloadUrl = prevDownloadUrl,
+                                previousChangelog = prevRel?.body,
+                                previousApkName = prevApkName,
+                                previousApkSizeBytes = prevApkSize
                             )
                             latestUpdateState.value = available
                             return@withContext available
@@ -192,7 +218,12 @@ object InAppUpdater {
                             downloadUrl = downloadUrl,
                             changelog = release.body,
                             apkName = resolvedApkName,
-                            apkSizeBytes = resolvedApkSize
+                            apkSizeBytes = resolvedApkSize,
+                            previousVersionName = prevTag,
+                            previousDownloadUrl = prevDownloadUrl,
+                            previousChangelog = prevRel?.body,
+                            previousApkName = prevApkName,
+                            previousApkSizeBytes = prevApkSize
                         )
                         latestUpdateState.value = upToDate
                         return@withContext upToDate
@@ -371,7 +402,7 @@ object InAppUpdater {
         currentVersionName = versionName
         if (!apkName.isNullOrBlank()) currentApkDisplayName = apkName
         if (!changelog.isNullOrBlank()) currentChangelog = changelog
-        currentFileName = "PixelMusic_$versionName.apk"
+        currentFileName = resolveApkFileName(url, versionName, apkName)
         val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), currentFileName!!)
 
         fun finishDownload() {

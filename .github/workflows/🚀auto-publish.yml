@@ -45,10 +45,9 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
 
-      - name: 📈 Increment Version Code (+1) & Minor Version (+0.1.0)
+      - name: 📈 Bump Minor Version (+0.1.0) & Freeze Version Code (40)
         id: versioning
         run: |
-          BASE_CODE=$(grep "^APP_VERSION_CODE=" gradle.properties | cut -d'=' -f2 | tr -d '\r' | tr -d ' ')
           RAW_NAME=$(grep "^APP_VERSION_NAME=" gradle.properties | cut -d'=' -f2 | tr -d '\r' | tr -d ' ')
 
           IFS='.' read -r MAJOR MINOR PATCH EXTRA <<< "$RAW_NAME"
@@ -57,7 +56,7 @@ jobs:
 
           NEW_MINOR=$((MINOR + 1))
           NEW_NAME="${MAJOR}.${NEW_MINOR}.0"
-          NEW_CODE=$((BASE_CODE + 1))
+          NEW_CODE=40
 
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG_NAME=${GITHUB_REF#refs/tags/}
@@ -75,7 +74,17 @@ jobs:
 
       - name: 🔨 Build Release APK
         # If this step fails, the workflow stops here and NOTHING is pushed!
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew :app:assembleRelease -PAPP_VERSION_CODE=40 -PAPP_VERSION_NAME="${{ env.NEW_NAME }}"
+
+      - name: 🏷️ Rename APKs with Architecture & Version
+        run: |
+          mkdir -p dist-apk
+          for apk in app/build/outputs/apk/release/app-*-release.apk; do
+            [ -f "$apk" ] || continue
+            arch=$(basename "$apk" | sed -E 's/^app-(.+)-release\.apk$/\1/')
+            cp "$apk" "dist-apk/PixelMusic-${arch}-${{ env.TAG_NAME }}.apk"
+          done
+          ls -lh dist-apk/
 
       - name: 💾 Commit & Push Version Bump (To Source Repo)
         run: |
@@ -121,7 +130,7 @@ jobs:
           name: 🌟 Release ${{ env.TAG_NAME }}
           make_latest: true
           body: ${{ env.RELEASE_BODY }}
-          files: app/build/outputs/apk/release/*.apk
+          files: dist-apk/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -134,7 +143,7 @@ jobs:
           name: 🌟 Release ${{ env.TAG_NAME }}
           make_latest: true
           body: ${{ env.RELEASE_BODY }}
-          files: app/build/outputs/apk/release/*.apk
+          files: dist-apk/*.apk
 
       - name: 🚀 Create GitHub Release & Upload APK (atappu805/PixelMusic)
         uses: softprops/action-gh-release@v2
@@ -145,44 +154,11 @@ jobs:
           name: 🌟 Release ${{ env.TAG_NAME }}
           make_latest: true
           body: ${{ env.RELEASE_BODY }}
-          files: app/build/outputs/apk/release/*.apk
-
-      - name: 🧹 Clean Up Older Releases from atappu805/Clean (Keep Last 3)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release list --limit 100 --json tagName -q ".[].tagName" | tail -n +4 | while read -r tag; do
-            if [ -n "$tag" ] && [ "$tag" != "${{ env.TAG_NAME }}" ]; then
-              echo "Wiping old release and tag from source: $tag"
-              gh release delete "$tag" --cleanup-tag -y || true
-            fi
-          done
-
-      - name: 🧹 Clean Up Older Releases from Saurav-02/PixelMusic (Keep Last 3)
-        env:
-          GH_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
-        run: |
-          gh release list -R ${{ env.TARGET_REPO }} --limit 100 --json tagName -q ".[].tagName" | tail -n +4 | while read -r tag; do
-            if [ -n "$tag" ] && [ "$tag" != "${{ env.TAG_NAME }}" ]; then
-              echo "Wiping old release and tag from target: $tag"
-              gh release delete "$tag" -R ${{ env.TARGET_REPO }} --cleanup-tag -y || true
-            fi
-          done
-
-      - name: 🧹 Clean Up Older Releases from atappu805/PixelMusic (Keep Last 3)
-        env:
-          GH_TOKEN: ${{ secrets.DIST_REPO_TOKEN }}
-        run: |
-          gh release list -R ${{ env.DIST_REPO }} --limit 100 --json tagName -q ".[].tagName" | tail -n +4 | while read -r tag; do
-            if [ -n "$tag" ] && [ "$tag" != "${{ env.TAG_NAME }}" ]; then
-              echo "Wiping old release and tag from dist: $tag"
-              gh release delete "$tag" -R ${{ env.DIST_REPO }} --cleanup-tag -y || true
-            fi
-          done
+          files: dist-apk/*.apk
 
       - name: 📦 Upload Signed Release APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: 📱 app-release-signed
-          path: app/build/outputs/apk/release/*.apk
+          path: dist-apk/*.apk
           retention-days: 14

@@ -321,7 +321,7 @@ private fun AboutHeroCard(
 
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Checking) }
     var showChangelogDialog by remember { mutableStateOf(false) }
-    var isRedownloadSheetMode by remember { mutableStateOf(false) }
+    var isDowngradeSheetMode by remember { mutableStateOf(false) }
     val openUpdateSheetEvent by InAppUpdater.openUpdateSheetEvent.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
@@ -331,7 +331,6 @@ private fun AboutHeroCard(
     LaunchedEffect(openUpdateSheetEvent) {
         if (openUpdateSheetEvent) {
             InAppUpdater.consumeOpenUpdateSheetEvent()
-            isRedownloadSheetMode = true
             showChangelogDialog = true
         }
     }
@@ -343,38 +342,79 @@ private fun AboutHeroCard(
     }
 
     if (showChangelogDialog) {
-        val isUpdate = (updateState is UpdateState.Available) || isRedownloadSheetMode
-        val displayVersion = when (val state = updateState) {
-            is UpdateState.Available -> state.versionName
-            is UpdateState.UpToDate -> state.versionName ?: versionName
-            else -> versionName
+        val isUpdate = (updateState is UpdateState.Available) || isDowngradeSheetMode
+        val displayVersion = if (isDowngradeSheetMode) {
+            when (val state = updateState) {
+                is UpdateState.UpToDate -> state.previousVersionName ?: versionName
+                is UpdateState.Available -> state.previousVersionName ?: versionName
+                else -> InAppUpdater.getResolvedVersionName() ?: versionName
+            }
+        } else {
+            when (val state = updateState) {
+                is UpdateState.Available -> state.versionName
+                is UpdateState.UpToDate -> state.versionName ?: versionName
+                else -> versionName
+            }
         }
-        val resolvedUrl = when (val state = updateState) {
-            is UpdateState.Available -> state.downloadUrl
-            is UpdateState.UpToDate -> state.downloadUrl
-            else -> InAppUpdater.getResolvedDownloadUrl()
+        val resolvedUrl = if (isDowngradeSheetMode) {
+            when (val state = updateState) {
+                is UpdateState.UpToDate -> state.previousDownloadUrl
+                is UpdateState.Available -> state.previousDownloadUrl
+                else -> InAppUpdater.getResolvedDownloadUrl()
+            }
+        } else {
+            when (val state = updateState) {
+                is UpdateState.Available -> state.downloadUrl
+                is UpdateState.UpToDate -> state.downloadUrl
+                else -> InAppUpdater.getResolvedDownloadUrl()
+            }
         }
-        val resolvedApkName = when (val state = updateState) {
-            is UpdateState.Available -> state.apkName
-            is UpdateState.UpToDate -> state.apkName
-            else -> InAppUpdater.getResolvedApkName()
+        val resolvedApkName = if (isDowngradeSheetMode) {
+            when (val state = updateState) {
+                is UpdateState.UpToDate -> state.previousApkName
+                is UpdateState.Available -> state.previousApkName
+                else -> InAppUpdater.getResolvedApkName()
+            }
+        } else {
+            when (val state = updateState) {
+                is UpdateState.Available -> state.apkName
+                is UpdateState.UpToDate -> state.apkName
+                else -> InAppUpdater.getResolvedApkName()
+            }
         }
-        val resolvedApkSize = when (val state = updateState) {
-            is UpdateState.Available -> state.apkSizeBytes
-            is UpdateState.UpToDate -> state.apkSizeBytes
-            else -> InAppUpdater.getResolvedApkSizeBytes()
+        val resolvedApkSize = if (isDowngradeSheetMode) {
+            when (val state = updateState) {
+                is UpdateState.UpToDate -> state.previousApkSizeBytes
+                is UpdateState.Available -> state.previousApkSizeBytes
+                else -> InAppUpdater.getResolvedApkSizeBytes()
+            }
+        } else {
+            when (val state = updateState) {
+                is UpdateState.Available -> state.apkSizeBytes
+                is UpdateState.UpToDate -> state.apkSizeBytes
+                else -> InAppUpdater.getResolvedApkSizeBytes()
+            }
+        }
+        val sheetChangelog = if (isDowngradeSheetMode) {
+            when (val state = updateState) {
+                is UpdateState.UpToDate -> state.previousChangelog
+                is UpdateState.Available -> state.previousChangelog
+                else -> latestChangelog
+            }
+        } else {
+            latestChangelog
         }
         UpdateNotificationSheet(
             isUpdateAvailable = isUpdate,
             versionName = displayVersion,
-            changelog = latestChangelog,
+            changelog = sheetChangelog,
             downloadUrl = resolvedUrl,
             apkName = resolvedApkName,
             apkSizeBytes = resolvedApkSize,
             isTestBuild = context.packageName.endsWith(".test"),
             onDismiss = {
                 showChangelogDialog = false
-                isRedownloadSheetMode = false
+                isDowngradeSheetMode = false
             },
             onConfirmClick = {
                 if (!resolvedUrl.isNullOrBlank()) {
@@ -384,7 +424,7 @@ private fun AboutHeroCard(
                         url = resolvedUrl,
                         versionName = displayVersion,
                         apkName = resolvedApkName,
-                        changelog = latestChangelog
+                        changelog = sheetChangelog
                     )
                 }
             },
@@ -453,26 +493,46 @@ private fun AboutHeroCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.tertiaryContainer)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onLongPress = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onVersionLongPress()
-                                },
-                            )
-                        },
+                val deviceArch = remember { InAppUpdater.getDeviceArchitecture() }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${stringResource(R.string.about_version_format, versionName)} ($versionCode)",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.tertiaryContainer)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onVersionLongPress()
+                                    },
+                                )
+                            },
+                    ) {
+                        Text(
+                            text = stringResource(R.string.about_version_format, versionName),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    ) {
+                        Text(
+                            text = deviceArch,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -518,44 +578,15 @@ private fun AboutHeroCard(
                                         Text("You are on the latest version")
                                     }
 
-                                    if (state.downloadUrl != null) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Button(
-                                            onClick = {
-                                                val appContext = context.applicationContext
-                                                InAppUpdater.createNotificationChannel(appContext)
-                                                InAppUpdater.startOrResumeDownload(
-                                                    context = appContext,
-                                                    url = state.downloadUrl,
-                                                    versionName = state.versionName ?: versionName,
-                                                    apkName = state.apkName,
-                                                    changelog = state.changelog
-                                                )
-                                                isRedownloadSheetMode = true
-                                                showChangelogDialog = true
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                            )
-                                        ) {
-                                            Icon(painterResource(R.drawable.rounded_download_24), contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(8.dp))
-                                            Text("Download latest version again")
-                                        }
-                                    }
-                                    
                                     if (!latestChangelog.isNullOrBlank()) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        
                                         Button(
                                             onClick = {
-                                                isRedownloadSheetMode = false
+                                                isDowngradeSheetMode = false
                                                 showChangelogDialog = true
                                             },
                                             modifier = Modifier.fillMaxWidth(),
-                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                            colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                             )
@@ -563,6 +594,41 @@ private fun AboutHeroCard(
                                             Icon(painterResource(R.drawable.rounded_notes_24), contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(Modifier.width(8.dp))
                                             Text("Changes in the latest version")
+                                        }
+                                    }
+
+                                    if (!state.previousDownloadUrl.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = {
+                                                val appContext = context.applicationContext
+                                                val prevVer = state.previousVersionName ?: "previous"
+                                                InAppUpdater.createNotificationChannel(appContext)
+                                                InAppUpdater.startOrResumeDownload(
+                                                    context = appContext,
+                                                    url = state.previousDownloadUrl,
+                                                    versionName = prevVer,
+                                                    apkName = state.previousApkName,
+                                                    changelog = state.previousChangelog
+                                                )
+                                                isDowngradeSheetMode = true
+                                                showChangelogDialog = true
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                                contentColor = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        ) {
+                                            Icon(painterResource(R.drawable.outline_restart_alt_24), contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                if (!state.previousVersionName.isNullOrBlank()) {
+                                                    "Downgrade to ${state.previousVersionName}"
+                                                } else {
+                                                    "Downgrade to previous version"
+                                                }
+                                            )
                                         }
                                     }
                                 }

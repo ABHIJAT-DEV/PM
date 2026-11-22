@@ -61,9 +61,12 @@ jobs:
       - name: Rename APKs for Direct Sharing
         run: |
           mkdir -p dist-apk
-          for apk in app/build/outputs/apk/release/*.apk; do
-            cp "$apk" "dist-apk/$(basename "$apk")"
+          for apk in app/build/outputs/apk/release/app-*-release.apk; do
+            [ -f "$apk" ] || continue
+            arch=$(basename "$apk" | sed -E 's/^app-(.+)-release\.apk$/\1/')
+            cp "$apk" "dist-apk/PixelMusic-${arch}-v${{ env.VERSION_NAME }}.apk"
           done
+          ls -lh dist-apk/
 
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
