@@ -940,9 +940,9 @@ class MusicService : MediaLibraryService() {
         }
         setMediaNotificationProvider(localOnlyProvider)
         serviceScope.launch {
-            userPreferencesRepository.setPlaybackQueueSnapshot(null)
+            // Preserve any saved PlaybackQueueSnapshot so cold-start widget taps can restore
+            // the last queue and position without racing against onCreate().
             mediaSession?.let { refreshMediaSessionUi(it) }
-            requestWidgetFullUpdate(force = true)
         }
 
         serviceScope.launch {
@@ -1113,6 +1113,7 @@ class MusicService : MediaLibraryService() {
     var isRestoringForWidgetAction = false
     intent?.action?.let { action ->
         Timber.tag(TAG).d("onStartCommand widget action: %s", action)
+        isPlaybackUnloadInProgress = false
 
             val player = mediaSession?.player ?: engine.masterPlayer
             when (action) {
@@ -1983,10 +1984,11 @@ class MusicService : MediaLibraryService() {
                                     player.playbackState != Player.STATE_ENDED
 
         if (!allowBackground || !isIntentionalPlayback) {
-            // Player is genuinely paused, empty, or user disabled background play: shut it down.
+            // Player is genuinely paused, empty, or user disabled background play: shut it down,
+            // but preserve the last queue/position snapshot so a widget tap can resume it later.
             stopPlaybackAndUnload(
                 reason = if (!allowBackground) "task_removed_background_disabled" else "task_removed_not_playing",
-                preservePlaybackSnapshot = false
+                preservePlaybackSnapshot = true
             )
         } else {
             // Safety measure: Immediately save the queue and position to disk
@@ -2006,6 +2008,9 @@ class MusicService : MediaLibraryService() {
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
         stopLiveProgressTracker()
         playbackSnapshotPersistJob?.cancel()
+        if (!isPlaybackUnloadInProgress && engine.masterPlayer.mediaItemCount > 0) {
+            persistPlaybackSnapshotBlocking()
+        }
         mediaSessionButtonRefreshJob?.cancel()
         followUpMediaSessionUiRefreshJob?.cancel()
         followUpWidgetUpdateJob?.cancel()
@@ -2147,7 +2152,7 @@ class MusicService : MediaLibraryService() {
 
     private suspend fun persistPlaybackSnapshot(playWhenReadyOverride: Boolean? = null) {
         if (isRestoringPlaybackSnapshot) return
-        val snapshot = capturePlaybackSnapshot(playWhenReadyOverride)
+        val snapshot = capturePlaybackSnapshot(playWhenReadyOverride) ?: return
         runCatching {
             userPreferencesRepository.setPlaybackQueueSnapshot(snapshot)
         }.onFailure { e ->
@@ -2633,12 +2638,44 @@ class MusicService : MediaLibraryService() {
     private var lastPeriodicSnapshotPersistAtMs: Long = 0L
 
     private fun pushOptimisticWidgetState(transform: (PlayerInfo) -> PlayerInfo) {
-        val base = lastWidgetPlayerInfo ?: return
-        val optimistic = transform(base)
-        if (optimistic == base) return
-        lastWidgetPlayerInfo = optimistic
-        serviceScope.launch {
-            updateGlanceWidgets(optimistic)
+        val base = lastWidgetPlayerInfo
+        if (base != null) {
+            val optimistic = transform(base)
+            if (optimistic == base) return
+            lastWidgetPlayerInfo = optimistic
+            serviceScope.launch {
+                updateGlanceWidgets(optimistic)
+            }
+            return
+        }
+
+        // Cold start: lastWidgetPlayerInfo is null because the service just started.
+        // Update the persisted Glance state directly so the tapped button flips immediately.
+        serviceScope.launch(Dispatchers.IO) {
+            runCatching {
+                val glanceManager = GlanceAppWidgetManager(applicationContext)
+                val glanceIds = glanceManager.getGlanceIds(PixelMusicGlanceWidget::class.java)
+                val barGlanceIds = glanceManager.getGlanceIds(BarWidget4x1::class.java)
+                val controlGlanceIds = glanceManager.getGlanceIds(ControlWidget4x2::class.java)
+                val firstGlanceId = glanceIds.firstOrNull()
+                    ?: barGlanceIds.firstOrNull()
+                    ?: controlGlanceIds.firstOrNull()
+                    ?: return@launch
+
+                var updatedInfo: PlayerInfo? = null
+                updateAppWidgetState(applicationContext, PlayerInfoStateDefinition, firstGlanceId) { current ->
+                    val next = transform(current)
+                    updatedInfo = next
+                    next
+                }
+                val info = updatedInfo ?: return@launch
+                lastWidgetPlayerInfo = info
+                glanceIds.forEach { id -> PixelMusicGlanceWidget().update(applicationContext, id) }
+                barGlanceIds.forEach { id -> BarWidget4x1().update(applicationContext, id) }
+                controlGlanceIds.forEach { id -> ControlWidget4x2().update(applicationContext, id) }
+            }.onFailure { e ->
+                Timber.tag(TAG).w(e, "Failed to push cold-start optimistic widget state")
+            }
         }
     }
 
@@ -3398,13 +3435,13 @@ class MusicService : MediaLibraryService() {
     private fun closeNotificationPlayer() {
         stopPlaybackAndUnload(
             reason = "notification_close_button",
-            preservePlaybackSnapshot = false
+            preservePlaybackSnapshot = true
         )
     }
 
     private fun stopPlaybackAndUnload(
         reason: String,
-        preservePlaybackSnapshot: Boolean = false,
+        preservePlaybackSnapshot: Boolean = true,
     ) {
         Timber.tag(TAG).d(
             "Stopping playback and unloading service. reason=%s",
@@ -3438,14 +3475,24 @@ class MusicService : MediaLibraryService() {
         player.clearMediaItems()
         com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.markPlaybackStopped(this)
 
-        requestWidgetFullUpdate(force = true)
+        // Keep the last song visible in a paused state on widgets rather than blanking them
+        // so the user can tap Play from the widget to resume immediately.
+        lastWidgetPlayerInfo?.let { current ->
+            val pausedInfo = current.copy(isPlaying = false)
+            lastWidgetPlayerInfo = pausedInfo
+            runCatching {
+                runBlocking(Dispatchers.IO) {
+                    updateGlanceWidgets(pausedInfo)
+                }
+            }
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
 
         stopSelf()
     }
 
     private fun persistPlaybackSnapshotBlocking() {
-        val snapshot = capturePlaybackSnapshotFromPlayer(playWhenReadyOverride = false)
+        val snapshot = capturePlaybackSnapshotFromPlayer(playWhenReadyOverride = false) ?: return
         writePlaybackSnapshotBlocking(snapshot)
     }
 
