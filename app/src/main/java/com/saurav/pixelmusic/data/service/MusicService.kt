@@ -83,6 +83,7 @@ import com.saurav.pixelmusic.data.preferences.AlbumArtPaletteStyle
 import com.saurav.pixelmusic.presentation.viewmodel.ColorSchemeProcessor
 import androidx.compose.ui.graphics.toArgb
 import com.saurav.pixelmusic.ui.glancewidget.BarWidget4x1
+import com.saurav.pixelmusic.ui.glancewidget.BlurSquareWidget2x2
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import com.saurav.pixelmusic.data.preferences.ThemePreference
@@ -2757,9 +2758,11 @@ class MusicService : MediaLibraryService() {
                 val glanceIds = glanceManager.getGlanceIds(PixelMusicGlanceWidget::class.java)
                 val barGlanceIds = glanceManager.getGlanceIds(BarWidget4x1::class.java)
                 val controlGlanceIds = glanceManager.getGlanceIds(ControlWidget4x2::class.java)
+                val blurSquareGlanceIds = glanceManager.getGlanceIds(BlurSquareWidget2x2::class.java)
                 val firstGlanceId = glanceIds.firstOrNull()
                     ?: barGlanceIds.firstOrNull()
                     ?: controlGlanceIds.firstOrNull()
+                    ?: blurSquareGlanceIds.firstOrNull()
                     ?: return@launch
 
                 var updatedInfo: PlayerInfo? = null
@@ -2773,6 +2776,7 @@ class MusicService : MediaLibraryService() {
                 glanceIds.forEach { id -> PixelMusicGlanceWidget().update(applicationContext, id) }
                 barGlanceIds.forEach { id -> BarWidget4x1().update(applicationContext, id) }
                 controlGlanceIds.forEach { id -> ControlWidget4x2().update(applicationContext, id) }
+                blurSquareGlanceIds.forEach { id -> BlurSquareWidget2x2().update(applicationContext, id) }
             }.onFailure { e ->
                 Timber.tag(TAG).w(e, "Failed to push cold-start optimistic widget state")
             }
@@ -3326,6 +3330,7 @@ class MusicService : MediaLibraryService() {
     private var lastPersistedWidgetArtKey: String? = null
     private var lastPersistedWidgetArtFileUri: String? = null
     private var lastPushedBarDigest: BarWidgetDigest? = null
+    private var lastPushedBlurSquareDigest: BarWidgetDigest? = null
     private var lastPushedControlDigest: ControlWidgetDigest? = null
     private var lastPushedMainDigest: MainWidgetDigest? = null
 
@@ -3362,10 +3367,12 @@ class MusicService : MediaLibraryService() {
             val glanceIds = glanceManager.getGlanceIds(PixelMusicGlanceWidget::class.java)
             val barGlanceIds = glanceManager.getGlanceIds(BarWidget4x1::class.java)
             val controlGlanceIds = glanceManager.getGlanceIds(ControlWidget4x2::class.java)
+            val blurSquareGlanceIds = glanceManager.getGlanceIds(BlurSquareWidget2x2::class.java)
 
             val firstGlanceId = glanceIds.firstOrNull()
                 ?: barGlanceIds.firstOrNull()
                 ?: controlGlanceIds.firstOrNull()
+                ?: blurSquareGlanceIds.firstOrNull()
                 ?: return@withContext
 
             val artUri = resolveWidgetArtFileUri(playerInfo)
@@ -3401,9 +3408,10 @@ class MusicService : MediaLibraryService() {
 
             val mainChanged = glanceIds.isNotEmpty() && mainDigest != lastPushedMainDigest
             val barChanged = barGlanceIds.isNotEmpty() && barDigest != lastPushedBarDigest
+            val blurSquareChanged = blurSquareGlanceIds.isNotEmpty() && barDigest != lastPushedBlurSquareDigest
             val controlChanged = controlGlanceIds.isNotEmpty() && controlDigest != lastPushedControlDigest
 
-            if (!mainChanged && !barChanged && !controlChanged) {
+            if (!mainChanged && !barChanged && !blurSquareChanged && !controlChanged) {
                 return@withContext
             }
 
@@ -3419,16 +3427,21 @@ class MusicService : MediaLibraryService() {
                 lastPushedBarDigest = barDigest
                 barGlanceIds.forEach { id -> BarWidget4x1().update(applicationContext, id) }
             }
+            if (blurSquareChanged) {
+                lastPushedBlurSquareDigest = barDigest
+                blurSquareGlanceIds.forEach { id -> BlurSquareWidget2x2().update(applicationContext, id) }
+            }
             if (controlChanged) {
                 lastPushedControlDigest = controlDigest
                 controlGlanceIds.forEach { id -> ControlWidget4x2().update(applicationContext, id) }
             }
 
             Timber.tag(TAG).d(
-                "Widgets updated: %s (main=%b/%d, bar=%b/%d, control=%b/%d)",
+                "Widgets updated: %s (main=%b/%d, bar=%b/%d, blur=%b/%d, control=%b/%d)",
                 playerInfo.songTitle,
                 mainChanged, glanceIds.size,
                 barChanged, barGlanceIds.size,
+                blurSquareChanged, blurSquareGlanceIds.size,
                 controlChanged, controlGlanceIds.size,
             )
         } catch (e: Exception) {

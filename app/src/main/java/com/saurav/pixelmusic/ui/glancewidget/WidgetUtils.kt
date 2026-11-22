@@ -3,6 +3,7 @@ package com.saurav.pixelmusic.ui.glancewidget
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
@@ -101,6 +102,152 @@ fun centerCropAndRoundBitmap(
     val clampedRadius = cornerRadiusPx.coerceIn(0f, minOf(outW, outH) / 2f)
     canvas.drawRoundRect(rect, clampedRadius, clampedRadius, paint)
     return output
+}
+
+/**
+ * Produces a smooth iOS-style full-bleed blurred album art bitmap with a subtle dark readability
+ * scrim, delicate frosted glass edge highlight, and rounded corners for 1:1 Glance widgets.
+ */
+fun createBlurredRoundedAlbumArtBitmap(
+    source: Bitmap,
+    targetWidthPx: Int,
+    targetHeightPx: Int,
+    cornerRadiusPx: Float,
+    blurRadius: Int = 14
+): Bitmap {
+    if (source.width <= 0 || source.height <= 0) return source
+    val outW = targetWidthPx.coerceAtLeast(64)
+    val outH = targetHeightPx.coerceAtLeast(64)
+
+    // 1. Center-crop into a compact working buffer so multi-pass box blur is fast (<3ms) and ultra-smooth.
+    val workSize = 96
+    val cropped = Bitmap.createBitmap(workSize, workSize, Bitmap.Config.ARGB_8888)
+    val cropCanvas = Canvas(cropped)
+    val cropScale = maxOf(
+        workSize.toFloat() / source.width.toFloat(),
+        workSize.toFloat() / source.height.toFloat()
+    )
+    val cropDx = (workSize - source.width * cropScale) * 0.5f
+    val cropDy = (workSize - source.height * cropScale) * 0.5f
+    val cropMatrix = android.graphics.Matrix().apply {
+        setScale(cropScale, cropScale)
+        postTranslate(cropDx, cropDy)
+    }
+    cropCanvas.drawBitmap(source, cropMatrix, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+
+    // 2. Three-pass separable box blur (closely approximates a creamy Gaussian blur on all API levels).
+    val pixels = IntArray(workSize * workSize)
+    val temp = IntArray(workSize * workSize)
+    cropped.getPixels(pixels, 0, workSize, 0, 0, workSize, workSize)
+    val radius = blurRadius.coerceIn(4, 24)
+    repeat(3) {
+        boxBlurHorizontal(pixels, temp, workSize, workSize, radius)
+        boxBlurVertical(temp, pixels, workSize, workSize, radius)
+    }
+    cropped.setPixels(pixels, 0, workSize, 0, 0, workSize, workSize)
+
+    // 3. Upscale smoothly, clip to rounded corners, and layer readability scrim + subtle glass rim.
+    val output = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(output)
+    val rect = RectF(0f, 0f, outW.toFloat(), outH.toFloat())
+    val clampedRadius = cornerRadiusPx.coerceIn(0f, minOf(outW, outH) / 2f)
+
+    val upMatrix = android.graphics.Matrix().apply {
+        setScale(outW.toFloat() / workSize.toFloat(), outH.toFloat() / workSize.toFloat())
+    }
+    val shader = BitmapShader(cropped, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+        setLocalMatrix(upMatrix)
+    }
+    val artPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        this.shader = shader
+    }
+    canvas.drawRoundRect(rect, clampedRadius, clampedRadius, artPaint)
+
+    val scrimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.shader = LinearGradient(
+            0f,
+            0f,
+            0f,
+            outH.toFloat(),
+            intArrayOf(0x52000000, 0x5C000000, 0x8A000000.toInt()),
+            floatArrayOf(0f, 0.52f, 1f),
+            Shader.TileMode.CLAMP
+        )
+    }
+    canvas.drawRoundRect(rect, clampedRadius, clampedRadius, scrimPaint)
+
+    val rimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = (outW / 180f).coerceIn(1f, 2f)
+        color = 0x29FFFFFF
+    }
+    val inset = rimPaint.strokeWidth * 0.5f
+    canvas.drawRoundRect(
+        RectF(inset, inset, outW - inset, outH - inset),
+        (clampedRadius - inset).coerceAtLeast(0f),
+        (clampedRadius - inset).coerceAtLeast(0f),
+        rimPaint
+    )
+
+    cropped.recycle()
+    return output
+}
+
+private fun boxBlurHorizontal(src: IntArray, dst: IntArray, width: Int, height: Int, radius: Int) {
+    val windowSize = radius * 2 + 1
+    for (y in 0 until height) {
+        val rowOffset = y * width
+        var sumR = 0
+        var sumG = 0
+        var sumB = 0
+        for (i in -radius..radius) {
+            val px = src[rowOffset + i.coerceIn(0, width - 1)]
+            sumR += (px ushr 16) and 0xFF
+            sumG += (px ushr 8) and 0xFF
+            sumB += px and 0xFF
+        }
+        for (x in 0 until width) {
+            dst[rowOffset + x] = (0xFF shl 24) or
+                ((sumR / windowSize) shl 16) or
+                ((sumG / windowSize) shl 8) or
+                (sumB / windowSize)
+            val removeIdx = (x - radius).coerceIn(0, width - 1)
+            val addIdx = (x + radius + 1).coerceIn(0, width - 1)
+            val pRemove = src[rowOffset + removeIdx]
+            val pAdd = src[rowOffset + addIdx]
+            sumR += ((pAdd ushr 16) and 0xFF) - ((pRemove ushr 16) and 0xFF)
+            sumG += ((pAdd ushr 8) and 0xFF) - ((pRemove ushr 8) and 0xFF)
+            sumB += (pAdd and 0xFF) - (pRemove and 0xFF)
+        }
+    }
+}
+
+private fun boxBlurVertical(src: IntArray, dst: IntArray, width: Int, height: Int, radius: Int) {
+    val windowSize = radius * 2 + 1
+    for (x in 0 until width) {
+        var sumR = 0
+        var sumG = 0
+        var sumB = 0
+        for (i in -radius..radius) {
+            val px = src[i.coerceIn(0, height - 1) * width + x]
+            sumR += (px ushr 16) and 0xFF
+            sumG += (px ushr 8) and 0xFF
+            sumB += px and 0xFF
+        }
+        for (y in 0 until height) {
+            dst[y * width + x] = (0xFF shl 24) or
+                ((sumR / windowSize) shl 16) or
+                ((sumG / windowSize) shl 8) or
+                (sumB / windowSize)
+            val removeIdx = (y - radius).coerceIn(0, height - 1)
+            val addIdx = (y + radius + 1).coerceIn(0, height - 1)
+            val pRemove = src[removeIdx * width + x]
+            val pAdd = src[addIdx * width + x]
+            sumR += ((pAdd ushr 16) and 0xFF) - ((pRemove ushr 16) and 0xFF)
+            sumG += ((pAdd ushr 8) and 0xFF) - ((pRemove ushr 8) and 0xFF)
+            sumB += (pAdd and 0xFF) - (pRemove and 0xFF)
+        }
+    }
 }
 
 data class WidgetColors(

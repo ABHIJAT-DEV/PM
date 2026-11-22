@@ -100,6 +100,9 @@ class PlayerControlActionCallback : ActionCallback {
                     glanceManager.getGlanceIds(ControlWidget4x2::class.java).forEach {
                         ControlWidget4x2().update(context, it)
                     }
+                    glanceManager.getGlanceIds(BlurSquareWidget2x2::class.java).forEach {
+                        BlurSquareWidget2x2().update(context, it)
+                    }
                 }
                 PlayerActions.FAVORITE -> {
                     glanceManager.getGlanceIds(PixelMusicGlanceWidget::class.java).forEach {
