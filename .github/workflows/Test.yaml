@@ -99,9 +99,10 @@ jobs:
 
       - name: Prepare Release Notes
         run: |
-          echo -e "### 🚀 Official APK Page: [pixelmusic.pages.dev](https://pixelmusic.pages.dev)\n\n---\n" > release_notes.txt
           if [ -f changelog.txt ]; then
-            cat changelog.txt >> release_notes.txt
+            cp changelog.txt release_notes.txt
+          else
+            echo "✨ New test build available." > release_notes.txt
           fi
 
       - name: Rename APKs with Architecture & Version

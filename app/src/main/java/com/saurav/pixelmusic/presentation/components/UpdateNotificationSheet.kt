@@ -1738,7 +1738,9 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
         }
 
         if (line.matches(Regex("^-{3,}|_{3,}|\\*{3,}$"))) {
-            items.add(ChangelogItem.Divider)
+            if (items.isNotEmpty()) {
+                items.add(ChangelogItem.Divider)
+            }
             i++
             continue
         }
@@ -1746,25 +1748,8 @@ private fun parseChangelog(rawText: String?): List<ChangelogItem> {
         val rawUrlMatch = Regex("""(https?://[^\s)]+)""").find(line)
         if (rawUrlMatch != null) {
             val lowerLine = line.lowercase()
-            if (lowerLine.contains("official") || lowerLine.contains("page") || lowerLine.contains("website") || lowerLine.contains("apk page") || lowerLine.contains("download page")) {
-                val linkMatch = Regex("""\[(.*?)\]\((https?://[^\s)]+)\)""").find(line)
-                val (title, url, subtitle) = if (linkMatch != null) {
-                    val label = linkMatch.groupValues[1]
-                    val u = linkMatch.groupValues[2]
-                    Triple("Visit Official Page", u, label)
-                } else {
-                    val u = rawUrlMatch.groupValues[1]
-                    Triple("Visit Official Page", u, u.removePrefix("https://").removePrefix("http://").trimEnd('/'))
-                }
-                val icon = if (line.contains("🌐")) "🌐" else "🚀"
-                items.add(
-                    ChangelogItem.LinkButton(
-                        title = title,
-                        url = url,
-                        subtitle = subtitle,
-                        icon = icon
-                    )
-                )
+            if (lowerLine.contains("pixelmusic.pages.dev") || lowerLine.contains("official") || lowerLine.contains("apk page") || lowerLine.contains("download page") || lowerLine.contains("website")) {
+                // Skip duplicate official website links inside What's New (the sheet already has the "Open the web" pill)
                 i++
                 continue
             }
