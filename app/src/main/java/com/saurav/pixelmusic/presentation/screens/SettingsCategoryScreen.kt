@@ -944,30 +944,8 @@ fun SettingsCategoryScreen(
                                     }
                                 }
 
-                                SettingsSubsection(title = "Performance & Battery") {
-                                    SwitchSettingItem(
-                                        title = "Performance Mode (Low-End & Battery Saver)",
-                                        subtitle = "Optimizes animations, blurs, and downsamples images to keep the app smooth and light on budget devices.",
-                                        checked = uiState.performanceModeEnabled,
-                                        onCheckedChange = { settingsViewModel.setPerformanceModeEnabled(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_speed_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                    SwitchSettingItem(
-                                        title = "Hardware Audio Offload",
-                                        subtitle = "Delegates audio decoding to hardware DSP to allow the CPU to sleep during playback, saving battery.",
-                                        checked = uiState.audioOffloadEnabled,
-                                        onCheckedChange = { settingsViewModel.setAudioOffloadEnabled(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_battery_charging_full_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
-                                    )
-                                }
-
                                 SettingsSubsection(
-                                    title = stringResource(R.string.setcat_lyrics_management),
-                                    addBottomSpace = false
+                                    title = stringResource(R.string.setcat_lyrics_management)
                                 ) {
                                     var showLyricsProvidersSheet by remember { mutableStateOf(false) }
                                     val lyricsProviderOrder by remember(context) {
@@ -1167,6 +1145,30 @@ fun SettingsCategoryScreen(
                                             Icon(painterResource(R.drawable.rounded_clear_all_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         },
                                         onClick = { showClearLyricsDialog = true }
+                                    )
+                                }
+
+                                SettingsSubsection(
+                                    title = "Performance & Battery",
+                                    addBottomSpace = false
+                                ) {
+                                    SwitchSettingItem(
+                                        title = "Performance Mode (Low-End & Battery Saver)",
+                                        subtitle = "Optimizes animations, blurs, and downsamples images to keep the app smooth and light on budget devices.",
+                                        checked = uiState.performanceModeEnabled,
+                                        onCheckedChange = { settingsViewModel.setPerformanceModeEnabled(it) },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_speed_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
+                                    SwitchSettingItem(
+                                        title = "Hardware Audio Offload",
+                                        subtitle = "Delegates audio decoding to hardware DSP to allow the CPU to sleep during playback, saving battery.",
+                                        checked = uiState.audioOffloadEnabled,
+                                        onCheckedChange = { settingsViewModel.setAudioOffloadEnabled(it) },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_battery_charging_full_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
                                     )
                                 }
                             }
