@@ -585,8 +585,10 @@ class DualPlayerEngine @Inject constructor(
         }
 
         if (exceedsRefreshWindow && !activeYtId.isNullOrBlank()) {
-            runCatching {
-                com.saurav.pixelmusic.utils.InnerTubeXPlayer.invalidateAndRefreshSession(activeYtId)
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    com.saurav.pixelmusic.utils.InnerTubeXPlayer.invalidateAndRefreshSession(activeYtId)
+                }
             }
         }
     }
