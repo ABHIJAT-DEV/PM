@@ -105,8 +105,8 @@ android {
         applicationId = "com.saurav.pixelmusic"
         minSdk = 29
         targetSdk = 37
-        // Frozen at 40 for GitHub-only distribution so users can upgrade or downgrade in-place without uninstalling
-        versionCode = 40
+        // Frozen at 33 (matches live v4.4.8) for GitHub-only distribution so users can upgrade or downgrade in-place without uninstalling
+        versionCode = 33
         versionName = (project.findProperty("APP_VERSION_NAME") as? String) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

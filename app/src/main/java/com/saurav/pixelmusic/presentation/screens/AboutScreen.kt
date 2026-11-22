@@ -412,6 +412,7 @@ private fun AboutHeroCard(
             apkName = resolvedApkName,
             apkSizeBytes = resolvedApkSize,
             isTestBuild = context.packageName.endsWith(".test"),
+            isDowngradeMode = isDowngradeSheetMode,
             onDismiss = {
                 showChangelogDialog = false
                 isDowngradeSheetMode = false

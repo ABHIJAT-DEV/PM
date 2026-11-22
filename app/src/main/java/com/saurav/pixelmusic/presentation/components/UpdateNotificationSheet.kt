@@ -121,6 +121,7 @@ fun UpdateNotificationSheet(
     apkSizeBytes: Long? = null,
     userName: String? = null,
     isTestBuild: Boolean = false,
+    isDowngradeMode: Boolean = false,
     onDismiss: () -> Unit,
     onConfirmClick: () -> Unit = {},
     onMigrateClick: () -> Unit = {},
@@ -330,6 +331,7 @@ fun UpdateNotificationSheet(
                         userName?.trim()?.takeIf { it.isNotEmpty() }?.lowercase(Locale.getDefault())
                     }
                     val headlineText = when {
+                        isDowngradeMode -> "Downgrade to $cleanVersion"
                         effectiveUpdateMode && greetingName != null -> "Update available, $greetingName!"
                         effectiveUpdateMode -> "Update available!"
                         greetingName != null -> "Updated to latest version, $greetingName!"
@@ -349,10 +351,10 @@ fun UpdateNotificationSheet(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = if (effectiveUpdateMode) {
-                            "PixelMusic $cleanVersion is ready for your device"
-                        } else {
-                            "You are running the latest PixelMusic $cleanVersion"
+                        text = when {
+                            isDowngradeMode -> "Install previous PixelMusic $cleanVersion over your current build"
+                            effectiveUpdateMode -> "PixelMusic $cleanVersion is ready for your device"
+                            else -> "You are running the latest PixelMusic $cleanVersion"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -619,6 +621,7 @@ fun UpdateNotificationSheet(
                             apkName = resolvedApkName,
                             changelog = resolvedChangelog,
                             downloadState = downloadState,
+                            isDowngradeMode = isDowngradeMode,
                             onFallbackConfirm = {
                                 onConfirmClick()
                                 smoothDismiss(null)
@@ -789,6 +792,7 @@ private fun ExpressiveUpdateActionArea(
     apkName: String?,
     changelog: String?,
     downloadState: InAppUpdater.GlobalDownloadState,
+    isDowngradeMode: Boolean = false,
     onFallbackConfirm: () -> Unit
 ) {
     val context = LocalContext.current
@@ -975,7 +979,7 @@ private fun ExpressiveUpdateActionArea(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Install Update",
+                            text = if (isDowngradeMode) "Install Previous Version" else "Install Update",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -1119,7 +1123,7 @@ private fun ExpressiveUpdateActionArea(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Download Update",
+                        text = if (isDowngradeMode) "Download Previous Version" else "Download Update",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = buttonContentColor

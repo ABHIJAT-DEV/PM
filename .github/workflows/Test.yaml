@@ -85,7 +85,7 @@ jobs:
         # --no-daemon: CI runners are fresh VMs (no daemon reuse benefit), and this
         # bypasses the broken gradle-daemon-jvm.properties toolchain spec entirely.
         run: |
-          ./gradlew :app:assembleRelease -PAPP_VERSION_CODE=40 -PAPP_VERSION_NAME="test-build-${{ env.NEXT_NUM }}" --profile
+          ./gradlew :app:assembleRelease -PAPP_VERSION_CODE=33 -PAPP_VERSION_NAME="test-build-${{ env.NEXT_NUM }}" --profile
           python3 - << 'PY' || true
           import glob, re
           files = sorted(glob.glob("build/reports/profile/profile-*.html"))

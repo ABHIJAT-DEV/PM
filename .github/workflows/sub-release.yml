@@ -41,7 +41,7 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
 
-      - name: 📈 Bump Patch Version (+0.0.1) & Freeze Version Code (40)
+      - name: 📈 Bump Patch Version (+0.0.1) & Freeze Version Code (33)
         id: versioning
         run: |
           RAW_NAME=$(grep "^APP_VERSION_NAME=" gradle.properties | cut -d'=' -f2 | tr -d '\r' | tr -d ' ')
@@ -53,7 +53,7 @@ jobs:
 
           NEW_PATCH=$((PATCH + 1))
           NEW_NAME="${MAJOR}.${MINOR}.${NEW_PATCH}"
-          NEW_CODE=40
+          NEW_CODE=33
 
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG_NAME=${GITHUB_REF#refs/tags/}
@@ -70,7 +70,7 @@ jobs:
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
 
       - name: 🔨 Build Release APK
-        run: ./gradlew :app:assembleRelease -PAPP_VERSION_CODE=40 -PAPP_VERSION_NAME="${{ env.NEW_NAME }}"
+        run: ./gradlew :app:assembleRelease -PAPP_VERSION_CODE=33 -PAPP_VERSION_NAME="${{ env.NEW_NAME }}"
 
       - name: 🏷️ Rename APKs with Architecture & Version
         run: |
@@ -115,7 +115,6 @@ jobs:
           else
             echo "✨ Minor update and bug fixes." >> $GITHUB_ENV
           fi
-          echo -e "\n\n---\n*📦 Current Version Code: ${{ env.NEW_CODE }}*" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
       - name: 🚀 Create GitHub Release (atappu805/Clean)
