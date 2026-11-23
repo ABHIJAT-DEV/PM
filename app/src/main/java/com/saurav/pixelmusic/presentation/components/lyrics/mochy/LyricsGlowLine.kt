@@ -1740,7 +1740,7 @@ private fun rememberLegacyWaveModifier(
 
     return Modifier.graphicsLayer {
         val layout = layoutHolder[0]
-        val h = head.offset.floatValue
+        val h = head.waveOffset.floatValue
         val amp = amplitudeProvider().coerceIn(0f, 1f)
 
         if (layout == null || textLength == 0 || h <= 0f || amp <= WaveCutoff) {
@@ -1806,8 +1806,11 @@ private fun rememberLegacyWaveModifier(
 
 private const val WaveCutoff = 0.02f
 
-private const val WaveHeadStepPx = 3.0f
-private const val WaveAmpStep = 0.03f
+private const val WaveHeadStepPx = 0.75f
+private const val WaveAmpStep = 0.01f
+
+// how long Style 2's wave takes to catch up with the sweep head; hides the jump across each space and the speed change between words
+private const val WaveFollowSec = 0.06f
 
 private class WaveEffectCache {
     private var lastHead = Int.MIN_VALUE
@@ -1862,6 +1865,9 @@ internal class KaraokeHead(
 ) {
 
     val offset = mutableFloatStateOf(0f)
+
+    // a smoothed copy of [offset] that only Style 2's wave follows; the sweep keeps the exact one
+    val waveOffset = mutableFloatStateOf(0f)
 
     val glow = mutableFloatStateOf(0f)
 
@@ -2255,6 +2261,18 @@ internal fun KaraokeHead.advance(
     var moved = false
     if (next != offset.floatValue) {
         offset.floatValue = next
+        moved = true
+    }
+
+    val waveNow = waveOffset.floatValue
+    val waveGap = next - waveNow
+    val waveNext = when {
+        next <= 0f || waveGap < 0f -> next
+        waveGap < 0.002f -> next
+        else -> waveNow + waveGap * (1f - kotlin.math.exp(-dt / WaveFollowSec))
+    }
+    if (waveNext != waveNow) {
+        waveOffset.floatValue = waveNext
         moved = true
     }
 
