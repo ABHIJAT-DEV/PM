@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -112,7 +114,7 @@ private val LyricsLineHeight = 40.sp
 private val BlurStageRadii = floatArrayOf(0f, 5f, 12f)
 
 private const val MaxBlurRadiusPx = 48f
-private const val BlurQuantStepPx = 0.5f
+private const val BlurQuantStepPx = 1.0f
 private val BlurEffectCache: Array<androidx.compose.ui.graphics.RenderEffect?> =
     arrayOfNulls((MaxBlurRadiusPx / BlurQuantStepPx).toInt() + 2)
 
@@ -848,7 +850,7 @@ private val MotionBleed = 10.dp
 private val DamageBleed = 24.dp
 
 /** Transforms closer than this (px) are drawn as one piece. */
-private const val MergeEpsilonPx = 0.1f
+private const val MergeEpsilonPx = 0.35f
 
 /**
  * Ligatures off for Style 1. A ligature is one glyph covering two letters, so moving those letters
@@ -1010,6 +1012,7 @@ half4 main(float2 coord) {
     float onCur  = (coord.y < lineTop || coord.y > lineBottom) ? 0.0 : 1.0;
     float onPrev = (hasPrev < 0.5 || coord.y < prevTop || coord.y > prevBottom) ? 0.0 : 1.0;
     float onLine = max(onCur, onPrev);
+    if (onLine <= 0.0) return sampleIn(coord);
 
     // Distance from the head measured along the READING FLOW, not along screen x. On the head's
     // own line that is just the horizontal gap. On the previous line it continues around the
@@ -1046,26 +1049,28 @@ half4 main(float2 coord) {
         float bw = 1.0 - ba;
         float bbell = bw * bw * (3.0 - 2.0 * bw) * onLine;
 
-        // four diagonal taps always the axis aligned four only on the high setting
-        // alone still read as a halo they just make it very slightly less round
-        half4 b = sampleIn(p + float2(bloomR, bloomR))
-                + sampleIn(p + float2(bloomR, -bloomR))
-                + sampleIn(p + float2(-bloomR, bloomR))
-                + sampleIn(p + float2(-bloomR, -bloomR));
-        half weight = 0.25;
-        if (highQuality > 0.5) {
-            b += sampleIn(p + float2(bloomR, 0.0))
-               + sampleIn(p - float2(bloomR, 0.0))
-               + sampleIn(p + float2(0.0, bloomR))
-               + sampleIn(p - float2(0.0, bloomR));
-            weight = 0.125;
+        if (bbell > 0.0) {
+            // four diagonal taps always the axis aligned four only on the high setting
+            // alone still read as a halo they just make it very slightly less round
+            half4 b = sampleIn(p + float2(bloomR, bloomR))
+                    + sampleIn(p + float2(bloomR, -bloomR))
+                    + sampleIn(p + float2(-bloomR, bloomR))
+                    + sampleIn(p + float2(-bloomR, -bloomR));
+            half weight = 0.25;
+            if (highQuality > 0.5) {
+                b += sampleIn(p + float2(bloomR, 0.0))
+                   + sampleIn(p - float2(bloomR, 0.0))
+                   + sampleIn(p + float2(0.0, bloomR))
+                   + sampleIn(p - float2(0.0, bloomR));
+                weight = 0.125;
+            }
+            half4 bAvg = b * weight;
+            half luma = dot(bAvg.rgb, half3(0.299, 0.587, 0.114)) / max(bAvg.a, 0.001);
+            half isBright = smoothstep(0.35, 0.60, luma);
+            half4 additive = c + bAvg * (bloom * bbell);
+            half4 softBehind = c + bAvg * (bloom * bbell * 0.30 * (1.0 - c.a));
+            c = mix(softBehind, additive, isBright);
         }
-        half4 bAvg = b * weight;
-        half luma = dot(bAvg.rgb, half3(0.299, 0.587, 0.114)) / max(bAvg.a, 0.001);
-        half isBright = smoothstep(0.35, 0.60, luma);
-        half4 additive = c + bAvg * (bloom * bbell);
-        half4 softBehind = c + bAvg * (bloom * bbell * 0.30 * (1.0 - c.a));
-        c = mix(softBehind, additive, isBright);
     }
     return c;
 }
@@ -1206,7 +1211,13 @@ internal fun KaraokeSweepText(
                         // what's inside it, and glyph ink that reaches past the line's ends (a "y"
                         // tail, an "f" hook) was lit on the dim copy but cut on the lit one.
                         .layerBleed(MotionBleed)
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .graphicsLayer {
+                            compositingStrategy = if (head.offset.floatValue < text.length) {
+                                CompositingStrategy.Offscreen
+                            } else {
+                                CompositingStrategy.Auto
+                            }
+                        }
                         .padding(MotionBleed)
                         .drawWithContent {
                             val layout = layoutHolder[0] ?: return@drawWithContent
@@ -1469,7 +1480,7 @@ private fun BackingVocalLine(
         if (useSweep) {
             KaraokeSweepText(
                 text = text,
-                words = words!!,
+                words = words,
                 positionProvider = positionProvider,
                 waveAmplitudeProvider = waveAmplitudeProvider,
                 baseColor = { color().copy(alpha = ActiveUnsungAlpha) },
@@ -1569,10 +1580,6 @@ private fun smoothstep(t: Float): Float {
     return x * x * (3f - 2f * x)
 }
 
-// compiled once for every line: each line sets all its uniforms right before it builds its effect
-private var sharedBloomShader: Any? = null
-private var sharedLegacyShader: Any? = null
-
 /** Style 1: the bloom pass. Skipped (no render effect at all) whenever nothing is glowing. */
 @Suppress("NewApi")
 @Composable
@@ -1583,9 +1590,10 @@ private fun rememberBloomModifier(
     amplitudeProvider: () -> Float,
     highBloom: Boolean,
 ): Modifier {
+    // Per-instance RuntimeShader avoids uniform clobbering across overlapping active/lingering lines
     val shader = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            sharedBloomShader ?: createAgslShader(BloomAgsl).also { sharedBloomShader = it }
+            createAgslShader(BloomAgsl)
         } else {
             null
         }
@@ -1674,7 +1682,7 @@ internal fun glowAround(centreX: Float, spanPx: Float, top: Float, bottom: Float
 internal fun Modifier.sweepBloom(highBloom: Boolean, head: androidx.compose.ui.unit.Density.() -> SweepHeadGeometry?): Modifier {
     val shader = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            sharedBloomShader ?: createAgslShader(BloomAgsl).also { sharedBloomShader = it }
+            createAgslShader(BloomAgsl)
         } else {
             null
         }
@@ -1721,7 +1729,7 @@ private fun rememberLegacyWaveModifier(
 
     val shader = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            sharedLegacyShader ?: createAgslShader(LegacyWaveAgsl).also { sharedLegacyShader = it }
+            createAgslShader(LegacyWaveAgsl)
         } else {
             null
         }
@@ -1798,8 +1806,8 @@ private fun rememberLegacyWaveModifier(
 
 private const val WaveCutoff = 0.02f
 
-private const val WaveHeadStepPx = 1.25f
-private const val WaveAmpStep = 0.02f
+private const val WaveHeadStepPx = 3.0f
+private const val WaveAmpStep = 0.03f
 
 private class WaveEffectCache {
     private var lastHead = Int.MIN_VALUE
@@ -2251,9 +2259,14 @@ internal fun KaraokeHead.advance(
     }
 
     val glowNow = glow.floatValue
-    val glowNext =
-        if (nextGlow >= glowNow) nextGlow else glowNow + (nextGlow - glowNow) * 0.12f
-    if (glowNext != glowNow) glow.floatValue = glowNext
+    val decayAlpha = 1f - kotlin.math.exp(-dt * 8f)
+    val rawGlowNext =
+        if (nextGlow >= glowNow) nextGlow else glowNow + (nextGlow - glowNow) * decayAlpha
+    val glowNext = if (nextGlow == 0f && rawGlowNext < 0.002f) 0f else rawGlowNext
+    if (glowNext != glowNow) {
+        glow.floatValue = glowNext
+        moved = true
+    }
 
     if (wordMotion && cellCount > 0) {
         var changed = false
@@ -2541,9 +2554,18 @@ internal fun rememberWordMotionModifier(
             return@drawWithContent
         }
 
-        // record the line's dim and lit text once, then draw slices of that layer for each moving letter
-        textLayer.record {
-            this@drawWithContent.drawContent()
+        // Record with MotionBleed padding on all sides so ascenders, descenders, and overhangs
+        // at negative coordinates are never sliced off when letters rise or swell.
+        val padPx = MotionBleed.roundToPx()
+        val padF = padPx.toFloat()
+        val recordSize = IntSize(
+            (size.width.roundToInt() + padPx * 2).coerceAtLeast(1),
+            (size.height.roundToInt() + padPx * 2).coerceAtLeast(1),
+        )
+        textLayer.record(size = recordSize) {
+            translate(padF, padF) {
+                this@drawWithContent.drawContent()
+            }
         }
 
         var k = 0
@@ -2556,7 +2578,7 @@ internal fun rememberWordMotionModifier(
                 ) e++
                 withTransform({ translate(0f, m.dy[k]) }) {
                     clipRect(m.clipLeft[k], m.clipTop[k], m.clipRight[e], m.clipBottom[k]) {
-                        drawLayer(textLayer)
+                        translate(-padF, -padF) { drawLayer(textLayer) }
                     }
                 }
                 k = e + 1
@@ -2571,7 +2593,7 @@ internal fun rememberWordMotionModifier(
                 }
             }) {
                 clipRect(m.clipLeft[k], m.clipTop[k], m.clipRight[k], m.clipBottom[k]) {
-                    drawLayer(textLayer)
+                    translate(-padF, -padF) { drawLayer(textLayer) }
                 }
             }
             k++

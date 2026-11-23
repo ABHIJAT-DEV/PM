@@ -436,9 +436,10 @@ class QuickPicksViewModel @Inject constructor(
                             ?.let { if (isManualRefresh) it.shuffled() else it }
                             ?: emptyList()
 
-                        val relatedSongs = if (idx == 0 && radioResult?.relatedEndpoint != null) {
+                        val relatedEndpoint = radioResult?.relatedEndpoint
+                        val relatedSongs = if (idx == 0 && relatedEndpoint != null) {
                             withTimeoutOrNull(1_800L) {
-                                YouTube.related(radioResult.relatedEndpoint!!).getOrNull()?.songs
+                                YouTube.related(relatedEndpoint).getOrNull()?.songs
                                     ?.filterExplicit(hideExplicit)
                                     ?.filterVideo(shouldFilterVideos)
                                     ?.filterDuration(minDurationSec)

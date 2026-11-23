@@ -398,7 +398,7 @@ fun MochySyncedLyricsView(
             val swap = romanizationAsMain && rom != null
             val nextLineTimeMs = lines.getOrNull(i + 1)?.time
             line.toMochyEntry(
-                primaryText = if (swap) rom!! else line.line,
+                primaryText = if (swap) rom else line.line,
                 useWords = !swap,
                 nextLineTimeMs = nextLineTimeMs,
             )
@@ -545,7 +545,7 @@ fun MochySyncedLyricsView(
                                 endMs = row.endMs,
                                 positionProvider = positionProvider,
                                 bloom = shaded,
-                                highBloom = style.risesWords,
+                                highBloom = false,
                                 visible = activeInterlude == row.afterIndex,
                                 collapseEasing = recenterEasingFor(cascade),
                                 alignment = entries.getOrNull(row.afterIndex + 1)
@@ -582,8 +582,8 @@ fun MochySyncedLyricsView(
                                 alignment = alignmentFor(row.entry, useAgentAlignment, mirrored),
                                 waveEnabled = shaded && !suppressEffects,
                                 motionStyle = style,
-                                // Style 1 keeps full 8-tap bloom; Style 2 uses 4-tap diagonal halo to eliminate shader lag
-                                highBloom = style.risesWords,
+                                // Use 4-tap diagonal halo on both Style 1 and Style 2 for smooth 60-120fps GPU shader rendering
+                                highBloom = false,
                                 blend = blend,
                                 fontSize = textSizeSp.sp,
                                 lineHeightMultiplier = lineSpacing,

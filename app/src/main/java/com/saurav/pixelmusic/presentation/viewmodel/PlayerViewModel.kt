@@ -6942,9 +6942,10 @@ private fun preCacheLyricsForSongs(songs: List<Song>, sourcePref: LyricsSourcePr
                 }
             }
 
-            if (existingUri != null) {
+            val uri = existingUri
+            if (uri != null) {
                 val overwritten = runCatching {
-                    resolver.openOutputStream(existingUri!!, "wt")?.use { out ->
+                    resolver.openOutputStream(uri, "wt")?.use { out ->
                         out.write(bytes)
                         out.flush()
                     } != null

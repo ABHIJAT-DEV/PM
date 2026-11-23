@@ -828,8 +828,8 @@ private fun AboutUpdateActionPill(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (!fin?.versionName.isNullOrBlank()) {
-                            "Ready to install · ${fin?.versionName}"
+                        text = if (!fin.versionName.isNullOrBlank()) {
+                            "Ready to install · ${fin.versionName}"
                         } else {
                             "Ready to install"
                         },

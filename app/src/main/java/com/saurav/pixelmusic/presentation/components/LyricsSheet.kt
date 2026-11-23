@@ -2058,7 +2058,6 @@ private fun LyricsTrackInfo(
             model = song.albumArtUriString ?: R.drawable.rounded_album_24,
             shape = albumShape,
             contentDescription = "Cover Art",
-            useMemoryCache = false,
             modifier = Modifier
                 .size(66.dp)
                 .padding(6.dp)

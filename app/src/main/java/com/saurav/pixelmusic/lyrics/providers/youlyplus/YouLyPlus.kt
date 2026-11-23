@@ -136,9 +136,10 @@ object YouLyPlus {
             val lineTime = item.time ?: 0L
             val isBg = item.syllabus?.any { it.isBackground == true } == true
             val lineTimestamp = formatTime(lineTime)
+            val singer = item.element?.singer
             val marker = when {
                 isBg -> "{bg}"
-                !item.element?.singer.isNullOrBlank() -> "{agent:${item.element?.singer}}"
+                !singer.isNullOrBlank() -> "{agent:$singer}"
                 else -> ""
             }
 
