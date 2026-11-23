@@ -61,7 +61,7 @@ android {
         // makes the system language picker offer languages we have no strings for.
         localeFilters.addAll(
             listOf(
-                "en", "ar", "bn", "de", "es", "fr", "hi", "in",
+                "en", "bn", "de", "es", "fr", "hi", "in",
                 "it", "ja", "ko", "nb", "pt", "ru", "tr", "vi",
                 "zh-rCN", "zh-rTW"
             )

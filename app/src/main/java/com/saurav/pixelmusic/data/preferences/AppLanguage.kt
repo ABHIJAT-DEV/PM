@@ -21,7 +21,6 @@ enum class AppLanguage(val tag: String, @StringRes val labelRes: Int) {
     BENGALI("bn", R.string.setcat_language_bengali),
     JAPANESE("ja", R.string.setcat_language_japanese),
     PORTUGUESE("pt", R.string.setcat_language_portuguese),
-    ARABIC("ar", R.string.setcat_language_arabic),
     TURKISH("tr", R.string.setcat_language_turkish),
     VIETNAMESE("vi", R.string.setcat_language_vietnamese);
 
