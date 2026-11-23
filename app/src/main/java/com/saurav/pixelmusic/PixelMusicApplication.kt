@@ -287,35 +287,39 @@ NewPipe.init(object : Downloader() {
     @Suppress("DEPRECATION")
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        trimUiMemory(level)
+    }
 
+    /**
+     * Central UI-only memory cleanup invoked when the app UI hides or system memory is low.
+     * Clears blur caches, glass backdrops, image memory cache, and idle UI buffers without
+     * ever touching audio playback or DSP output.
+     */
+    @Suppress("DEPRECATION")
+    private fun trimUiMemory(level: Int) {
         imageLoader.get().memoryCache?.trimMemory(level)
 
-        if (
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE ||
+        val isUiHidden = level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+        val isModerateOrHigher = level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE ||
             level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
-            level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
-        ) {
+            isUiHidden
+        val isLowOrHidden = level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
+            isUiHidden
+
+        if (isModerateOrHigher) {
             themeStateHolder.get().trimMemory(level)
         }
 
-        if (
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
-            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
-            level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
-        ) {
+        if (isLowOrHidden) {
+            com.saurav.pixelmusic.ui.blur.GlassBackdropRegistry.discardAll()
+            com.saurav.pixelmusic.ui.blur.BlurEffectCache.clear()
+            imageLoader.get().memoryCache?.clear()
             artistImageRepository.get().clearCache()
             MediaMetadataRetrieverPool.clear()
-            imageLoader.get().memoryCache?.clear()
         }
 
         libraryStateHolder.get().trimMemory(level)
-
-        if (
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
-            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
-        ) {
-            imageLoader.get().memoryCache?.clear()
-        }
     }
 
     // 3. Sobrescribe el método para proveer la configuración de WorkManager

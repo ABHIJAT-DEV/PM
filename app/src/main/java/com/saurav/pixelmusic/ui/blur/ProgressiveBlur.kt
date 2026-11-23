@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
@@ -65,7 +66,9 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import java.util.Collections
 import java.util.Locale
+import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -94,6 +97,7 @@ val LocalScreenGlassState = compositionLocalOf<GlassState?> { null }
 
 object BlurEffectCache {
     private val composeCache = ConcurrentHashMap<Int, RenderEffect>()
+    private val nativeCache = ConcurrentHashMap<Int, android.graphics.RenderEffect>()
 
     fun get(
         radius: Float,
@@ -127,12 +131,47 @@ object BlurEffectCache {
         radius <= 64f -> 2.0f
         else -> 4.0f
     }
+
+    /** Drops cached native render effects when the UI hides so Skia filters aren't pinned in RAM. */
+    fun clear() {
+        composeCache.clear()
+        nativeCache.clear()
+    }
+}
+
+/** Tracks live [GlassState] instances weakly so backgrounding/trim can drop all recorded GPU backdrops at once. */
+object GlassBackdropRegistry {
+    private val states = Collections.newSetFromMap(WeakHashMap<GlassState, Boolean>())
+
+    internal fun register(state: GlassState) {
+        synchronized(states) { states.add(state) }
+    }
+
+    fun discardAll() {
+        val snapshot = synchronized(states) { states.toList() }
+        snapshot.forEach { it.discard() }
+    }
 }
 
 @Stable
 class GlassState {
     var renderNode by mutableStateOf<Any?>(null)
     var rootPosition by mutableStateOf(Offset.Zero)
+
+    init {
+        GlassBackdropRegistry.register(this)
+    }
+
+    /** Drops the recorded screen display list when the window hides so GPU textures can be reclaimed. */
+    fun discard() {
+        val node = renderNode ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) glassNodeDiscard(node)
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun glassNodeDiscard(node: Any) {
+    (node as RenderNode).discardDisplayList()
 }
 
 @RequiresApi(Build.VERSION_CODES.Q)
@@ -274,8 +313,9 @@ private class BandPlan {
         val ks = IntArray(MaxBands)
         count = 1
         starts[0] = 0f
-        ks[0] = glassDownscale(0f, low)
-        for (step in StepRadii) {
+        // Low quality draws the whole ramp at the resolution its strongest end needs: one capture
+        ks[0] = glassDownscale(if (low) radius else 0f, low)
+        if (!low) for (step in StepRadii) {
             if (count == MaxBands || step >= radius) break
             val k = glassDownscale(step, low)
             if (k == ks[count - 1]) continue
@@ -358,8 +398,11 @@ internal fun ProgressiveBlurBands(
     val currentOffscreen by rememberUpdatedState(offscreen)
     val currentDraw by rememberUpdatedState(draw)
     val low = LocalBlurQuality.current == BlurQuality.LOW
-    val layers = arrayOf(rememberGraphicsLayer(), rememberGraphicsLayer(), rememberGraphicsLayer())
-    val frames = arrayOf(rememberGraphicsLayer(), rememberGraphicsLayer(), rememberGraphicsLayer())
+    // Low quality only ever uses one band, so skip allocating four idle graphics layers
+    val layer0 = rememberGraphicsLayer()
+    val frame0 = rememberGraphicsLayer()
+    val layers = if (low) arrayOf(layer0) else arrayOf(layer0, rememberGraphicsLayer(), rememberGraphicsLayer())
+    val frames = if (low) arrayOf(frame0) else arrayOf(frame0, rememberGraphicsLayer(), rememberGraphicsLayer())
     val plan = remember { BandPlan() }
     val effects = remember { Array(MaxBands) { BandEffect() } }
 
@@ -740,7 +783,13 @@ fun ProgressiveGlassBackground(
  * falls back to a smooth multi-stop progressive scrim.
  */
 @Composable
-fun rememberGlassState(): GlassState = remember { GlassState() }
+fun rememberGlassState(): GlassState {
+    val state = remember { GlassState() }
+    DisposableEffect(state) {
+        onDispose { state.discard() }
+    }
+    return state
+}
 
 @Composable
 fun ProgressiveHeaderBackdrop(

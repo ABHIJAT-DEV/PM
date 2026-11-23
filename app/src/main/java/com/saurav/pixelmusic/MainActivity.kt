@@ -1580,6 +1580,9 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         LogUtils.d(this, "onStop")
+        // Drop recorded glass/blur backdrops and cached blur effects so the GPU can free those textures in the background
+        com.saurav.pixelmusic.ui.blur.GlassBackdropRegistry.discardAll()
+        com.saurav.pixelmusic.ui.blur.BlurEffectCache.clear()
         mediaControllerFuture?.let {
             MediaController.releaseFuture(it)
             mediaControllerFuture = null

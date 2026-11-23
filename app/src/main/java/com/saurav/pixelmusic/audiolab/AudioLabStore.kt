@@ -182,14 +182,20 @@ class AudioLabStore @Inject constructor(
     private val _reverb = MutableStateFlow(load("reverb") ?: ReverbSettings())
     val reverb: StateFlow<ReverbSettings> = _reverb.asStateFlow()
 
-    private val _presets = MutableStateFlow(load<List<EqPreset>>("presets") ?: emptyList())
+    private val _presets = MutableStateFlow(
+        loadWithSerializer("presets", kotlinx.serialization.builtins.ListSerializer(EqPreset.serializer())) ?: emptyList()
+    )
     val presets: StateFlow<List<EqPreset>> = _presets.asStateFlow()
 
-    private val _fxPresets = MutableStateFlow(load<List<FxPreset>>("fx_presets") ?: emptyList())
+    private val _fxPresets = MutableStateFlow(
+        loadWithSerializer("fx_presets", kotlinx.serialization.builtins.ListSerializer(FxPreset.serializer())) ?: emptyList()
+    )
     val fxPresets: StateFlow<List<FxPreset>> = _fxPresets.asStateFlow()
 
     private val _fxPresetId = MutableStateFlow(
-        prefs.getString("fx_preset_id", null)?.takeIf { id -> _fxPresets.value.any { it.id == id } }
+        prefs.getString("fx_preset_id", null)?.takeIf { id ->
+            FxPresets.isBuiltIn(id) || _fxPresets.value.any { it.id == id }
+        }
     )
     val fxPresetId: StateFlow<String?> = _fxPresetId.asStateFlow()
 
@@ -344,11 +350,13 @@ class AudioLabStore @Inject constructor(
         val preset = currentFx("fx_${System.currentTimeMillis()}", name.trim())
         _fxPresets.update { it + preset }
         _fxPresetId.value = preset.id
-        scheduleSave()
+        saveNow()
     }
 
     fun applyFxPreset(id: String) {
-        val preset = _fxPresets.value.firstOrNull { it.id == id } ?: return
+        val preset = _fxPresets.value.firstOrNull { it.id == id }
+            ?: FxPresets.BuiltIn.firstOrNull { it.id == id }
+            ?: return
         _reverb.value = preset.reverb
         _eightD.value = preset.eightD.normalized()
         _loudness.value = preset.loudness
@@ -356,26 +364,29 @@ class AudioLabStore @Inject constructor(
         _playback.value = preset.playback.let { it.copy(speed = it.speed.coerceIn(MinSpeed, MaxSpeed)) }
         _volume.value = preset.volume
         _stage.value = preset.stage.copy(outputKinds = _stage.value.outputKinds)
+        if (_stage.value.enabled) loadHrtf()
         _fxPresetId.value = id
         pushFx()
-        scheduleSave()
+        saveNow()
     }
 
     fun releaseFxPreset() {
         if (_fxPresetId.value == null) return
         _fxPresetId.value = null
-        scheduleSave()
+        saveNow()
     }
 
     fun renameFxPreset(id: String, name: String) {
+        if (FxPresets.isBuiltIn(id)) return
         _fxPresets.update { list -> list.map { if (it.id == id) it.copy(name = name.trim()) else it } }
-        scheduleSave()
+        saveNow()
     }
 
     fun deleteFxPreset(id: String) {
+        if (FxPresets.isBuiltIn(id)) return
         _fxPresets.update { list -> list.filterNot { it.id == id } }
         if (_fxPresetId.value == id) _fxPresetId.value = null
-        scheduleSave()
+        saveNow()
     }
 
     private fun currentFx(id: String, name: String) = FxPreset(
@@ -392,6 +403,10 @@ class AudioLabStore @Inject constructor(
 
     private fun saveIntoFxPreset() {
         val id = _fxPresetId.value ?: return
+        if (FxPresets.isBuiltIn(id)) {
+            _fxPresetId.value = null
+            return
+        }
         _fxPresets.update { list -> list.map { if (it.id == id) currentFx(it.id, it.name) else it } }
     }
 
@@ -457,31 +472,40 @@ class AudioLabStore @Inject constructor(
         if (curve != audioFx.volumeCurve) audioFx.volumeCurve = curve
     }
 
+    private fun saveNow() {
+        saveJob?.cancel()
+        saveJob = scope.launch { persistAll() }
+    }
+
     private fun scheduleSave() {
         saveJob?.cancel()
         saveJob = scope.launch {
             delay(400)
-            prefs.edit {
-                putString("eq", json.encodeToString(EqSettings.serializer(), _eq.value))
-                putString("reverb", json.encodeToString(ReverbSettings.serializer(), _reverb.value))
-                putString("loudness", json.encodeToString(LoudnessSettings.serializer(), _loudness.value))
-                putString("spatial", json.encodeToString(SpatialSettings.serializer(), _spatial.value))
-                putString("eight_d", json.encodeToString(EightDSettings.serializer(), _eightD.value))
-                putString("playback", json.encodeToString(PlaybackSettings.serializer(), _playback.value))
-                putString("volume", json.encodeToString(VolumeSettings.serializer(), _volume.value))
-                putString("normalize", json.encodeToString(NormalizeSettings.serializer(), _normalize.value))
-                putString("stage", json.encodeToString(StageSettings.serializer(), _stage.value))
-                putString(
-                    "presets",
-                    json.encodeToString(kotlinx.serialization.builtins.ListSerializer(EqPreset.serializer()), _presets.value),
-                )
-                putString(
-                    "fx_presets",
-                    json.encodeToString(kotlinx.serialization.builtins.ListSerializer(FxPreset.serializer()), _fxPresets.value),
-                )
-                val fxPresetId = _fxPresetId.value
-                if (fxPresetId != null) putString("fx_preset_id", fxPresetId) else remove("fx_preset_id")
-            }
+            persistAll()
+        }
+    }
+
+    private fun persistAll() {
+        prefs.edit {
+            putString("eq", json.encodeToString(EqSettings.serializer(), _eq.value))
+            putString("reverb", json.encodeToString(ReverbSettings.serializer(), _reverb.value))
+            putString("loudness", json.encodeToString(LoudnessSettings.serializer(), _loudness.value))
+            putString("spatial", json.encodeToString(SpatialSettings.serializer(), _spatial.value))
+            putString("eight_d", json.encodeToString(EightDSettings.serializer(), _eightD.value))
+            putString("playback", json.encodeToString(PlaybackSettings.serializer(), _playback.value))
+            putString("volume", json.encodeToString(VolumeSettings.serializer(), _volume.value))
+            putString("normalize", json.encodeToString(NormalizeSettings.serializer(), _normalize.value))
+            putString("stage", json.encodeToString(StageSettings.serializer(), _stage.value))
+            putString(
+                "presets",
+                json.encodeToString(kotlinx.serialization.builtins.ListSerializer(EqPreset.serializer()), _presets.value),
+            )
+            putString(
+                "fx_presets",
+                json.encodeToString(kotlinx.serialization.builtins.ListSerializer(FxPreset.serializer()), _fxPresets.value),
+            )
+            val fxPresetId = _fxPresetId.value
+            if (fxPresetId != null) putString("fx_preset_id", fxPresetId) else remove("fx_preset_id")
         }
     }
 
@@ -500,6 +524,13 @@ class AudioLabStore @Inject constructor(
             .onFailure { e -> Timber.tag("AudioLab").w(e, "Couldn't read saved $key") }
             .getOrNull()
     }
+
+    private fun <T> loadWithSerializer(key: String, serializer: kotlinx.serialization.KSerializer<T>): T? =
+        prefs.getString(key, null)?.let {
+            runCatching { json.decodeFromString(serializer, it) }
+                .onFailure { e -> Timber.tag("AudioLab").w(e, "Couldn't read saved $key") }
+                .getOrNull()
+        }
 
     private fun migrateLegacyEqualizer() {
         if (prefs.getBoolean("migrated_legacy_eq", false)) return

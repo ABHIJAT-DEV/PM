@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.audiolab.FxPreset
+import com.saurav.pixelmusic.audiolab.FxPresets
 import com.saurav.pixelmusic.presentation.viewmodel.AudioLabViewModel
 
 @Composable
@@ -64,11 +65,24 @@ internal fun FxPresetsSection(viewModel: AudioLabViewModel) {
         }
     }
     Spacer(Modifier.height(10.dp))
+    val allChips = remember(presets) {
+        FxPresets.BuiltIn.map { LabChip(it.id, it.name) } + presets.map { LabChip(it.id, it.name) }
+    }
     LabChips(
-        chips = presets.map { LabChip(it.id, it.name) },
+        chips = allChips,
         selectedKey = pickedId,
-        onSelect = { id -> if (id == pickedId) viewModel.releaseFxPreset() else viewModel.applyFxPreset(id) },
-        onLongPress = { id -> editing = presets.firstOrNull { it.id == id } },
+        onSelect = { id ->
+            if (id == pickedId && !FxPresets.isBuiltIn(id)) {
+                viewModel.releaseFxPreset()
+            } else {
+                viewModel.applyFxPreset(id)
+            }
+        },
+        onLongPress = { id ->
+            if (!FxPresets.isBuiltIn(id)) {
+                editing = presets.firstOrNull { it.id == id }
+            }
+        },
         leading = {
             AddFxPresetButton { creating = true }
         },
