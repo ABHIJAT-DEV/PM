@@ -120,7 +120,10 @@ object MochyLyricsParser {
             i++
         }
 
-        val sortedSynced = synced.sortedBy { it.time }.takeIf { it.isNotEmpty() }
+        val isFlatSameTime = synced.size >= 2 &&
+            synced.none { !it.words.isNullOrEmpty() } &&
+            synced.all { it.time == synced.first().time }
+        val sortedSynced = if (isFlatSameTime) null else synced.sortedBy { it.time }.takeIf { it.isNotEmpty() }
         val finalPlain = plain.takeIf { it.isNotEmpty() }
         return Lyrics(
             plain = finalPlain,
@@ -128,6 +131,32 @@ object MochyLyricsParser {
             areFromRemote = areFromRemote,
             providerName = providerName,
         )
+    }
+
+    /**
+     * Returns true when [rawLrc] has real progressing timestamps (at least two distinct line
+     * timestamps, or a single timed line), rejecting broken LRCs where every line is `[00:00.00]`.
+     */
+    fun hasUsableSyncedLyrics(rawLrc: String?): Boolean {
+        if (rawLrc.isNullOrBlank()) return false
+        var firstMs: Int? = null
+        var count = 0
+        for (rawLine in rawLrc.lineSequence()) {
+            val match = LineTagRegex.matchEntire(rawLine.trim()) ?: continue
+            if (match.groupValues[4].trim().isEmpty()) continue
+            val ms = parseTimestampMs(
+                match.groupValues[1],
+                match.groupValues[2],
+                match.groupValues[3],
+            )
+            count++
+            if (firstMs == null) {
+                firstMs = ms
+            } else if (ms != firstMs) {
+                return true
+            }
+        }
+        return count == 1
     }
 
     private fun parseSidecarWords(inner: String): List<SyncedWord> {

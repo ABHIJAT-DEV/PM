@@ -249,7 +249,11 @@ object LyricsUtils {
             }
         }
 
-        return if (isSynced && syncedLines.isNotEmpty()) {
+        val isFlatSameTime = syncedLines.size >= 2 &&
+            syncedLines.none { !it.words.isNullOrEmpty() } &&
+            syncedLines.all { it.time == syncedLines.first().time }
+
+        return if (isSynced && syncedLines.isNotEmpty() && !isFlatSameTime) {
             val sortedSyncedLines = syncedLines.sortedBy { it.time }
             val pairedLines = pairTranslationLines(sortedSyncedLines).map { line ->
 
@@ -274,7 +278,8 @@ object LyricsUtils {
             }
             Lyrics(synced = pairedLines, plain = plainVersion)
         } else {
-            val processedPlain = plainLines.map { line ->
+            val rawPlain = if (isFlatSameTime && plainLines.isEmpty()) syncedLines.map { it.line } else plainLines
+            val processedPlain = rawPlain.map { line ->
                 val romanized = when {
                     MultiLangRomanizer.isJapanese(line) -> MultiLangRomanizer.romanizeJapanese(line)
                     MultiLangRomanizer.isChinese(line) -> MultiLangRomanizer.romanizeChinese(line)

@@ -13,10 +13,13 @@ data class Track(
     val syncedLyrics: String?,
 )
 
+private val Track.hasRealSyncedLyrics: Boolean
+    get() = com.saurav.pixelmusic.lyrics.MochyLyricsParser.hasUsableSyncedLyrics(syncedLyrics)
+
 internal fun List<Track>.bestMatchingFor(duration: Int): Track? {
     if (isEmpty()) return null
     if (duration == -1) {
-        return firstOrNull { it.syncedLyrics != null } ?: firstOrNull()
+        return firstOrNull { it.hasRealSyncedLyrics } ?: firstOrNull { it.syncedLyrics != null } ?: firstOrNull()
     }
     return minByOrNull { abs(it.duration.toInt() - duration) }
         ?.takeIf { abs(it.duration.toInt() - duration) <= 2 }
@@ -25,9 +28,9 @@ internal fun List<Track>.bestMatchingFor(duration: Int): Track? {
 internal fun List<Track>.bestMatchingForRelaxed(duration: Int): Track? {
     if (isEmpty()) return null
     if (duration == -1) {
-        return firstOrNull { it.syncedLyrics != null } ?: firstOrNull()
+        return firstOrNull { it.hasRealSyncedLyrics } ?: firstOrNull { it.syncedLyrics != null } ?: firstOrNull()
     }
-    val syncedMatch = filter { it.syncedLyrics != null }
+    val syncedMatch = filter { it.hasRealSyncedLyrics }
         .minByOrNull { abs(it.duration.toInt() - duration) }
         ?.takeIf { abs(it.duration.toInt() - duration) <= 5 }
     if (syncedMatch != null) return syncedMatch
@@ -45,7 +48,7 @@ internal fun List<Track>.bestMatchingFor(
         if (trackName != null && artistName != null) {
             return findBestMatch(trackName, artistName)
         }
-        return firstOrNull { it.syncedLyrics != null } ?: firstOrNull()
+        return firstOrNull { it.hasRealSyncedLyrics } ?: firstOrNull { it.syncedLyrics != null } ?: firstOrNull()
     }
     return bestMatchingForRelaxed(duration)
 }
@@ -58,7 +61,7 @@ private fun List<Track>.findBestMatch(trackName: String, artistName: String): Tr
         val trackNameSimilarity = calculateSimilarity(normalizedTrackName, track.trackName.trim().lowercase())
         val artistNameSimilarity = calculateSimilarity(normalizedArtistName, track.artistName.trim().lowercase())
         var score = (trackNameSimilarity + artistNameSimilarity) / 2.0
-        if (track.syncedLyrics != null) score += 0.1
+        if (track.hasRealSyncedLyrics) score += 0.1
         score
     }?.takeIf { track ->
         val trackNameSimilarity = calculateSimilarity(normalizedTrackName, track.trackName.trim().lowercase())

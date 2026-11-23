@@ -195,11 +195,14 @@ class LyricsRepositoryImpl @Inject constructor(
                 album = song.album.takeIf { it.isNotBlank() },
                 youtubeId = ytVideoId,
             )
+            var mochyPlainFallback: Lyrics? = null
             if (mochyResult != null && mochyResult.lyrics.isValid()) {
                 val isSynced = !mochyResult.lyrics.synced.isNullOrEmpty()
-                saveToDbAndCache(song, mochyResult.rawLrc, isSynced = isSynced)
                 if (isSynced) {
+                    saveToDbAndCache(song, mochyResult.rawLrc, isSynced = true)
                     return@withContext mochyResult.lyrics
+                } else {
+                    mochyPlainFallback = mochyResult.lyrics
                 }
             }
 
@@ -231,9 +234,10 @@ class LyricsRepositoryImpl @Inject constructor(
                     }
                 }
             }
-            if (fallbackPlainResult != null) {
-                saveToDbAndCache(song, lyricsToRawContent(fallbackPlainResult) ?: "", isSynced = false)
-                return@withContext fallbackPlainResult
+            val plainToSave = fallbackPlainResult ?: mochyPlainFallback
+            if (plainToSave != null) {
+                saveToDbAndCache(song, lyricsToRawContent(plainToSave) ?: "", isSynced = false)
+                return@withContext plainToSave
             }
             return@withContext null
         } catch (e: Exception) {

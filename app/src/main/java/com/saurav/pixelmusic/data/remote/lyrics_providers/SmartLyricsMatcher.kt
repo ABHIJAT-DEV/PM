@@ -155,7 +155,7 @@ class SmartLyricsMatcher(private val client: OkHttpClient) {
         val results = runCatching { providerService.lrcLibAPI.searchCandidates(query) }.getOrDefault(emptyList())
 
         return results
-            .filter { !it.syncedLyrics.isNullOrBlank() }
+            .filter { com.saurav.pixelmusic.lyrics.MochyLyricsParser.hasUsableSyncedLyrics(it.syncedLyrics) }
             .map { r ->
                 val pr = ProviderResult(r.name, r.artistName, r.duration, r.albumName, true)
                 ScoredHit(Providers.LRCLIB, cand.strategy, pr, scoreHitAgainstViews(local, pr, cand), r.syncedLyrics, null)
