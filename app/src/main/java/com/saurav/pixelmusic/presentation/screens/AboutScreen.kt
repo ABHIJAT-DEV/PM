@@ -809,6 +809,7 @@ private fun AboutUpdateActionPill(
             }
             "FINISHED" -> {
                 val fin = downloadState as? InAppUpdater.GlobalDownloadState.Finished
+                val versionName = fin?.versionName
                 Button(
                     onClick = onClick,
                     modifier = Modifier
@@ -828,8 +829,8 @@ private fun AboutUpdateActionPill(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (!fin.versionName.isNullOrBlank()) {
-                            "Ready to install · ${fin.versionName}"
+                        text = if (!versionName.isNullOrBlank()) {
+                            "Ready to install · $versionName"
                         } else {
                             "Ready to install"
                         },
