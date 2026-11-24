@@ -770,12 +770,12 @@ fun LyricsSheet(
 
                     true -> {
                         val activeLyricsStyle by remember(context) {
-                            com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.styleFlow(context)
+                            com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.styleFlow(context)
                         }.collectAsStateWithLifecycle(
-                            initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.MOTION
+                            initialValue = com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle.MOTION
                         )
                         lyrics?.synced?.let { synced ->
-                            if (activeLyricsStyle == com.saurav.pixelmusic.lyrics.MochyLyricsStyle.PIXELMUSIC) {
+                            if (activeLyricsStyle == com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle.PIXELMUSIC) {
                                 SyncedLyricsList(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -808,8 +808,8 @@ fun LyricsSheet(
                                     showTranslation = showLyricsTranslation,
                                     showRomanization = showLyricsRomanization,
                                     footer = {
-                                        item(key = "mochy_source_footer_pixelmusic") {
-                                            com.saurav.pixelmusic.presentation.components.lyrics.MochySourceFooter(
+                                        item(key = "pixelmusic_source_footer_pixelmusic") {
+                                            com.saurav.pixelmusic.presentation.components.lyrics.PixelMusicSourceFooter(
                                                 providerName = lyrics?.providerName,
                                                 contentColor = contentColor,
                                             )
@@ -817,7 +817,7 @@ fun LyricsSheet(
                                     }
                                 )
                             } else {
-                                com.saurav.pixelmusic.presentation.components.lyrics.MochySyncedLyricsView(
+                                com.saurav.pixelmusic.presentation.components.lyrics.PixelMusicSyncedLyricsView(
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
                                     lines = synced,

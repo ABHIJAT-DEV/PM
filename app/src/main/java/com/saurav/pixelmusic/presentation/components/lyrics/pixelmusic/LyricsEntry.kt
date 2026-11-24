@@ -1,6 +1,6 @@
 // LyricsEntry.kt
 
-package com.saurav.pixelmusic.presentation.components.lyrics.mochy
+package com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic
 
 import kotlinx.coroutines.flow.MutableStateFlow
 

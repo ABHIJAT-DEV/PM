@@ -1,7 +1,7 @@
-// MochyShims.kt
-// The few small helpers Mochy's lyric renderer leans on that live outside its lyric files.
+// PixelMusicShims.kt
+// The few small helpers PixelMusic's lyric renderer leans on that live outside its lyric files.
 
-package com.saurav.pixelmusic.presentation.components.lyrics.mochy
+package com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic
 
 import android.graphics.RenderNode
 import android.os.Build
@@ -20,10 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
-import com.saurav.pixelmusic.lyrics.MochyLyricsStyle
+import com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle
 
-/** Mochy's name for the four animated lyric styles; PixelMusic's own enum carries them. */
-typealias LyricsMotionStyle = MochyLyricsStyle
+/** PixelMusic's name for the four animated lyric styles; PixelMusic's own enum carries them. */
+typealias LyricsMotionStyle = PixelMusicLyricsStyle
 
 /** Left edge of the lyric text, level with the player's content edge. */
 val LyricsHeaderArtX = 24.dp
@@ -78,7 +78,7 @@ private fun android.graphics.Canvas.drawDamageNode(node: Any) {
 
 /**
  * Keeps whatever animates inside this from counting as a change to the rest of the screen.
- * Ported verbatim from Mochy's GlassKit.kt.
+ * Ported verbatim from PixelMusic's GlassKit.kt.
  */
 fun Modifier.damageBoundary(): Modifier =
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -108,7 +108,7 @@ fun Modifier.damageBoundary(): Modifier =
             .graphicsLayer()
     }
 
-/** The colour of the sung words. Mochy draws them white; PixelMusic hands in its own content colour. */
+/** The colour of the sung words. PixelMusic draws them white; PixelMusic hands in its own content colour. */
 val LocalLyricsHighlight = androidx.compose.runtime.compositionLocalOf { Color.White }
 
 // the lyrics page's recenter scroll; the instrumental dots collapse on the same curve

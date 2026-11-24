@@ -91,7 +91,7 @@ android {
                 "**/libffmpegJNI.so",
                 "**/libquickjs.so",
                 "**/libtaglib.so",
-                "**/libmochystage.so"
+                "**/libpixelmusicstage.so"
             )
         }
     }

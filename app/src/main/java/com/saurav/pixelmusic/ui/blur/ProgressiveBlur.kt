@@ -777,7 +777,7 @@ fun ProgressiveGlassBackground(
 }
 
 /**
- * Drop-in progressive top header blur overlay (Mochy style) that works seamlessly in both
+ * Drop-in progressive top header blur overlay (PixelMusic style) that works seamlessly in both
  * light and dark themes. When a [GlassState] is attached to the scrolling body underneath,
  * it renders a real progressive AGSL/RenderNode backdrop blur; otherwise it gracefully
  * falls back to a smooth multi-stop progressive scrim.

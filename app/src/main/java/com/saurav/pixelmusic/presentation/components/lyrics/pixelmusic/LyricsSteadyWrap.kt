@@ -1,6 +1,6 @@
 // LyricsSteadyWrap.kt
 
-package com.saurav.pixelmusic.presentation.components.lyrics.mochy
+package com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic
 
 import android.util.LruCache
 import androidx.compose.runtime.Composable

@@ -1,6 +1,6 @@
 // LyricsStagger.kt
 
-package com.saurav.pixelmusic.presentation.components.lyrics.mochy
+package com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableIntStateOf

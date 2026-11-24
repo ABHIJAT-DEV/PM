@@ -23,7 +23,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.Locale
 
-data class MochyLyricsResult(
+data class PixelMusicLyricsResult(
     val lyrics: Lyrics,
     val rawLrc: String,
     val providerId: String,
@@ -31,19 +31,19 @@ data class MochyLyricsResult(
 )
 
 /**
- * Multi-provider lyrics engine ported from Mochy 8.4.4: queries BetterLyrics (Apple Music TTML),
+ * Multi-provider lyrics engine ported from PixelMusic 8.4.4: queries BetterLyrics (Apple Music TTML),
  * Unison, YouLyPlus, Paxsenix, lrc.red, SimpMusic, LrcLib, Deezer, NetEase, QQ Music, and KuGou
  * in parallel and grades candidates by script, timing, features (duet > word timing > backing vocals),
  * and user provider order (or provider order first when LyricsOrderOverrideKey is enabled).
  */
-object MochyLyricsEngine {
+object PixelMusicLyricsEngine {
 
     enum class SyncKind { NONE, PLAIN, LINE, WORD }
 
     enum class Script { LATIN, HAN, KANA, HANGUL, CYRILLIC, ARABIC, DEVANAGARI, THAI, GREEK, HEBREW, UNKNOWN }
 
     data class GradedCandidate(
-        val result: MochyLyricsResult,
+        val result: PixelMusicLyricsResult,
         val order: Int,
         val sync: SyncKind,
         val script: Script,
@@ -54,7 +54,7 @@ object MochyLyricsEngine {
     )
 
     fun effectiveProviderOrder(orderString: String, preferredProviderId: String? = null): List<String> =
-        MochyLyricsPreferences.effectiveProviderOrder(orderString, preferredProviderId)
+        PixelMusicLyricsPreferences.effectiveProviderOrder(orderString, preferredProviderId)
 
     fun getDisplayName(providerId: String): String = when (providerId) {
         "BetterLyrics" -> "Apple Music"
@@ -78,10 +78,10 @@ object MochyLyricsEngine {
         durationSec: Int,
         album: String? = null,
         youtubeId: String? = null,
-    ): MochyLyricsResult? = withContext(Dispatchers.IO) {
-        val order = runCatching { MochyLyricsPreferences.providerOrderFlow(context).first() }
-            .getOrDefault(MochyLyricsPreferences.DefaultProviderOrder)
-        val orderFirst = runCatching { MochyLyricsPreferences.orderOverrideFlow(context).first() }
+    ): PixelMusicLyricsResult? = withContext(Dispatchers.IO) {
+        val order = runCatching { PixelMusicLyricsPreferences.providerOrderFlow(context).first() }
+            .getOrDefault(PixelMusicLyricsPreferences.DefaultProviderOrder)
+        val orderFirst = runCatching { PixelMusicLyricsPreferences.orderOverrideFlow(context).first() }
             .getOrDefault(false)
 
         val candidates = coroutineScope {
@@ -121,7 +121,7 @@ object MochyLyricsEngine {
         durationSec: Int,
         album: String? = null,
         youtubeId: String? = null,
-    ): MochyLyricsResult? = withContext(Dispatchers.IO) {
+    ): PixelMusicLyricsResult? = withContext(Dispatchers.IO) {
         val raw = withTimeoutOrNull(ProviderTimeoutMs) {
             runCatching {
                 when (providerId) {
@@ -155,15 +155,15 @@ object MochyLyricsEngine {
                     else -> null
                 }
             }.onFailure { e ->
-                Timber.tag("MochyLyrics").d(e, "Provider %s missed for %s", providerId, title)
+                Timber.tag("PixelMusicLyrics").d(e, "Provider %s missed for %s", providerId, title)
             }.getOrNull()
         }?.takeIf { it.isNotBlank() } ?: return@withContext null
 
         val displayName = getDisplayName(providerId)
-        val parsed = MochyLyricsParser.parse(raw, providerName = displayName, areFromRemote = true)
+        val parsed = PixelMusicLyricsParser.parse(raw, providerName = displayName, areFromRemote = true)
         if (parsed.synced.isNullOrEmpty() && parsed.plain.isNullOrEmpty()) return@withContext null
 
-        MochyLyricsResult(
+        PixelMusicLyricsResult(
             lyrics = parsed,
             rawLrc = raw,
             providerId = providerId,
@@ -178,9 +178,9 @@ object MochyLyricsEngine {
         durationSec: Int,
         album: String? = null,
         youtubeId: String? = null,
-    ): List<MochyLyricsResult> = coroutineScope {
-        val order = runCatching { MochyLyricsPreferences.providerOrderFlow(context).first() }
-            .getOrDefault(MochyLyricsPreferences.DefaultProviderOrder)
+    ): List<PixelMusicLyricsResult> = coroutineScope {
+        val order = runCatching { PixelMusicLyricsPreferences.providerOrderFlow(context).first() }
+            .getOrDefault(PixelMusicLyricsPreferences.DefaultProviderOrder)
 
         order.map { providerId ->
             async(Dispatchers.IO) {
@@ -189,7 +189,7 @@ object MochyLyricsEngine {
         }.awaitAll().filterNotNull()
     }
 
-    private fun gradeCandidate(res: MochyLyricsResult, order: Int): GradedCandidate? {
+    private fun gradeCandidate(res: PixelMusicLyricsResult, order: Int): GradedCandidate? {
         val synced = res.lyrics.synced
         val sync = when {
             !synced.isNullOrEmpty() -> {

@@ -183,11 +183,11 @@ class LyricsRepositoryImpl @Inject constructor(
         if (cachedJson != null && !cachedJson.synced.isNullOrEmpty()) return@withContext cachedJson
 
         try {
-            // 1. Primary: Mochy 10-provider Lyrics Engine (Apple Music TTML, YouLyPlus, PaxSenix, lrc.red, SimpMusic, LRCLIB, Deezer, NetEase, QQ Music, KuGou)
+            // 1. Primary: PixelMusic 10-provider Lyrics Engine (Apple Music TTML, YouLyPlus, PaxSenix, lrc.red, SimpMusic, LRCLIB, Deezer, NetEase, QQ Music, KuGou)
             val durationSec = if (song.duration > 0) (song.duration / 1000L).toInt() else -1
             val ytVideoId = song.youtubeId?.takeIf { it.length == 11 }
                 ?: song.id.removePrefix("youtube_").takeIf { it.length == 11 }
-            val mochyResult = com.saurav.pixelmusic.lyrics.MochyLyricsEngine.fetchBestLyrics(
+            val pixelmusicResult = com.saurav.pixelmusic.lyrics.PixelMusicLyricsEngine.fetchBestLyrics(
                 context = context,
                 title = song.title,
                 artist = song.displayArtist,
@@ -195,14 +195,14 @@ class LyricsRepositoryImpl @Inject constructor(
                 album = song.album.takeIf { it.isNotBlank() },
                 youtubeId = ytVideoId,
             )
-            var mochyPlainFallback: Lyrics? = null
-            if (mochyResult != null && mochyResult.lyrics.isValid()) {
-                val isSynced = !mochyResult.lyrics.synced.isNullOrEmpty()
+            var pixelmusicPlainFallback: Lyrics? = null
+            if (pixelmusicResult != null && pixelmusicResult.lyrics.isValid()) {
+                val isSynced = !pixelmusicResult.lyrics.synced.isNullOrEmpty()
                 if (isSynced) {
-                    saveToDbAndCache(song, mochyResult.rawLrc, isSynced = true)
-                    return@withContext mochyResult.lyrics
+                    saveToDbAndCache(song, pixelmusicResult.rawLrc, isSynced = true)
+                    return@withContext pixelmusicResult.lyrics
                 } else {
-                    mochyPlainFallback = mochyResult.lyrics
+                    pixelmusicPlainFallback = pixelmusicResult.lyrics
                 }
             }
 
@@ -234,7 +234,7 @@ class LyricsRepositoryImpl @Inject constructor(
                     }
                 }
             }
-            val plainToSave = fallbackPlainResult ?: mochyPlainFallback
+            val plainToSave = fallbackPlainResult ?: pixelmusicPlainFallback
             if (plainToSave != null) {
                 saveToDbAndCache(song, lyricsToRawContent(plainToSave) ?: "", isSynced = false)
                 return@withContext plainToSave

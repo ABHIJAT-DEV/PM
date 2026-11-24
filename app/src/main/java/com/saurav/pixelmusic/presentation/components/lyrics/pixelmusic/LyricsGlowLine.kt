@@ -1,6 +1,6 @@
 // LyricsGlowLine.kt
 
-package com.saurav.pixelmusic.presentation.components.lyrics.mochy
+package com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic
 
 import android.os.Build
 import androidx.compose.animation.core.CubicBezierEasing
@@ -66,11 +66,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsEntry
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.agslRenderEffect
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.createAgslShader
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.damageBoundary
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.setAgslUniform
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsEntry
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.agslRenderEffect
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.createAgslShader
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.damageBoundary
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.setAgslUniform
 
 enum class LyricsLineState { ACTIVE, UPCOMING, PAST, DEFAULT }
 
@@ -78,8 +78,8 @@ enum class LyricsLineState { ACTIVE, UPCOMING, PAST, DEFAULT }
  * Which side of the screen a line sits on.
  *
  * Word-synced providers mark duet and call-and-response lines with `{agent:v1}` / `{agent:v2}`,
- * which LyricsUtils has always parsed into [com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsEntry.agent]. Until
- * now only the three unused renderers (MetroLyrics, MochyLyrics, LyricsV2) did anything with it,
+ * which LyricsUtils has always parsed into [com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsEntry.agent]. Until
+ * now only the three unused renderers (MetroLyrics, PixelMusicLyrics, LyricsV2) did anything with it,
  * so in the live player every voice rendered flush left and duets were impossible to follow.
  */
 enum class LyricsAlignment { START, CENTER, END }
@@ -121,7 +121,7 @@ private val BlurEffectCache: Array<androidx.compose.ui.graphics.RenderEffect?> =
 // a lyric line's or a note's own blur, so it goes with element blur switched off
 internal fun blurEffectForRadius(radius: Float): androidx.compose.ui.graphics.RenderEffect? {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || radius <= 0.05f) return null
-    if (!com.saurav.pixelmusic.presentation.components.lyrics.mochy.AppMotion.elementBlur) return null
+    if (!com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.AppMotion.elementBlur) return null
     val step = (radius / BlurQuantStepPx).roundToInt().coerceIn(1, BlurEffectCache.lastIndex)
     BlurEffectCache[step]?.let { return it }
     val quantised = step * BlurQuantStepPx
@@ -227,7 +227,7 @@ fun LyricsGlowLine(
     alignment: LyricsAlignment = LyricsAlignment.START,
 
     /** Per-word readings drawn against the line, furigana style. */
-    ruby: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.RubyToken>? = null,
+    ruby: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.RubyToken>? = null,
 
     /**
      * Which side the readings sit on. Below by default; the caller moves them above when a
@@ -249,8 +249,8 @@ fun LyricsGlowLine(
     translationAbove: Boolean = false,
 
     /** style 1 or boring (words rise, held notes swell), or style 2 or plain (the original wave) */
-    motionStyle: com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsMotionStyle =
-        com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsMotionStyle.MOTION,
+    motionStyle: com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsMotionStyle =
+        com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsMotionStyle.MOTION,
 
     /** Holding the line: the lyrics page opens sharing with it. */
     onLongClick: (() -> Unit)? = null,
@@ -270,17 +270,17 @@ fun LyricsGlowLine(
 
     // every ease below starts only when its target changes, so the page's lines mount without six coroutines each
     val animSpec = tween<Float>(durationMillis = 480, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-    val alpha by com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateFloatOnChange(targetAlpha, animSpec)
-    val scale by com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateFloatOnChange(targetScale, animSpec)
+    val alpha by com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.animateFloatOnChange(targetAlpha, animSpec)
+    val scale by com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.animateFloatOnChange(targetScale, animSpec)
     // how sung the line is: the wave's strength, and the plain copy's share while it soft-lights
-    val waveAmplitude by com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateFloatOnChange(
+    val waveAmplitude by com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.animateFloatOnChange(
         target = if (state == LyricsLineState.ACTIVE) 1f else 0f,
         spec = animSpec,
     )
 
     // Only lines without word timing move as a whole; word-synced ones rise word by word.
     val wholeLineRise = wordMotion && entry.words.isNullOrEmpty()
-    val drop by com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateFloatOnChange(
+    val drop by com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.animateFloatOnChange(
         target = if (state == LyricsLineState.ACTIVE || !wholeLineRise) 0f else 1f,
         spec = androidx.compose.animation.core.spring(
             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
@@ -291,14 +291,14 @@ fun LyricsGlowLine(
     val blurScale = (blurStrength / 1.5f).coerceIn(0.25f, 3.5f)
     val targetBlurRadius = (BlurStageRadii[blurStage.coerceIn(0, BlurStageRadii.lastIndex)] * blurScale)
         .coerceIn(0f, MaxBlurRadiusPx)
-    val blurRadius by com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateFloatOnChange(
+    val blurRadius by com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.animateFloatOnChange(
         target = targetBlurRadius,
         spec = tween(durationMillis = 320, easing = androidx.compose.animation.core.FastOutSlowInEasing),
     )
 
     val baseColor = LocalContentColor.current
     // eased with the alpha and scale, and read only while drawing so the fade doesn't recompose the line every frame
-    val lineColor = com.saurav.pixelmusic.presentation.components.lyrics.mochy.animateColorOnChange(
+    val lineColor = com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.animateColorOnChange(
         target = if (state == LyricsLineState.ACTIVE) LocalLyricsHighlight.current else baseColor,
         spec = tween(durationMillis = 480, easing = androidx.compose.animation.core.FastOutSlowInEasing),
     )
@@ -665,7 +665,7 @@ enum class RubyPlacement { ABOVE, BELOW }
 @Composable
 private fun rememberRubyOverlay(
     layoutHolder: Array<TextLayoutResult?>,
-    ruby: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.RubyToken>?,
+    ruby: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.RubyToken>?,
     textLength: Int,
     placement: RubyPlacement,
     dimColor: ColorProducer,
@@ -1090,7 +1090,7 @@ internal class SweepProbe {
 @Composable
 internal fun KaraokeSweepText(
     text: String,
-    words: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>,
+    words: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>,
     positionProvider: () -> Long,
     waveAmplitudeProvider: () -> Float,
     // read while drawing, so a fading line doesn't recompose every frame
@@ -1101,11 +1101,11 @@ internal fun KaraokeSweepText(
     lineHeight: androidx.compose.ui.unit.TextUnit = LyricsLineHeight,
     highBloom: Boolean = true,
     textAlign: TextAlign = TextAlign.Start,
-    ruby: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.RubyToken>? = null,
+    ruby: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.RubyToken>? = null,
     rubyPlacement: RubyPlacement = RubyPlacement.BELOW,
     rubyColor: ColorProducer = DefaultRubyColor,
-    motionStyle: com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsMotionStyle =
-        com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsMotionStyle.MOTION,
+    motionStyle: com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsMotionStyle =
+        com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsMotionStyle.MOTION,
     /**
      * Style 1 word rise, 0..1 with the line becoming active. Separate from [waveAmplitudeProvider]
      * on purpose: that one is zero when the lyrics shader is switched off, and the rise is drawn
@@ -1329,18 +1329,18 @@ private val LitRubyColor = ColorProducer { Color.White }
 internal class LyricLineParts(
     val lead: String,
     val backing: String?,
-    val leadWords: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>?,
-    val backingWords: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>?,
+    val leadWords: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>?,
+    val backingWords: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>?,
 )
 
 private fun partitionWords(
     text: String,
-    words: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>?,
+    words: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>?,
     inBracket: BooleanArray,
-): Pair<List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>, List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>> {
-    if (words.isNullOrEmpty()) return emptyList<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>() to emptyList()
-    val lead = ArrayList<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>(words.size)
-    val backing = ArrayList<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>()
+): Pair<List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>, List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>> {
+    if (words.isNullOrEmpty()) return emptyList<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>() to emptyList()
+    val lead = ArrayList<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>(words.size)
+    val backing = ArrayList<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>()
     var searchFrom = 0
     for (word in words) {
         val trimmed = word.text.trim()
@@ -1356,7 +1356,7 @@ private fun partitionWords(
 
 internal fun splitBackingVocal(
     text: String,
-    words: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>?,
+    words: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>?,
 ): LyricLineParts {
     val untouched = LyricLineParts(text, null, words, null)
     if (text.indexOf('(') < 0 && text.indexOf('[') < 0) return untouched
@@ -1406,7 +1406,7 @@ internal fun splitBackingVocal(
  * by searching the text it draws, and "(ooh" is not in "ooh yeah", so the first and last backing
  * words were never found: the sweep sat still until the middle word and stopped before the end.
  */
-private fun List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>.withoutBrackets() =
+private fun List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>.withoutBrackets() =
     mapNotNull { word ->
         val bare = word.text.filterNot { it == '(' || it == ')' || it == '[' || it == ']' }
         when {
@@ -1423,15 +1423,15 @@ private fun BackingVocalLine(
     text: String,
     color: ColorProducer,
     slide: Boolean,
-    words: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>?,
+    words: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>?,
     positionProvider: () -> Long,
     waveAmplitudeProvider: () -> Float,
     sweep: Boolean,
     expandProvider: () -> Float,
     highBloom: Boolean,
     textAlign: TextAlign = TextAlign.Start,
-    motionStyle: com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsMotionStyle =
-        com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsMotionStyle.MOTION,
+    motionStyle: com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsMotionStyle =
+        com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsMotionStyle.MOTION,
     riseAmplitudeProvider: () -> Float = waveAmplitudeProvider,
 ) {
 
@@ -1515,7 +1515,7 @@ private const val BackingTailSec = 0.6
 
 @Composable
 private fun rememberBackingExpand(
-    words: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>?,
+    words: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>?,
     positionProvider: () -> Long,
     lineAmplitudeProvider: () -> Float,
 ): androidx.compose.runtime.MutableFloatState {
@@ -2074,7 +2074,7 @@ private fun isSyllableGlyph(codePoint: Int): Boolean = when (Character.UnicodeSc
 
 internal fun karaokeFilledChars(
     text: String,
-    words: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>,
+    words: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>,
     positionMs: Long,
 ): Int {
     var searchFrom = 0
@@ -2120,7 +2120,7 @@ internal fun karaokeAnnotated(
 @Composable
 private fun rememberKaraokeHead(
     text: String,
-    words: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>,
+    words: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>,
     positionProvider: () -> Long,
     /** Style 1: sweep through spaces smoothly and drive the per-word rise/swell springs. */
     wordMotion: Boolean = false,
@@ -2164,7 +2164,7 @@ private fun rememberKaraokeHead(
 // each timed word found in the line's own text, so the sweep knows which letters it covers
 internal fun karaokeTimedRanges(
     text: String,
-    words: List<com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp>,
+    words: List<com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp>,
 ): List<TimedRange> {
     var searchFrom = 0
     return words.mapNotNull { word ->

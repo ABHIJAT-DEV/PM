@@ -847,7 +847,7 @@ fun HomeScreen(
             }
         }
 
-        // Top progressive blur backdrop (Mochy style)
+        // Top progressive blur backdrop (PixelMusic style)
         ProgressiveHeaderBackdrop(
             scrimColor = if (isCustomBackground) MaterialTheme.colorScheme.background.copy(alpha = 0.35f) else scrimTopColor,
             glassState = homeGlassState,

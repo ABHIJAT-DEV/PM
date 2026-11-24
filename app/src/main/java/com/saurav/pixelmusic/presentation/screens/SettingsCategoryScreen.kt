@@ -949,30 +949,30 @@ fun SettingsCategoryScreen(
                                 ) {
                                     var showLyricsProvidersSheet by remember { mutableStateOf(false) }
                                     val lyricsProviderOrder by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.providerOrderFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.providerOrderFlow(context)
                                     }.collectAsStateWithLifecycle(
-                                        initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.DefaultProviderOrder
+                                        initialValue = com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.DefaultProviderOrder
                                     )
                                     val autoRomanize by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.autoRomanizeFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.autoRomanizeFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = false)
                                     val romanizationAsMain by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.romanizationAsMainFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.romanizationAsMainFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = false)
                                     val autoTranslate by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.autoTranslateFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.autoTranslateFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = false)
                                     val translateLang by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.translateLanguageFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.translateLanguageFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = "en")
                                     val lyricsTextSize by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.textSizeFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.textSizeFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = 26f)
                                     val lyricsLineSpacing by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.lineSpacingFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.lineSpacingFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = 1.25f)
                                     val lyricsSoftLight by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.softLightFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.softLightFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = true)
 
                                     if (showLyricsProvidersSheet) {
@@ -982,21 +982,21 @@ fun SettingsCategoryScreen(
                                     }
 
                                     val lyricsStyle by remember(context) {
-                                        com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.styleFlow(context)
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.styleFlow(context)
                                     }.collectAsStateWithLifecycle(
-                                        initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.MOTION
+                                        initialValue = com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle.MOTION
                                     )
                                     ThemeSelectorItem(
                                         label = "Lyrics Style",
                                         description = lyricsStyle.description,
-                                        options = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.values()
+                                        options = com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle.values()
                                             .associate { it.name to it.displayName },
                                         selectedKey = lyricsStyle.name,
                                         onSelectionChanged = { key ->
                                             coroutineScope.launch {
-                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setStyle(
+                                                com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setStyle(
                                                     context,
-                                                    com.saurav.pixelmusic.lyrics.MochyLyricsStyle.fromName(key)
+                                                    com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle.fromName(key)
                                                 )
                                             }
                                         },
@@ -1008,7 +1008,7 @@ fun SettingsCategoryScreen(
                                         title = "Lyrics Providers",
                                         subtitle = "Drag to reorder priority · ${
                                             lyricsProviderOrder.take(3).joinToString(" → ") {
-                                                com.saurav.pixelmusic.lyrics.MochyLyricsEngine.getDisplayName(it)
+                                                com.saurav.pixelmusic.lyrics.PixelMusicLyricsEngine.getDisplayName(it)
                                             }
                                         }",
                                         leadingIcon = {
@@ -1040,7 +1040,7 @@ fun SettingsCategoryScreen(
                                         checked = autoRomanize,
                                         onCheckedChange = { enabled ->
                                             coroutineScope.launch {
-                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setAutoRomanize(context, enabled)
+                                                com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setAutoRomanize(context, enabled)
                                             }
                                         },
                                         leadingIcon = {
@@ -1054,7 +1054,7 @@ fun SettingsCategoryScreen(
                                             checked = romanizationAsMain,
                                             onCheckedChange = { enabled ->
                                                 coroutineScope.launch {
-                                                    com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setRomanizationAsMain(context, enabled)
+                                                    com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setRomanizationAsMain(context, enabled)
                                                 }
                                             },
                                             leadingIcon = {
@@ -1068,7 +1068,7 @@ fun SettingsCategoryScreen(
                                         checked = autoTranslate,
                                         onCheckedChange = { enabled ->
                                             coroutineScope.launch {
-                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setAutoTranslate(context, enabled)
+                                                com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setAutoTranslate(context, enabled)
                                             }
                                         },
                                         leadingIcon = {
@@ -1079,11 +1079,11 @@ fun SettingsCategoryScreen(
                                         ThemeSelectorItem(
                                             label = "Translation Language",
                                             description = "Target language for automatic lyrics translation",
-                                            options = com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.SupportedTranslateLanguages.toMap(),
+                                            options = com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.SupportedTranslateLanguages.toMap(),
                                             selectedKey = translateLang,
                                             onSelectionChanged = { code ->
                                                 coroutineScope.launch {
-                                                    com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setTranslateLanguage(context, code)
+                                                    com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setTranslateLanguage(context, code)
                                                 }
                                             },
                                             leadingIcon = {
@@ -1098,7 +1098,7 @@ fun SettingsCategoryScreen(
                                         steps = 17,
                                         onValueChange = { sizeSp ->
                                             coroutineScope.launch {
-                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setTextSize(context, sizeSp)
+                                                com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setTextSize(context, sizeSp)
                                             }
                                         },
                                         valueText = { "${it.roundToInt()} sp" }
@@ -1110,7 +1110,7 @@ fun SettingsCategoryScreen(
                                         steps = 13,
                                         onValueChange = { spacing ->
                                             coroutineScope.launch {
-                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setLineSpacing(context, spacing)
+                                                com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setLineSpacing(context, spacing)
                                             }
                                         },
                                         valueText = { "${(it * 100).roundToInt()}%" }
@@ -1131,7 +1131,7 @@ fun SettingsCategoryScreen(
                                         checked = lyricsSoftLight,
                                         onCheckedChange = { enabled ->
                                             coroutineScope.launch {
-                                                com.saurav.pixelmusic.lyrics.MochyLyricsPreferences.setSoftLight(context, enabled)
+                                                com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setSoftLight(context, enabled)
                                             }
                                         },
                                         leadingIcon = {

@@ -815,7 +815,7 @@ fun ExploreScreen(
             colorScheme.background
         }
 
-        // Top progressive blur backdrop (Mochy style)
+        // Top progressive blur backdrop (PixelMusic style)
         ProgressiveHeaderBackdrop(
             scrimColor = if (isCustomBackground) colorScheme.background.copy(alpha = 0.35f) else scrimTopColor,
             glassState = exploreGlassState,
