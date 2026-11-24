@@ -187,7 +187,7 @@ enum class AppBackgroundStyle {
 }
 
 enum class DynamicIslandStyle {
-    ANIMATED_NOTES, PROGRESS_TIME, STATIC_ICON, ALBUM_WAVEFORM
+    ANIMATED_NOTES, PROGRESS_TIME, STATIC_ICON
 }
 
 enum class AodScreenStyle {

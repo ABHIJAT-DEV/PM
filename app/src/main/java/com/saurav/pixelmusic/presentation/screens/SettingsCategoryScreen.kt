@@ -1209,8 +1209,7 @@ fun SettingsCategoryScreen(
                                                 options = mapOf(
                                                     com.saurav.pixelmusic.data.preferences.DynamicIslandStyle.ANIMATED_NOTES.name to "Animated Notes",
                                                     com.saurav.pixelmusic.data.preferences.DynamicIslandStyle.PROGRESS_TIME.name to "Progress Time",
-                                                    com.saurav.pixelmusic.data.preferences.DynamicIslandStyle.STATIC_ICON.name to "Static Icon",
-                                                    com.saurav.pixelmusic.data.preferences.DynamicIslandStyle.ALBUM_WAVEFORM.name to "Album Art & Waveform"
+                                                    com.saurav.pixelmusic.data.preferences.DynamicIslandStyle.STATIC_ICON.name to "Static Icon"
                                                 ),
                                                 selectedKey = dynamicIslandStyle.name,
                                                 onSelectionChanged = { key ->
