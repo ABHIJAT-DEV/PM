@@ -26,7 +26,9 @@ internal data class LibrarySongPlaybackUiState(
 internal fun LibraryPlaybackAwareSongItem(
     song: Song,
     playerViewModel: PlayerViewModel,
+    modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier,
     albumArtSize: Dp = 50.dp,
+    customShape: androidx.compose.ui.graphics.Shape? = null,
     isSelected: Boolean = false,
     selectionIndex: Int? = null,
     isSelectionMode: Boolean = false,
@@ -47,11 +49,13 @@ internal fun LibraryPlaybackAwareSongItem(
     }.collectAsStateWithLifecycle(initialValue = LibrarySongPlaybackUiState())
 
     EnhancedSongListItem(
+        modifier = modifier,
         song = song,
         isPlaying = playbackUiState.isPlaying,
         isCurrentSong = playbackUiState.isCurrentSong,
         isLoading = false,
         albumArtSize = albumArtSize,
+        customShape = customShape,
         isSelected = isSelected,
         selectionIndex = selectionIndex,
         isSelectionMode = isSelectionMode,

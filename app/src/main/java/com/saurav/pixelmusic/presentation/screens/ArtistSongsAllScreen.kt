@@ -166,7 +166,7 @@ fun ArtistSongsAllScreen(
                         top = innerPadding.calculateTopPadding() + 8.dp,
                         bottom = MiniPlayerHeight + systemNavBarInset + 24.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing),
                     modifier = Modifier.fillMaxSize()
                     .scrollMotionBlur(listState, enabled = isMotionBlurEnabled)
                 ) {
@@ -180,8 +180,8 @@ fun ArtistSongsAllScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(56.dp)
-                                .padding(vertical = 4.dp),
+                                .padding(top = 4.dp, bottom = 10.dp)
+                                .height(56.dp),
                             shape = AbsoluteSmoothCornerShape(16.dp, 60),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
@@ -207,9 +207,15 @@ fun ArtistSongsAllScreen(
                         key = { idx, song -> "${song.id}_$idx" }
                     ) { index, song ->
                         EnhancedSongListItem(
+                            modifier = com.saurav.pixelmusic.presentation.components.run {
+                                Modifier
+                                    .animateItem()
+                                    .expressiveListItemScrollAnimation(listState)
+                            },
                             song = song,
                             isPlaying = allSongsIsPlaying,
                             isCurrentSong = allSongsCurrentSongId == song.id,
+                            customShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, uiState.popularSongsAll.size),
                             onMoreOptionsClick = {
                                 playerViewModel.selectSongForInfo(song)
                                 showSongInfoBottomSheet = true

@@ -252,7 +252,7 @@ fun RecentlyPlayedScreen(
                 contentPadding = PaddingValues(
                     bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
                 ),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
             ) {
                 item(key = "recently_played_header") {
                     val parallaxOffset by remember {
@@ -279,7 +279,7 @@ fun RecentlyPlayedScreen(
                     RecentlyPlayedRangeSelector(
                         selected = selectedRange,
                         onRangeSelected = { selectedRange = it },
-                        modifier = Modifier.padding(horizontal = 0.dp)
+                        modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
                     )
                 }
 
@@ -300,7 +300,7 @@ fun RecentlyPlayedScreen(
                                 }
                             },
                             shuffleLabel = shuffleLabel,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
                     }
                 }
@@ -309,7 +309,7 @@ fun RecentlyPlayedScreen(
                     item(key = "recently_played_empty") {
                         RecentlyPlayedEmptyState(
                             range = selectedRange,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                         )
                     }
                 } else {
@@ -318,16 +318,22 @@ fun RecentlyPlayedScreen(
                             RecentlyPlayedTimestampDivider(
                                 label = group.label,
                                 isHourBucket = group.isHourBucket,
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp)
                             )
                         }
                         group.songs.forEachIndexed { songIndex, item ->
                             item(key = "rp_${groupIndex}_${songIndex}_${item.song.id}", contentType = "recently_played_song") {
                                 EnhancedSongListItem(
-                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    modifier = com.saurav.pixelmusic.presentation.components.run {
+                                        Modifier
+                                            .animateItem()
+                                            .padding(horizontal = 16.dp)
+                                            .expressiveListItemScrollAnimation(lazyListState)
+                                    },
                                     song = item.song,
                                     isCurrentSong = currentSongId == item.song.id,
                                     isPlaying = currentSongId == item.song.id && isPlaying,
+                                    customShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(songIndex, group.songs.size),
                                     onClick = {
                                         playerViewModel.playSongs(
                                             songsToPlay = queueSongs,

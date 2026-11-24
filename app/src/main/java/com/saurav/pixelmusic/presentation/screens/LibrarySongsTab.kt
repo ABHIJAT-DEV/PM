@@ -264,15 +264,16 @@ fun LibrarySongsTab(
                                 )
                                 .scrollMotionBlur(listState, enabled = isMotionBlurEnabled),
                             state = listState,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing),
                             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
                         ) {
-                items(12, key = { "skeleton_song_$it" }) { // Show 12 skeleton items
+                items(12, key = { "skeleton_song_$it" }) { skeletonIndex -> // Show 12 skeleton items
                     EnhancedSongListItem(
                         song = Song.emptySong(),
                         isPlaying = false,
                         isLoading = true,
                         isCurrentSong = false,
+                        customShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(skeletonIndex, 12),
                         onMoreOptionsClick = {},
                         onClick = {}
                     )
@@ -316,7 +317,7 @@ fun LibrarySongsTab(
                                     )
                                 ),
                             state = listState,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing),
                             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
                         ) {
                             //item(key = "songs_top_spacer") { Spacer(Modifier.height(0.dp)) }
@@ -327,6 +328,14 @@ fun LibrarySongsTab(
                                 contentType = { "song" }
                             ) { index ->
                                 val song = songs[index]
+                                val itemShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, songs.itemCount)
+                                val itemModifier = with(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing) {
+                                    Modifier.animateItem()
+                                }.let { mod ->
+                                    com.saurav.pixelmusic.presentation.components.run {
+                                        mod.expressiveListItemScrollAnimation(listState)
+                                    }
+                                }
                                 
                                 if (song != null) {
                                     val isSelected = selectedSongIds.contains(song.id)
@@ -351,6 +360,8 @@ fun LibrarySongsTab(
                                     LibraryPlaybackAwareSongItem(
                                         song = song,
                                         playerViewModel = playerViewModel,
+                                        modifier = itemModifier,
+                                        customShape = itemShape,
                                         isSelected = isSelected,
                                         //albumArtSize = 46.dp,
                                         isSelectionMode = isSelectionMode,
@@ -362,10 +373,12 @@ fun LibrarySongsTab(
                                 } else {
                                      // Placeholder
                                      EnhancedSongListItem(
+                                        modifier = itemModifier,
                                         song = Song.emptySong(),
                                         isPlaying = false,
                                         isLoading = true,
                                         isCurrentSong = false,
+                                        customShape = itemShape,
                                         onMoreOptionsClick = {},
                                         onClick = {}
                                      )

@@ -59,7 +59,10 @@ import com.saurav.pixelmusic.data.model.LibraryTabId
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.model.SortOption
 import com.saurav.pixelmusic.data.model.StorageFilter
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
 import com.saurav.pixelmusic.presentation.components.ExpressiveScrollBar
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.PlaylistContainer
 import com.saurav.pixelmusic.presentation.components.albumFastScrollLabel
@@ -345,7 +348,7 @@ fun LibraryAlbumsTab(
                                     ),
                                 state = listState,
                                 contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap + 4.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
                             ) {
                                 items(
                                     count = albums.itemCount,
@@ -353,6 +356,8 @@ fun LibraryAlbumsTab(
                                     contentType = { "album_list_item" }
                                 ) { index ->
                                     val album = albums[index]
+                                    val itemShape = expressiveGroupedCardShape(index, albums.itemCount)
+                                    val itemModifier = Modifier.animateItem().expressiveListItemScrollAnimation(listState)
                                     if (album != null) {
                                         val albumSpecificColorSchemeFlow =
                                             playerViewModel.themeStateHolder.getAlbumColorSchemeFlow(album.albumArtUriString ?: "")
@@ -369,6 +374,8 @@ fun LibraryAlbumsTab(
                                             album = album,
                                             albumColorSchemePairFlow = albumSpecificColorSchemeFlow,
                                             onClick = rememberedOnClick,
+                                            modifier = itemModifier,
+                                            customShape = itemShape,
                                             isLoading = false,
                                             isSelectionMode = isSelectionMode,
                                             isSelected = selectedAlbumIds.contains(album.id),
@@ -381,6 +388,8 @@ fun LibraryAlbumsTab(
                                             album = Album.empty(),
                                             albumColorSchemePairFlow = MutableStateFlow<ColorSchemePair?>(null),
                                             onClick = {},
+                                            modifier = itemModifier,
+                                            customShape = itemShape,
                                             isLoading = true
                                         )
                                     }
@@ -582,14 +591,15 @@ fun LibraryArtistsTab(
                     )
                     .fillMaxSize(),
                 state = listState,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing),
                 contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap)
             ) {
                 item(key = "skeleton_top_spacer") { Spacer(Modifier.height(4.dp)) }
-                items(10, key = { "skeleton_artist_$it" }) {
+                items(10, key = { "skeleton_artist_$it" }) { skeletonIndex ->
                     ArtistListItem(
                         artist = Artist.empty(),
                         onClick = {},
+                        customShape = expressiveGroupedCardShape(skeletonIndex, 10),
                         isLoading = true
                     )
                 }
@@ -636,7 +646,7 @@ fun LibraryArtistsTab(
                                     )
                                 ),
                             state = listState,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing),
                             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap)
                         ) {
                             items(
@@ -645,15 +655,24 @@ fun LibraryArtistsTab(
                                 contentType = { "artist" }
                             ) { index ->
                                 val artist = artists[index]
+                                val itemShape = expressiveGroupedCardShape(index, artists.itemCount)
+                                val itemModifier = Modifier.animateItem().expressiveListItemScrollAnimation(listState)
                                 if (artist != null) {
                                     val rememberedOnClick = remember(artist.id, onArtistClick) {
                                         { onArtistClick(artist.id) }
                                     }
-                                    ArtistListItem(artist = artist, onClick = rememberedOnClick)
+                                    ArtistListItem(
+                                        artist = artist,
+                                        onClick = rememberedOnClick,
+                                        modifier = itemModifier,
+                                        customShape = itemShape
+                                    )
                                 } else {
                                     ArtistListItem(
                                         artist = Artist.empty(),
                                         onClick = {},
+                                        modifier = itemModifier,
+                                        customShape = itemShape,
                                         isLoading = true
                                     )
                                 }

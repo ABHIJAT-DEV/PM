@@ -139,7 +139,7 @@ fun QuickPicksAllScreen(
             contentPadding = PaddingValues(
                 bottom = MiniPlayerHeight + navBarPadding + 16.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
         ) {
             // Expressive Hero Collage Header
             item(key = "qp_header") {
@@ -251,12 +251,19 @@ fun QuickPicksAllScreen(
 
             // Songs
             if (!isLoading) {
-                items(songs, key = { it.id }) { song ->
+                items(count = songs.size, key = { songs[it].id }) { index ->
+                    val song = songs[index]
                     EnhancedSongListItem(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = com.saurav.pixelmusic.presentation.components.run {
+                            Modifier
+                                .animateItem()
+                                .padding(horizontal = 16.dp)
+                                .expressiveListItemScrollAnimation(listState)
+                        },
                         song = song,
                         isCurrentSong = currentSongId == song.id,
                         isPlaying = currentSongId == song.id && isPlaying,
+                        customShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, songs.size),
                         onClick = {
                             playerViewModel.showAndPlaySong(song, songs, "Quick Picks")
                         },

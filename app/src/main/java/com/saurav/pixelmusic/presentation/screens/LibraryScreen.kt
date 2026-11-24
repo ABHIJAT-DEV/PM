@@ -3912,10 +3912,17 @@ fun AlbumGridItemRedesigned(
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun ArtistListItem(artist: Artist, onClick: () -> Unit, isLoading: Boolean = false) {
+fun ArtistListItem(
+    artist: Artist,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    customShape: androidx.compose.ui.graphics.Shape? = null,
+    isLoading: Boolean = false
+) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
+        shape = customShape ?: RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
@@ -3986,6 +3993,8 @@ fun AlbumListItem(
     album: Album,
     albumColorSchemePairFlow: StateFlow<ColorSchemePair?>,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    customShape: androidx.compose.ui.graphics.Shape? = null,
     isLoading: Boolean = false,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
@@ -4006,7 +4015,7 @@ fun AlbumListItem(
     val gradientBaseColor = itemDesignColorScheme.primaryContainer
     val onGradientColor = itemDesignColorScheme.onPrimaryContainer
     val cardCornerRadius = 16.dp
-    val cardShape = RoundedCornerShape(cardCornerRadius)
+    val cardShape = customShape ?: RoundedCornerShape(cardCornerRadius)
     val selectionScale by animateFloatAsState(
         targetValue = if (isSelected) 0.99f else 1f,
         animationSpec = tween(durationMillis = 200),
@@ -4020,7 +4029,7 @@ fun AlbumListItem(
 
     if (isLoading) {
         Card(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .height(80.dp),
             shape = cardShape,
@@ -4056,7 +4065,7 @@ fun AlbumListItem(
         }
     } else {
         Card(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .height(88.dp)
                 .scale(selectionScale)

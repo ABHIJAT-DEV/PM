@@ -312,7 +312,7 @@ fun DailyMixScreen(
                 state = lazyListState,
                 modifier = Modifier.fillMaxSize().glassRoot(dailyMixGlassState).scrollMotionBlur(lazyListState = lazyListState),
                 contentPadding = PaddingValues(bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
             ) {
                 item(key = "daily_mix_header") {
                     val parallaxOffset by remember {
@@ -437,13 +437,18 @@ fun DailyMixScreen(
                     }
                 }
 
-                itemsIndexed(dailyMixSongs, key = { index, song -> "${song.id}_$index" }) { _, song ->
+                itemsIndexed(dailyMixSongs, key = { index, song -> "${song.id}_$index" }) { index, song ->
                     EnhancedSongListItem(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp),
+                        modifier = com.saurav.pixelmusic.presentation.components.run {
+                            Modifier
+                                .animateItem()
+                                .padding(horizontal = 16.dp)
+                                .expressiveListItemScrollAnimation(lazyListState)
+                        },
                         song = song,
                         isCurrentSong = currentSongId == song.id,
                         isPlaying = currentSongId == song.id && isPlaying,
+                        customShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, dailyMixSongs.size),
                         onClick = { playerViewModel.showAndPlaySong(song, dailyMixSongs, dailyMixTitle, isVoluntaryPlay = false) },
                         onMoreOptionsClick = {
                             playerViewModel.selectSongForInfo(song)

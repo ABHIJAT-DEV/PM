@@ -517,7 +517,7 @@ fun PlaylistDetailScreen(
                                     )
                                 )
                                 .background(color = MaterialTheme.colorScheme.surfaceContainerHigh),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing),
                             contentPadding = PaddingValues(
                                 top = 12.dp,
                                 bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
@@ -545,13 +545,16 @@ fun PlaylistDetailScreen(
                                     )
 
                                     QueuePlaylistSongItem(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 0.dp)
-                                            .graphicsLayer {
-                                                scaleX = scale
-                                                scaleY = scale
-                                            },
+                                        modifier = com.saurav.pixelmusic.presentation.components.run {
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 0.dp)
+                                                .expressiveListItemScrollAnimation(listState)
+                                                .graphicsLayer {
+                                                    scaleX = scale
+                                                    scaleY = scale
+                                                }
+                                        },
                                         onClick = {
                                             playerViewModel.playSongs(
                                                 localReorderableSongs,
@@ -569,6 +572,7 @@ fun PlaylistDetailScreen(
                                                 songToRemoveFromPlaylist = song
                                             }
                                         },
+                                        customShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, localReorderableSongs.size),
                                         isFromPlaylist = true,
                                         isReorderModeEnabled = isReorderModeEnabled,
                                         isDragHandleVisible = isReorderModeEnabled,

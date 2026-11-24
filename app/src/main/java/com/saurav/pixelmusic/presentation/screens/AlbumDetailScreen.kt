@@ -322,7 +322,7 @@ fun AlbumDetailScreen(
                             end = if (showScrollBar) 24.dp else 16.dp,
                             bottom = fabBottomPadding + 80.dp // To account for FAB
                         ),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
                     ) {
                         songsByDisc.forEach { (discNumber, discSongs) ->
                             if (songsByDisc.size > 1) {
@@ -338,15 +338,22 @@ fun AlbumDetailScreen(
                                 }
                             }
                             items(
-                                items = discSongs,
-                                key = { song -> "album_song_${song.id}" },
+                                count = discSongs.size,
+                                key = { index -> "album_song_${discSongs[index].id}" },
                                 contentType = { "album_song" }
-                            ) { song ->
+                            ) { index ->
+                                val song = discSongs[index]
                                 EnhancedSongListItem(
+                                    modifier = com.saurav.pixelmusic.presentation.components.run {
+                                        Modifier
+                                            .animateItem()
+                                            .expressiveListItemScrollAnimation(lazyListState)
+                                    },
                                     song = song,
                                     isCurrentSong = albumCurrentSongId == song.id,
                                     isPlaying = albumIsPlaying,
                                     showAlbumArt = false,
+                                    customShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, discSongs.size),
                                     onMoreOptionsClick = {
                                         playerViewModel.selectSongForInfo(song)
                                         showSongInfoBottomSheet = true

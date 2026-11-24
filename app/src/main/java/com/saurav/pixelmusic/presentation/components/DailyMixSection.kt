@@ -350,22 +350,20 @@ private fun DailyMixSongList(
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val itemContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
 
-    val itemShape = remember { RoundedCornerShape(10.dp) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, start = 8.dp, end = 8.dp)
-            .clip(RoundedCornerShape(24.dp)),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+            .padding(top = 8.dp, start = 8.dp, end = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
     ) {
-        songs.forEach { song ->
+        songs.forEachIndexed { index, song ->
             EnhancedSongListItem(
                 song = song,
                 isCurrentSong = stablePlayerState.currentSong?.id == song.id,
                 isPlaying = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id == song.id,
                 containerColorOverride = itemContainerColor,
                 onMoreOptionsClick = onMoreOptionsClick,
-                customShape = itemShape,
+                customShape = expressiveGroupedCardShape(index, songs.size),
                 showAlbumArt = false,
                 onClick = {
                     playerViewModel.showAndPlaySong(

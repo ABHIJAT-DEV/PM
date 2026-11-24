@@ -1944,6 +1944,7 @@ fun QueuePlaylistSongItem(
     enableSwipeToDismiss: Boolean = false,
     swipeStateIdentity: Long = 0L,
     onDismissSong: () -> Unit = {},
+    customShape: androidx.compose.ui.graphics.Shape? = null,
     isFromPlaylist: Boolean
 ) {
     val colors = MaterialTheme.colorScheme
@@ -1953,7 +1954,7 @@ fun QueuePlaylistSongItem(
         label = "cornerRadiusAnimation"
     )
 
-    val itemShape = RoundedCornerShape(cornerRadius)
+    val itemShape = if (customShape != null && !isCurrentSong) customShape else RoundedCornerShape(cornerRadius)
 
     val albumCornerRadius by animateDpAsState(
         targetValue = if (isCurrentSong) 60.dp else 8.dp,

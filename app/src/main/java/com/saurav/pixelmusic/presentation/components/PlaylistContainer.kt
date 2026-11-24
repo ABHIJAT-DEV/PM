@@ -315,7 +315,7 @@ fun PlaylistItems(
                 )
                 .scrollMotionBlur(listState, enabled = isMotionBlurEnabled),
             state = listState,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing),
             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
         ) {
             if (!isAddingToPlaylist && playlistUiState.cloudUploadTasks.isNotEmpty()) {
@@ -325,10 +325,15 @@ fun PlaylistItems(
                         onCancelTask = onCancelCloudUploadTask,
                         onCancelAll = onCancelAllCloudUploads
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
 
-            items(filteredPlaylists, key = { it.id }) { playlist ->
+            items(
+                count = filteredPlaylists.size,
+                key = { filteredPlaylists[it].id }
+            ) { index ->
+                val playlist = filteredPlaylists[index]
                 val rememberedOnClick = remember(playlist.id) {
                     {
                         if (isAddingToPlaylist && currentSong != null && selectedPlaylists != null) {
@@ -352,6 +357,8 @@ fun PlaylistItems(
                     playlist = playlist,
                     playerViewModel = playerViewModel,
                     onClick = { rememberedOnClick() },
+                    modifier = Modifier.animateItem().expressiveListItemScrollAnimation(listState),
+                    customShape = expressiveGroupedCardShape(index, filteredPlaylists.size),
                     isAddingToPlaylist = isAddingToPlaylist,
                     selectedPlaylists = selectedPlaylists,
                     isSelectionMode = isSelectionMode,
@@ -384,6 +391,8 @@ fun PlaylistItem(
     playlist: Playlist,
     playerViewModel: PlayerViewModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    customShape: androidx.compose.ui.graphics.Shape? = null,
     isAddingToPlaylist: Boolean,
     selectedPlaylists: SnapshotStateMap<String, Boolean>? = null,
     isSelectionMode: Boolean = false,
@@ -440,8 +449,9 @@ fun PlaylistItem(
         label = "playlistBorderColorAnimation"
     )
 
+    val cardShape = customShape ?: RoundedCornerShape(12.dp)
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .scale(selectionScale)
             .then(
@@ -449,7 +459,7 @@ fun PlaylistItem(
                     Modifier.border(
                         width = selectionBorderWidth,
                         color = selectionBorderColor,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = cardShape
                     )
                 } else {
                     Modifier
@@ -467,6 +477,7 @@ fun PlaylistItem(
                     onLongPress()
                 }
             ),
+        shape = cardShape,
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(

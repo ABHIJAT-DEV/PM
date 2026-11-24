@@ -57,7 +57,10 @@ import com.saurav.pixelmusic.data.model.LibraryTabId
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.model.SortOption
 import com.saurav.pixelmusic.data.model.StorageFilter
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
 import com.saurav.pixelmusic.presentation.components.ExpressiveScrollBar
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.songFastScrollLabel
 import com.saurav.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
@@ -240,7 +243,7 @@ fun LibraryFavoritesTab(
                             )
                             .scrollMotionBlur(listState, enabled = isMotionBlurEnabled),
                         state = listState,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing),
                         contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
                     ) {
                         items(
@@ -249,10 +252,14 @@ fun LibraryFavoritesTab(
                             contentType = { "song" }
                         ) { index ->
                             val song = favoriteSongs[index]
+                            val itemShape = expressiveGroupedCardShape(index, favoriteSongs.itemCount)
+                            val itemModifier = Modifier.animateItem().expressiveListItemScrollAnimation(listState)
                             if (song != null) {
                                 LibraryPlaybackAwareSongItem(
                                     song = song,
                                     playerViewModel = playerViewModel,
+                                    modifier = itemModifier,
+                                    customShape = itemShape,
                                     onMoreOptionsClick = { onMoreOptionsClick(song) },
                                     isSelected = selectedSongIds.contains(song.id),
                                     selectionIndex = if (isSelectionMode) getSelectionIndex(song.id) else null,
@@ -268,10 +275,12 @@ fun LibraryFavoritesTab(
                                 )
                             } else {
                                 EnhancedSongListItem(
+                                    modifier = itemModifier,
                                     song = Song.emptySong(),
                                     isPlaying = false,
                                     isLoading = true,
                                     isCurrentSong = false,
+                                    customShape = itemShape,
                                     onMoreOptionsClick = {},
                                     onClick = {}
                                 )
@@ -328,15 +337,16 @@ fun LibrarySongsTabPaginated(
                     )
                     .fillMaxSize(),
                 state = listState,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing),
                 contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap)
             ) {
-                items(12, key = { "skeleton_song_$it" }) {
+                items(12, key = { "skeleton_song_$it" }) { skeletonIndex ->
                     EnhancedSongListItem(
                         song = Song.emptySong(),
                         isPlaying = false,
                         isLoading = true,
                         isCurrentSong = false,
+                        customShape = expressiveGroupedCardShape(skeletonIndex, 12),
                         onMoreOptionsClick = {},
                         onClick = {}
                     )
@@ -425,7 +435,7 @@ fun LibrarySongsTabPaginated(
                                 )
                                 .scrollMotionBlur(listState, enabled = isMotionBlurEnabled),
                             state = listState,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing),
                             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
                         ) {
                             item(
@@ -439,6 +449,8 @@ fun LibrarySongsTabPaginated(
                                 contentType = paginatedSongs.itemContentType { "song" }
                             ) { index ->
                                 val song = paginatedSongs[index]
+                                val itemShape = expressiveGroupedCardShape(index, paginatedSongs.itemCount)
+                                val itemModifier = Modifier.animateItem().expressiveListItemScrollAnimation(listState)
                                 if (song != null) {
                                     val isPlayingThisSong = song.id == stablePlayerState.currentSong?.id && stablePlayerState.isPlaying
 
@@ -450,19 +462,23 @@ fun LibrarySongsTabPaginated(
                                     }
 
                                     EnhancedSongListItem(
+                                        modifier = itemModifier,
                                         song = song,
                                         isPlaying = isPlayingThisSong,
                                         isCurrentSong = stablePlayerState.currentSong?.id == song.id,
                                         isLoading = false,
+                                        customShape = itemShape,
                                         onMoreOptionsClick = rememberedOnMoreOptionsClick,
                                         onClick = rememberedOnClick
                                     )
                                 } else {
                                     EnhancedSongListItem(
+                                        modifier = itemModifier,
                                         song = Song.emptySong(),
                                         isPlaying = false,
                                         isLoading = true,
                                         isCurrentSong = false,
+                                        customShape = itemShape,
                                         onMoreOptionsClick = {},
                                         onClick = {}
                                     )
