@@ -9,7 +9,7 @@ import com.saurav.pixelmusic.data.preferences.dataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-enum class MochyLyricsStyle(
+enum class PixelMusicLyricsStyle(
     val displayName: String,
     val description: String,
     val risesWords: Boolean = false,
@@ -47,8 +47,8 @@ enum class MochyLyricsStyle(
     );
 
     companion object {
-        fun fromName(name: String?): MochyLyricsStyle = when (name?.uppercase()) {
-            "MOTION", "APPLE", "APPLE_V2", "MOCHY_1", "GLOW" -> MOTION
+        fun fromName(name: String?): PixelMusicLyricsStyle = when (name?.uppercase()) {
+            "MOTION", "APPLE", "APPLE_V2", "PIXELMUSIC_1", "GLOW" -> MOTION
             "LEGACY", "KARAOKE", "METRO_LYRICS" -> LEGACY
             "BORING", "SLIDE" -> BORING
             "PLAIN", "LYRICS_V2", "FADE", "NONE" -> PLAIN
@@ -58,17 +58,17 @@ enum class MochyLyricsStyle(
     }
 }
 
-object MochyLyricsPreferences {
-    val StyleKey = stringPreferencesKey("mochy_lyrics_style")
-    val TextSizeKey = floatPreferencesKey("mochy_lyrics_text_size")
-    val LineSpacingKey = floatPreferencesKey("mochy_lyrics_line_spacing")
-    val SoftLightKey = booleanPreferencesKey("mochy_lyrics_soft_light")
-    val AutoTranslateKey = booleanPreferencesKey("mochy_lyrics_auto_translate")
-    val TranslateLanguageKey = stringPreferencesKey("mochy_lyrics_translate_lang")
-    val AutoRomanizeKey = booleanPreferencesKey("mochy_lyrics_auto_romanize")
-    val RomanizationAsMainKey = booleanPreferencesKey("mochy_lyrics_romanization_main")
-    val ProviderOrderKey = stringPreferencesKey("mochy_lyrics_provider_order")
-    val LyricsOrderOverrideKey = booleanPreferencesKey("mochy_lyrics_order_override")
+object PixelMusicLyricsPreferences {
+    val StyleKey = stringPreferencesKey("pixelmusic_lyrics_style")
+    val TextSizeKey = floatPreferencesKey("pixelmusic_lyrics_text_size")
+    val LineSpacingKey = floatPreferencesKey("pixelmusic_lyrics_line_spacing")
+    val SoftLightKey = booleanPreferencesKey("pixelmusic_lyrics_soft_light")
+    val AutoTranslateKey = booleanPreferencesKey("pixelmusic_lyrics_auto_translate")
+    val TranslateLanguageKey = stringPreferencesKey("pixelmusic_lyrics_translate_lang")
+    val AutoRomanizeKey = booleanPreferencesKey("pixelmusic_lyrics_auto_romanize")
+    val RomanizationAsMainKey = booleanPreferencesKey("pixelmusic_lyrics_romanization_main")
+    val ProviderOrderKey = stringPreferencesKey("pixelmusic_lyrics_provider_order")
+    val LyricsOrderOverrideKey = booleanPreferencesKey("pixelmusic_lyrics_order_override")
 
     val DefaultProviderOrder: List<String> = listOf(
         "BetterLyrics",
@@ -101,8 +101,8 @@ object MochyLyricsPreferences {
         "bn" to "Bengali",
     )
 
-    fun styleFlow(context: Context): Flow<MochyLyricsStyle> =
-        context.dataStore.data.map { MochyLyricsStyle.fromName(it[StyleKey]) }
+    fun styleFlow(context: Context): Flow<PixelMusicLyricsStyle> =
+        context.dataStore.data.map { PixelMusicLyricsStyle.fromName(it[StyleKey]) }
 
     fun textSizeFlow(context: Context): Flow<Float> =
         context.dataStore.data.map { (it[TextSizeKey] ?: 26f).coerceIn(18f, 36f) }
@@ -144,7 +144,7 @@ object MochyLyricsPreferences {
         return listOf(preferred) + DefaultProviderOrder.filter { it != preferred }
     }
 
-    suspend fun setStyle(context: Context, style: MochyLyricsStyle) {
+    suspend fun setStyle(context: Context, style: PixelMusicLyricsStyle) {
         context.dataStore.edit { it[StyleKey] = style.name }
     }
 

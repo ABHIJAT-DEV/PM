@@ -5,13 +5,13 @@ import com.saurav.pixelmusic.data.model.SyncedLine
 import com.saurav.pixelmusic.data.model.SyncedWord
 
 /**
- * Parses Mochy's rich LRC formats into PixelMusic's [Lyrics] model:
+ * Parses PixelMusic's rich LRC formats into PixelMusic's [Lyrics] model:
  * - Standard LRC: `[mm:ss.xx]text`
  * - Enhanced syllable/word LRC: `[mm:ss.xxx]<mm:ss.xxx>word <mm:ss.xxx>word` (YouLyPlus / eLRC)
  * - Word-span sidecar lines: `<word:startSec:endSec|word2:startSec:endSec>` (BetterLyrics / Paxsenix / DirectLyrics)
  * - Duet agent & background vocal tags: `{agent:v1}`, `{agent:v2}`, `{bg}`
  */
-object MochyLyricsParser {
+object PixelMusicLyricsParser {
 
     private val LineTagRegex = Regex("""^\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?](.*)$""")
     private val InlineWordRegex = Regex("""<(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?>([^<]*)""")
@@ -91,7 +91,7 @@ object MochyLyricsParser {
                     body
                 }
 
-                // Check next line for Mochy `<word:startSec:endSec|...>` sidecar
+                // Check next line for PixelMusic `<word:startSec:endSec|...>` sidecar
                 val nextLine = rawLines.getOrNull(i + 1)?.trim()
                 if (nextLine != null && nextLine.startsWith("<") && nextLine.endsWith(">") && nextLine.contains(":")) {
                     val sidecarWords = parseSidecarWords(nextLine.substring(1, nextLine.length - 1))
@@ -200,7 +200,7 @@ object MochyLyricsParser {
  * Lightweight on-device romanizer for Devanagari (Hindi), Cyrillic (Russian/Ukrainian/etc.),
  * and Japanese Kana so Romanization works offline without extra libraries.
  */
-object MochyRomanizer {
+object PixelMusicRomanizer {
 
     fun needsRomanization(text: String): Boolean = text.any { ch ->
         val block = Character.UnicodeBlock.of(ch)

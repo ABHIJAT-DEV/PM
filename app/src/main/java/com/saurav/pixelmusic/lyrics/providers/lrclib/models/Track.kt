@@ -14,7 +14,7 @@ data class Track(
 )
 
 private val Track.hasRealSyncedLyrics: Boolean
-    get() = com.saurav.pixelmusic.lyrics.MochyLyricsParser.hasUsableSyncedLyrics(syncedLyrics)
+    get() = com.saurav.pixelmusic.lyrics.PixelMusicLyricsParser.hasUsableSyncedLyrics(syncedLyrics)
 
 internal fun List<Track>.bestMatchingFor(duration: Int): Track? {
     if (isEmpty()) return null

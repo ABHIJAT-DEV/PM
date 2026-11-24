@@ -54,8 +54,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.saurav.pixelmusic.R
-import com.saurav.pixelmusic.lyrics.MochyLyricsEngine
-import com.saurav.pixelmusic.lyrics.MochyLyricsPreferences
+import com.saurav.pixelmusic.lyrics.PixelMusicLyricsEngine
+import com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences
 import com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet
 import com.saurav.pixelmusic.presentation.utils.LocalAppHapticsConfig
 import com.saurav.pixelmusic.presentation.utils.performAppCompatHapticFeedback
@@ -77,9 +77,9 @@ fun LyricsProvidersReorderSheet(
     val view = LocalView.current
     val appHapticsConfig = LocalAppHapticsConfig.current
 
-    val savedOrder by remember(context) { MochyLyricsPreferences.providerOrderFlow(context) }
-        .collectAsStateWithLifecycle(initialValue = MochyLyricsPreferences.DefaultProviderOrder)
-    val orderOverride by remember(context) { MochyLyricsPreferences.orderOverrideFlow(context) }
+    val savedOrder by remember(context) { PixelMusicLyricsPreferences.providerOrderFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = PixelMusicLyricsPreferences.DefaultProviderOrder)
+    val orderOverride by remember(context) { PixelMusicLyricsPreferences.orderOverrideFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
 
     var localOrder by remember { mutableStateOf(savedOrder) }
@@ -106,7 +106,7 @@ fun LyricsProvidersReorderSheet(
 
     LaunchedEffect(reorderableState.isAnyItemDragging) {
         if (!reorderableState.isAnyItemDragging && localOrder != savedOrder) {
-            MochyLyricsPreferences.setProviderOrder(context, localOrder)
+            PixelMusicLyricsPreferences.setProviderOrder(context, localOrder)
         }
     }
 
@@ -119,7 +119,7 @@ fun LyricsProvidersReorderSheet(
     SmoothModalBottomSheet(
         onDismissRequest = {
             if (localOrder != savedOrder) {
-                scope.launch { MochyLyricsPreferences.setProviderOrder(context, localOrder) }
+                scope.launch { PixelMusicLyricsPreferences.setProviderOrder(context, localOrder) }
             }
             onDismiss()
         },
@@ -156,11 +156,11 @@ fun LyricsProvidersReorderSheet(
                 }
                 IconButton(
                     onClick = {
-                        localOrder = MochyLyricsPreferences.DefaultProviderOrder
+                        localOrder = PixelMusicLyricsPreferences.DefaultProviderOrder
                         scope.launch {
-                            MochyLyricsPreferences.setProviderOrder(
+                            PixelMusicLyricsPreferences.setProviderOrder(
                                 context,
-                                MochyLyricsPreferences.DefaultProviderOrder
+                                PixelMusicLyricsPreferences.DefaultProviderOrder
                             )
                         }
                     }
@@ -202,7 +202,7 @@ fun LyricsProvidersReorderSheet(
                     Switch(
                         checked = orderOverride,
                         onCheckedChange = { enabled ->
-                            scope.launch { MochyLyricsPreferences.setOrderOverride(context, enabled) }
+                            scope.launch { PixelMusicLyricsPreferences.setOrderOverride(context, enabled) }
                         },
                     )
                 }
@@ -268,7 +268,7 @@ fun LyricsProvidersReorderSheet(
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    text = MochyLyricsEngine.getDisplayName(providerId),
+                                    text = PixelMusicLyricsEngine.getDisplayName(providerId),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontFamily = GoogleSansRounded,
                                     fontWeight = FontWeight.SemiBold,
@@ -284,7 +284,7 @@ fun LyricsProvidersReorderSheet(
             Button(
                 onClick = {
                     if (localOrder != savedOrder) {
-                        scope.launch { MochyLyricsPreferences.setProviderOrder(context, localOrder) }
+                        scope.launch { PixelMusicLyricsPreferences.setProviderOrder(context, localOrder) }
                     }
                     onDismiss()
                 },

@@ -46,27 +46,27 @@ import androidx.compose.ui.unit.offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.saurav.pixelmusic.data.model.SyncedLine
 import com.saurav.pixelmusic.lyrics.GoogleTranslateEngine
-import com.saurav.pixelmusic.lyrics.MochyLyricsPreferences
-import com.saurav.pixelmusic.lyrics.MochyRomanizer
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.AppMotion
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LocalLyricsHighlight
+import com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences
+import com.saurav.pixelmusic.lyrics.PixelMusicRomanizer
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.AppMotion
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LocalLyricsHighlight
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.sp
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsAlignment
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsBackdropBlend
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsEntry
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsGlowLine
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsInterludeDots
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsLineState
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsRecenterDurationMs
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsRecenterEasing
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsSmoothRecenterEasing
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsStagger
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.MinInterludeGapMs
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.RubyPlacement
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.SoftLightSupported
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.WordTimestamp
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.lyricsEdgeFade
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsAlignment
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsBackdropBlend
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsEntry
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsGlowLine
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsInterludeDots
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsLineState
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsRecenterDurationMs
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsRecenterEasing
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsSmoothRecenterEasing
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsStagger
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.MinInterludeGapMs
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.RubyPlacement
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.SoftLightSupported
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.WordTimestamp
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.lyricsEdgeFade
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -75,7 +75,7 @@ import kotlinx.coroutines.flow.first
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-// ---- Mochy's lyrics page numbers, unchanged ----
+// ---- PixelMusic's lyrics page numbers, unchanged ----
 
 private const val ActiveLineViewportFraction = 0.055f
 private val MinPastLineVisibleHeight = 72.dp
@@ -99,9 +99,9 @@ private class LyricsListPadding : PaddingValues {
     override fun calculateRightPadding(layoutDirection: LayoutDirection) = 0.dp
 }
 
-// ---- PixelMusic lyrics -> Mochy's entries ----
+// ---- PixelMusic lyrics -> PixelMusic's entries ----
 
-private fun SyncedLine.toMochyEntry(
+private fun SyncedLine.toPixelMusicEntry(
     primaryText: String,
     useWords: Boolean,
     nextLineTimeMs: Int?,
@@ -314,11 +314,11 @@ private class LyricsClock(
 }
 
 /**
- * The lyrics page, Mochy's own: the four Mochy styles (Style 1, Style 2, Boring, Plain) run on Mochy's
+ * The lyrics page, PixelMusic's own: the four PixelMusic styles (Style 1, Style 2, Boring, Plain) run on PixelMusic's
  * renderer, rows, scrolling and cascade. The fifth, PixelMusic's, is drawn by the caller instead.
  */
 @Composable
-fun MochySyncedLyricsView(
+fun PixelMusicSyncedLyricsView(
     lines: List<SyncedLine>,
     listState: LazyListState,
     playbackPositionFlow: StateFlow<Long>,
@@ -340,21 +340,21 @@ fun MochySyncedLyricsView(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val density = LocalDensity.current
-    val style by remember(context) { MochyLyricsPreferences.styleFlow(context) }
-        .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.lyrics.MochyLyricsStyle.MOTION)
-    val softLight by remember(context) { MochyLyricsPreferences.softLightFlow(context) }
+    val style by remember(context) { PixelMusicLyricsPreferences.styleFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle.MOTION)
+    val softLight by remember(context) { PixelMusicLyricsPreferences.softLightFlow(context) }
         .collectAsStateWithLifecycle(initialValue = true)
-    val textSizeSp by remember(context) { MochyLyricsPreferences.textSizeFlow(context) }
+    val textSizeSp by remember(context) { PixelMusicLyricsPreferences.textSizeFlow(context) }
         .collectAsStateWithLifecycle(initialValue = 26f)
-    val lineSpacing by remember(context) { MochyLyricsPreferences.lineSpacingFlow(context) }
+    val lineSpacing by remember(context) { PixelMusicLyricsPreferences.lineSpacingFlow(context) }
         .collectAsStateWithLifecycle(initialValue = 1.25f)
-    val autoTranslate by remember(context) { MochyLyricsPreferences.autoTranslateFlow(context) }
+    val autoTranslate by remember(context) { PixelMusicLyricsPreferences.autoTranslateFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
-    val translateLang by remember(context) { MochyLyricsPreferences.translateLanguageFlow(context) }
+    val translateLang by remember(context) { PixelMusicLyricsPreferences.translateLanguageFlow(context) }
         .collectAsStateWithLifecycle(initialValue = "en")
-    val autoRomanize by remember(context) { MochyLyricsPreferences.autoRomanizeFlow(context) }
+    val autoRomanize by remember(context) { PixelMusicLyricsPreferences.autoRomanizeFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
-    val romanizationAsMain by remember(context) { MochyLyricsPreferences.romanizationAsMainFlow(context) }
+    val romanizationAsMain by remember(context) { PixelMusicLyricsPreferences.romanizationAsMainFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
 
     val cascade = style.risesWords
@@ -387,17 +387,17 @@ fun MochySyncedLyricsView(
     val romanized = remember(lines, autoRomanize, showRomanizationPref) {
         if (!autoRomanize && !showRomanizationPref) emptyList()
         else lines.map { line ->
-            line.romanization?.takeIf { it.isNotBlank() } ?: if (autoRomanize) MochyRomanizer.romanize(line.line) else null
+            line.romanization?.takeIf { it.isNotBlank() } ?: if (autoRomanize) PixelMusicRomanizer.romanize(line.line) else null
         }
     }
 
-    // each line as Mochy's renderer takes it, with the romanisation swapped on top when that's the setting
+    // each line as PixelMusic's renderer takes it, with the romanisation swapped on top when that's the setting
     val entries = remember(lines, romanized, romanizationAsMain) {
         lines.mapIndexed { i, line ->
             val rom = romanized.getOrNull(i)?.takeIf { it.isNotBlank() && it != line.line }
             val swap = romanizationAsMain && rom != null
             val nextLineTimeMs = lines.getOrNull(i + 1)?.time
-            line.toMochyEntry(
+            line.toPixelMusicEntry(
                 primaryText = if (swap) rom else line.line,
                 useWords = !swap,
                 nextLineTimeMs = nextLineTimeMs,
@@ -597,14 +597,14 @@ fun MochySyncedLyricsView(
                     }
                 }
 
-                item(key = "mochy_source_footer", contentType = "source") {
-                    MochySourceFooter(
+                item(key = "pixelmusic_source_footer", contentType = "source") {
+                    PixelMusicSourceFooter(
                         providerName = providerName,
                         contentColor = contentColor,
                         modifier = Modifier
                             .lyricsEdgeFade(blend)
                             .graphicsLayer { translationY = stagger.lagOf(rows.size) }
-                            .padding(horizontal = com.saurav.pixelmusic.presentation.components.lyrics.mochy.LyricsHeaderArtX),
+                            .padding(horizontal = com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsHeaderArtX),
                     )
                 }
             }
@@ -613,7 +613,7 @@ fun MochySyncedLyricsView(
 }
 
 @Composable
-fun MochySourceFooter(
+fun PixelMusicSourceFooter(
     providerName: String?,
     contentColor: Color,
     modifier: Modifier = Modifier,

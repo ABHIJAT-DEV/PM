@@ -1,4 +1,4 @@
-package com.saurav.pixelmusic.presentation.components.lyrics.mochy
+package com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic
 
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader

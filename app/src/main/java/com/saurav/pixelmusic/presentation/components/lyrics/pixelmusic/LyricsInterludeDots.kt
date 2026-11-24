@@ -1,6 +1,6 @@
 // LyricsInterludeDots.kt
 
-package com.saurav.pixelmusic.presentation.components.lyrics.mochy
+package com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -28,7 +28,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.unit.dp
-import com.saurav.pixelmusic.presentation.components.lyrics.mochy.damageBoundary
+import com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.damageBoundary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
