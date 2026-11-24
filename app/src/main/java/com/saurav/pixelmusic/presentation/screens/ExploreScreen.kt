@@ -827,6 +827,7 @@ fun ExploreScreen(
 
         // Top bar with Explore text pill on the left and Settings button on the right
         // Both vanish when scrolling (exploreTitleAlpha fades out)
+        val headerPillColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.90f)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -835,25 +836,31 @@ fun ExploreScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .height(48.dp)
-                    .clip(CircleShape)
-                    .clickable {
+            Surface(
+                onClick = {
+                    if (exploreTitleAlpha > 0.05f) {
                         scope.launch {
                             listState.animateScrollToItem(0)
                         }
-                    },
-                contentAlignment = Alignment.CenterStart
+                    }
+                },
+                shape = CircleShape,
+                color = headerPillColor,
+                modifier = Modifier.height(48.dp)
             ) {
-                Text(
-                    text = "Explore",
-                    fontFamily = GoogleSansRounded,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 34.sp,
-                    letterSpacing = 0.5.sp
-                )
+                Box(
+                    modifier = Modifier.padding(horizontal = 18.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Explore",
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 28.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
             }
 
             Surface(
@@ -863,14 +870,14 @@ fun ExploreScreen(
                     }
                 },
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = headerPillColor,
                 modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         painter = painterResource(R.drawable.rounded_settings_24),
                         contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }

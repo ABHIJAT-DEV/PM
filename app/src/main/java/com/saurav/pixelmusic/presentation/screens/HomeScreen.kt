@@ -859,6 +859,7 @@ fun HomeScreen(
 
         // Top bar with PixelMusic pill on the left and Settings button on the right
         // Both vanish when scrolling (homeTitleAlpha fades out)
+        val headerPillColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.90f)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -867,18 +868,31 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .height(48.dp)
-                    .clip(CircleShape)
-                    .clickable {
+            Surface(
+                onClick = {
+                    if (homeTitleAlpha > 0.05f) {
                         scope.launch {
                             listState.animateScrollToItem(0)
                         }
-                    },
-                contentAlignment = Alignment.CenterStart
+                    }
+                },
+                shape = CircleShape,
+                color = headerPillColor,
+                modifier = Modifier
+                    .height(48.dp)
+                    .graphicsLayer {
+                        if (com.saurav.pixelmusic.presentation.screens.SplashTransitionState.isSplashActive) {
+                            val p = com.saurav.pixelmusic.presentation.screens.SplashTransitionState.exitProgress
+                            val raw = ((p - 0.54f) / 0.38f).coerceIn(0f, 1f)
+                            val inv = 1f - raw
+                            alpha = 1f - inv * inv * inv
+                        } else {
+                            alpha = 1f
+                        }
+                    }
             ) {
                 Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -949,14 +963,14 @@ fun HomeScreen(
                     }
                 },
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = headerPillColor,
                 modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         painter = painterResource(R.drawable.rounded_settings_24),
                         contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
