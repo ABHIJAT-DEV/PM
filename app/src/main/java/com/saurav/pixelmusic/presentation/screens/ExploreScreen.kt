@@ -827,7 +827,20 @@ fun ExploreScreen(
 
         // Top bar with Explore text pill on the left and Settings button on the right
         // Both vanish when scrolling (exploreTitleAlpha fades out)
-        val headerPillColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.90f)
+        val isDarkHeaderTheme = com.saurav.pixelmusic.ui.theme.LocalPixelMusicDarkTheme.current
+        val headerPillColor = if (isDarkHeaderTheme) {
+            androidx.compose.ui.graphics.lerp(
+                MaterialTheme.colorScheme.surfaceContainer,
+                MaterialTheme.colorScheme.primaryContainer,
+                0.22f
+            ).copy(alpha = 0.90f)
+        } else {
+            androidx.compose.ui.graphics.lerp(
+                MaterialTheme.colorScheme.surfaceContainerLowest,
+                MaterialTheme.colorScheme.primaryContainer,
+                0.22f
+            ).copy(alpha = 0.90f)
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
