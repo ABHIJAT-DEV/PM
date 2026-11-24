@@ -1,9 +1,15 @@
 package com.saurav.pixelmusic.presentation.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
@@ -11,7 +17,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 /**
  * Material You Expressive grouped list card styling matching the Now Playing
@@ -45,70 +53,55 @@ fun expressiveGroupedCardShape(index: Int, totalCount: Int): Shape {
 }
 
 /**
- * Position-driven, draw-phase scroll transition for LazyColumn list items.
- * Reveals items visibly right above the bottom navigation bar / mini player
- * and softly scales & fades items as they pass the top edge, tracking scroll
- * smoothly in both directions without per-frame recomposition.
+ * Smooth, draw-phase scroll entrance transition for LazyColumn list items.
+ * Waits until the item actually crosses into the visible viewport above the
+ * bottom mini player / navigation bar before running a damped spring to 1.0,
+ * so the animation is clearly visible while scrolling and always settles cleanly
+ * at 100% scale and opacity when resting on screen.
  */
 fun Modifier.expressiveListItemScrollAnimation(
-    @Suppress("UNUSED_PARAMETER") listState: LazyListState? = null
+    listState: LazyListState? = null
 ): Modifier = composed {
-    val itemTopPx = remember { mutableFloatStateOf(0f) }
-    val itemHeightPx = remember { mutableFloatStateOf(0f) }
-    val viewportHeightPx = remember { mutableFloatStateOf(0f) }
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val bottomTriggerInsetPx = remember(density) { with(density) { 84.dp.toPx() } }
+
+    val progress = remember { Animatable(0f) }
+    var hasTriggered by remember { mutableStateOf(false) }
+    val enterDirection = remember { mutableFloatStateOf(1f) }
 
     this
         .onGloballyPositioned { coordinates ->
-            val parent = coordinates.parentLayoutCoordinates
-            if (parent != null) {
-                itemTopPx.floatValue = parent.localPositionOf(coordinates, Offset.Zero).y
-                itemHeightPx.floatValue = coordinates.size.height.toFloat()
-                viewportHeightPx.floatValue = parent.size.height.toFloat()
+            if (hasTriggered) return@onGloballyPositioned
+            val parent = coordinates.parentLayoutCoordinates ?: return@onGloballyPositioned
+            val viewportHeight = parent.size.height.toFloat()
+            if (viewportHeight <= 0f) return@onGloballyPositioned
+
+            val topY = parent.localPositionOf(coordinates, Offset.Zero).y
+            val triggerLineY = (viewportHeight - bottomTriggerInsetPx).coerceAtLeast(1f)
+
+            if (topY < triggerLineY) {
+                hasTriggered = true
+                enterDirection.floatValue = if (listState?.lastScrolledBackward == true) -1f else 1f
+                scope.launch {
+                    progress.animateTo(
+                        targetValue = 1f,
+                        animationSpec = spring(
+                            dampingRatio = 0.84f,
+                            stiffness = 260f,
+                            visibilityThreshold = 0.002f
+                        )
+                    )
+                }
             }
         }
         .graphicsLayer {
-            val vh = viewportHeightPx.floatValue
-            val ih = itemHeightPx.floatValue
-            if (vh <= 0f || ih <= 0f) return@graphicsLayer
-
-            val topY = itemTopPx.floatValue
-            val centerY = topY + ih * 0.5f
-
-            // Start the bottom reveal right above the mini player + navigation bar chrome
-            val bottomChromePx = 148.dp.toPx()
-            val bottomZonePx = 120.dp.toPx()
-            val bottomEdgeY = (vh - bottomChromePx).coerceAtLeast(ih)
-
-            val rawBottom = ((bottomEdgeY - centerY) / bottomZonePx).coerceIn(0f, 1f)
-            val bottomProgress = rawBottom * rawBottom * (3f - 2f * rawBottom)
-
-            // Top exit/re-entry triggers cleanly as an item crosses the top viewport edge
-            val rawTop = if (topY < 0f) {
-                (1f + topY / ih.coerceAtLeast(1f)).coerceIn(0f, 1f)
-            } else {
-                1f
-            }
-            val topProgress = rawTop * rawTop * (3f - 2f * rawTop)
-
-            if (bottomProgress < 1f) {
-                val scale = 0.88f + 0.12f * bottomProgress
-                alpha = 0.25f + 0.75f * bottomProgress
-                scaleX = scale
-                scaleY = scale
-                translationY = (1f - bottomProgress) * 22.dp.toPx()
-                transformOrigin = TransformOrigin(0.5f, 0.25f)
-            } else if (topProgress < 1f) {
-                val scale = 0.90f + 0.10f * topProgress
-                alpha = 0.35f + 0.65f * topProgress
-                scaleX = scale
-                scaleY = scale
-                translationY = -(1f - topProgress) * 14.dp.toPx()
-                transformOrigin = TransformOrigin(0.5f, 0.75f)
-            } else {
-                alpha = 1f
-                scaleX = 1f
-                scaleY = 1f
-                translationY = 0f
-            }
+            val p = progress.value
+            alpha = 0.25f + 0.75f * p
+            val scale = 0.90f + 0.10f * p
+            scaleX = scale
+            scaleY = scale
+            translationY = (1f - p) * 24.dp.toPx() * enterDirection.floatValue
+            transformOrigin = TransformOrigin(0.5f, 0.5f)
         }
 }
