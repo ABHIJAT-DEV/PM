@@ -62,10 +62,12 @@ import com.saurav.pixelmusic.presentation.components.AiExpressiveShapeType
 import com.saurav.pixelmusic.presentation.components.AiPlaylistGeneratingFullScreenPage
 import com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing
 import com.saurav.pixelmusic.presentation.components.DailyMixMorphChip
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
 import com.saurav.pixelmusic.presentation.components.ExpressiveSeedBoardItem
 import com.saurav.pixelmusic.presentation.components.ExpressiveSeedBoardSection
 import com.saurav.pixelmusic.presentation.components.ExpressiveSeedInputCard
 import com.saurav.pixelmusic.presentation.components.ExpressiveTopSeedTriggerCard
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.aiSoftSurfaceGlow
 import com.saurav.pixelmusic.presentation.components.drawAiMorphShape
@@ -361,7 +363,7 @@ private fun SmartMixConfigurator(
                 top = 12.dp,
                 bottom = fabAreaHeight + 36.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
         ) {
             // 1. Slider Card
             item {
@@ -380,11 +382,11 @@ private fun SmartMixConfigurator(
                         letterSpacing = 0.8.sp
                     ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp)
+                    modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 10.dp)
                 )
             }
 
-            // 2. Mode items — same expressive list style as Settings
+            // 2. Mode items — Material You Expressive grouped list cards with scroll entrance
             val modes = listOf(
                 ModeItemData("top",             "Top Tracks",       "Your most played tracks of all time",      R.drawable.rounded_leaderboard_24),
                 ModeItemData("recent",          "Recent Tracks",    "What you've been listening to lately",     R.drawable.rounded_history_24),
@@ -399,6 +401,8 @@ private fun SmartMixConfigurator(
             modes.forEachIndexed { idx, mode ->
                 item(key = mode.id) {
                     val isSelected = uiState.selectedMode == mode.id
+                    val isFirst = idx == 0
+                    val isLast = idx == modes.lastIndex
                     val colors = modeColors[mode.id]!!
                     val (fromShape, toShape) = baseShapes[idx % baseShapes.size]
 
@@ -421,16 +425,34 @@ private fun SmartMixConfigurator(
                         ),
                         label = "card_scale"
                     )
-                    val cardCorner by animateDpAsState(
+                    val topCorner by animateDpAsState(
                         targetValue = when {
-                            isModePressed -> 18.dp
-                            isSelected -> 32.dp
-                            else -> 24.dp
+                            isModePressed -> if (isFirst || isSelected) 18.dp else 10.dp
+                            isSelected -> 24.dp
+                            isFirst -> 24.dp
+                            else -> 4.dp
                         },
                         animationSpec = tween(durationMillis = 580, easing = AiSmoothMorphEasing),
-                        label = "card_corner"
+                        label = "card_top_corner"
                     )
-                    val itemShape = remember(cardCorner) { AbsoluteSmoothCornerShape(cardCorner, 60) }
+                    val bottomCorner by animateDpAsState(
+                        targetValue = when {
+                            isModePressed -> if (isLast || isSelected) 18.dp else 10.dp
+                            isSelected -> 24.dp
+                            isLast -> 24.dp
+                            else -> 4.dp
+                        },
+                        animationSpec = tween(durationMillis = 580, easing = AiSmoothMorphEasing),
+                        label = "card_bottom_corner"
+                    )
+                    val itemShape = remember(topCorner, bottomCorner) {
+                        RoundedCornerShape(
+                            topStart = topCorner,
+                            topEnd = topCorner,
+                            bottomStart = bottomCorner,
+                            bottomEnd = bottomCorner
+                        )
+                    }
 
                     val cardBgColor by animateColorAsState(
                         targetValue = if (isSelected) {
@@ -469,14 +491,16 @@ private fun SmartMixConfigurator(
                         color = cardBgColor,
                         shadowElevation = 0.dp,
                         modifier = Modifier
+                            .animateItem()
                             .fillMaxWidth()
+                            .expressiveListItemScrollAnimation(smartMixListState)
                             .graphicsLayer {
                                 scaleX = cardScale
                                 scaleY = cardScale
                             }
                             .aiSoftSurfaceGlow(
                                 color = colors.second,
-                                cornerRadius = cardCorner,
+                                cornerRadius = topCorner,
                                 spread = 10.dp * selectProgress,
                                 offsetY = 2.dp * selectProgress,
                                 maxAlpha = (if (isDark) 0.28f else 0.18f) * selectProgress
