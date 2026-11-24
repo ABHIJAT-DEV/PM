@@ -45,6 +45,9 @@ import com.saurav.pixelmusic.data.model.StorageFilter
 import com.saurav.pixelmusic.data.model.SortOption
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -328,14 +331,8 @@ fun LibrarySongsTab(
                                 contentType = { "song" }
                             ) { index ->
                                 val song = songs[index]
-                                val itemShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, songs.itemCount)
-                                val itemModifier = with(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing) {
-                                    Modifier.animateItem()
-                                }.let { mod ->
-                                    com.saurav.pixelmusic.presentation.components.run {
-                                        mod.expressiveListItemScrollAnimation(listState)
-                                    }
-                                }
+                                val itemShape = expressiveGroupedCardShape(index, songs.itemCount)
+                                val itemModifier = Modifier.animateItem().expressiveListItemScrollAnimation(listState)
                                 
                                 if (song != null) {
                                     val isSelected = selectedSongIds.contains(song.id)

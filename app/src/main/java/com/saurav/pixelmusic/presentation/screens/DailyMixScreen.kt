@@ -97,6 +97,9 @@ import com.saurav.pixelmusic.utils.shapes.RoundedStarShape
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -439,12 +442,10 @@ fun DailyMixScreen(
 
                 itemsIndexed(dailyMixSongs, key = { index, song -> "${song.id}_$index" }) { index, song ->
                     EnhancedSongListItem(
-                        modifier = com.saurav.pixelmusic.presentation.components.run {
-                            Modifier
-                                .animateItem()
-                                .padding(horizontal = 16.dp)
-                                .expressiveListItemScrollAnimation(lazyListState)
-                        },
+                        modifier = Modifier
+                            .animateItem()
+                            .padding(horizontal = 16.dp)
+                            .expressiveListItemScrollAnimation(lazyListState),
                         song = song,
                         isCurrentSong = currentSongId == song.id,
                         isPlaying = currentSongId == song.id && isPlaying,

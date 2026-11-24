@@ -99,6 +99,9 @@ import com.saurav.pixelmusic.presentation.components.PlaylistBottomSheet
 import com.saurav.pixelmusic.presentation.components.SmartImage
 import com.saurav.pixelmusic.presentation.components.SongInfoBottomSheet
 import com.saurav.pixelmusic.presentation.components.resolveNavBarOccupiedHeight
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.viewmodel.AlbumDetailViewModel
@@ -344,11 +347,9 @@ fun AlbumDetailScreen(
                             ) { index ->
                                 val song = discSongs[index]
                                 EnhancedSongListItem(
-                                    modifier = com.saurav.pixelmusic.presentation.components.run {
-                                        Modifier
-                                            .animateItem()
-                                            .expressiveListItemScrollAnimation(lazyListState)
-                                    },
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .expressiveListItemScrollAnimation(lazyListState),
                                     song = song,
                                     isCurrentSong = albumCurrentSongId == song.id,
                                     isPlaying = albumIsPlaying,

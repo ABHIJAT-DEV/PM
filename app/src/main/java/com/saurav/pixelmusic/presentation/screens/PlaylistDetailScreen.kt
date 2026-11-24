@@ -36,6 +36,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -545,16 +548,14 @@ fun PlaylistDetailScreen(
                                     )
 
                                     QueuePlaylistSongItem(
-                                        modifier = com.saurav.pixelmusic.presentation.components.run {
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 0.dp)
-                                                .expressiveListItemScrollAnimation(listState)
-                                                .graphicsLayer {
-                                                    scaleX = scale
-                                                    scaleY = scale
-                                                }
-                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 0.dp)
+                                            .expressiveListItemScrollAnimation(listState)
+                                            .graphicsLayer {
+                                                scaleX = scale
+                                                scaleY = scale
+                                            },
                                         onClick = {
                                             playerViewModel.playSongs(
                                                 localReorderableSongs,

@@ -71,6 +71,9 @@ import androidx.compose.runtime.remember
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.presentation.components.ExpressiveHeroCollageHeader
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.QuickPicksViewModel
@@ -254,12 +257,10 @@ fun QuickPicksAllScreen(
                 items(count = songs.size, key = { songs[it].id }) { index ->
                     val song = songs[index]
                     EnhancedSongListItem(
-                        modifier = com.saurav.pixelmusic.presentation.components.run {
-                            Modifier
-                                .animateItem()
-                                .padding(horizontal = 16.dp)
-                                .expressiveListItemScrollAnimation(listState)
-                        },
+                        modifier = Modifier
+                            .animateItem()
+                            .padding(horizontal = 16.dp)
+                            .expressiveListItemScrollAnimation(listState),
                         song = song,
                         isCurrentSong = currentSongId == song.id,
                         isPlaying = currentSongId == song.id && isPlaying,

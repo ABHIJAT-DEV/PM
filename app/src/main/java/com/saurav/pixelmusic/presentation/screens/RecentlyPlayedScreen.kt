@@ -87,6 +87,9 @@ import com.saurav.pixelmusic.presentation.components.PlaylistBottomSheet
 import com.saurav.pixelmusic.presentation.components.RecentlyPlayedRangeSelector
 import com.saurav.pixelmusic.presentation.components.SongInfoBottomSheet
 import com.saurav.pixelmusic.presentation.components.SmartImage
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.model.RecentlyPlayedSongUiModel
@@ -324,12 +327,10 @@ fun RecentlyPlayedScreen(
                         group.songs.forEachIndexed { songIndex, item ->
                             item(key = "rp_${groupIndex}_${songIndex}_${item.song.id}", contentType = "recently_played_song") {
                                 EnhancedSongListItem(
-                                    modifier = com.saurav.pixelmusic.presentation.components.run {
-                                        Modifier
-                                            .animateItem()
-                                            .padding(horizontal = 16.dp)
-                                            .expressiveListItemScrollAnimation(lazyListState)
-                                    },
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .padding(horizontal = 16.dp)
+                                        .expressiveListItemScrollAnimation(lazyListState),
                                     song = item.song,
                                     isCurrentSong = currentSongId == item.song.id,
                                     isPlaying = currentSongId == item.song.id && isPlaying,

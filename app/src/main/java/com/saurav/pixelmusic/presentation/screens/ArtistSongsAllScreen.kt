@@ -26,6 +26,9 @@ import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.PlaylistBottomSheet
 import com.saurav.pixelmusic.presentation.components.SongInfoBottomSheet
 import com.saurav.pixelmusic.presentation.components.resolveNavBarOccupiedHeight
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
 import com.saurav.pixelmusic.presentation.components.subcomps.EnhancedSongListItem
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafelyReplacing
@@ -207,11 +210,9 @@ fun ArtistSongsAllScreen(
                         key = { idx, song -> "${song.id}_$idx" }
                     ) { index, song ->
                         EnhancedSongListItem(
-                            modifier = com.saurav.pixelmusic.presentation.components.run {
-                                Modifier
-                                    .animateItem()
-                                    .expressiveListItemScrollAnimation(listState)
-                            },
+                            modifier = Modifier
+                                .animateItem()
+                                .expressiveListItemScrollAnimation(listState),
                             song = song,
                             isPlaying = allSongsIsPlaying,
                             isCurrentSong = allSongsCurrentSongId == song.id,
