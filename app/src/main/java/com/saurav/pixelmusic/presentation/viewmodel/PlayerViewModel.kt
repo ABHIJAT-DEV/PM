@@ -560,6 +560,7 @@ class PlayerViewModel @Inject constructor(
     val isCastSheetVisible: StateFlow<Boolean> = _isCastSheetVisible.asStateFlow()
 
     val playerContentExpansionFraction = Animatable(0f)
+    val playerSheetDockBounceFraction = Animatable(0f)
 
     private val _isMiniPlayerDismissing = MutableStateFlow(false)
     val isMiniPlayerDismissing: StateFlow<Boolean> = _isMiniPlayerDismissing.asStateFlow()

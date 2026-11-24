@@ -38,6 +38,7 @@ internal fun rememberSheetVisualState(
     predictiveBackSwipeEdge: Int?,
     currentSheetContentState: PlayerSheetState,
     playerContentExpansionFraction: Animatable<Float, AnimationVector1D>,
+    playerSheetDockBounceFraction: Animatable<Float, AnimationVector1D>,
     containerHeight: Dp,
     currentSheetTranslationY: Animatable<Float, AnimationVector1D>,
     sheetCollapsedTargetY: Float,
@@ -74,15 +75,19 @@ internal fun rememberSheetVisualState(
     // Lambda provider: read inside .offset { } block (layout phase) — avoids recomposition
     // at ~60fps during drag gestures. The lambda captures Animatable refs and reads them at
     // layout time, same pattern as the horizontal padding providers above.
+    val miniPlayerDockBounceMaxPx = remember(density) { with(density) { 6.dp.toPx() } }
     val predictiveBackCollapseProgressState = rememberUpdatedState(predictiveBackCollapseProgress)
     val visualSheetTranslationYProvider: () -> Float = remember(
         currentSheetTranslationY,
-        sheetCollapsedTargetY
+        sheetCollapsedTargetY,
+        playerSheetDockBounceFraction,
+        miniPlayerDockBounceMaxPx
     ) {
         {
             val progress = predictiveBackCollapseProgressState.value
-            currentSheetTranslationY.value * (1f - progress) +
+            val baseY = currentSheetTranslationY.value * (1f - progress) +
                 (sheetCollapsedTargetY * progress)
+            baseY + (playerSheetDockBounceFraction.value * miniPlayerDockBounceMaxPx)
         }
     }
 

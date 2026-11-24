@@ -1128,6 +1128,9 @@ class MainActivity : ComponentActivity() {
                         val bottomBarPaddingPx = remember(bottomBarPadding, density) {
                             with(density) { bottomBarPadding.toPx() }
                         }
+                        val navBarDockBounceMaxPx = remember(density) {
+                            with(density) { 4.dp.toPx() }
+                        }
 
                         Box(
                             modifier = Modifier
@@ -1159,9 +1162,14 @@ class MainActivity : ComponentActivity() {
                                         val totalBarHeight = componentHeightPx + shadowOverflowPx + bottomBarPaddingPx
                                         val playerExpansionSlide = totalBarHeight * hideFraction
                                         val navigationVisibilitySlide = (1f - navBarVisibilityProgress) * totalBarHeight
+                                        val dockBounceSlide = if (showPlayerContentArea) {
+                                            playerViewModel.playerSheetDockBounceFraction.value * navBarDockBounceMaxPx
+                                        } else {
+                                            0f
+                                        }
                                         val expansionAlpha = (1f - hideFraction * 2.2f).coerceIn(0f, 1f)
 
-                                        translationY = playerExpansionSlide + navigationVisibilitySlide
+                                        translationY = playerExpansionSlide + navigationVisibilitySlide + dockBounceSlide
                                         alpha = (navBarVisibilityProgress * expansionAlpha).coerceIn(0f, 1f)
                                     }
                                     .height(navBarHeight)

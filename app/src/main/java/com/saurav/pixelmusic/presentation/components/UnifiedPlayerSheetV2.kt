@@ -251,9 +251,21 @@ fun UnifiedPlayerSheetV2(
     }
 
     val playerContentExpansionFraction = playerViewModel.playerContentExpansionFraction
+    val playerSheetDockBounceFraction = playerViewModel.playerSheetDockBounceFraction
     val initialFullPlayerOffsetY = remember(density) { with(density) { 24.dp.toPx() } }
     val sheetAnimationSpec = remember {
-        tween<Float>(durationMillis = ANIMATION_DURATION_MS, easing = FastOutSlowInEasing)
+        spring<Float>(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = 200f,
+            visibilityThreshold = 0.5f
+        )
+    }
+    val sheetFractionAnimationSpec = remember {
+        spring<Float>(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = 200f,
+            visibilityThreshold = 0.001f
+        )
     }
     val sheetAnimationMutex = remember { MutatorMutex() }
     val sheetExpandedTargetY = 0f
@@ -264,14 +276,18 @@ fun UnifiedPlayerSheetV2(
     val sheetMotionController = remember(
         currentSheetTranslationY,
         playerContentExpansionFraction,
+        playerSheetDockBounceFraction,
         sheetAnimationMutex,
-        sheetAnimationSpec
+        sheetAnimationSpec,
+        sheetFractionAnimationSpec
     ) {
         SheetMotionController(
             translationY = currentSheetTranslationY,
             expansionFraction = playerContentExpansionFraction,
+            dockBounceFraction = playerSheetDockBounceFraction,
             mutex = sheetAnimationMutex,
             defaultAnimationSpec = sheetAnimationSpec,
+            fractionAnimationSpec = sheetFractionAnimationSpec,
             expandedY = sheetExpandedTargetY
         )
     }
@@ -342,6 +358,7 @@ fun UnifiedPlayerSheetV2(
         predictiveBackSwipeEdge = predictiveBackSwipeEdge,
         currentSheetContentState = currentSheetContentState,
         playerContentExpansionFraction = playerContentExpansionFraction,
+        playerSheetDockBounceFraction = playerSheetDockBounceFraction,
         containerHeight = containerHeight,
         currentSheetTranslationY = currentSheetTranslationY,
         sheetCollapsedTargetY = sheetCollapsedTargetY,

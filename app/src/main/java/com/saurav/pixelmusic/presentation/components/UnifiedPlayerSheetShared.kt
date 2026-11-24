@@ -74,7 +74,7 @@ import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 internal val LocalMaterialTheme = staticCompositionLocalOf<ColorScheme> { error("No ColorScheme provided") }
 
 val MiniPlayerHeight = 64.dp
-const val ANIMATION_DURATION_MS = 255
+const val ANIMATION_DURATION_MS = 420
 val MiniPlayerBottomSpacer = 8.dp
 
 @Composable
