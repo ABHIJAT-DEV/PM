@@ -814,6 +814,7 @@ fun SettingsCategoryScreen(
                                             }
                                         }
                                     )
+                                    AppIconSelectorCard()
                                 }
 
                                 SettingsSubsection(title = stringResource(R.string.setcat_now_playing)) {
