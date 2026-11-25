@@ -82,6 +82,62 @@ enum class AppIconOption(
         aliasClassName = "com.saurav.pixelmusic.launcher.CozyKnitLauncher",
         previewRes = R.drawable.ic_launcher_custom_cozy_knit,
         mipmapRes = R.mipmap.ic_launcher_cozy_knit
+    ),
+    FOLK_ART(
+        id = "folk_art",
+        label = "Folk Art",
+        aliasClassName = "com.saurav.pixelmusic.launcher.FolkArtLauncher",
+        previewRes = R.drawable.ic_launcher_custom_folk_art,
+        mipmapRes = R.mipmap.ic_launcher_folk_art
+    ),
+    ROYAL_FILIGREE(
+        id = "royal_filigree",
+        label = "Royal Filigree",
+        aliasClassName = "com.saurav.pixelmusic.launcher.RoyalFiligreeLauncher",
+        previewRes = R.drawable.ic_launcher_custom_royal_filigree,
+        mipmapRes = R.mipmap.ic_launcher_royal_filigree
+    ),
+    OIL_SPLASH(
+        id = "oil_splash",
+        label = "Oil Splash",
+        aliasClassName = "com.saurav.pixelmusic.launcher.OilSplashLauncher",
+        previewRes = R.drawable.ic_launcher_custom_oil_splash,
+        mipmapRes = R.mipmap.ic_launcher_oil_splash
+    ),
+    LAVENDER_PLUSH(
+        id = "lavender_plush",
+        label = "Lavender Plush",
+        aliasClassName = "com.saurav.pixelmusic.launcher.LavenderPlushLauncher",
+        previewRes = R.drawable.ic_launcher_custom_lavender_plush,
+        mipmapRes = R.mipmap.ic_launcher_lavender_plush
+    ),
+    STUDIO_CLAY(
+        id = "studio_clay",
+        label = "Studio Clay",
+        aliasClassName = "com.saurav.pixelmusic.launcher.StudioClayLauncher",
+        previewRes = R.drawable.ic_launcher_custom_studio_clay,
+        mipmapRes = R.mipmap.ic_launcher_studio_clay
+    ),
+    SUNSET_WASH(
+        id = "sunset_wash",
+        label = "Sunset Wash",
+        aliasClassName = "com.saurav.pixelmusic.launcher.SunsetWashLauncher",
+        previewRes = R.drawable.ic_launcher_custom_sunset_wash,
+        mipmapRes = R.mipmap.ic_launcher_sunset_wash
+    ),
+    CARVED_WOOD(
+        id = "carved_wood",
+        label = "Carved Wood",
+        aliasClassName = "com.saurav.pixelmusic.launcher.CarvedWoodLauncher",
+        previewRes = R.drawable.ic_launcher_custom_carved_wood,
+        mipmapRes = R.mipmap.ic_launcher_carved_wood
+    ),
+    BOTANICAL_PAPER(
+        id = "botanical_paper",
+        label = "Botanical Paper",
+        aliasClassName = "com.saurav.pixelmusic.launcher.BotanicalPaperLauncher",
+        previewRes = R.drawable.ic_launcher_custom_botanical_paper,
+        mipmapRes = R.mipmap.ic_launcher_botanical_paper
     )
 }
 
