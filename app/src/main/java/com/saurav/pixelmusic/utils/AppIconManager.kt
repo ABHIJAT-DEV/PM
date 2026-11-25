@@ -88,19 +88,37 @@ object AppIconManager {
 
     fun applyIcon(context: Context, target: AppIconOption) {
         val pm = context.packageManager
-        // Enable the target alias first so there is always an active launcher entry
-        pm.setComponentEnabledSetting(
-            ComponentName(context.packageName, target.aliasClassName),
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        for (option in AppIconOption.entries) {
-            if (option == target) continue
+        val targetComponent = ComponentName(context.packageName, target.aliasClassName)
+        if (pm.getComponentEnabledSetting(targetComponent) != PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
             pm.setComponentEnabledSetting(
-                ComponentName(context.packageName, option.aliasClassName),
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                targetComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                 PackageManager.DONT_KILL_APP
             )
+        }
+        for (option in AppIconOption.entries) {
+            if (option == target) continue
+            val component = ComponentName(context.packageName, option.aliasClassName)
+            val currentState = pm.getComponentEnabledSetting(component)
+            if (option == AppIconOption.DEFAULT) {
+                if (currentState != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
+                    pm.setComponentEnabledSetting(
+                        component,
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP
+                    )
+                }
+            } else {
+                val isAlreadyOff = currentState == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
+                    currentState == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                if (!isAlreadyOff) {
+                    pm.setComponentEnabledSetting(
+                        component,
+                        PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+                        PackageManager.DONT_KILL_APP
+                    )
+                }
+            }
         }
     }
 }
