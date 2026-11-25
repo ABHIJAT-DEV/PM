@@ -160,7 +160,6 @@ import com.saurav.pixelmusic.data.backup.model.RestorePlan
 import com.saurav.pixelmusic.data.preferences.AppLanguage
 import com.saurav.pixelmusic.data.preferences.AppThemeMode
 import com.saurav.pixelmusic.data.preferences.AppFontMode
-import com.saurav.pixelmusic.data.preferences.CollagePattern
 import com.saurav.pixelmusic.data.preferences.LaunchTab
 import com.saurav.pixelmusic.data.preferences.LibraryNavigationMode
 import com.saurav.pixelmusic.data.preferences.NavBarStyle
@@ -878,21 +877,6 @@ fun SettingsCategoryScreen(
                                             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         },
                                         onClick = { navController.navigateSafely(Screen.PaletteStyle.route) }
-                                    )
-                                }
-
-                                SettingsSubsection(title = stringResource(R.string.setcat_home_collage)) {
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_collage_pattern_label),
-                                        description = stringResource(R.string.setcat_collage_pattern_desc),
-                                        options = CollagePattern.entries.associate { it.storageKey to it.label },
-                                        selectedKey = uiState.collagePattern.storageKey,
-                                        onSelectionChanged = { key ->
-                                            settingsViewModel.setCollagePattern(CollagePattern.fromStorageKey(key))
-                                        },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_view_column_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
                                     )
                                 }
 

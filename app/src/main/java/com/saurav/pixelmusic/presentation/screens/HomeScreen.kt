@@ -370,18 +370,7 @@ fun HomeScreen(
     var savedScrollOffset by rememberSaveable { mutableIntStateOf(0) }
     var needsScrollRestore by rememberSaveable { mutableStateOf(false) }
 
-    val isCollageAutoRotate = settingsUiState.collageAutoRotate
-    val baseCollagePattern = settingsUiState.collagePattern
-    val collagePatterns = remember { CollagePattern.entries }
-    var collageAutoRotateIndex by rememberSaveable { mutableIntStateOf(0) }
-
-    val activeCollagePattern = remember(isCollageAutoRotate, baseCollagePattern, collageAutoRotateIndex) {
-        if (isCollageAutoRotate) {
-            collagePatterns[collageAutoRotateIndex.coerceAtLeast(0) % collagePatterns.size]
-        } else {
-            baseCollagePattern
-        }
-    }
+    val activeCollagePattern = CollagePattern.FLUID_BLOB
 
     val filteredQuickPicks = remember(quickPicks, notInterestedSongIds, interestedSongIds) {
         quickPicks.filter { it.id !in notInterestedSongIds }
@@ -404,9 +393,6 @@ fun HomeScreen(
                 savedScrollIndex = listState.firstVisibleItemIndex
                 savedScrollOffset = listState.firstVisibleItemScrollOffset
                 needsScrollRestore = true
-                if (settingsUiState.collageAutoRotate) {
-                    collageAutoRotateIndex++
-                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -737,12 +723,11 @@ fun HomeScreen(
                             key = "album_art_collage",
                             contentType = "album_art_collage"
                         ) {
-                            val collageHeight = if (activeCollagePattern == CollagePattern.FLUID_BLOB) 440.dp else 400.dp
                             AlbumArtCollage(
                                 modifier = Modifier.fillMaxWidth(),
                                 songs = filteredYourMixSongs,
                                 padding = 6.dp,
-                                height = collageHeight,
+                                height = 440.dp,
                                 pattern = activeCollagePattern,
                                 onSongClick = { song ->
                                     if (usesFallbackHomeMix) {

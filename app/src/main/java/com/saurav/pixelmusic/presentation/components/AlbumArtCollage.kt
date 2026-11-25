@@ -36,127 +36,21 @@ import com.saurav.pixelmusic.utils.shapes.FluidBlobType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
-@Stable
-data class Config(val size: Dp, val width: Dp, val height: Dp, val align: Alignment, val rot: Float, val shape: Shape, val offsetX: Dp, val offsetY: Dp)
-
 @Composable
 fun AlbumArtCollage(
     songs: ImmutableList<Song>,
     modifier: Modifier = Modifier,
-    height: Dp = 400.dp,
+    height: Dp = 440.dp,
     padding: Dp = 0.dp,
-    pattern: CollagePattern = CollagePattern.default,
+    @Suppress("UNUSED_PARAMETER") pattern: CollagePattern = CollagePattern.FLUID_BLOB,
     onSongClick: (Song) -> Unit,
 ) {
-    if (pattern == CollagePattern.FLUID_BLOB) {
-        FluidBlobCollage(
-            songs = songs,
-            modifier = modifier.padding(padding),
-            height = height,
-            onSongClick = onSongClick
-        )
-        return
-    }
-
-    val songsToShow = remember(songs) {
-        if (songs.isEmpty()) {
-            emptyList<Song?>().toImmutableList()
-        } else {
-            (0 until 6).map { songs.getOrNull(it % songs.size) }.toImmutableList()
-        }
-    }
-
-    val contentHeight = remember(height, padding) { maxOf(0.dp, height - (padding * 2)) }
-    val min = remember(height) { minOf(300.dp, height) }
-    val shapeConfigs = remember(pattern, min, contentHeight) {
-        buildCollageConfigs(pattern, min, contentHeight)
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height)
-            .padding(padding)
-    ) {
-        if (shapeConfigs.isNotEmpty()) {
-            val (topConfigs, bottomConfigs) = remember(shapeConfigs) {
-                shapeConfigs.take(3) to shapeConfigs.drop(3)
-            }
-
-            Column(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxWidth().height(contentHeight * 0.58f)) {
-                    topConfigs.forEachIndexed { idx, cfg ->
-                        songsToShow.getOrNull(idx)?.let { song ->
-                            val interactionSource = remember(song.id) { MutableInteractionSource() }
-                            SmartImage(
-                                model = song.albumArtUriString,
-                                contentDescription = song.title,
-                                contentScale = ContentScale.Crop,
-                                crossfadeDurationMillis = 0,
-                                targetSize = SmartImageListTargetSize,
-                                isThumbnail = true,
-                                modifier = Modifier
-                                    .size(cfg.width, cfg.height)
-                                    .align(cfg.align)
-                                    .offset(cfg.offsetX, cfg.offsetY)
-                                    .graphicsLayer(
-                                        rotationZ = cfg.rot,
-                                        clip = true,
-                                        shape = cfg.shape
-                                    )
-                                    .clickable(
-                                        interactionSource = interactionSource,
-                                        indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary)
-                                    ) { onSongClick(song) }
-                                    .background(color = MaterialTheme.colorScheme.surfaceContainerHigh)
-                            )
-                        }
-                    }
-                }
-                Box(Modifier.fillMaxWidth().height(contentHeight * 0.42f)) {
-                    bottomConfigs.forEachIndexed { j, cfg ->
-                        val idx = j + 3
-                        songsToShow.getOrNull(idx)?.let { song ->
-                            val interactionSource = remember(song.id) { MutableInteractionSource() }
-                            SmartImage(
-                                model = song.albumArtUriString,
-                                contentDescription = song.title,
-                                contentScale = ContentScale.Crop,
-                                crossfadeDurationMillis = 0,
-                                targetSize = SmartImageListTargetSize,
-                                isThumbnail = true,
-                                modifier = Modifier
-                                    .size(cfg.width, cfg.height)
-                                    .align(cfg.align)
-                                    .offset(cfg.offsetX, cfg.offsetY)
-                                    .graphicsLayer(
-                                        rotationZ = cfg.rot,
-                                        clip = true,
-                                        shape = cfg.shape
-                                    )
-                                    .clickable(
-                                        interactionSource = interactionSource,
-                                        indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary)
-                                    ) { onSongClick(song) }
-                                    .background(color = MaterialTheme.colorScheme.surfaceContainerHigh)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (songs.isEmpty()) {
-            Box(Modifier.matchParentSize(), contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(R.drawable.rounded_music_note_24),
-                    contentDescription = null,
-                    modifier = Modifier.size(100.dp),
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                )
-            }
-        }
-    }
+    FluidBlobCollage(
+        songs = songs,
+        modifier = modifier.padding(padding),
+        height = height,
+        onSongClick = onSongClick
+    )
 }
 
 /**

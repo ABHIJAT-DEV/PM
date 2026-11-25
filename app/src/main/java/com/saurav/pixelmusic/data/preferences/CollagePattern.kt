@@ -4,18 +4,11 @@ enum class CollagePattern(
     val storageKey: String,
     val label: String
 ) {
-    FLUID_BLOB("fluid_blob", "Fluid Blob Overlay"),
-    COSMIC_SWIRL("cosmic_swirl", "Cosmic Swirl"),
-    HONEYCOMB_GROOVE("honeycomb_groove", "Honeycomb Groove"),
-    VINYL_STACK("vinyl_stack", "Vinyl Stack"),
-    PIXEL_MOSAIC("pixel_mosaic", "Pixel Mosaic"),
-    STARDUST_SCATTER("stardust_scatter", "Stardust Scatter");
+    FLUID_BLOB("fluid_blob", "Fluid Blob Overlay");
 
     companion object {
         val default: CollagePattern = FLUID_BLOB
 
-        fun fromStorageKey(value: String?): CollagePattern {
-            return entries.firstOrNull { it.storageKey == value } ?: default
-        }
+        fun fromStorageKey(value: String?): CollagePattern = default
     }
 }
