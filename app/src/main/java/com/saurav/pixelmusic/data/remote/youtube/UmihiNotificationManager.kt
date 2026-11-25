@@ -58,6 +58,8 @@ object UmihiNotificationManager {
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setProgress(totalSongs, currentSong, false)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
             .setGroup(NotificationChannels.PLAYLIST_DOWNLOAD.group)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -144,6 +146,8 @@ object UmihiNotificationManager {
                 .setGroup(NotificationChannels.PLAYLIST_DOWNLOAD.group)
                 .setGroupSummary(true)
                 .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .setSilent(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
 

@@ -371,6 +371,8 @@ object InAppUpdater {
         )
     }
 
+    private const val UPDATE_PROGRESS_CHANNEL_ID = "app_updates_progress"
+
     fun createNotificationChannel(context: Context) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
@@ -379,9 +381,20 @@ object InAppUpdater {
                 "App Updates", 
                 android.app.NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Notifications for app updates and download progress"
+                description = "Notifications when a new app update is available or ready to install"
+            }
+            val progressChannel = android.app.NotificationChannel(
+                UPDATE_PROGRESS_CHANNEL_ID,
+                "App Update Downloads",
+                android.app.NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Silent progress notifications while downloading app updates"
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
             }
             notificationManager.createNotificationChannel(channel)
+            notificationManager.createNotificationChannel(progressChannel)
         }
     }
 
@@ -501,6 +514,7 @@ object InAppUpdater {
                 val buffer = ByteArray(8 * 1024)
                 var bytes = inputStream.read(buffer)
                 var lastEmitTime = System.currentTimeMillis()
+                var lastNotifTime = 0L
 
                 val notificationManager = appContext!!.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
                 val notifId = 999
@@ -524,24 +538,30 @@ object InAppUpdater {
                     if (currentTime - lastEmitTime > 150) {
                         val progress = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes.toFloat() else 0f
                         downloadState.value = GlobalDownloadState.Downloading(progress, false, versionName, totalBytes, downloadedBytes)
-                        
-                        val totalMb = totalBytes / (1024f * 1024f)
-                        val downMb = downloadedBytes / (1024f * 1024f)
-                        val mbString = if (totalBytes > 0) String.format(Locale.US, "%.1f / %.1f MB", downMb, totalMb) else String.format(Locale.US, "%.1f MB downloaded", downMb)
-
-                        val notif = androidx.core.app.NotificationCompat.Builder(appContext!!, "app_updates")
-                            .setSmallIcon(android.R.drawable.stat_sys_download)
-                            .setContentTitle("Downloading Update $versionName")
-                            .setContentText(mbString)
-                            .setProgress(100, (progress * 100).toInt(), false)
-                            .setContentIntent(pendingOpenIntent)
-                            .addAction(android.R.drawable.ic_media_pause, "Pause", pauseIntent)
-                            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", cancelIntent)
-                            .setOngoing(true)
-                            .build()
-                        notificationManager.notify(notifId, notif)
-
                         lastEmitTime = currentTime
+
+                        if (lastNotifTime == 0L || currentTime - lastNotifTime >= 750) {
+                            val totalMb = totalBytes / (1024f * 1024f)
+                            val downMb = downloadedBytes / (1024f * 1024f)
+                            val mbString = if (totalBytes > 0) String.format(Locale.US, "%.1f / %.1f MB", downMb, totalMb) else String.format(Locale.US, "%.1f MB downloaded", downMb)
+
+                            val notif = androidx.core.app.NotificationCompat.Builder(appContext!!, UPDATE_PROGRESS_CHANNEL_ID)
+                                .setSmallIcon(android.R.drawable.stat_sys_download)
+                                .setContentTitle("Downloading Update $versionName")
+                                .setContentText(mbString)
+                                .setProgress(100, (progress * 100).toInt(), false)
+                                .setContentIntent(pendingOpenIntent)
+                                .addAction(android.R.drawable.ic_media_pause, "Pause", pauseIntent)
+                                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", cancelIntent)
+                                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+                                .setCategory(androidx.core.app.NotificationCompat.CATEGORY_PROGRESS)
+                                .setOnlyAlertOnce(true)
+                                .setSilent(true)
+                                .setOngoing(true)
+                                .build()
+                            notificationManager.notify(notifId, notif)
+                            lastNotifTime = currentTime
+                        }
                     }
                     bytes = inputStream.read(buffer)
                 }
@@ -581,13 +601,17 @@ object InAppUpdater {
                 val cancelIntent = android.app.PendingIntent.getBroadcast(appContext, 3, Intent("PIXELMUSIC_CANCEL").setPackage(appContext!!.packageName), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
                 val pendingOpenIntent = buildOpenUpdateSheetPendingIntent(appContext!!)
 
-                val pausedNotif = androidx.core.app.NotificationCompat.Builder(appContext!!, "app_updates")
+                val pausedNotif = androidx.core.app.NotificationCompat.Builder(appContext!!, UPDATE_PROGRESS_CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.stat_sys_download)
                     .setContentTitle("Update Paused ($it)")
                     .setProgress(100, (progress * 100).toInt(), false)
                     .setContentIntent(pendingOpenIntent)
                     .addAction(android.R.drawable.ic_media_play, "Resume", resumeIntent)
                     .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", cancelIntent)
+                    .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+                    .setCategory(androidx.core.app.NotificationCompat.CATEGORY_PROGRESS)
+                    .setOnlyAlertOnce(true)
+                    .setSilent(true)
                     .setOngoing(true)
                     .build()
                 notificationManager.notify(999, pausedNotif)

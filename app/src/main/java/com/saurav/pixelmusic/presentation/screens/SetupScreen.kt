@@ -2393,34 +2393,11 @@ fun SetupBottomBar(
             smoothnessAsPercentTR = 60
         )
     ) {
-        val progressFraction by animateFloatAsState(
-            targetValue = ((pagerState.currentPage + 1).toFloat() / pagerState.pageCount.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f),
-            animationSpec = tween(durationMillis = 420, easing = AiSmoothMorphEasing),
-            label = "setup_progress_pill"
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 14.dp)
+                .padding(top = 4.dp, bottom = 14.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 12.dp, bottom = 2.dp)
-                    .height(4.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progressFraction)
-                        .fillMaxHeight()
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -67,6 +67,8 @@ class CloudPlaylistUploadNotificationManager @Inject constructor(
             .setContentTitle("Uploading to YouTube Music")
             .setContentText("Creating \"$playlistName\" • $current of $total songs added")
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setProgress(if (total > 0) total else 0, current, total <= 0)
