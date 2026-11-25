@@ -202,6 +202,24 @@ object PixelMusicLyricsParser {
  */
 object PixelMusicRomanizer {
 
+    /**
+     * Returns true if [text] contains any letter outside Latin Unicode blocks
+     * (e.g. Japanese Kanji/Kana, Korean Hangul, Chinese, Devanagari, Arabic, Cyrillic, Thai, etc.).
+     */
+    fun hasNonLatinScript(text: String): Boolean = text.any { ch ->
+        if (!Character.isLetter(ch)) return@any false
+        when (Character.UnicodeBlock.of(ch)) {
+            Character.UnicodeBlock.BASIC_LATIN,
+            Character.UnicodeBlock.LATIN_1_SUPPLEMENT,
+            Character.UnicodeBlock.LATIN_EXTENDED_A,
+            Character.UnicodeBlock.LATIN_EXTENDED_B,
+            Character.UnicodeBlock.LATIN_EXTENDED_ADDITIONAL -> false
+            Character.UnicodeBlock.HALFWIDTH_AND_FULLWIDTH_FORMS ->
+                ch !in '\uFF21'..'\uFF3A' && ch !in '\uFF41'..'\uFF5A'
+            else -> true
+        }
+    }
+
     fun needsRomanization(text: String): Boolean = text.any { ch ->
         val block = Character.UnicodeBlock.of(ch)
         block == Character.UnicodeBlock.DEVANAGARI ||
@@ -235,6 +253,21 @@ object PixelMusicRomanizer {
                     }
                 }
                 ch in cyrillicMap -> sb.append(cyrillicMap[ch])
+                ch == 'っ' || ch == 'ッ' -> {
+                    val nextRom = next?.let { n ->
+                        val nextNext = text.getOrNull(i + 2)
+                        val digraph = nextNext?.let { kanaDigraphs["$n$it"] }
+                        digraph ?: kanaMap[n]
+                    }
+                    if (!nextRom.isNullOrEmpty()) {
+                        if (nextRom.startsWith("ch")) sb.append('t')
+                        else if (nextRom[0] !in "aeiou") sb.append(nextRom[0])
+                    }
+                }
+                next != null && "$ch$next" in kanaDigraphs -> {
+                    sb.append(kanaDigraphs["$ch$next"])
+                    i++
+                }
                 ch in kanaMap -> sb.append(kanaMap[ch])
                 else -> sb.append(ch)
             }
@@ -308,5 +341,39 @@ object PixelMusicRomanizer {
         'ヤ' to "ya", 'ユ' to "yu", 'ヨ' to "yo",
         'ラ' to "ra", 'リ' to "ri", 'ル' to "ru", 'レ' to "re", 'ロ' to "ro",
         'ワ' to "wa", 'ヲ' to "wo", 'ン' to "n", 'ー' to "-",
+        'ぁ' to "a", 'ぃ' to "i", 'ぅ' to "u", 'ぇ' to "e", 'ぉ' to "o",
+        'ゃ' to "ya", 'ゅ' to "yu", 'ょ' to "yo", 'ゎ' to "wa",
+        'ァ' to "a", 'ィ' to "i", 'ゥ' to "u", 'ェ' to "e", 'ォ' to "o",
+        'ャ' to "ya", 'ュ' to "yu", 'ョ' to "yo", 'ヮ' to "wa", 'ヴ' to "vu",
+    )
+
+    private val kanaDigraphs = mapOf(
+        "きゃ" to "kya", "きゅ" to "kyu", "きょ" to "kyo",
+        "しゃ" to "sha", "しゅ" to "shu", "しょ" to "sho",
+        "ちゃ" to "cha", "ちゅ" to "chu", "ちょ" to "cho",
+        "にゃ" to "nya", "にゅ" to "nyu", "にょ" to "nyo",
+        "ひゃ" to "hya", "ひゅ" to "hyu", "ひょ" to "hyo",
+        "みゃ" to "mya", "みゅ" to "myu", "みょ" to "myo",
+        "りゃ" to "rya", "りゅ" to "ryu", "りょ" to "ryo",
+        "ぎゃ" to "gya", "ぎゅ" to "gyu", "ぎょ" to "gyo",
+        "じゃ" to "ja", "じゅ" to "ju", "じょ" to "jo",
+        "びゃ" to "bya", "びゅ" to "byu", "びょ" to "byo",
+        "ぴゃ" to "pya", "ぴゅ" to "pyu", "ぴょ" to "pyo",
+        "キャ" to "kya", "キュ" to "kyu", "キョ" to "kyo",
+        "シャ" to "sha", "シュ" to "shu", "ショ" to "sho",
+        "チャ" to "cha", "チュ" to "chu", "チョ" to "cho",
+        "ニャ" to "nya", "ニュ" to "nyu", "ニョ" to "nyo",
+        "ヒャ" to "hya", "ヒュ" to "hyu", "ヒョ" to "hyo",
+        "ミャ" to "mya", "ミュ" to "myu", "ミョ" to "myo",
+        "リャ" to "rya", "リュ" to "ryu", "リョ" to "ryo",
+        "ギャ" to "gya", "ギュ" to "gyu", "ギョ" to "gyo",
+        "ジャ" to "ja", "ジュ" to "ju", "ジョ" to "jo",
+        "ビャ" to "bya", "ビュ" to "byu", "ビョ" to "byo",
+        "ピャ" to "pya", "ピュ" to "pyu", "ピョ" to "pyo",
+        "ティ" to "ti", "ディ" to "di", "トゥ" to "tu", "ドゥ" to "du",
+        "ファ" to "fa", "フィ" to "fi", "フェ" to "fe", "フォ" to "fo",
+        "ウィ" to "wi", "ウェ" to "we", "ウォ" to "wo",
+        "ヴァ" to "va", "ヴィ" to "vi", "ヴェ" to "ve", "ヴォ" to "vo",
+        "シェ" to "she", "ジェ" to "je", "チェ" to "che", "ツァ" to "tsa",
     )
 }

@@ -1036,7 +1036,7 @@ fun SettingsCategoryScreen(
                                     )
                                     SwitchSettingItem(
                                         title = "Romanisation",
-                                        subtitle = "Show Latin script reading for Hindi, Cyrillic, and Japanese Kana",
+                                        subtitle = "Show Latin script readings for non-Latin lyrics",
                                         checked = autoRomanize,
                                         onCheckedChange = { enabled ->
                                             coroutineScope.launch {

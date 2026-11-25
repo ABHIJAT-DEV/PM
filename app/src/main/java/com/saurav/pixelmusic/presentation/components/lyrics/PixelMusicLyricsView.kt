@@ -384,10 +384,34 @@ fun PixelMusicSyncedLyricsView(
             GoogleTranslateEngine.translate(lines.map { it.line }, targetLanguage = translateLang)
         } else null
     }
-    val romanized = remember(lines, autoRomanize, showRomanizationPref) {
+    var liveRomanizations by remember(lines, autoRomanize) { mutableStateOf<List<String?>?>(null) }
+    LaunchedEffect(lines, autoRomanize) {
+        liveRomanizations = if (autoRomanize && lines.isNotEmpty()) {
+            val missingIndices = lines.indices.filter { i ->
+                lines[i].romanization.isNullOrBlank() && PixelMusicRomanizer.hasNonLatinScript(lines[i].line)
+            }
+            if (missingIndices.isEmpty()) {
+                null
+            } else {
+                val fetched = GoogleTranslateEngine.romanize(missingIndices.map { lines[it].line })
+                if (fetched != null && fetched.size == missingIndices.size) {
+                    MutableList<String?>(lines.size) { null }.also { out ->
+                        missingIndices.forEachIndexed { idx, lineIndex ->
+                            out[lineIndex] = fetched[idx]
+                        }
+                    }
+                } else null
+            }
+        } else null
+    }
+    val romanized = remember(lines, autoRomanize, showRomanizationPref, liveRomanizations) {
         if (!autoRomanize && !showRomanizationPref) emptyList()
-        else lines.map { line ->
-            line.romanization?.takeIf { it.isNotBlank() } ?: if (autoRomanize) PixelMusicRomanizer.romanize(line.line) else null
+        else lines.mapIndexed { i, line ->
+            line.romanization?.takeIf { it.isNotBlank() }
+                ?: if (autoRomanize) {
+                    liveRomanizations?.getOrNull(i)?.takeIf { it.isNotBlank() }
+                        ?: PixelMusicRomanizer.romanize(line.line)
+                } else null
         }
     }
 
