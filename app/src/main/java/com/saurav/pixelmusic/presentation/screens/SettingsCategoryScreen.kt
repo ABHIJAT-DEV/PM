@@ -794,6 +794,14 @@ fun SettingsCategoryScreen(
                                         put("ALBUM_ART", stringResource(R.string.setcat_color_palette_album_art))
                                         put("BLACK_AND_WHITE", stringResource(R.string.setcat_color_palette_bw))
                                         put("YELLOW", stringResource(R.string.setcat_color_palette_yellow))
+                                        put("PEACH", "Peach Coral")
+                                        put("SAGE", "Sage Mint")
+                                        put("OCEAN", "Ocean Blue")
+                                        put("LAVENDER", "Lavender")
+                                        put("ROSE", "Rose Quartz")
+                                        put("CRIMSON", "Crimson")
+                                        put("TEAL", "Deep Teal")
+                                        put("ESPRESSO", "Mocha")
                                     }
                                     ColorPaletteSelectorCard(
                                         selectedPalette = uiState.colorPalette,

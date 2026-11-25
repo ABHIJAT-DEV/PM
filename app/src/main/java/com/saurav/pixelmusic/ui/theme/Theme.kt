@@ -572,23 +572,71 @@ val OrangeLightColorScheme = lightColorScheme(
     onError = Color.White
 )
 
+data class PaletteSwatchPreview(
+    val top: Color,
+    val bottomLeft: Color,
+    val bottomRight: Color
+)
+
+private val SeedPaletteColors: Map<String, Color> = mapOf(
+    "PEACH" to Color(0xFFFF9E64),
+    "ORANGE" to Color(0xFFFF9E64),
+    "SAGE" to Color(0xFF3E8E6E),
+    "OCEAN" to Color(0xFF2F74C0),
+    "BLUE" to Color(0xFF2F74C0),
+    "LAVENDER" to Color(0xFF7C5CBF),
+    "PURPLE" to Color(0xFF7C5CBF),
+    "ROSE" to Color(0xFFC95B7A),
+    "CRIMSON" to Color(0xFFC83E4D),
+    "TEAL" to Color(0xFF1E828C),
+    "ESPRESSO" to Color(0xFF8B6248)
+)
+
+private val cachedSeedSchemes = mutableMapOf<Pair<String, Boolean>, ColorScheme>()
+
+private fun getOrCreateSeedColorScheme(palette: String, darkTheme: Boolean): ColorScheme? {
+    val seed = SeedPaletteColors[palette] ?: return null
+    val key = palette to darkTheme
+    return cachedSeedSchemes.getOrPut(key) {
+        createTonalSpotColorScheme(seed, darkTheme)
+    }
+}
+
+fun getPaletteSwatchPreview(palette: String): PaletteSwatchPreview? {
+    return when (palette) {
+        "BLACK_AND_WHITE" -> PaletteSwatchPreview(
+            top = Color(0xFFFFFFFF),
+            bottomLeft = Color(0xFF9E9E9E),
+            bottomRight = Color(0xFF18181B)
+        )
+        "YELLOW" -> PaletteSwatchPreview(
+            top = Color(0xFFFFC800),
+            bottomLeft = Color(0xFF3F3F46),
+            bottomRight = Color(0xFF18181B)
+        )
+        else -> {
+            val previewScheme = getOrCreateSeedColorScheme(palette, darkTheme = true) ?: return null
+            PaletteSwatchPreview(
+                top = previewScheme.primary,
+                bottomLeft = previewScheme.secondary,
+                bottomRight = previewScheme.tertiary
+            )
+        }
+    }
+}
+
 private fun getStaticColorScheme(palette: String, darkTheme: Boolean): androidx.compose.material3.ColorScheme {
+    getOrCreateSeedColorScheme(palette, darkTheme)?.let { return it }
     return if (darkTheme) {
         when (palette) {
             "BLACK_AND_WHITE" -> BwDarkColorScheme
             "YELLOW" -> YellowDarkColorScheme
-            "PURPLE" -> PurpleDarkColorScheme
-            "BLUE" -> BlueDarkColorScheme
-            "ORANGE" -> OrangeDarkColorScheme
             else -> BwDarkColorScheme
         }
     } else {
         when (palette) {
             "BLACK_AND_WHITE" -> BwLightColorScheme
             "YELLOW" -> YellowLightColorScheme
-            "PURPLE" -> PurpleLightColorScheme
-            "BLUE" -> BlueLightColorScheme
-            "ORANGE" -> OrangeLightColorScheme
             else -> BwLightColorScheme
         }
     }

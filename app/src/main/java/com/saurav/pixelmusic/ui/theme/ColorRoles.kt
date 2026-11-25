@@ -674,7 +674,15 @@ private fun ColorScheme.toGrayscaleColorScheme(): ColorScheme {
     )
 }
 
-private fun DynamicScheme.toComposeColorScheme(): ColorScheme {
+internal fun createTonalSpotColorScheme(seedColor: Color, darkTheme: Boolean): ColorScheme {
+    return SchemeTonalSpot(
+        Hct.fromInt(seedColor.toArgb()),
+        darkTheme,
+        0.0
+    ).toComposeColorScheme()
+}
+
+internal fun DynamicScheme.toComposeColorScheme(): ColorScheme {
     return ColorScheme(
         primary = Color(getPrimary()),
         onPrimary = Color(getOnPrimary()),

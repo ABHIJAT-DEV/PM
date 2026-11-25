@@ -1,6 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.BorderStroke
@@ -28,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +38,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -77,6 +81,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.saurav.pixelmusic.R
@@ -85,7 +90,10 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import com.saurav.pixelmusic.data.preferences.AppThemeMode
+import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import com.saurav.pixelmusic.ui.theme.LocalThemeTransitionController
+import com.saurav.pixelmusic.ui.theme.PaletteSwatchPreview
+import com.saurav.pixelmusic.ui.theme.getPaletteSwatchPreview
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.launch
 
@@ -626,21 +634,16 @@ fun PalettePreviewCircle(
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     // Dynamically retrieve the system's detected Material You Monet palette on Android 12+
-    val detectedMonetColors = remember(context, isDark) {
+    val dynamicSwatch = remember(context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                val scheme = if (isDark) {
-                    dynamicDarkColorScheme(context)
-                } else {
-                    dynamicLightColorScheme(context)
-                }
-                listOf(
-                    scheme.primary,
-                    scheme.secondary,
-                    scheme.tertiary,
-                    scheme.primaryContainer
+                val scheme = dynamicDarkColorScheme(context)
+                PaletteSwatchPreview(
+                    top = scheme.primary,
+                    bottomLeft = scheme.secondary,
+                    bottomRight = scheme.tertiary
                 )
-            } catch (e: Throwable) {
+            } catch (_: Throwable) {
                 null
             }
         } else {
@@ -648,193 +651,101 @@ fun PalettePreviewCircle(
         }
     }
 
+    val swatchPreview = remember(palette, dynamicSwatch) {
+        if (palette == "DYNAMIC") {
+            dynamicSwatch ?: PaletteSwatchPreview(
+                top = Color(0xFFFFB68E),
+                bottomLeft = Color(0xFFE6BFA8),
+                bottomRight = Color(0xFFCBC992)
+            )
+        } else {
+            getPaletteSwatchPreview(palette)
+        }
+    }
+
     Box(
         modifier = modifier
             .size(size)
-            .clip(androidx.compose.foundation.shape.CircleShape),
+            .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        when (palette) {
-            "DYNAMIC" -> {
-                // Pixel-style 4-circle Monet preview using the system's actual detected Material You palette
-                val rotateAnim = remember { Animatable(if (animated) -90f else 0f) }
-                val bloomScale = remember { Animatable(if (animated) 0.5f else 1f) }
-                if (animated) {
-                    LaunchedEffect(Unit) {
-                        launch {
-                            rotateAnim.animateTo(
-                                targetValue = 0f,
-                                animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                            )
-                        }
-                        launch {
-                            bloomScale.animateTo(
-                                targetValue = 1f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            )
-                        }
-                    }
-                }
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            rotationZ = rotateAnim.value
-                            scaleX = bloomScale.value
-                            scaleY = bloomScale.value
-                        }
-                ) {
-                    drawCircle(bgColor)
-                    val w = this.size.width
-                    val h = this.size.height
-                    val dotRadius = w * 0.21f
-                    val offset = w * 0.22f
-                    val cx = w / 2f
-                    val cy = h / 2f
-
-                    // Use detected Material You system tones (Primary, Secondary, Tertiary, PrimaryContainer),
-                    // with fallback to soft pastel Monet tones if unavailable
-                    val dot1 = detectedMonetColors?.getOrNull(0) ?: Color(0xFFC4B5FD)
-                    val dot2 = detectedMonetColors?.getOrNull(1) ?: Color(0xFFA7F3D0)
-                    val dot3 = detectedMonetColors?.getOrNull(2) ?: Color(0xFFFDE68A)
-                    val dot4 = detectedMonetColors?.getOrNull(3) ?: Color(0xFFBAE6FD)
-
-                    drawCircle(dot1, radius = dotRadius, center = Offset(cx - offset, cy - offset))
-                    drawCircle(dot2, radius = dotRadius, center = Offset(cx + offset, cy - offset))
-                    drawCircle(dot3, radius = dotRadius, center = Offset(cx - offset, cy + offset))
-                    drawCircle(dot4, radius = dotRadius, center = Offset(cx + offset, cy + offset))
-                }
-            }
-            "ALBUM_ART" -> {
-                // Soft pastel chromatic vinyl disc with gentle, harmonious music tones
+        when {
+            palette == "ALBUM_ART" -> {
                 val spinAnim = remember { Animatable(if (animated) 0f else 360f) }
-                val dropAnim = remember { Animatable(if (animated) 10f else 0f) }
                 if (animated) {
                     LaunchedEffect(Unit) {
-                        launch {
-                            spinAnim.animateTo(
-                                targetValue = 360f,
-                                animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
-                            )
-                        }
-                        launch {
-                            dropAnim.animateTo(
-                                targetValue = 0f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            )
-                        }
+                        spinAnim.animateTo(
+                            targetValue = 360f,
+                            animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing)
+                        )
                     }
                 }
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer {
-                            rotationZ = spinAnim.value
-                            translationY = dropAnim.value
-                        }
+                        .graphicsLayer { rotationZ = spinAnim.value }
                 ) {
                     val w = this.size.width
-                    // Harmonious soft gradient: pastel rose, violet, sky, mint, and warm amber
                     drawCircle(
                         brush = Brush.sweepGradient(
                             listOf(
-                                Color(0xFFF472B6), // Soft Rose Pink
-                                Color(0xFFA78BFA), // Soft Lavender Purple
-                                Color(0xFF60A5FA), // Soft Sky Blue
-                                Color(0xFF34D399), // Soft Mint Green
-                                Color(0xFFFBBF24), // Soft Warm Amber
-                                Color(0xFFF472B6)  // Seamless loop
+                                Color(0xFFF472B6),
+                                Color(0xFFA78BFA),
+                                Color(0xFF60A5FA),
+                                Color(0xFF34D399),
+                                Color(0xFFFBBF24),
+                                Color(0xFFF472B6)
                             )
                         )
                     )
-                    // Inner vinyl record rings
                     drawCircle(Color(0x33000000), radius = w * 0.36f)
                     drawCircle(Color(0x66000000), radius = w * 0.22f)
                     drawCircle(Color.White.copy(alpha = 0.9f), radius = w * 0.08f)
                 }
             }
-            "BLACK_AND_WHITE" -> {
-                val flipAnim = remember { Animatable(if (animated) 180f else 0f) }
-                val snapScale = remember { Animatable(if (animated) 0.5f else 1f) }
+            swatchPreview != null -> {
+                val bloomScale = remember { Animatable(if (animated) 0.72f else 1f) }
                 if (animated) {
                     LaunchedEffect(Unit) {
-                        launch {
-                            flipAnim.animateTo(
-                                targetValue = 0f,
-                                animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                        bloomScale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow
                             )
-                        }
-                        launch {
-                            snapScale.animateTo(
-                                targetValue = 1f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                )
-                            )
-                        }
+                        )
                     }
                 }
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            rotationZ = flipAnim.value
-                            scaleX = snapScale.value
-                            scaleY = snapScale.value
+                            scaleX = bloomScale.value
+                            scaleY = bloomScale.value
                         }
                 ) {
-                    drawArc(Color.White, startAngle = 90f, sweepAngle = 180f, useCenter = true)
-                    drawArc(Color(0xFF18181B), startAngle = 270f, sweepAngle = 180f, useCenter = true)
-                    drawCircle(
-                        color = Color.Gray.copy(alpha = 0.3f),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                    // Classic Material You 3-slice swatch circle:
+                    // Top half (180°): primary tone
+                    // Bottom-left quarter (90°): secondary tone
+                    // Bottom-right quarter (90°): tertiary tone
+                    drawArc(
+                        color = swatchPreview.top,
+                        startAngle = 180f,
+                        sweepAngle = 180f,
+                        useCenter = true
                     )
-                }
-            }
-            "YELLOW" -> {
-                val popScale = remember { Animatable(if (animated) 0.2f else 1f) }
-                val liftAnim = remember { Animatable(if (animated) 10f else 0f) }
-                if (animated) {
-                    LaunchedEffect(Unit) {
-                        launch {
-                            popScale.animateTo(
-                                targetValue = 1f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioHighBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                )
-                            )
-                        }
-                        launch {
-                            liftAnim.animateTo(
-                                targetValue = 0f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            )
-                        }
-                    }
-                }
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = popScale.value
-                            scaleY = popScale.value
-                            translationY = liftAnim.value
-                        }
-                ) {
-                    // Deep dark zinc surface with cyber amber-yellow center
-                    drawCircle(Color(0xFF18181B))
-                    drawCircle(Color(0xFFFFC800), radius = this.size.width * 0.40f)
+                    drawArc(
+                        color = swatchPreview.bottomLeft,
+                        startAngle = 90f,
+                        sweepAngle = 90f,
+                        useCenter = true
+                    )
+                    drawArc(
+                        color = swatchPreview.bottomRight,
+                        startAngle = 0f,
+                        sweepAngle = 90f,
+                        useCenter = true
+                    )
                 }
             }
             else -> {
@@ -972,65 +883,138 @@ fun ColorPaletteSelectorCard(
     if (showSheet) {
         com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet(
             onDismissRequest = { showSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
             val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
-            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 24.dp)
+            ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Pick a color palette to theme the app interface.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(20.dp))
 
-                LazyColumn(
+                val rows = remember(options) { options.entries.toList().chunked(3) }
+                Column(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .fillMaxWidth()
+                        .heightIn(max = 460.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(options.entries.toList()) { (key, optionLabel) ->
-                        val isSelected = key == selectedPalette
-                        val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
-                        val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        val cleanOptionLabel = optionLabel.removeSuffix(" (Beta)")
-                        var optionCenter by remember { mutableStateOf(Offset.Zero) }
-
-                        Surface(
-                            onClick = {
-                                themeTransitionController?.lastTouchOffset = optionCenter
-                                onPaletteSelected(key, optionCenter)
-                                smoothDismiss(null)
-                            },
-                            shape = RoundedCornerShape(24.dp),
-                            color = containerColor,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(72.dp)
-                                .onGloballyPositioned { coords ->
-                                    val pos = coords.positionInRoot()
-                                    optionCenter = pos + Offset(coords.size.width / 2f, coords.size.height / 2f)
-                                }
+                    rows.forEach { rowOptions ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 20.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                PalettePreviewCircle(
-                                    palette = key,
-                                    size = 32.dp,
-                                    animated = isSelected
+                            rowOptions.forEach { (key, optionLabel) ->
+                                val isSelected = key == selectedPalette
+                                val cleanOptionLabel = optionLabel.removeSuffix(" (Beta)")
+                                var optionCenter by remember { mutableStateOf(Offset.Zero) }
+
+                                val cardColor by animateColorAsState(
+                                    targetValue = if (isSelected) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainerHigh
+                                    },
+                                    animationSpec = tween(220),
+                                    label = "palette_card_bg"
                                 )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Text(
-                                    text = cleanOptionLabel,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = contentColor
+                                val labelColor by animateColorAsState(
+                                    targetValue = if (isSelected) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                    animationSpec = tween(220),
+                                    label = "palette_label_color"
                                 )
+
+                                Surface(
+                                    onClick = {
+                                        performAppCompatHapticFeedback(
+                                            view,
+                                            appHapticsConfig,
+                                            HapticFeedbackConstantsCompat.GESTURE_START
+                                        )
+                                        themeTransitionController?.lastTouchOffset = optionCenter
+                                        onPaletteSelected(key, optionCenter)
+                                        smoothDismiss(null)
+                                    },
+                                    shape = RoundedCornerShape(22.dp),
+                                    color = cardColor,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .onGloballyPositioned { coords ->
+                                            val pos = coords.positionInRoot()
+                                            optionCenter = pos + Offset(coords.size.width / 2f, coords.size.height / 2f)
+                                        }
+                                ) {
+                                    Box(modifier = Modifier.fillMaxWidth()) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 14.dp, horizontal = 8.dp)
+                                        ) {
+                                            PalettePreviewCircle(
+                                                palette = key,
+                                                size = 56.dp,
+                                                animated = isSelected
+                                            )
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Text(
+                                                text = cleanOptionLabel,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontFamily = GoogleSansRounded,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = labelColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+
+                                        if (isSelected) {
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(8.dp)
+                                                    .size(20.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.primary)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Check,
+                                                    contentDescription = "Selected",
+                                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            repeat(3 - rowOptions.size) {
+                                Spacer(modifier = Modifier.weight(1f))
                             }
                         }
                     }
