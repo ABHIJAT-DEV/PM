@@ -1,5 +1,9 @@
 package com.saurav.pixelmusic.presentation.screens.audiolab
 
+import com.saurav.pixelmusic.presentation.screens.HighlightPulseOverlay
+import com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle
+import com.saurav.pixelmusic.presentation.screens.autoBringIntoViewWhenHighlighted
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -138,32 +142,16 @@ internal fun HighlightableLabItem(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val highlightTitle = com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle.current
+    val highlightTitle = LocalSettingsHighlightTitle.current
     val highlighted = highlightTitle != null && matchTitles.any { it.equals(highlightTitle, ignoreCase = true) }
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .let { mod ->
-                with(com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle) {
-                    mod
-                }
-            }
+            .autoBringIntoViewWhenHighlighted(highlighted)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .run {
-                    com.saurav.pixelmusic.presentation.screens.run {
-                        this@run.autoBringIntoViewWhenHighlighted(highlighted)
-                    }
-                }
-        ) {
-            content()
-            if (highlighted) {
-                com.saurav.pixelmusic.presentation.screens.run {
-                    this@Box.HighlightPulseOverlay(shape = shape)
-                }
-            }
+        content()
+        if (highlighted) {
+            HighlightPulseOverlay(shape = shape)
         }
     }
 }

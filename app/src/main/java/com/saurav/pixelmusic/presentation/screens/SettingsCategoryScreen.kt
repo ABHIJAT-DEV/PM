@@ -2900,16 +2900,7 @@ private fun BackupSectionSelectionDialog(
                                     isLast = index == allSections.lastIndex,
                                     modifier = Modifier
                                         .animateItem()
-                                        .then(
-                                            with(com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing) {
-                                                Modifier
-                                            }
-                                        )
-                                        .run {
-                                            com.saurav.pixelmusic.presentation.components.run {
-                                                this@run.expressiveListItemScrollAnimation(listState)
-                                            }
-                                        }
+                                        .expressiveListItemScrollAnimation(listState)
                                         .graphicsLayer {
                                             val p = entrance.value
                                             alpha = p.coerceIn(0f, 1f)
