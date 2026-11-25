@@ -529,15 +529,38 @@ fun FullPlayerContent(
     }
 
     val onSongMetadataArtistClick = {
-        val primaryArtist = currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }
-        val resolvedArtistIdStr = primaryArtist?.channelId 
-            ?: primaryArtist?.id?.toString() 
-            ?: song.artists.firstOrNull()?.channelId 
+        val primaryArtist = currentSongArtists.firstOrNull { !it.channelId.isNullOrBlank() }
+            ?: currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }
+            ?: currentSongArtists.firstOrNull()
+        val resolvedArtistIdStr = primaryArtist?.channelId?.takeIf { it.isNotBlank() }
+            ?: primaryArtist?.id?.takeIf { it != 0L && it != -1L }?.toString()
+            ?: song.artists.firstOrNull()?.channelId?.takeIf { it.isNotBlank() }
+            ?: song.artists.firstOrNull()?.id?.takeIf { it != 0L && it != -1L }?.toString()
             ?: song.artistId.toString()
+        val fallbackArtistName = primaryArtist?.name?.takeIf { it.isNotBlank() }
+            ?: song.displayArtist.takeIf { it.isNotBlank() }
+            ?: song.artist
         if (currentSongArtists.size > 1) {
             showArtistPicker = true
         } else {
-            playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistIdStr)
+            playerViewModel.triggerArtistNavigationFromPlayer(
+                artistIdStr = resolvedArtistIdStr,
+                fallbackArtistName = fallbackArtistName
+            )
+        }
+    }
+
+    val onSongMetadataTitleClick = {
+        val hasNavigableAlbum = !song.albumBrowseId.isNullOrBlank() ||
+            (song.albumId != 0L && song.albumId != -1L) ||
+            (song.album.isNotBlank() &&
+                !song.album.equals("YouTube Music", ignoreCase = true) &&
+                !song.album.equals("Unknown Album", ignoreCase = true) &&
+                !song.album.equals(song.title, ignoreCase = true))
+        if (hasNavigableAlbum) {
+            playerViewModel.triggerAlbumNavigationForSong(song)
+        } else {
+            onSongMetadataArtistClick()
         }
     }
 
@@ -665,8 +688,7 @@ fun FullPlayerContent(
             requestedScrollIndex = pendingCarouselIndex,
             onSongSelected = onAlbumSongSelected,
             onAlbumClick = { albumSong ->
-                val resolvedAlbumIdStr = albumSong.albumBrowseId ?: albumSong.albumId.toString()
-                playerViewModel.triggerAlbumNavigationFromPlayer(resolvedAlbumIdStr)
+                playerViewModel.triggerAlbumNavigationForSong(albumSong)
             },
             modifier = modifier
                 .captureUntransformedBounds(rootCoordsHolder, defaultArtBounds)
@@ -781,6 +803,7 @@ fun FullPlayerContent(
             chipColor = chipColor,
             chipContentColor = chipContentColor,
             onQueueClick = onSongMetadataQueueClick,
+            onTitleClick = onSongMetadataTitleClick,
             onArtistClick = onSongMetadataArtistClick,
             morphTracker = artworkMorphTracker,
             rootCoordsHolder = rootCoordsHolder,
@@ -808,6 +831,7 @@ fun FullPlayerContent(
             chipColor = chipColor,
             chipContentColor = chipContentColor,
             onQueueClick = onSongMetadataQueueClick,
+            onTitleClick = onSongMetadataTitleClick,
             onArtistClick = onSongMetadataArtistClick,
             morphTracker = artworkMorphTracker,
             rootCoordsHolder = rootCoordsHolder,
@@ -1259,6 +1283,7 @@ fun FullPlayerContent(
                     onFavoriteToggle = onFavoriteToggle,
                     onCollapse = onCollapse,
                     onLyricsClick = onLyricsClick,
+                    onTitleClick = onSongMetadataTitleClick,
                     onArtistClick = onSongMetadataArtistClick,
                     onMoreOptionsClick = { showSongInfoBottomSheet = true },
                     audioMetaLabel = complexAudioMetaLabel,
@@ -1606,8 +1631,11 @@ fun FullPlayerContent(
             sheetState = artistPickerSheetState,
             onDismiss = { showArtistPicker = false },
             onArtistClick = { artist ->
-                val artistIdStr = artist.channelId ?: artist.id.toString()
-                playerViewModel.triggerArtistNavigationFromPlayer(artistIdStr)
+                val artistIdStr = artist.channelId?.takeIf { it.isNotBlank() } ?: artist.id.toString()
+                playerViewModel.triggerArtistNavigationFromPlayer(
+                    artistIdStr = artistIdStr,
+                    fallbackArtistName = artist.name
+                )
                 showArtistPicker = false
             }
         )
@@ -1718,16 +1746,9 @@ fun FullPlayerContent(
                                 )
                             }
                             
-                            val resolvedAlbumIdStr = song.albumBrowseId?.takeIf { it.isNotBlank() }
-                                ?: if (song.albumId > 0) song.albumId.toString() else null
-
                             val navigateToOrigin = {
                                 smoothDismiss {
-                                    if (resolvedAlbumIdStr != null) {
-                                        playerViewModel.triggerAlbumNavigationFromPlayer(resolvedAlbumIdStr)
-                                    } else {
-                                        onSongMetadataArtistClick()
-                                    }
+                                    onSongMetadataTitleClick()
                                 }
                             }
 
@@ -2537,6 +2558,7 @@ private fun FullPlayerSongMetadataSection(
     chipColor: Color,
     chipContentColor: Color,
     onQueueClick: () -> Unit,
+    onTitleClick: () -> Unit = {},
     onArtistClick: () -> Unit,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
     rootCoordsHolder: LayoutCoordsHolder? = null,
@@ -2584,6 +2606,7 @@ private fun FullPlayerSongMetadataSection(
             chipContentColor = chipContentColor,
             showQueueButton = isLandscape,
             onClickQueue = onQueueClick,
+            onClickTitle = onTitleClick,
             onClickArtist = onArtistClick,
             morphTracker = morphTracker,
             rootCoordsHolder = rootCoordsHolder,
@@ -2696,6 +2719,7 @@ private fun SongMetadataDisplaySection(
     onClickShare: () -> Unit,
     showQueueButton: Boolean,
     onClickQueue: () -> Unit,
+    onClickTitle: () -> Unit = {},
     onClickArtist: () -> Unit,
     modifier: Modifier = Modifier,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
@@ -2734,6 +2758,7 @@ private fun SongMetadataDisplaySection(
                 artistTextColor = artistTextColor,
                 gradientEdgeColor = gradientEdgeColor,
                 playerViewModel = playerViewModel,
+                onClickTitle = onClickTitle,
                 onClickArtist = onClickArtist,
                 morphTracker = morphTracker,
                 rootCoordsHolder = rootCoordsHolder,
@@ -3467,6 +3492,7 @@ private fun PlayerSongInfo(
     artistTextColor: Color,
     gradientEdgeColor: Color,
     playerViewModel: PlayerViewModel,
+    onClickTitle: () -> Unit = {},
     onClickArtist: () -> Unit,
     morphTracker: ArtworkMorphTracker = remember { ArtworkMorphTracker() },
     rootCoordsHolder: LayoutCoordsHolder? = null,
@@ -3551,7 +3577,13 @@ private fun PlayerSongInfo(
             fullAvailableWidthPxProvider = fullAvailableWidthPxProvider,
             localScaleProvider = titleScaleProvider,
             baseMiniScale = 0.625f,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClickTitle
+                )
         )
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -3595,7 +3627,10 @@ private fun PlayerSongInfo(
                         coroutineScope.launch {
                             isNavigatingToArtist = true
                             try {
-                                playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistId)
+                                playerViewModel.triggerArtistNavigationFromPlayer(
+                                    artistIdStr = resolvedArtistId.toString(),
+                                    fallbackArtistName = artist
+                                )
                             } finally {
                                 isNavigatingToArtist = false
                             }

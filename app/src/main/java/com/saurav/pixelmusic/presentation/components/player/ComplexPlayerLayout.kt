@@ -397,6 +397,7 @@ fun ComplexPlayerLayout(
     onFavoriteToggle: () -> Unit,
     onCollapse: () -> Unit,
     onLyricsClick: () -> Unit,
+    onTitleClick: () -> Unit = {},
     onArtistClick: () -> Unit,
     onMoreOptionsClick: () -> Unit,
     audioMetaLabel: String? = null,
@@ -695,7 +696,13 @@ fun ComplexPlayerLayout(
                         fullAvailableWidthPxProvider = complexFullAvailableWidthPxProvider,
                         localScaleProvider = complexTitleScaleProvider,
                         baseMiniScale = 0.625f,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onTitleClick
+                            )
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))

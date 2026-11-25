@@ -4059,12 +4059,60 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun triggerAlbumNavigationForSong(song: Song) {
+        val browseId = song.albumBrowseId?.takeIf { it.isNotBlank() }
+        if (browseId != null) {
+            triggerAlbumNavigationFromPlayer(browseId)
+            return
+        }
+
+        val artistName = song.displayArtist.takeIf { it.isNotBlank() } ?: song.artist
+        val validAlbumTitle = song.album.trim().takeIf {
+            it.isNotBlank() &&
+                !it.equals("YouTube Music", ignoreCase = true) &&
+                !it.equals("Unknown Album", ignoreCase = true)
+        }
+
+        if (song.albumId != 0L && song.albumId != -1L) {
+            if (song.albumId < 0L && validAlbumTitle != null) {
+                SearchStateHolder.albumNameMap.putIfAbsent(song.albumId, validAlbumTitle to artistName)
+            }
+            triggerAlbumNavigationFromPlayer(song.albumId.toString())
+            return
+        }
+
+        if (validAlbumTitle != null) {
+            val syntheticAlbumId = -(19_000_000_000_000L + kotlin.math.abs("${validAlbumTitle.lowercase()}|${artistName.lowercase()}".hashCode().toLong()))
+            SearchStateHolder.albumNameMap[syntheticAlbumId] = validAlbumTitle to artistName
+            triggerAlbumNavigationFromPlayer(syntheticAlbumId.toString())
+            return
+        }
+
+        val primaryArtist = song.artists.firstOrNull { !it.channelId.isNullOrBlank() }
+            ?: song.artists.firstOrNull { it.id != 0L && it.id != -1L }
+            ?: song.artists.firstOrNull()
+        val fallbackArtistId = primaryArtist?.channelId?.takeIf { it.isNotBlank() }
+            ?: primaryArtist?.id?.takeIf { it != 0L && it != -1L }?.toString()
+            ?: song.artistId.toString()
+        val fallbackArtistName = primaryArtist?.name?.takeIf { it.isNotBlank() } ?: artistName
+        triggerArtistNavigationFromPlayer(fallbackArtistId, fallbackArtistName = fallbackArtistName)
+    }
+
     fun triggerArtistNavigationFromPlayer(artistId: Long) {
         triggerArtistNavigationFromPlayer(artistId.toString())
     }
 
-    fun triggerArtistNavigationFromPlayer(artistIdStr: String) {
-        if (artistIdStr.isBlank() || artistIdStr == "0" || artistIdStr == "-1") {
+    fun triggerArtistNavigationFromPlayer(artistIdStr: String, fallbackArtistName: String? = null) {
+        val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
+        val rawCandidateName = fallbackArtistName?.takeIf { it.isNotBlank() }
+            ?: currentSong?.displayArtist?.takeIf { it.isNotBlank() }
+            ?: currentSong?.artist?.takeIf { it.isNotBlank() }
+        val primaryCandidateName = rawCandidateName?.split(
+            ", ", " & ", " feat.", " feat ", " Feat.", " Feat ", " FT.", " FT ", " ft.", " ft "
+        )?.firstOrNull()?.trim()?.takeIf { it.isNotBlank() } ?: rawCandidateName?.trim()
+
+        val isInvalidId = artistIdStr.isBlank() || artistIdStr == "0" || artistIdStr == "-1"
+        if (isInvalidId && primaryCandidateName.isNullOrBlank()) {
             Log.d("ArtistDebug", "triggerArtistNavigationFromPlayer ignored invalid artistId=$artistIdStr")
             return
         }
@@ -4078,17 +4126,28 @@ class PlayerViewModel @Inject constructor(
         artistNavigationJob?.cancel()
         artistNavigationJob = viewModelScope.launch {
             var resolvedId = artistIdStr
-            val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
-            
-            if (resolvedId == "-1" && currentSong != null) {
-                val idFromName = musicRepository.getArtistIdByName(currentSong.artist)
-                if (idFromName != null) {
-                    resolvedId = idFromName.toString()
+
+            if (isInvalidId && !primaryCandidateName.isNullOrBlank()) {
+                val idFromName = runCatching {
+                    musicRepository.getArtistIdByName(primaryCandidateName)
+                        ?: rawCandidateName?.takeIf { it != primaryCandidateName }?.let { musicRepository.getArtistIdByName(it) }
+                }.getOrNull()
+
+                resolvedId = if (idFromName != null && idFromName != 0L && idFromName != -1L) {
+                    idFromName.toString()
+                } else {
+                    val syntheticId = -(17_000_000_000_000L + kotlin.math.abs(primaryCandidateName.lowercase().hashCode().toLong()))
+                    SearchStateHolder.artistNameMap[syntheticId] = primaryCandidateName
+                    syntheticId.toString()
+                }
+            } else if (!primaryCandidateName.isNullOrBlank()) {
+                resolvedId.toLongOrNull()?.takeIf { it < 0L }?.let { negId ->
+                    SearchStateHolder.artistNameMap.putIfAbsent(negId, primaryCandidateName)
                 }
             }
 
-            if (resolvedId == "0" || resolvedId == "-1") {
-                Log.d("ArtistDebug", "triggerArtistNavigationFromPlayer: could not resolve artistId for name=${currentSong?.artist}")
+            if (resolvedId.isBlank() || resolvedId == "0" || resolvedId == "-1") {
+                Log.d("ArtistDebug", "triggerArtistNavigationFromPlayer: could not resolve artistId for name=$rawCandidateName")
                 return@launch
             }
 
