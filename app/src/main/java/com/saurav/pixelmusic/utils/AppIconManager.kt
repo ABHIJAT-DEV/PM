@@ -6,7 +6,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
@@ -102,9 +101,13 @@ object AppIconManager {
         return AppIconOption.DEFAULT
     }
 
+    fun syncRecentsTaskIcon(activity: Activity) {
+        updateRecentsTaskIcon(activity, getCurrentIcon(activity))
+    }
+
     fun applyIcon(context: Context, target: AppIconOption) {
-        // Update the current Recents task icon immediately so disabling the old alias
-        // does not cause Android Recents to fall back to the green robot placeholder.
+        // Update the current Recents task icon with a rendered Bitmap before disabling the
+        // previous alias so Android Recents / OEM launchers do not fall back to the green robot.
         updateRecentsTaskIcon(context, target)
 
         val pm = context.packageManager
@@ -140,6 +143,12 @@ object AppIconManager {
                 }
             }
         }
+
+        // Re-apply on the next UI frame in case SystemUI refreshes task metadata right after
+        // the component-state change.
+        context.findActivity()?.window?.decorView?.post {
+            updateRecentsTaskIcon(context, target)
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -147,16 +156,13 @@ object AppIconManager {
         val activity = context.findActivity() ?: return
         runCatching {
             val label = context.getString(R.string.app_name)
-            val taskDescription = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ActivityManager.TaskDescription.Builder()
-                    .setLabel(label)
-                    .setIcon(target.mipmapRes)
-                    .build()
-            } else {
-                val bitmap = ContextCompat.getDrawable(context, target.mipmapRes)
-                    ?.toBitmap(width = 192, height = 192)
-                ActivityManager.TaskDescription(label, bitmap)
-            }
+            val drawable = ContextCompat.getDrawable(context, target.mipmapRes)
+                ?: target.previewRes?.let { ContextCompat.getDrawable(context, it) }
+            val bitmap = drawable?.toBitmap(width = 192, height = 192)
+            // Always pass a rendered Bitmap rather than TaskDescription.Builder.setIcon(resId):
+            // on Android 13+ and OEM launchers (ColorOS/OxygenOS/MIUI), passing an adaptive-icon
+            // XML resource ID fails to decode and falls back to the disabled alias's green robot.
+            val taskDescription = ActivityManager.TaskDescription(label, bitmap)
             activity.setTaskDescription(taskDescription)
         }
     }

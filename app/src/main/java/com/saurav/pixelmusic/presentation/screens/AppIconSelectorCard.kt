@@ -25,10 +25,8 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import com.saurav.pixelmusic.R
+import com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss
+import com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import com.saurav.pixelmusic.utils.AppIconManager
 import com.saurav.pixelmusic.utils.AppIconOption
@@ -129,13 +129,13 @@ fun AppIconSelectorCard(
     }
 
     if (showSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        SmoothModalBottomSheet(
             onDismissRequest = { showSheet = false },
-            sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
+            val smoothDismiss = LocalSmoothDismiss.current
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -190,15 +190,18 @@ fun AppIconSelectorCard(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         if (option != selectedIcon) {
-                                            AppIconManager.applyIcon(context, option)
                                             selectedIcon = option
-                                            Toast.makeText(
-                                                context,
-                                                "App icon changed to ${option.label}",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
+                                            smoothDismiss {
+                                                AppIconManager.applyIcon(context, option)
+                                                Toast.makeText(
+                                                    context,
+                                                    "App icon changed to ${option.label}",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        } else {
+                                            smoothDismiss(null)
                                         }
-                                        showSheet = false
                                     },
                                     shape = RoundedCornerShape(22.dp),
                                     color = cardColor,

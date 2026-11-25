@@ -278,6 +278,7 @@ class MainActivity : ComponentActivity() {
         }
         requestHighRefreshRate()
         super.onCreate(savedInstanceState)
+        com.saurav.pixelmusic.utils.AppIconManager.syncRecentsTaskIcon(this)
 
         // Suppress default system splash icon exit animation and release immediately to Compose splash.
         splashScreen.setOnExitAnimationListener { splashScreenViewProvider ->
