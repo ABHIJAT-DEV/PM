@@ -3,20 +3,29 @@ package com.saurav.pixelmusic.presentation.components
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,8 +35,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -58,7 +68,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,11 +83,10 @@ import com.saurav.pixelmusic.data.backup.model.BackupSection
 import com.saurav.pixelmusic.data.backup.model.ModuleRestoreDetail
 import com.saurav.pixelmusic.data.backup.model.RestorePlan
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.ui.res.stringResource
 
 @OptIn(
     ExperimentalAnimationApi::class,
@@ -92,6 +103,7 @@ fun BackupModuleSelectionDialog(
     onConfirm: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val modulesList = remember(plan.availableModules) { plan.availableModules.toList() }
     val selectedCount = plan.selectedModules.size
     val availableCount = plan.availableModules.size
     val dateText = remember(plan.manifest.createdAt) {
@@ -101,8 +113,14 @@ fun BackupModuleSelectionDialog(
     val transitionState = remember { MutableTransitionState(false) }
     var shouldShowDialog by remember { mutableStateOf(true) }
     var onDialogHiddenAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var initialOpenComplete by remember { mutableStateOf(false) }
 
     transitionState.targetState = shouldShowDialog
+
+    LaunchedEffect(Unit) {
+        delay(320)
+        initialOpenComplete = true
+    }
 
     fun closeDialog(afterClose: () -> Unit) {
         if (!shouldShowDialog) return
@@ -129,8 +147,20 @@ fun BackupModuleSelectionDialog(
         ) {
             AnimatedVisibility(
                 visibleState = transitionState,
-                enter = slideInVertically(initialOffsetY = { it / 6 }) + fadeIn(animationSpec = tween(220)),
-                exit = slideOutVertically(targetOffsetY = { it / 6 }) + fadeOut(animationSpec = tween(200)),
+                enter = slideInVertically(
+                    initialOffsetY = { it / 10 },
+                    animationSpec = tween(360, easing = AiSmoothMorphEasing)
+                ) + fadeIn(tween(260)) + scaleIn(
+                    initialScale = 0.96f,
+                    animationSpec = tween(340, easing = AiSmoothMorphEasing)
+                ),
+                exit = slideOutVertically(
+                    targetOffsetY = { it / 10 },
+                    animationSpec = tween(240, easing = AiSmoothMorphEasing)
+                ) + fadeOut(tween(200)) + scaleOut(
+                    targetScale = 0.96f,
+                    animationSpec = tween(240)
+                ),
                 label = "import_module_selection_dialog"
             ) {
                 Surface(
@@ -223,13 +253,13 @@ fun BackupModuleSelectionDialog(
                                         modifier = Modifier
                                             .padding(end = 6.dp)
                                             .height(48.dp),
-                                        shape = RoundedCornerShape(16.dp),
+                                        shape = CircleShape,
                                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ) {
                                         if (inProgress) {
                                             LoadingIndicator(modifier = Modifier.height(20.dp))
-                                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(8.dp))
+                                            Spacer(modifier = Modifier.size(8.dp))
                                             Text(
                                                 text = stringResource(R.string.presentation_batch_g_backup_restoring),
                                                 style = MaterialTheme.typography.labelLarge,
@@ -238,7 +268,7 @@ fun BackupModuleSelectionDialog(
                                         } else {
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
                                                 Icon(
                                                     painter = painterResource(R.drawable.rounded_restore_24),
@@ -256,35 +286,39 @@ fun BackupModuleSelectionDialog(
                             }
                         }
                     ) { innerPadding ->
-                        Column(
+                        LazyColumn(
+                            state = listState,
                             modifier = Modifier
                                 .padding(innerPadding)
-                                .fillMaxSize()
-                                .padding(horizontal = 18.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                .fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                start = 16.dp,
+                                end = 16.dp,
+                                top = 12.dp,
+                                bottom = 20.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.62f),
-                                shape = RoundedCornerShape(18.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 12.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                            item(key = "backup_details_header") {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    shape = RoundedCornerShape(24.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 12.dp)
                                 ) {
-                                    Text(
-                                        text = stringResource(R.string.presentation_batch_g_backup_details),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
+                                        Text(
+                                            text = stringResource(R.string.presentation_batch_g_backup_details),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontFamily = GoogleSansRounded,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = FontWeight.Bold
+                                        )
+
                                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                             Text(
                                                 text = stringResource(R.string.presentation_batch_g_backup_created),
@@ -293,97 +327,109 @@ fun BackupModuleSelectionDialog(
                                             )
                                             Text(
                                                 text = dateText,
-                                                style = MaterialTheme.typography.bodySmall,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
-                                    }
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            Text(
-                                                text = stringResource(R.string.presentation_batch_g_backup_app_version),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = plan.manifest.appVersion.ifEmpty { stringResource(R.string.presentation_batch_g_backup_unknown) },
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                        }
-                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            Text(
-                                                text = stringResource(R.string.presentation_batch_g_backup_schema),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = stringResource(
-                                                    R.string.backup_manifest_schema_v,
-                                                    plan.manifest.schemaVersion
-                                                ),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                        }
-                                        if (plan.manifest.deviceInfo.model.isNotBlank()) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(18.dp)
+                                        ) {
                                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                                 Text(
-                                                    text = stringResource(R.string.presentation_batch_g_backup_device),
+                                                    text = stringResource(R.string.presentation_batch_g_backup_app_version),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = plan.manifest.appVersion.ifEmpty { stringResource(R.string.presentation_batch_g_backup_unknown) },
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                Text(
+                                                    text = stringResource(R.string.presentation_batch_g_backup_schema),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 Text(
                                                     text = stringResource(
-                                                        R.string.backup_manifest_device_line,
-                                                        plan.manifest.deviceInfo.manufacturer,
-                                                        plan.manifest.deviceInfo.model
+                                                        R.string.backup_manifest_schema_v,
+                                                        plan.manifest.schemaVersion
                                                     ),
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                             }
+                                            if (plan.manifest.deviceInfo.model.isNotBlank()) {
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Text(
+                                                        text = stringResource(R.string.presentation_batch_g_backup_device),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text(
+                                                        text = stringResource(
+                                                            R.string.backup_manifest_device_line,
+                                                            plan.manifest.deviceInfo.manufacturer,
+                                                            plan.manifest.deviceInfo.model
+                                                        ),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
                                         }
-                                    }
 
-                                    Text(
-                                        text = stringResource(R.string.presentation_batch_g_backup_modules_selected, selectedCount, availableCount),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-
-                                    if (inProgress) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            LoadingIndicator(modifier = Modifier.height(24.dp))
+                                        AnimatedContent(
+                                            targetState = selectedCount,
+                                            transitionSpec = {
+                                                (fadeIn(tween(160)) + slideInVertically { it / 2 })
+                                                    .togetherWith(fadeOut(tween(120)) + slideOutVertically { -it / 2 })
+                                            },
+                                            label = "restore_selected_count"
+                                        ) { count ->
                                             Text(
-                                                text = stringResource(R.string.presentation_batch_g_backup_transfer_progress),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                text = stringResource(R.string.presentation_batch_g_backup_modules_selected, count, availableCount),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontFamily = GoogleSansRounded,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
                                             )
+                                        }
+
+                                        if (inProgress) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                LoadingIndicator(modifier = Modifier.height(24.dp))
+                                                Text(
+                                                    text = stringResource(R.string.presentation_batch_g_backup_transfer_progress),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
 
                             if (plan.warnings.isNotEmpty()) {
-                                plan.warnings.forEach { warning ->
+                                itemsIndexed(plan.warnings, key = { idx, _ -> "warning_$idx" }) { _, warning ->
                                     Surface(
-                                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                                        shape = RoundedCornerShape(14.dp),
-                                        modifier = Modifier.fillMaxWidth()
+                                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f),
+                                        shape = RoundedCornerShape(18.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 8.dp)
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
@@ -403,31 +449,49 @@ fun BackupModuleSelectionDialog(
                                 }
                             }
 
-                            LazyColumn(
-                                state = listState,
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = 18.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                items(plan.availableModules.toList(), key = { it.key }) { section ->
-                                    val isSelected = section in plan.selectedModules
-                                    val detail = plan.moduleDetails[section]
-                                    BackupSectionSelectableCardShared(
-                                        section = section,
-                                        selected = isSelected,
-                                        enabled = !inProgress,
-                                        detail = detail,
-                                        onToggle = {
-                                            onSelectionChanged(
-                                                if (isSelected) {
-                                                    plan.selectedModules - section
-                                                } else {
-                                                    plan.selectedModules + section
-                                                }
-                                            )
-                                        }
-                                    )
+                            itemsIndexed(modulesList, key = { _, it -> it.key }) { index, section ->
+                                val isSelected = section in plan.selectedModules
+                                val detail = plan.moduleDetails[section]
+                                val entrance = remember {
+                                    Animatable(if (initialOpenComplete) 1f else 0f)
                                 }
+                                LaunchedEffect(Unit) {
+                                    if (entrance.value < 1f) {
+                                        delay(30L + (index.coerceAtMost(7) * 30L))
+                                        entrance.animateTo(
+                                            targetValue = 1f,
+                                            animationSpec = spring(
+                                                dampingRatio = 0.84f,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            )
+                                        )
+                                    }
+                                }
+                                BackupSectionSelectableCardShared(
+                                    section = section,
+                                    selected = isSelected,
+                                    enabled = !inProgress,
+                                    isFirst = index == 0,
+                                    isLast = index == modulesList.lastIndex,
+                                    detail = detail,
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .expressiveListItemScrollAnimation(listState)
+                                        .graphicsLayer {
+                                            val p = entrance.value
+                                            alpha = p.coerceIn(0f, 1f)
+                                            translationY = (1f - p) * 24f
+                                        },
+                                    onToggle = {
+                                        onSelectionChanged(
+                                            if (isSelected) {
+                                                plan.selectedModules - section
+                                            } else {
+                                                plan.selectedModules + section
+                                            }
+                                        )
+                                    }
+                                )
                             }
                         }
                     }
@@ -442,126 +506,156 @@ private fun BackupSectionSelectableCardShared(
     section: BackupSection,
     selected: Boolean,
     enabled: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
     detail: ModuleRestoreDetail? = null,
+    modifier: Modifier = Modifier,
     onToggle: () -> Unit
 ) {
-    val borderColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-        } else {
-            androidx.compose.ui.graphics.Color.Transparent
-        },
-        label = "backup_section_border"
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.975f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "backup_card_press_scale"
     )
-    val borderWidth by animateDpAsState(
-        targetValue = if (selected) 2.5.dp else 1.dp,
-        label = "backup_section_border_width"
+    val innerCorner by animateDpAsState(
+        targetValue = if (selected) 16.dp else 4.dp,
+        animationSpec = tween(260, easing = AiSmoothMorphEasing),
+        label = "backup_card_inner_corner"
+    )
+    val topRadius = if (isFirst) 24.dp else innerCorner
+    val bottomRadius = if (isLast) 24.dp else innerCorner
+
+    val cardColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.52f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        animationSpec = tween(240, easing = AiSmoothMorphEasing),
+        label = "backup_card_bg"
     )
     val iconContainerColor by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.secondaryContainer
+            MaterialTheme.colorScheme.primaryContainer
         } else {
             MaterialTheme.colorScheme.surfaceContainerHighest
         },
+        animationSpec = tween(220, easing = AiSmoothMorphEasing),
         label = "backup_section_icon_bg"
     )
     val iconTint by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.onPrimaryContainer
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
+        animationSpec = tween(220, easing = AiSmoothMorphEasing),
         label = "backup_section_icon_tint"
+    )
+    val iconCorner by animateDpAsState(
+        targetValue = if (selected) 24.dp else 14.dp,
+        animationSpec = tween(260, easing = AiSmoothMorphEasing),
+        label = "backup_icon_corner"
     )
 
     Surface(
         onClick = onToggle,
         enabled = enabled,
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(width = borderWidth, color = borderColor),
-        tonalElevation = if (selected) 2.dp else 0.dp,
-        modifier = Modifier.fillMaxWidth()
+        interactionSource = interactionSource,
+        shape = RoundedCornerShape(
+            topStart = topRadius,
+            topEnd = topRadius,
+            bottomStart = bottomRadius,
+            bottomEnd = bottomRadius
+        ),
+        color = cardColor,
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Surface(
+                color = iconContainerColor,
+                shape = RoundedCornerShape(iconCorner),
+                modifier = Modifier.size(46.dp)
             ) {
-                Surface(
-                    color = iconContainerColor,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(section.iconRes),
-                            contentDescription = null,
-                            tint = iconTint,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(section.iconRes),
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = section.label,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = GoogleSansRounded
-                        ),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = section.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (detail != null && detail.entryCount > 0) {
-                        Text(
-                            text = stringResource(R.string.presentation_batch_g_backup_entries_will_replace, detail.entryCount),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-                }
-
-                Switch(
-                    checked = selected,
-                    onCheckedChange = { onToggle() },
-                    enabled = enabled,
-                    thumbContent = {
-                        AnimatedContent(
-                            targetState = selected,
-                            transitionSpec = { fadeIn(tween(100)) togetherWith fadeOut(tween(100)) },
-                            label = "switch_thumb_icon"
-                        ) { isSelected ->
-                            Icon(
-                                imageVector = if (isSelected) Icons.Rounded.Check else Icons.Rounded.Close,
-                                contentDescription = null,
-                                modifier = Modifier.size(SwitchDefaults.IconSize)
-                            )
-                        }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                        checkedIconColor = MaterialTheme.colorScheme.primary,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        uncheckedIconColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
             }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = section.label,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = GoogleSansRounded
+                    ),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = section.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (detail != null && detail.entryCount > 0) {
+                    Text(
+                        text = stringResource(R.string.presentation_batch_g_backup_entries_will_replace, detail.entryCount),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Switch(
+                checked = selected,
+                onCheckedChange = { onToggle() },
+                enabled = enabled,
+                thumbContent = {
+                    AnimatedContent(
+                        targetState = selected,
+                        transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(120)) },
+                        label = "switch_thumb_icon"
+                    ) { isSelected ->
+                        Icon(
+                            imageVector = if (isSelected) Icons.Rounded.Check else Icons.Rounded.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(SwitchDefaults.IconSize)
+                        )
+                    }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    checkedIconColor = MaterialTheme.colorScheme.primary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    uncheckedIconColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
         }
     }
 }

@@ -132,6 +132,43 @@ object LabColors {
 }
 
 @Composable
+internal fun HighlightableLabItem(
+    matchTitles: List<String>,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(26.dp),
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val highlightTitle = com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle.current
+    val highlighted = highlightTitle != null && matchTitles.any { it.equals(highlightTitle, ignoreCase = true) }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .let { mod ->
+                with(com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle) {
+                    mod
+                }
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .run {
+                    com.saurav.pixelmusic.presentation.screens.run {
+                        this@run.autoBringIntoViewWhenHighlighted(highlighted)
+                    }
+                }
+        ) {
+            content()
+            if (highlighted) {
+                com.saurav.pixelmusic.presentation.screens.run {
+                    this@Box.HighlightPulseOverlay(shape = shape)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun LabCard(
     modifier: Modifier = Modifier,
     padding: Dp = 14.dp,

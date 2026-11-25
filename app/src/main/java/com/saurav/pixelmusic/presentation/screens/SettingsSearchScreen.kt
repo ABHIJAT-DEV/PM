@@ -136,12 +136,16 @@ fun SettingsSearchScreen(
         // actually a category screen. Entries whose route points at a standalone
         // screen (Device Capabilities, Experimental, Palette Style, Artist
         // Settings, About, …) must go straight to that route instead.
-        val isCategoryScreen = setting.route.startsWith("settings_category/")
-        val target = if (isCategoryScreen && setting.category != null) {
-            val routeCategoryId = setting.route.removePrefix("settings_category/").substringBefore("/")
-            Screen.SettingsCategory.createRouteWithHighlight(routeCategoryId, setting.title)
-        } else {
-            setting.route
+        val target = when {
+            setting.route.startsWith("settings_category/") && setting.category != null -> {
+                val routeCategoryId = setting.route.removePrefix("settings_category/").substringBefore("/")
+                Screen.SettingsCategory.createRouteWithHighlight(routeCategoryId, setting.title)
+            }
+            setting.route == Screen.Equalizer.route -> Screen.Equalizer.createRouteWithHighlight(setting.title)
+            setting.route == Screen.AudioLabFx.route -> Screen.AudioLabFx.createRouteWithHighlight(setting.title)
+            setting.route == Screen.AudioLabEq.route -> Screen.AudioLabEq.createRouteWithHighlight(setting.title)
+            setting.route == Screen.AudioLabStage.route -> Screen.AudioLabStage.createRouteWithHighlight(setting.title)
+            else -> setting.route
         }
 
         // Pop the search screen so back returns cleanly to Settings

@@ -306,55 +306,103 @@ fun AppNavigation(
                 }
             }
             composable(
-                Screen.Equalizer.route,
+                route = Screen.Equalizer.ROUTE_PATTERN,
+                arguments = listOf(
+                    navArgument("highlight") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                ),
                 enterTransition = { enterTransition() },
                 exitTransition = { exitTransition() },
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
-            ) {
+            ) { backStackEntry ->
+                val highlightTitle = backStackEntry.arguments?.getString("highlight")?.let { android.net.Uri.decode(it) }
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                    com.saurav.pixelmusic.presentation.screens.audiolab.AudioLabScreen(
-                        navController = navController,
-                    )
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle provides highlightTitle
+                    ) {
+                        com.saurav.pixelmusic.presentation.screens.audiolab.AudioLabScreen(
+                            navController = navController,
+                        )
+                    }
                 }
             }
             composable(
-                Screen.AudioLabEq.route,
+                route = Screen.AudioLabEq.ROUTE_PATTERN,
+                arguments = listOf(
+                    navArgument("highlight") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                ),
                 enterTransition = { enterTransition() },
                 exitTransition = { exitTransition() },
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
-            ) {
+            ) { backStackEntry ->
+                val highlightTitle = backStackEntry.arguments?.getString("highlight")?.let { android.net.Uri.decode(it) }
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                    com.saurav.pixelmusic.presentation.screens.audiolab.equalizer.AudioLabEqualizerScreen(
-                        navController = navController,
-                    )
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle provides highlightTitle
+                    ) {
+                        com.saurav.pixelmusic.presentation.screens.audiolab.equalizer.AudioLabEqualizerScreen(
+                            navController = navController,
+                        )
+                    }
                 }
             }
             composable(
-                Screen.AudioLabFx.route,
+                route = Screen.AudioLabFx.ROUTE_PATTERN,
+                arguments = listOf(
+                    navArgument("highlight") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                ),
                 enterTransition = { enterTransition() },
                 exitTransition = { exitTransition() },
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
-            ) {
+            ) { backStackEntry ->
+                val highlightTitle = backStackEntry.arguments?.getString("highlight")?.let { android.net.Uri.decode(it) }
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                    com.saurav.pixelmusic.presentation.screens.audiolab.AudioFxScreen(
-                        navController = navController,
-                    )
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle provides highlightTitle
+                    ) {
+                        com.saurav.pixelmusic.presentation.screens.audiolab.AudioFxScreen(
+                            navController = navController,
+                        )
+                    }
                 }
             }
             composable(
-                Screen.AudioLabStage.route,
+                route = Screen.AudioLabStage.ROUTE_PATTERN,
+                arguments = listOf(
+                    navArgument("highlight") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                ),
                 enterTransition = { enterTransition() },
                 exitTransition = { exitTransition() },
                 popEnterTransition = { popEnterTransition() },
                 popExitTransition = { popExitTransition() },
-            ) {
+            ) { backStackEntry ->
+                val highlightTitle = backStackEntry.arguments?.getString("highlight")?.let { android.net.Uri.decode(it) }
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                    com.saurav.pixelmusic.presentation.screens.audiolab.stage.StageScreen(
-                        navController = navController,
-                    )
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        com.saurav.pixelmusic.presentation.screens.LocalSettingsHighlightTitle provides highlightTitle
+                    ) {
+                        com.saurav.pixelmusic.presentation.screens.audiolab.stage.StageScreen(
+                            navController = navController,
+                        )
+                    }
                 }
             }
             composable(

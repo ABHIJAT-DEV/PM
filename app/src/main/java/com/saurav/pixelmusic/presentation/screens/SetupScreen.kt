@@ -131,7 +131,14 @@ import com.saurav.pixelmusic.data.backup.model.BackupTransferProgressUpdate
 import com.saurav.pixelmusic.data.backup.model.RestorePlan
 import com.saurav.pixelmusic.data.preferences.AppThemeMode
 import com.saurav.pixelmusic.presentation.components.PermissionIconCollage
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing
 import com.saurav.pixelmusic.presentation.components.BackupModuleSelectionDialog
+import kotlin.math.abs
 import com.saurav.pixelmusic.presentation.components.subcomps.MaterialYouVectorDrawable
 import com.saurav.pixelmusic.presentation.components.subcomps.SineWaveLine
 import com.saurav.pixelmusic.presentation.components.FileExplorerDialog
@@ -237,7 +244,10 @@ fun SetupScreen(
         scope.launch {
             val boundedPage = targetPage.coerceIn(0, pages.lastIndex)
             if (boundedPage != pagerState.currentPage) {
-                pagerState.animateScrollToPage(boundedPage)
+                pagerState.animateScrollToPage(
+                    page = boundedPage,
+                    animationSpec = tween(durationMillis = 480, easing = AiSmoothMorphEasing)
+                )
             }
         }
     }
@@ -350,14 +360,19 @@ fun SetupScreen(
                     .padding(paddingValues)
             ) { pageIndex ->
                 val page = pages[pageIndex]
-                val pageOffset = pagerState.currentPageOffsetFraction
+                val pageOffset = ((pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction)
+                    .coerceIn(-1f, 1f)
 
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            alpha = 1f - pageOffset.coerceIn(0f, 1f)
-                            translationX = size.width * pageOffset
+                            val absOffset = abs(pageOffset)
+                            alpha = (1f - absOffset * 0.85f).coerceIn(0f, 1f)
+                            val scale = 1f - absOffset * 0.07f
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = -pageOffset * size.width * 0.14f
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -943,46 +958,84 @@ private fun hasMediaPermissionNow(context: Context): Boolean {
 
 @Composable
 fun WelcomePage() {
+    val titleAnim = remember { Animatable(0f) }
+    val badgeAnim = remember { Animatable(0f) }
+    val artAnim = remember { Animatable(0f) }
+    val bodyAnim = remember { Animatable(0f) }
+
+    LaunchedEffect(Unit) {
+        launch {
+            titleAnim.animateTo(1f, tween(480, easing = AiSmoothMorphEasing))
+        }
+        launch {
+            delay(90)
+            badgeAnim.animateTo(1f, spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow))
+        }
+        launch {
+            delay(160)
+            artAnim.animateTo(1f, spring(dampingRatio = 0.80f, stiffness = Spring.StiffnessLow))
+        }
+        launch {
+            delay(250)
+            bodyAnim.animateTo(1f, tween(440, easing = AiSmoothMorphEasing))
+        }
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .padding(top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+                .graphicsLayer {
+                    val p = titleAnim.value
+                    alpha = p.coerceIn(0f, 1f)
+                    translationY = (1f - p) * 32f
+                },
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = stringResource(R.string.setup_welcome_prefix),
                 style = ExpTitleTypography.displayLarge.copy(
-                    fontSize = 42.sp,
+                    fontSize = 40.sp,
                     lineHeight = 1.1.em
                 ),
+                textAlign = TextAlign.Center
             )
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displayLarge.copy(
                     fontFamily = GoogleSansRounded,
-                    fontSize = 46.sp,
+                    fontSize = 48.sp,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     lineHeight = 1.1.em
                 ),
+                textAlign = TextAlign.Center
             )
         }
-        Spacer(modifier = Modifier.height(10.dp))
+
         Surface(
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 2.dp,
-            shadowElevation = 0.dp
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.graphicsLayer {
+                val p = badgeAnim.value
+                alpha = p.coerceIn(0f, 1f)
+                val s = 0.84f + 0.16f * p
+                scaleX = s
+                scaleY = s
+                translationY = (1f - p) * 16f
+            }
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -994,63 +1047,91 @@ fun WelcomePage() {
                 Text(
                     text = stringResource(R.string.setup_beta_label),
                     style = MaterialTheme.typography.labelLarge,
+                    fontFamily = GoogleSansRounded,
                     fontWeight = FontWeight.SemiBold
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Box(
+
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(240.dp)
-                .clip(RoundedCornerShape(20.dp))
-        ){
-            MaterialYouVectorDrawable(
-                modifier = Modifier.fillMaxSize(),
-                drawableResId = R.drawable.welcome_art
-            )
-            SineWaveLine(
-                modifier = Modifier
+                .height(250.dp)
+                .graphicsLayer {
+                    val p = artAnim.value
+                    alpha = p.coerceIn(0f, 1f)
+                    val s = 0.90f + 0.10f * p
+                    scaleX = s
+                    scaleY = s
+                    translationY = (1f - p) * 28f
+                }
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                MaterialYouVectorDrawable(
+                    modifier = Modifier.fillMaxSize(),
+                    drawableResId = R.drawable.welcome_art
+                )
+                SineWaveLine(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .height(32.dp)
+                        .padding(horizontal = 8.dp)
+                        .padding(bottom = 4.dp),
+                    animate = true,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    alpha = 0.95f,
+                    strokeWidth = 16.dp,
+                    amplitude = 4.dp,
+                    waves = 7.6f,
+                    phase = 0f
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .height(22.dp)
+                        .background(color = MaterialTheme.colorScheme.surfaceContainerHigh)
+                )
+                SineWaveLine(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .height(32.dp)
+                        .padding(horizontal = 8.dp)
+                        .padding(bottom = 4.dp),
+                    animate = true,
+                    color = MaterialTheme.colorScheme.primary,
+                    alpha = 0.95f,
+                    strokeWidth = 4.dp,
+                    amplitude = 4.dp,
+                    waves = 7.6f,
+                    phase = 0f
+                )
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .height(32.dp)
-                .padding(horizontal = 8.dp)
-                .padding(bottom = 4.dp),
-                animate = true,
-                color = MaterialTheme.colorScheme.surface,
-                alpha = 0.95f,
-                strokeWidth = 16.dp,
-                amplitude = 4.dp,
-                waves = 7.6f,
-                phase = 0f
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .height(22.dp)
-                    .background(color = MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 8.dp)
-                    .padding(bottom = 4.dp)
-            ){}
-            SineWaveLine(
-                modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .height(32.dp)
-                .padding(horizontal = 8.dp)
-                .padding(bottom = 4.dp),
-                animate = true,
-                color = MaterialTheme.colorScheme.primary,
-                alpha = 0.95f,
-                strokeWidth = 4.dp,
-                amplitude = 4.dp,
-                waves = 7.6f,
-                phase = 0f
+                .graphicsLayer {
+                    val p = bodyAnim.value
+                    alpha = p.coerceIn(0f, 1f)
+                    translationY = (1f - p) * 22f
+                }
+        ) {
+            Text(
+                text = stringResource(R.string.setup_intro_body),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
             )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = stringResource(R.string.setup_intro_body), style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -1918,22 +1999,53 @@ fun FinishPage() {
         R.drawable.round_favorite_24,
         R.drawable.rounded_explosion_24
     )
+    val entrance = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        entrance.animateTo(1f, spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessLow))
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(24.dp)
+            .graphicsLayer {
+                val p = entrance.value
+                alpha = p.coerceIn(0f, 1f)
+                val s = 0.92f + 0.08f * p
+                scaleX = s
+                scaleY = s
+                translationY = (1f - p) * 26f
+            }
     ) {
-        Text(text = stringResource(R.string.setup_all_set_title), style = MaterialTheme.typography.headlineLarge)
-        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = stringResource(R.string.setup_all_set_title),
+            style = MaterialTheme.typography.displaySmall.copy(
+                fontFamily = GoogleSansRounded,
+                fontWeight = FontWeight.Bold
+            ),
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(20.dp))
         PermissionIconCollage(
             modifier = Modifier.height(230.dp),
             icons = finishIcons
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = stringResource(R.string.setup_all_set_body), style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.height(20.dp))
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = stringResource(R.string.setup_all_set_body),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+            )
+        }
     }
 }
 
@@ -1948,6 +2060,40 @@ fun PermissionPageLayout(
     onGrantClicked: () -> Unit,
     content: @Composable () -> Unit = {}
 ) {
+    val headerAnim = remember { Animatable(0f) }
+    val collageAnim = remember { Animatable(0f) }
+    val actionAnim = remember { Animatable(0f) }
+
+    LaunchedEffect(Unit) {
+        launch { headerAnim.animateTo(1f, tween(380, easing = AiSmoothMorphEasing)) }
+        launch {
+            delay(80)
+            collageAnim.animateTo(1f, spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessMediumLow))
+        }
+        launch {
+            delay(150)
+            actionAnim.animateTo(1f, tween(360, easing = AiSmoothMorphEasing))
+        }
+    }
+
+    val buttonInteraction = remember { MutableInteractionSource() }
+    val isButtonPressed by buttonInteraction.collectIsPressedAsState()
+    val buttonScale by animateFloatAsState(
+        targetValue = if (isButtonPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "setup_grant_btn_scale"
+    )
+    val buttonContainerColor by animateColorAsState(
+        targetValue = if (granted) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primary,
+        animationSpec = tween(260, easing = AiSmoothMorphEasing),
+        label = "setup_grant_btn_bg"
+    )
+    val buttonContentColor by animateColorAsState(
+        targetValue = if (granted) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimary,
+        animationSpec = tween(260, easing = AiSmoothMorphEasing),
+        label = "setup_grant_btn_fg"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
@@ -1955,17 +2101,25 @@ fun PermissionPageLayout(
             .fillMaxSize()
             .padding(24.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-             Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.graphicsLayer {
+                val p = headerAnim.value
+                alpha = p.coerceIn(0f, 1f)
+                translationY = (1f - p) * 24f
+            }
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.displayMedium.copy(
                     fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 32.sp
                 ),
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyLarge,
@@ -1977,7 +2131,14 @@ fun PermissionPageLayout(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .graphicsLayer {
+                    val p = collageAnim.value
+                    alpha = p.coerceIn(0f, 1f)
+                    val s = 0.88f + 0.12f * p
+                    scaleX = s
+                    scaleY = s
+                },
             contentAlignment = Alignment.Center
         ) {
             PermissionIconCollage(
@@ -1988,26 +2149,58 @@ fun PermissionPageLayout(
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    val p = actionAnim.value
+                    alpha = p.coerceIn(0f, 1f)
+                    translationY = (1f - p) * 20f
+                }
         ) {
             content()
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onGrantClicked,
                 enabled = buttonEnabled,
-                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
+                interactionSource = buttonInteraction,
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = buttonContainerColor,
+                    contentColor = buttonContentColor,
+                    disabledContainerColor = buttonContainerColor,
+                    disabledContentColor = buttonContentColor
+                ),
+                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp),
+                modifier = Modifier.graphicsLayer {
+                    scaleX = buttonScale
+                    scaleY = buttonScale
+                }
             ) {
-                AnimatedContent(targetState = granted, label = "ButtonAnim") { isGranted ->
+                AnimatedContent(
+                    targetState = granted,
+                    transitionSpec = {
+                        (fadeIn(tween(200)) + scaleIn(initialScale = 0.88f))
+                            .togetherWith(fadeOut(tween(140)) + scaleOut(targetScale = 0.88f))
+                    },
+                    label = "ButtonAnim"
+                ) { isGranted ->
                     if (isGranted) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Check, null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(buttonText)
+                            Text(
+                                text = buttonText,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     } else {
                         Text(
                             text = buttonText,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
@@ -2200,15 +2393,38 @@ fun SetupBottomBar(
             smoothnessAsPercentTR = 60
         )
     ) {
+        val progressFraction by animateFloatAsState(
+            targetValue = ((pagerState.currentPage + 1).toFloat() / pagerState.pageCount.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f),
+            animationSpec = tween(durationMillis = 420, easing = AiSmoothMorphEasing),
+            label = "setup_progress_pill"
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 14.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 12.dp, bottom = 2.dp)
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progressFraction)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {

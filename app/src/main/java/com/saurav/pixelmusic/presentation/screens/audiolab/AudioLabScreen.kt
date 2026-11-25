@@ -204,76 +204,110 @@ private fun AudioOutputPlaybackCard(
 
         HorizontalDivider(color = dividerColor)
 
-        AudioOutputToggleRow(
-            iconRes = R.drawable.rounded_headphones_24,
-            title = stringResource(R.string.setcat_headphones_resume_title),
-            subtitle = stringResource(R.string.setcat_headphones_resume_subtitle),
-            checked = uiState.resumeOnHeadsetReconnect,
-            onCheckedChange = { settingsViewModel.setResumeOnHeadsetReconnect(it) },
-        )
+        val headphonesTitle = stringResource(R.string.setcat_headphones_resume_title)
+        HighlightableLabItem(
+            matchTitles = listOf("Resume when headphones reconnect", headphonesTitle),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            AudioOutputToggleRow(
+                iconRes = R.drawable.rounded_headphones_24,
+                title = headphonesTitle,
+                subtitle = stringResource(R.string.setcat_headphones_resume_subtitle),
+                checked = uiState.resumeOnHeadsetReconnect,
+                onCheckedChange = { settingsViewModel.setResumeOnHeadsetReconnect(it) },
+            )
+        }
 
         HorizontalDivider(color = dividerColor)
 
-        AudioOutputToggleRow(
-            iconRes = R.drawable.rounded_cast_24,
-            title = stringResource(R.string.setcat_cast_autoplay_label),
-            subtitle = stringResource(R.string.setcat_cast_autoplay_desc),
-            checked = !uiState.disableCastAutoplay,
-            onCheckedChange = { enabled -> settingsViewModel.setDisableCastAutoplay(!enabled) },
-        )
+        val castTitle = stringResource(R.string.setcat_cast_autoplay_label)
+        HighlightableLabItem(
+            matchTitles = listOf("Auto-play on cast connect/disconnect", castTitle),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            AudioOutputToggleRow(
+                iconRes = R.drawable.rounded_cast_24,
+                title = castTitle,
+                subtitle = stringResource(R.string.setcat_cast_autoplay_desc),
+                checked = !uiState.disableCastAutoplay,
+                onCheckedChange = { enabled -> settingsViewModel.setDisableCastAutoplay(!enabled) },
+            )
+        }
 
         HorizontalDivider(color = dividerColor)
 
-        AudioOutputToggleRow(
-            iconRes = R.drawable.rounded_volume_down_24,
-            title = stringResource(R.string.setcat_replaygain_enable_title),
-            subtitle = stringResource(R.string.setcat_replaygain_enable_subtitle),
-            checked = uiState.replayGainEnabled,
-            onCheckedChange = { settingsViewModel.setReplayGainEnabled(it) },
-        )
+        val replayGainTitle = stringResource(R.string.setcat_replaygain_enable_title)
+        val replayGainMatches = if (uiState.replayGainEnabled) {
+            listOf("Enable ReplayGain", replayGainTitle)
+        } else {
+            listOf("Enable ReplayGain", replayGainTitle, "Gain Mode")
+        }
+        HighlightableLabItem(
+            matchTitles = replayGainMatches,
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            AudioOutputToggleRow(
+                iconRes = R.drawable.rounded_volume_down_24,
+                title = replayGainTitle,
+                subtitle = stringResource(R.string.setcat_replaygain_enable_subtitle),
+                checked = uiState.replayGainEnabled,
+                onCheckedChange = { settingsViewModel.setReplayGainEnabled(it) },
+            )
+        }
 
         AnimatedVisibility(
             visible = uiState.replayGainEnabled,
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut(),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 36.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            HighlightableLabItem(
+                matchTitles = listOf("Gain Mode"),
+                shape = RoundedCornerShape(16.dp),
             ) {
-                val trackSelected = !uiState.replayGainUseAlbumGain
-                ReplayGainModePill(
-                    label = stringResource(R.string.setcat_gain_mode_track),
-                    selected = trackSelected,
-                    onClick = { settingsViewModel.setReplayGainUseAlbumGain(false) },
-                    modifier = Modifier.weight(1f),
-                )
-                ReplayGainModePill(
-                    label = stringResource(R.string.setcat_gain_mode_album),
-                    selected = !trackSelected,
-                    onClick = { settingsViewModel.setReplayGainUseAlbumGain(true) },
-                    modifier = Modifier.weight(1f),
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 36.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val trackSelected = !uiState.replayGainUseAlbumGain
+                    ReplayGainModePill(
+                        label = stringResource(R.string.setcat_gain_mode_track),
+                        selected = trackSelected,
+                        onClick = { settingsViewModel.setReplayGainUseAlbumGain(false) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ReplayGainModePill(
+                        label = stringResource(R.string.setcat_gain_mode_album),
+                        selected = !trackSelected,
+                        onClick = { settingsViewModel.setReplayGainUseAlbumGain(true) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
 
         HorizontalDivider(color = dividerColor)
 
-        AudioOutputToggleRow(
-            iconRes = R.drawable.outline_high_quality_24,
-            title = stringResource(R.string.setcat_hifi_mode_title),
-            subtitle = if (uiState.hiFiModeDeviceSupported) {
-                stringResource(R.string.setcat_hifi_mode_subtitle_supported)
-            } else {
-                stringResource(R.string.setcat_hifi_mode_subtitle_unsupported)
-            },
-            checked = uiState.hiFiModeEnabled,
-            enabled = uiState.hiFiModeDeviceSupported,
-            onCheckedChange = { settingsViewModel.setHiFiModeEnabled(it) },
-        )
+        val hiFiTitle = stringResource(R.string.setcat_hifi_mode_title)
+        HighlightableLabItem(
+            matchTitles = listOf("Hi-Fi Mode", hiFiTitle),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            AudioOutputToggleRow(
+                iconRes = R.drawable.outline_high_quality_24,
+                title = hiFiTitle,
+                subtitle = if (uiState.hiFiModeDeviceSupported) {
+                    stringResource(R.string.setcat_hifi_mode_subtitle_supported)
+                } else {
+                    stringResource(R.string.setcat_hifi_mode_subtitle_unsupported)
+                },
+                checked = uiState.hiFiModeEnabled,
+                enabled = uiState.hiFiModeDeviceSupported,
+                onCheckedChange = { settingsViewModel.setHiFiModeEnabled(it) },
+            )
+        }
     }
 }
 

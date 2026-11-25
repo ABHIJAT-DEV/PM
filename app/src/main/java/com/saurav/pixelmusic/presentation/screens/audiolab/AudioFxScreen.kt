@@ -76,23 +76,41 @@ fun AudioFxScreen(
     ) {
         FxPresetsSection(viewModel)
         Spacer(Modifier.height(18.dp))
-        StageCard(viewModel) { navController.navigate(Screen.AudioLabStage.route) }
+        HighlightableLabItem(matchTitles = listOf("3D Sims")) {
+            StageCard(viewModel) { navController.navigate(Screen.AudioLabStage.route) }
+        }
         Spacer(Modifier.height(14.dp))
-        ReverbCard(viewModel)
+        HighlightableLabItem(matchTitles = listOf("Reverb")) {
+            ReverbCard(viewModel)
+        }
         Spacer(Modifier.height(14.dp))
-        EightDAudioCard(viewModel)
+        HighlightableLabItem(matchTitles = listOf("8D Audio")) {
+            EightDAudioCard(viewModel)
+        }
         Spacer(Modifier.height(14.dp))
-        LoudnessCard(viewModel)
+        HighlightableLabItem(matchTitles = listOf("Loudness & Compression")) {
+            LoudnessCard(viewModel)
+        }
         Spacer(Modifier.height(14.dp))
-        SpatialCard(viewModel)
+        HighlightableLabItem(matchTitles = listOf("Spatial Audio & Crossfeed")) {
+            SpatialCard(viewModel)
+        }
         Spacer(Modifier.height(14.dp))
-        MonoCard(viewModel)
+        HighlightableLabItem(matchTitles = listOf("Mono Audio")) {
+            MonoCard(viewModel)
+        }
         Spacer(Modifier.height(14.dp))
-        AtmosCard(viewModel = viewModel)
+        HighlightableLabItem(matchTitles = listOf("Dolby Atmos & Surround")) {
+            AtmosCard(viewModel = viewModel)
+        }
         Spacer(Modifier.height(14.dp))
-        SpeedCard(viewModel)
+        HighlightableLabItem(matchTitles = listOf("Playback Speed & Pitch")) {
+            SpeedCard(viewModel)
+        }
         Spacer(Modifier.height(14.dp))
-        VolumeCard(viewModel)
+        HighlightableLabItem(matchTitles = listOf("Exponential Volume")) {
+            VolumeCard(viewModel)
+        }
     }
 }
 

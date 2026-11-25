@@ -7,6 +7,8 @@ import com.saurav.pixelmusic.ui.blur.rememberGlassState
 
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.components.BackupModuleSelectionDialog
+import com.saurav.pixelmusic.presentation.components.expressiveListItemScrollAnimation
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import com.saurav.pixelmusic.data.preferences.AiPreferencesRepository
 import com.saurav.pixelmusic.data.preferences.StreamingAudioQuality
 import com.saurav.pixelmusic.data.preferences.AlbumArtQuality
@@ -2615,7 +2617,13 @@ private fun BackupSectionSelectionDialog(
     val transitionState = remember { MutableTransitionState(false) }
     var shouldShowDialog by remember { mutableStateOf(true) }
     var onDialogHiddenAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var initialOpenComplete by remember { mutableStateOf(false) }
     transitionState.targetState = shouldShowDialog
+
+    LaunchedEffect(Unit) {
+        delay(320)
+        initialOpenComplete = true
+    }
 
     fun closeDialog(afterClose: () -> Unit) {
         if (!shouldShowDialog) return
@@ -2642,8 +2650,20 @@ private fun BackupSectionSelectionDialog(
         ) {
             AnimatedVisibility(
                 visibleState = transitionState,
-                enter = slideInVertically(initialOffsetY = { it / 6 }) + fadeIn(animationSpec = tween(220)),
-                exit = slideOutVertically(targetOffsetY = { it / 6 }) + fadeOut(animationSpec = tween(200)),
+                enter = slideInVertically(
+                    initialOffsetY = { it / 10 },
+                    animationSpec = tween(360, easing = com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing)
+                ) + fadeIn(tween(260)) + androidx.compose.animation.scaleIn(
+                    initialScale = 0.96f,
+                    animationSpec = tween(340, easing = com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing)
+                ),
+                exit = slideOutVertically(
+                    targetOffsetY = { it / 10 },
+                    animationSpec = tween(240, easing = com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing)
+                ) + fadeOut(tween(200)) + androidx.compose.animation.scaleOut(
+                    targetScale = 0.96f,
+                    animationSpec = tween(240)
+                ),
                 label = "backup_section_dialog"
             ) {
                 Surface(
@@ -2742,7 +2762,7 @@ private fun BackupSectionSelectionDialog(
                                         modifier = Modifier
                                             .padding(end = 6.dp)
                                             .height(48.dp),
-                                        shape = RoundedCornerShape(16.dp),
+                                        shape = androidx.compose.foundation.shape.CircleShape,
                                         containerColor = if (operation == BackupOperationType.EXPORT) {
                                             MaterialTheme.colorScheme.tertiaryContainer
                                         } else {
@@ -2791,70 +2811,116 @@ private fun BackupSectionSelectionDialog(
                             }
                         }
                     ) { innerPadding ->
-                        Column(
+                        val allSections = BackupSection.entries
+                        LazyColumn(
+                            state = listState,
                             modifier = Modifier
                                 .padding(innerPadding)
-                                .fillMaxSize()
-                                .padding(horizontal = 18.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                .fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                start = 16.dp,
+                                end = 16.dp,
+                                top = 12.dp,
+                                bottom = 20.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.62f),
-                                shape = RoundedCornerShape(18.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 12.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                            item(key = "backup_export_header") {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    shape = RoundedCornerShape(24.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 12.dp)
                                 ) {
-                                    Text(
-                                        text = supportingText,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.backup_sections_selected_format, selectedCount, totalCount),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    if (inProgress) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            LoadingIndicator(modifier = Modifier.height(24.dp))
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = supportingText,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        AnimatedContent(
+                                            targetState = selectedCount,
+                                            transitionSpec = {
+                                                (fadeIn(tween(160)) + slideInVertically { it / 2 })
+                                                    .togetherWith(fadeOut(tween(120)) + slideOutVertically { -it / 2 })
+                                            },
+                                            label = "export_selected_count"
+                                        ) { count ->
                                             Text(
-                                                text = stringResource(R.string.backup_transfer_in_progress),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                text = stringResource(R.string.backup_sections_selected_format, count, totalCount),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontFamily = GoogleSansRounded,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
                                             )
+                                        }
+                                        if (inProgress) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                LoadingIndicator(modifier = Modifier.height(24.dp))
+                                                Text(
+                                                    text = stringResource(R.string.backup_transfer_in_progress),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
 
-                            LazyColumn(
-                                state = listState,
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = 18.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                items(BackupSection.entries, key = { it.key }) { section ->
-                                    val isSelected = section in selectedSections
-                                    BackupSectionSelectableCard(
-                                        section = section,
-                                        selected = isSelected,
-                                        enabled = !inProgress,
-                                        onToggle = {
-                                            onSelectionChanged(
-                                                if (isSelected) selectedSections - section else selectedSections + section
-                                            )
-                                        }
-                                    )
+                            itemsIndexed(allSections, key = { _, it -> it.key }) { index, section ->
+                                val isSelected = section in selectedSections
+                                val entrance = remember {
+                                    Animatable(if (initialOpenComplete) 1f else 0f)
                                 }
+                                LaunchedEffect(Unit) {
+                                    if (entrance.value < 1f) {
+                                        delay(30L + (index.coerceAtMost(7) * 30L))
+                                        entrance.animateTo(
+                                            targetValue = 1f,
+                                            animationSpec = spring(
+                                                dampingRatio = 0.84f,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            )
+                                        )
+                                    }
+                                }
+                                BackupSectionSelectableCard(
+                                    section = section,
+                                    selected = isSelected,
+                                    enabled = !inProgress,
+                                    isFirst = index == 0,
+                                    isLast = index == allSections.lastIndex,
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .then(
+                                            with(com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing) {
+                                                Modifier
+                                            }
+                                        )
+                                        .run {
+                                            com.saurav.pixelmusic.presentation.components.run {
+                                                this@run.expressiveListItemScrollAnimation(listState)
+                                            }
+                                        }
+                                        .graphicsLayer {
+                                            val p = entrance.value
+                                            alpha = p.coerceIn(0f, 1f)
+                                            translationY = (1f - p) * 24f
+                                        },
+                                    onToggle = {
+                                        onSelectionChanged(
+                                            if (isSelected) selectedSections - section else selectedSections + section
+                                        )
+                                    }
+                                )
                             }
                         }
                     }
@@ -2869,124 +2935,154 @@ private fun BackupSectionSelectableCard(
     section: BackupSection,
     selected: Boolean,
     enabled: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
     detail: ModuleRestoreDetail? = null,
+    modifier: Modifier = Modifier,
     onToggle: () -> Unit
 ) {
-    val borderColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-        } else {
-            Color.Transparent
-        },
-        label = "backup_section_border"
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.975f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "backup_export_press_scale"
     )
-    val borderWidth by animateDpAsState(
-        targetValue = if (selected) 2.5.dp else 1.dp,
-        label = "backup_section_border_width"
+    val innerCorner by animateDpAsState(
+        targetValue = if (selected) 16.dp else 4.dp,
+        animationSpec = tween(260, easing = com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing),
+        label = "backup_export_inner_corner"
+    )
+    val topRadius = if (isFirst) 24.dp else innerCorner
+    val bottomRadius = if (isLast) 24.dp else innerCorner
+
+    val cardColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.52f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        animationSpec = tween(240, easing = com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing),
+        label = "backup_export_card_bg"
     )
     val iconContainerColor by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.secondaryContainer
+            MaterialTheme.colorScheme.primaryContainer
         } else {
             MaterialTheme.colorScheme.surfaceContainerHighest
         },
+        animationSpec = tween(220, easing = com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing),
         label = "backup_section_icon_bg"
     )
     val iconTint by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.onPrimaryContainer
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
+        animationSpec = tween(220, easing = com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing),
         label = "backup_section_icon_tint"
+    )
+    val iconCorner by animateDpAsState(
+        targetValue = if (selected) 24.dp else 14.dp,
+        animationSpec = tween(260, easing = com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing),
+        label = "backup_export_icon_corner"
     )
 
     Surface(
         onClick = onToggle,
         enabled = enabled,
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(width = borderWidth, color = borderColor),
-        tonalElevation = if (selected) 2.dp else 0.dp,
-        modifier = Modifier.fillMaxWidth()
+        interactionSource = interactionSource,
+        shape = RoundedCornerShape(
+            topStart = topRadius,
+            topEnd = topRadius,
+            bottomStart = bottomRadius,
+            bottomEnd = bottomRadius
+        ),
+        color = cardColor,
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Surface(
+                color = iconContainerColor,
+                shape = RoundedCornerShape(iconCorner),
+                modifier = Modifier.size(46.dp)
             ) {
-                Surface(
-                    color = iconContainerColor,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(backupSectionIconRes(section)),
-                            contentDescription = null,
-                            tint = iconTint,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(backupSectionIconRes(section)),
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = section.label,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = GoogleSansRounded
-                        ),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = section.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (detail != null && detail.entryCount > 0) {
-                        Text(
-                            text = stringResource(R.string.backup_entries_will_replace, detail.entryCount),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-                }
-                Switch(
-                    checked = selected,
-                    onCheckedChange = { onToggle() },
-                    enabled = enabled,
-                    thumbContent = {
-                        AnimatedContent(
-                            targetState = selected,
-                            transitionSpec = { fadeIn(tween(100)) togetherWith fadeOut(tween(100)) },
-                            label = "switch_thumb_icon"
-                        ) { isSelected ->
-                            Icon(
-                                imageVector = if (isSelected) Icons.Rounded.Check else Icons.Rounded.Close,
-                                contentDescription = null,
-                                modifier = Modifier.size(SwitchDefaults.IconSize)
-                            )
-                        }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                        checkedIconColor = MaterialTheme.colorScheme.primary,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        uncheckedIconColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
             }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = section.label,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = GoogleSansRounded
+                    ),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = section.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (detail != null && detail.entryCount > 0) {
+                    Text(
+                        text = stringResource(R.string.backup_entries_will_replace, detail.entryCount),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Switch(
+                checked = selected,
+                onCheckedChange = { onToggle() },
+                enabled = enabled,
+                thumbContent = {
+                    AnimatedContent(
+                        targetState = selected,
+                        transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(120)) },
+                        label = "switch_thumb_icon"
+                    ) { isSelected ->
+                        Icon(
+                            imageVector = if (isSelected) Icons.Rounded.Check else Icons.Rounded.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(SwitchDefaults.IconSize)
+                        )
+                    }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    checkedIconColor = MaterialTheme.colorScheme.primary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    uncheckedIconColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
         }
     }
 }

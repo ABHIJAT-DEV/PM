@@ -14,10 +14,26 @@ sealed class Screen(val route: String) {
     object SettingsSearch : Screen("settings_search")
     object Accounts : Screen("settings_accounts")
     object ListenTogetherSettings : Screen("listen_together_settings")
-    object Equalizer : Screen("equalizer")
-    object AudioLabEq : Screen("audiolab_eq")
-    object AudioLabFx : Screen("audiolab_fx")
-    object AudioLabStage : Screen("audiolab_stage")
+    object Equalizer : Screen("equalizer") {
+        const val ROUTE_PATTERN = "equalizer?highlight={highlight}"
+        fun createRouteWithHighlight(highlightTitle: String) =
+            "equalizer?highlight=${Uri.encode(highlightTitle)}"
+    }
+    object AudioLabEq : Screen("audiolab_eq") {
+        const val ROUTE_PATTERN = "audiolab_eq?highlight={highlight}"
+        fun createRouteWithHighlight(highlightTitle: String) =
+            "audiolab_eq?highlight=${Uri.encode(highlightTitle)}"
+    }
+    object AudioLabFx : Screen("audiolab_fx") {
+        const val ROUTE_PATTERN = "audiolab_fx?highlight={highlight}"
+        fun createRouteWithHighlight(highlightTitle: String) =
+            "audiolab_fx?highlight=${Uri.encode(highlightTitle)}"
+    }
+    object AudioLabStage : Screen("audiolab_stage") {
+        const val ROUTE_PATTERN = "audiolab_stage?highlight={highlight}"
+        fun createRouteWithHighlight(highlightTitle: String) =
+            "audiolab_stage?highlight=${Uri.encode(highlightTitle)}"
+    }
 
     object SettingsCategory : Screen("settings_category/{categoryId}?highlight={highlight}") {
         fun createRoute(categoryId: String) = "settings_category/$categoryId"
