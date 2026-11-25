@@ -147,6 +147,9 @@ fun AppIconSelectorCard(
                 )
             }
         }
+        if (highlighted) {
+            HighlightPulseOverlay(shape = shape)
+        }
     }
 
     if (showSheet) {

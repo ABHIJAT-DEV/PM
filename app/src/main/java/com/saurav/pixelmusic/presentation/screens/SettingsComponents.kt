@@ -116,34 +116,35 @@ import kotlinx.coroutines.delay
 val LocalSettingsHighlightTitle = compositionLocalOf<String?> { null }
 
 /**
- * Four-shot pulsing border. Runs a few gentle pulses, then settles on a faint
- * static glow so the user can still see which row was highlighted.
+ * Full-card tonal highlight pulse (no border or stroke). Gently pulses the entire
+ * card surface with a primary tint to draw attention to the navigated setting,
+ * then fades out smoothly.
  */
 @Composable
-private fun BoxScope.HighlightPulseOverlay(shape: Shape) {
-    val alpha = remember { Animatable(0.15f) }
+internal fun BoxScope.HighlightPulseOverlay(shape: Shape) {
+    val alpha = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        repeat(4) {
+        delay(120)
+        repeat(3) {
             alpha.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                targetValue = 0.26f,
+                animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)
             )
             alpha.animateTo(
-                targetValue = 0.15f,
-                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                targetValue = 0.06f,
+                animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)
             )
         }
-// Fade out completely
-alpha.animateTo(
-    targetValue = 0f,
-    animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-)
+        alpha.animateTo(
+            targetValue = 0f,
+            animationSpec = tween(durationMillis = 460, easing = FastOutSlowInEasing)
+        )
     }
     Box(
         modifier = Modifier
             .matchParentSize()
-            .border(
-                width = 2.dp,
+            .clip(shape)
+            .background(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = alpha.value),
                 shape = shape
             )

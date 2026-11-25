@@ -3,14 +3,14 @@ package com.saurav.pixelmusic.presentation.model
 import android.content.Context
 
 /**
- * Lightweight persistent store for the last 5 settings-search queries.
+ * Lightweight persistent store for recent settings-search queries.
  * Uses SharedPreferences because the payload is tiny and we want zero async complexity.
  */
 object RecentSearchesStore {
     private const val PREFS_NAME = "settings_search_recent"
     private const val KEY = "queries"
     private const val SEPARATOR = "\u0001"
-    private const val MAX = 5
+    private const val MAX = 8
 
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -29,6 +29,17 @@ object RecentSearchesStore {
         current.add(0, q)
         while (current.size > MAX) current.removeAt(current.size - 1)
         prefs(ctx).edit().putString(KEY, current.joinToString(SEPARATOR)).apply()
+        return current
+    }
+
+    fun remove(ctx: Context, query: String): List<String> {
+        val current = load(ctx).toMutableList()
+        current.removeAll { it.equals(query, ignoreCase = true) }
+        if (current.isEmpty()) {
+            prefs(ctx).edit().remove(KEY).apply()
+        } else {
+            prefs(ctx).edit().putString(KEY, current.joinToString(SEPARATOR)).apply()
+        }
         return current
     }
 
