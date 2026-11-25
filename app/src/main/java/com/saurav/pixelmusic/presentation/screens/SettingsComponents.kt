@@ -558,16 +558,6 @@ fun ThemeModeSelectorCard(
     }
 
     if (showSheet) {
-        val options = remember(
-            stringResource(R.string.setcat_theme_dark),
-            stringResource(R.string.setup_recommended),
-            stringResource(R.string.setcat_theme_light),
-            stringResource(R.string.setcat_theme_follow_system)
-        ) {
-            listOf(
-                AppThemeMode.DARK to "${""}",
-            )
-        }
         val optionEntries = listOf(
             AppThemeMode.DARK to "${stringResource(R.string.setcat_theme_dark)} (${stringResource(R.string.setup_recommended)})",
             AppThemeMode.LIGHT to stringResource(R.string.setcat_theme_light),
