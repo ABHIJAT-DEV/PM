@@ -4,11 +4,8 @@ import android.content.Context
 import android.graphics.Typeface
 import android.net.Uri
 import android.provider.OpenableColumns
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.googlefonts.Font
@@ -29,8 +26,9 @@ data class CatalogFontEntry(
     val id: String,
     val googleFontName: String,
     val displayName: String,
+    val group: String,
     val category: String,
-    val sampleText: String = "The quick brown fox jumps over the lazy dog"
+    val sampleText: String = "Now Playing · PixelMusic"
 )
 
 data class InstalledFontPack(
@@ -49,6 +47,16 @@ object CustomFontManager {
     private const val FONTS_DIR_NAME = "custom_fonts"
     private const val MANIFEST_FILE_NAME = "installed_fonts.json"
 
+    val filterGroups: List<String> = listOf(
+        "All",
+        "Vintage",
+        "Calligraphy",
+        "Artistic",
+        "Playful",
+        "Futuristic",
+        "Pixel"
+    )
+
     private val gmsFontProvider = GoogleFont.Provider(
         providerAuthority = "com.google.android.gms.fonts",
         providerPackage = "com.google.android.gms",
@@ -56,30 +64,55 @@ object CustomFontManager {
     )
 
     val catalogFonts: List<CatalogFontEntry> = listOf(
-        CatalogFontEntry("gf_inter", "Inter", "Inter", "Clean Sans"),
-        CatalogFontEntry("gf_plus_jakarta_sans", "Plus Jakarta Sans", "Plus Jakarta Sans", "Modern Geometric"),
-        CatalogFontEntry("gf_poppins", "Poppins", "Poppins", "Geometric Sans"),
-        CatalogFontEntry("gf_outfit", "Outfit", "Outfit", "Display Geometric"),
-        CatalogFontEntry("gf_dm_sans", "DM Sans", "DM Sans", "Low-Contrast Sans"),
-        CatalogFontEntry("gf_manrope", "Manrope", "Manrope", "Semi-Geometric"),
-        CatalogFontEntry("gf_space_grotesk", "Space Grotesk", "Space Grotesk", "Tech Grotesk"),
-        CatalogFontEntry("gf_rubik", "Rubik", "Rubik", "Rounded Sans"),
-        CatalogFontEntry("gf_nunito", "Nunito", "Nunito", "Soft Rounded"),
-        CatalogFontEntry("gf_quicksand", "Quicksand", "Quicksand", "Rounded Display"),
-        CatalogFontEntry("gf_urbanist", "Urbanist", "Urbanist", "Minimalist Geometric"),
-        CatalogFontEntry("gf_figtree", "Figtree", "Figtree", "Friendly Geometric"),
-        CatalogFontEntry("gf_lexend", "Lexend", "Lexend", "High Readability"),
-        CatalogFontEntry("gf_sora", "Sora", "Sora", "Crisp Modern"),
-        CatalogFontEntry("gf_work_sans", "Work Sans", "Work Sans", "Editorial Grotesque"),
-        CatalogFontEntry("gf_raleway", "Raleway", "Raleway", "Elegant Sans"),
-        CatalogFontEntry("gf_josefin_sans", "Josefin Sans", "Josefin Sans", "Vintage Geometric"),
-        CatalogFontEntry("gf_ubuntu", "Ubuntu", "Ubuntu", "Humanist Sans"),
-        CatalogFontEntry("gf_playfair_display", "Playfair Display", "Playfair Display", "Classic Serif"),
-        CatalogFontEntry("gf_merriweather", "Merriweather", "Merriweather", "Editorial Serif"),
-        CatalogFontEntry("gf_lora", "Lora", "Lora", "Contemporary Serif"),
-        CatalogFontEntry("gf_jetbrains_mono", "JetBrains Mono", "JetBrains Mono", "Developer Mono"),
-        CatalogFontEntry("gf_space_mono", "Space Mono", "Space Mono", "Retro Monospace"),
-        CatalogFontEntry("gf_fira_code", "Fira Code", "Fira Code", "Technical Mono")
+        // Vintage & Decorative
+        CatalogFontEntry("gf_special_elite", "Special Elite", "Special Elite", "Vintage", "Distressed Typewriter"),
+        CatalogFontEntry("gf_cinzel_decorative", "Cinzel Decorative", "Cinzel Decorative", "Vintage", "Ornate Vintage"),
+        CatalogFontEntry("gf_abril_fatface", "Abril Fatface", "Abril Fatface", "Vintage", "Bold Fatface"),
+        CatalogFontEntry("gf_rye", "Rye", "Rye", "Vintage", "Wood Type Vintage"),
+        CatalogFontEntry("gf_limelight", "Limelight", "Limelight", "Vintage", "Art Deco"),
+        CatalogFontEntry("gf_poiret_one", "Poiret One", "Poiret One", "Vintage", "Art Deco Geometric"),
+        CatalogFontEntry("gf_lobster", "Lobster", "Lobster", "Vintage", "Retro Script"),
+        CatalogFontEntry("gf_playfair_display", "Playfair Display", "Playfair Display", "Vintage", "Classic Editorial"),
+
+        // Calligraphy & Handwritten
+        CatalogFontEntry("gf_jim_nightshade", "Jim Nightshade", "Jim Nightshade", "Calligraphy", "Expressive Calligraphy"),
+        CatalogFontEntry("gf_dancing_script", "Dancing Script", "Dancing Script", "Calligraphy", "Lively Calligraphy"),
+        CatalogFontEntry("gf_pacifico", "Pacifico", "Pacifico", "Calligraphy", "Brush Script"),
+        CatalogFontEntry("gf_great_vibes", "Great Vibes", "Great Vibes", "Calligraphy", "Formal Calligraphy"),
+        CatalogFontEntry("gf_caveat", "Caveat", "Caveat", "Calligraphy", "Handwritten Brush"),
+        CatalogFontEntry("gf_sacramento", "Sacramento", "Sacramento", "Calligraphy", "Monoline Script"),
+        CatalogFontEntry("gf_satisfy", "Satisfy", "Satisfy", "Calligraphy", "Vintage Cursive"),
+        CatalogFontEntry("gf_permanent_marker", "Permanent Marker", "Permanent Marker", "Calligraphy", "Bold Marker"),
+        CatalogFontEntry("gf_indie_flower", "Indie Flower", "Indie Flower", "Calligraphy", "Informal Handwritten"),
+        CatalogFontEntry("gf_kalam", "Kalam", "Kalam", "Calligraphy", "Natural Handwriting"),
+
+        // Artistic, Gothic & Medieval
+        CatalogFontEntry("gf_unifraktur_maguntia", "UnifrakturMaguntia", "UnifrakturMaguntia", "Artistic", "Blackletter Gothic"),
+        CatalogFontEntry("gf_medieval_sharp", "MedievalSharp", "MedievalSharp", "Artistic", "Medieval Fantasy"),
+        CatalogFontEntry("gf_pirata_one", "Pirata One", "Pirata One", "Artistic", "Dark Blackletter"),
+        CatalogFontEntry("gf_cinzel", "Cinzel", "Cinzel", "Artistic", "Engraved Classical"),
+        CatalogFontEntry("gf_cormorant_garamond", "Cormorant Garamond", "Cormorant Garamond", "Artistic", "Sophisticated Serif"),
+        CatalogFontEntry("gf_yeseva_one", "Yeseva One", "Yeseva One", "Artistic", "Artistic Display"),
+        CatalogFontEntry("gf_righteous", "Righteous", "Righteous", "Artistic", "Retro Display"),
+        CatalogFontEntry("gf_monoton", "Monoton", "Monoton", "Artistic", "Inline Neon"),
+
+        // Playful, Blobby & Cute
+        CatalogFontEntry("gf_fredoka", "Fredoka", "Fredoka", "Playful", "Soft Blobby"),
+        CatalogFontEntry("gf_baloo_2", "Baloo 2", "Baloo 2", "Playful", "Playful Rounded"),
+        CatalogFontEntry("gf_bangers", "Bangers", "Bangers", "Playful", "Loud Comic"),
+        CatalogFontEntry("gf_chewy", "Chewy", "Chewy", "Playful", "Bouncy Display"),
+        CatalogFontEntry("gf_luckiest_guy", "Luckiest Guy", "Luckiest Guy", "Playful", "Bold Cartoon"),
+        CatalogFontEntry("gf_amatic_sc", "Amatic SC", "Amatic SC", "Playful", "Quirky Hand-Drawn"),
+
+        // Futuristic & Techno
+        CatalogFontEntry("gf_orbitron", "Orbitron", "Orbitron", "Futuristic", "Sci-Fi Futuristic"),
+        CatalogFontEntry("gf_audiowide", "Audiowide", "Audiowide", "Futuristic", "Techno Wide"),
+        CatalogFontEntry("gf_syne", "Syne", "Syne", "Futuristic", "Avant-Garde Display"),
+        CatalogFontEntry("gf_chakra_petch", "Chakra Petch", "Chakra Petch", "Futuristic", "Cyber Mecha"),
+
+        // Pixel & Arcade
+        CatalogFontEntry("gf_silkscreen", "Silkscreen", "Silkscreen", "Pixel", "Crisp Pixel"),
+        CatalogFontEntry("gf_press_start_2p", "Press Start 2P", "Press Start 2P", "Pixel", "8-Bit Arcade")
     )
 
     val installedPacks = mutableStateListOf<InstalledFontPack>()
@@ -96,6 +129,23 @@ object CustomFontManager {
             loadManifest(context.applicationContext)
             isInitialized = true
         }
+    }
+
+    fun createDynamicGoogleFontEntry(rawQuery: String): CatalogFontEntry {
+        val cleanName = rawQuery.trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { part ->
+                part.replaceFirstChar { ch -> if (ch.isLowerCase()) ch.titlecase() else ch.toString() }
+            }
+        val slug = cleanName.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
+        return CatalogFontEntry(
+            id = "gf_$slug",
+            googleFontName = cleanName,
+            displayName = cleanName,
+            group = "All",
+            category = "Google Fonts Search"
+        )
     }
 
     fun getPreviewFontFamily(entry: CatalogFontEntry): FontFamily {
@@ -131,14 +181,6 @@ object CustomFontManager {
         }
     }
 
-    fun isPackInstalled(id: String): Boolean {
-        return installedPacks.any { it.id == id }
-    }
-
-    fun canInstallAnotherPack(): Boolean {
-        return installedPacks.size < MAX_INSTALLED_PACKS
-    }
-
     suspend fun downloadCatalogFontPack(
         context: Context,
         entry: CatalogFontEntry
@@ -149,23 +191,31 @@ object CustomFontManager {
             if (existing != null) return@runCatching existing
 
             if (installedPacks.size >= MAX_INSTALLED_PACKS) {
-                throw IllegalStateException("Limit reached ($MAX_INSTALLED_PACKS/$MAX_INSTALLED_PACKS font packs). Delete an old font pack first.")
+                throw IllegalStateException("Limit reached ($MAX_INSTALLED_PACKS/$MAX_INSTALLED_PACKS packs). Delete an old pack first.")
             }
 
             val fontsDir = getFontsDir(context)
             val encodedFamily = URLEncoder.encode(entry.googleFontName, "UTF-8")
-            val cssUrl = "https://fonts.googleapis.com/css2?family=$encodedFamily:wght@400;500;700&display=swap"
-            val cssText = fetchText(cssUrl)
 
-            val weightUrls = parseTtfUrlsByWeight(cssText)
+            // Try multi-weight CSS2 first, then fall back to single-weight CSS (display/calligraphy fonts often only have 400)
+            val weightUrls = mutableMapOf<Int, String>()
+            runCatching {
+                val css2 = fetchText("https://fonts.googleapis.com/css2?family=$encodedFamily:wght@400;500;700&display=swap")
+                weightUrls.putAll(parseTtfUrlsByWeight(css2))
+            }
             if (weightUrls.isEmpty()) {
-                // Fallback to default weight if family only exposes 400
+                runCatching {
+                    val css2Single = fetchText("https://fonts.googleapis.com/css2?family=$encodedFamily&display=swap")
+                    weightUrls.putAll(parseTtfUrlsByWeight(css2Single))
+                }
+            }
+            if (weightUrls.isEmpty()) {
                 val fallbackCss = fetchText("https://fonts.googleapis.com/css?family=$encodedFamily")
                 weightUrls.putAll(parseTtfUrlsByWeight(fallbackCss))
             }
 
             val regularUrl = weightUrls[400] ?: weightUrls.values.firstOrNull()
-                ?: throw IllegalStateException("Could not find a downloadable font file for ${entry.displayName}")
+                ?: throw IllegalStateException("Font \"${entry.displayName}\" was not found on Google Fonts.")
             val mediumUrl = weightUrls[500]
             val boldUrl = weightUrls[700]
 
@@ -220,7 +270,7 @@ object CustomFontManager {
         runCatching {
             initialize(context)
             if (installedPacks.size >= MAX_INSTALLED_PACKS) {
-                throw IllegalStateException("Limit reached ($MAX_INSTALLED_PACKS/$MAX_INSTALLED_PACKS font packs). Delete an old font pack first.")
+                throw IllegalStateException("Limit reached ($MAX_INSTALLED_PACKS/$MAX_INSTALLED_PACKS packs). Delete an old pack first.")
             }
 
             val rawName = queryDisplayName(context, uri) ?: "Custom Font"
