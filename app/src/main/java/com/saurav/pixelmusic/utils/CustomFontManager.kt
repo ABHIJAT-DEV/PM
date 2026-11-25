@@ -43,7 +43,6 @@ data class InstalledFontPack(
 )
 
 object CustomFontManager {
-    const val MAX_INSTALLED_PACKS = 5
     private const val FONTS_DIR_NAME = "custom_fonts"
     private const val MANIFEST_FILE_NAME = "installed_fonts.json"
 
@@ -64,6 +63,18 @@ object CustomFontManager {
     )
 
     val catalogFonts: List<CatalogFontEntry> = listOf(
+        // Featured Expressive Picks
+        CatalogFontEntry("gf_doto", "Doto", "Doto", "Pixel", "Dot Matrix Pixel"),
+        CatalogFontEntry("gf_nova_round", "Nova Round", "Nova Round", "Futuristic", "Rounded Sci-Fi"),
+        CatalogFontEntry("gf_tsukimi_rounded", "Tsukimi Rounded", "Tsukimi Rounded", "Playful", "Soft Rounded"),
+        CatalogFontEntry("gf_bungee_shade", "Bungee Shade", "Bungee Shade", "Artistic", "3D Shaded Display"),
+        CatalogFontEntry("gf_bagel_fat_one", "Bagel Fat One", "Bagel Fat One", "Playful", "Chubby Blobby"),
+        CatalogFontEntry("gf_matemasie", "Matemasie", "Matemasie", "Playful", "Chunky Geometric"),
+        CatalogFontEntry("gf_rubik_beastly", "Rubik Beastly", "Rubik Beastly", "Artistic", "Wild Monster Display"),
+        CatalogFontEntry("gf_agbalumo", "Agbalumo", "Agbalumo", "Vintage", "Playful Vintage"),
+        CatalogFontEntry("gf_rubik_glitch", "Rubik Glitch", "Rubik Glitch", "Futuristic", "Cyber Glitch"),
+        CatalogFontEntry("gf_rubik_bubbles", "Rubik Bubbles", "Rubik Bubbles", "Playful", "Puffy Bubbles"),
+
         // Vintage & Decorative
         CatalogFontEntry("gf_special_elite", "Special Elite", "Special Elite", "Vintage", "Distressed Typewriter"),
         CatalogFontEntry("gf_cinzel_decorative", "Cinzel Decorative", "Cinzel Decorative", "Vintage", "Ornate Vintage"),
@@ -190,10 +201,6 @@ object CustomFontManager {
             val existing = installedPacks.firstOrNull { it.id == entry.id }
             if (existing != null) return@runCatching existing
 
-            if (installedPacks.size >= MAX_INSTALLED_PACKS) {
-                throw IllegalStateException("Limit reached ($MAX_INSTALLED_PACKS/$MAX_INSTALLED_PACKS packs). Delete an old pack first.")
-            }
-
             val fontsDir = getFontsDir(context)
             val encodedFamily = URLEncoder.encode(entry.googleFontName, "UTF-8")
 
@@ -269,9 +276,6 @@ object CustomFontManager {
     ): Result<InstalledFontPack> = withContext(Dispatchers.IO) {
         runCatching {
             initialize(context)
-            if (installedPacks.size >= MAX_INSTALLED_PACKS) {
-                throw IllegalStateException("Limit reached ($MAX_INSTALLED_PACKS/$MAX_INSTALLED_PACKS packs). Delete an old pack first.")
-            }
 
             val rawName = queryDisplayName(context, uri) ?: "Custom Font"
             val ext = rawName.substringAfterLast('.', "ttf").lowercase()
@@ -398,7 +402,7 @@ object CustomFontManager {
                 }
             }
             installedPacks.clear()
-            installedPacks.addAll(loadedPacks.take(MAX_INSTALLED_PACKS))
+            installedPacks.addAll(loadedPacks)
         }
     }
 

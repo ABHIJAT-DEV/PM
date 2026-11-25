@@ -47,9 +47,9 @@ val MontserratFamily = FontFamily(
     Font(googleFont = montserrat, fontProvider = provider, weight = FontWeight.Light),
 )
 
-val ExpTitleTypography = Typography(
+private fun createExpTitleTypography(family: FontFamily): Typography = Typography(
     displayLarge = TextStyle(
-        fontFamily = MontserratFamily,
+        fontFamily = family,
         fontWeight = FontWeight.SemiBold,
         fontSize = 60.sp,
         textGeometricTransform = TextGeometricTransform(scaleX = 1.5f),
@@ -58,16 +58,15 @@ val ExpTitleTypography = Typography(
         platformStyle = PlatformTextStyle(includeFontPadding = false)
     ),
     displayMedium = TextStyle(
-        fontFamily = MontserratFamily,
+        fontFamily = family,
         fontWeight = FontWeight.Normal,
         fontSize = 50.sp,
-        //textGeometricTransform = TextGeometricTransform(scaleX = 1f),
         letterSpacing = (-0.02).em,
         lineHeight = 0.95.em,
         platformStyle = PlatformTextStyle(includeFontPadding = false)
     ),
     titleMedium = TextStyle(
-        fontFamily = MontserratFamily,
+        fontFamily = family,
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         textGeometricTransform = TextGeometricTransform(scaleX = 1.3f),
@@ -76,6 +75,24 @@ val ExpTitleTypography = Typography(
         platformStyle = PlatformTextStyle(includeFontPadding = false)
     )
 )
+
+private val DefaultExpTitleTypography = createExpTitleTypography(MontserratFamily)
+private var cachedExpMode: String? = null
+private var cachedExpFamily: FontFamily? = null
+private var cachedExpTypography: Typography? = null
+
+val ExpTitleTypography: Typography
+    get() {
+        val mode = FontSettings.appFontMode
+        if (mode == AppFontMode.APP_DEFAULT) return DefaultExpTitleTypography
+        val family = CustomFontManager.resolveFontFamily(mode)
+        if (cachedExpMode != mode || cachedExpFamily !== family || cachedExpTypography == null) {
+            cachedExpMode = mode
+            cachedExpFamily = family
+            cachedExpTypography = createExpTitleTypography(family)
+        }
+        return cachedExpTypography ?: DefaultExpTitleTypography
+    }
 
 // Google Sans Flex variable font with rounded axis for Google Sans Rounded-like appearance.
 private const val GoogleSansFlexRond = 100f

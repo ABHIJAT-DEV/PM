@@ -81,7 +81,8 @@ import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.theme.PixelMusicStatusBarStyle
 
-internal val InterFontFamily: FontFamily = FontFamily.SansSerif
+internal val InterFontFamily: FontFamily
+    get() = com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 internal val RemoteFocus: Indication? = null
 
 internal val WindowInsets.Companion.stableStatusBars: WindowInsets

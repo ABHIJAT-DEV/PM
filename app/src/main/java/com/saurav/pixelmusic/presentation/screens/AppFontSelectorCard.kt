@@ -252,7 +252,7 @@ fun AppFontSelectorCard(
                                     shape = CircleShape
                                 ) {
                                     Text(
-                                        text = "${installedPacks.size}/${CustomFontManager.MAX_INSTALLED_PACKS}",
+                                        text = "${installedPacks.size} saved",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                                         fontWeight = FontWeight.SemiBold,
@@ -280,8 +280,6 @@ fun AppFontSelectorCard(
         ) {
             val smoothDismiss = LocalSmoothDismiss.current
             val packsUsed = installedPacks.size
-            val maxPacks = CustomFontManager.MAX_INSTALLED_PACKS
-            val isAtLimit = packsUsed >= maxPacks
 
             Column(
                 modifier = Modifier
@@ -289,7 +287,7 @@ fun AppFontSelectorCard(
                     .navigationBarsPadding()
                     .padding(bottom = 16.dp)
             ) {
-                // Header Row: Title + Compact Slot Badge + Import Pill
+                // Header Row: Title + Compact Count + Import Pill
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -306,37 +304,29 @@ fun AppFontSelectorCard(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "$packsUsed of $maxPacks packs downloaded",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (isAtLimit) {
-                                MaterialTheme.colorScheme.error
+                            text = if (packsUsed == 0) {
+                                "Download or import custom fonts"
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
+                                "$packsUsed custom ${if (packsUsed == 1) "font" else "fonts"} saved"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
                     Surface(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            if (isAtLimit) {
-                                Toast.makeText(
-                                    context,
-                                    "All $maxPacks slots full. Delete a downloaded pack first.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            } else {
-                                fontFilePicker.launch(
-                                    arrayOf(
-                                        "font/ttf",
-                                        "font/otf",
-                                        "application/x-font-ttf",
-                                        "application/x-font-otf",
-                                        "application/octet-stream",
-                                        "*/*"
-                                    )
+                            fontFilePicker.launch(
+                                arrayOf(
+                                    "font/ttf",
+                                    "font/otf",
+                                    "application/x-font-ttf",
+                                    "application/x-font-otf",
+                                    "application/octet-stream",
+                                    "*/*"
                                 )
-                            }
+                            )
                         },
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.secondaryContainer
@@ -560,7 +550,7 @@ fun AppFontSelectorCard(
                     if (filteredInstalled.isNotEmpty()) {
                         item(key = "section_installed") {
                             ExpressiveFontSectionLabel(
-                                title = "Downloaded ($packsUsed/$maxPacks)",
+                                title = "Downloaded ($packsUsed)",
                                 topPadding = if (queryLower.isEmpty() && selectedGroup == "All") 14.dp else 4.dp
                             )
                         }
@@ -631,14 +621,6 @@ fun AppFontSelectorCard(
                                 onDownload = {
                                     if (downloadingFontId != null) return@ExpressiveCatalogFontCard
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    if (isAtLimit) {
-                                        Toast.makeText(
-                                            context,
-                                            "Limit reached ($maxPacks/$maxPacks). Delete an old font pack first.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        return@ExpressiveCatalogFontCard
-                                    }
                                     downloadingFontId = entry.id
                                     scope.launch {
                                         val result = CustomFontManager.downloadCatalogFontPack(context, entry)

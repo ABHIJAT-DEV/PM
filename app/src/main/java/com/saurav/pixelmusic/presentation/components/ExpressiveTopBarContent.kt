@@ -180,6 +180,10 @@ private fun rememberGoogleSansFlexFontFamily(
     fontWeight: FontWeight,
     widthAxis: Float
 ): FontFamily {
+    val activeFontMode = com.saurav.pixelmusic.ui.theme.FontSettings.appFontMode
+    if (activeFontMode != com.saurav.pixelmusic.data.preferences.AppFontMode.APP_DEFAULT) {
+        return com.saurav.pixelmusic.ui.theme.GoogleSansRounded
+    }
     val sanitizedWidthAxis = widthAxis.coerceIn(1f, DefaultTopBarTitleWidthAxis).roundToInt().toFloat()
     return remember(fontWeight, sanitizedWidthAxis) {
         FontFamily(
