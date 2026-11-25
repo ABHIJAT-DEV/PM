@@ -952,6 +952,9 @@ fun SettingsCategoryScreen(
                                     val translateLang by remember(context) {
                                         com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.translateLanguageFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = "en")
+                                    val useAiTranslation by remember(context) {
+                                        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.useAiTranslationFlow(context)
+                                    }.collectAsStateWithLifecycle(initialValue = false)
                                     val lyricsTextSize by remember(context) {
                                         com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.textSizeFlow(context)
                                     }.collectAsStateWithLifecycle(initialValue = 26f)
@@ -1051,7 +1054,7 @@ fun SettingsCategoryScreen(
                                     }
                                     SwitchSettingItem(
                                         title = "Translation",
-                                        subtitle = "Translate lyrics on the fly with Google Translate (no API key needed)",
+                                        subtitle = "Translate lyrics into your preferred language",
                                         checked = autoTranslate,
                                         onCheckedChange = { enabled ->
                                             coroutineScope.launch {
@@ -1065,7 +1068,7 @@ fun SettingsCategoryScreen(
                                     if (autoTranslate) {
                                         ThemeSelectorItem(
                                             label = "Translation Language",
-                                            description = "Target language for automatic lyrics translation",
+                                            description = "Choose the language to translate lyrics into",
                                             options = com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.SupportedTranslateLanguages.toMap(),
                                             selectedKey = translateLang,
                                             onSelectionChanged = { code ->
@@ -1075,6 +1078,19 @@ fun SettingsCategoryScreen(
                                             },
                                             leadingIcon = {
                                                 Icon(painterResource(R.drawable.rounded_translate_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                            }
+                                        )
+                                        SwitchSettingItem(
+                                            title = "Use AI for translation",
+                                            subtitle = "Try your AI provider first, fall back to Google",
+                                            checked = useAiTranslation,
+                                            onCheckedChange = { enabled ->
+                                                coroutineScope.launch {
+                                                    com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.setUseAiTranslation(context, enabled)
+                                                }
+                                            },
+                                            leadingIcon = {
+                                                Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
                                             }
                                         )
                                     }

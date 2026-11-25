@@ -352,6 +352,8 @@ fun PixelMusicSyncedLyricsView(
         .collectAsStateWithLifecycle(initialValue = false)
     val translateLang by remember(context) { PixelMusicLyricsPreferences.translateLanguageFlow(context) }
         .collectAsStateWithLifecycle(initialValue = "en")
+    val useAiTranslation by remember(context) { PixelMusicLyricsPreferences.useAiTranslationFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = false)
     val autoRomanize by remember(context) { PixelMusicLyricsPreferences.autoRomanizeFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
     val romanizationAsMain by remember(context) { PixelMusicLyricsPreferences.romanizationAsMainFlow(context) }
@@ -377,11 +379,20 @@ fun PixelMusicSyncedLyricsView(
     val positionProvider: () -> Long = remember(clock) { { clock.now().coerceAtLeast(0L) } }
     val statePosition = remember { derivedStateOf { ((currentOverride ?: rawPosition.value) + currentOffset).coerceAtLeast(0L) } }
 
-    // live translation and offline romanisation, the same readings PixelMusic always had
-    var liveTranslations by remember(lines, translateLang, autoTranslate) { mutableStateOf<List<String>?>(null) }
-    LaunchedEffect(lines, translateLang, autoTranslate) {
+    // live translation (AI first when enabled, falling back to Google/Bing) and romanisation
+    var liveTranslations by remember(lines, translateLang, autoTranslate, useAiTranslation) { mutableStateOf<List<String>?>(null) }
+    LaunchedEffect(lines, translateLang, autoTranslate, useAiTranslation) {
         liveTranslations = if (autoTranslate && lines.isNotEmpty()) {
-            GoogleTranslateEngine.translate(lines.map { it.line }, targetLanguage = translateLang)
+            val lineTexts = lines.map { it.line }
+            val aiResult = if (useAiTranslation) {
+                val langName = PixelMusicLyricsPreferences.languageDisplayName(translateLang)
+                com.saurav.pixelmusic.lyrics.AiLyricsTranslator.translate(
+                    context = context,
+                    lines = lineTexts,
+                    targetLanguageName = langName,
+                )
+            } else null
+            aiResult ?: GoogleTranslateEngine.translate(lineTexts, targetLanguage = translateLang)
         } else null
     }
     var liveRomanizations by remember(lines, autoRomanize) { mutableStateOf<List<String?>?>(null) }

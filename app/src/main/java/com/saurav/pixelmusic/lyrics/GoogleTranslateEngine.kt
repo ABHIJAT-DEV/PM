@@ -281,19 +281,31 @@ object GoogleTranslateEngine {
         }
     }
 
+    private fun toBingLangCode(code: String): String = when (code) {
+        "zh-CN" -> "zh-Hans"
+        "zh-TW" -> "zh-Hant"
+        "ku" -> "kmr"
+        "ckb" -> "ku"
+        "tl" -> "fil"
+        "no" -> "nb"
+        "sr" -> "sr-Latn"
+        else -> code
+    }
+
     private suspend fun bingTranslateBatch(
         lines: List<String>,
         targetLanguage: String,
         sourceLanguage: String,
     ): List<String>? {
         val token = getBingToken() ?: return null
+        val bingTarget = toBingLangCode(targetLanguage)
         val payload = JsonArray(lines.map { buildJsonObject { put("Text", it) } }).toString()
         val body = runCatching {
             val response = client.post("$BingBaseUrl/translate") {
                 parameter("api-version", "3.0")
-                parameter("to", targetLanguage)
+                parameter("to", bingTarget)
                 if (sourceLanguage != "auto" && sourceLanguage.isNotBlank()) {
-                    parameter("from", sourceLanguage)
+                    parameter("from", toBingLangCode(sourceLanguage))
                 }
                 header("Authorization", "Bearer $token")
                 contentType(ContentType.Application.Json)

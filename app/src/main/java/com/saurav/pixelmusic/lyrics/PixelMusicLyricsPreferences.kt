@@ -65,6 +65,7 @@ object PixelMusicLyricsPreferences {
     val SoftLightKey = booleanPreferencesKey("pixelmusic_lyrics_soft_light")
     val AutoTranslateKey = booleanPreferencesKey("pixelmusic_lyrics_auto_translate")
     val TranslateLanguageKey = stringPreferencesKey("pixelmusic_lyrics_translate_lang")
+    val UseAiTranslationKey = booleanPreferencesKey("pixelmusic_lyrics_use_ai_translate")
     val AutoRomanizeKey = booleanPreferencesKey("pixelmusic_lyrics_auto_romanize")
     val RomanizationAsMainKey = booleanPreferencesKey("pixelmusic_lyrics_romanization_main")
     val ProviderOrderKey = stringPreferencesKey("pixelmusic_lyrics_provider_order")
@@ -86,20 +87,66 @@ object PixelMusicLyricsPreferences {
 
     val SupportedTranslateLanguages: List<Pair<String, String>> = listOf(
         "en" to "English",
-        "hi" to "Hindi",
-        "es" to "Spanish",
-        "fr" to "French",
-        "de" to "German",
-        "ja" to "Japanese",
-        "ko" to "Korean",
-        "zh-CN" to "Chinese",
         "ar" to "Arabic",
-        "pt" to "Portuguese",
-        "ru" to "Russian",
-        "id" to "Indonesian",
-        "tr" to "Turkish",
+        "hy" to "Armenian",
+        "az" to "Azerbaijani",
         "bn" to "Bengali",
+        "my" to "Burmese",
+        "zh-CN" to "Chinese (Simplified)",
+        "zh-TW" to "Chinese (Traditional)",
+        "hr" to "Croatian",
+        "cs" to "Czech",
+        "da" to "Danish",
+        "nl" to "Dutch",
+        "tl" to "Filipino",
+        "fi" to "Finnish",
+        "fr" to "French",
+        "ka" to "Georgian",
+        "de" to "German",
+        "el" to "Greek",
+        "gu" to "Gujarati",
+        "he" to "Hebrew",
+        "hi" to "Hindi",
+        "hu" to "Hungarian",
+        "id" to "Indonesian",
+        "it" to "Italian",
+        "ja" to "Japanese",
+        "kn" to "Kannada",
+        "kk" to "Kazakh",
+        "km" to "Khmer",
+        "ko" to "Korean",
+        "ku" to "Kurdish (Kurmanji)",
+        "ckb" to "Kurdish (Sorani)",
+        "ms" to "Malay",
+        "ml" to "Malayalam",
+        "mr" to "Marathi",
+        "ne" to "Nepali",
+        "no" to "Norwegian",
+        "ps" to "Pashto",
+        "fa" to "Persian (Farsi)",
+        "pl" to "Polish",
+        "pt" to "Portuguese",
+        "pa" to "Punjabi",
+        "ro" to "Romanian",
+        "ru" to "Russian",
+        "sr" to "Serbian",
+        "si" to "Sinhala",
+        "sk" to "Slovak",
+        "es" to "Spanish",
+        "sw" to "Swahili",
+        "sv" to "Swedish",
+        "ta" to "Tamil",
+        "te" to "Telugu",
+        "th" to "Thai",
+        "tr" to "Turkish",
+        "uk" to "Ukrainian",
+        "ur" to "Urdu",
+        "uz" to "Uzbek",
+        "vi" to "Vietnamese",
     )
+
+    fun languageDisplayName(code: String): String =
+        SupportedTranslateLanguages.firstOrNull { it.first == code }?.second ?: code
 
     fun styleFlow(context: Context): Flow<PixelMusicLyricsStyle> =
         context.dataStore.data.map { PixelMusicLyricsStyle.fromName(it[StyleKey]) }
@@ -118,6 +165,9 @@ object PixelMusicLyricsPreferences {
 
     fun translateLanguageFlow(context: Context): Flow<String> =
         context.dataStore.data.map { it[TranslateLanguageKey]?.ifBlank { "en" } ?: "en" }
+
+    fun useAiTranslationFlow(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[UseAiTranslationKey] ?: false }
 
     fun autoRomanizeFlow(context: Context): Flow<Boolean> =
         context.dataStore.data.map { it[AutoRomanizeKey] ?: false }
@@ -166,6 +216,10 @@ object PixelMusicLyricsPreferences {
 
     suspend fun setTranslateLanguage(context: Context, langCode: String) {
         context.dataStore.edit { it[TranslateLanguageKey] = langCode }
+    }
+
+    suspend fun setUseAiTranslation(context: Context, enabled: Boolean) {
+        context.dataStore.edit { it[UseAiTranslationKey] = enabled }
     }
 
     suspend fun setAutoRomanize(context: Context, enabled: Boolean) {
