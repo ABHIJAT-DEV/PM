@@ -58,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -98,6 +99,8 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -1436,6 +1439,9 @@ private fun ComplexKaraokeLyricsStage(
                     val lineWords = remember(lineState.syncedLine, lineState.nextLineTimeMs) {
                         resolveSmartVocalWords(lineState.syncedLine, lineState.nextLineTimeMs)
                     }
+                    val isRtlLine = remember(lineState.syncedLine) {
+                        isRtlLyricText(lineState.syncedLine?.line.orEmpty())
+                    }
 
                     Column(
                         modifier = Modifier
@@ -1454,6 +1460,9 @@ private fun ComplexKaraokeLyricsStage(
                                 color = accentColor.copy(alpha = 0.80f)
                             )
                         } else {
+                            CompositionLocalProvider(
+                                LocalLayoutDirection provides if (isRtlLine) LayoutDirection.Rtl else LayoutDirection.Ltr
+                            ) {
                             FlowRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(11.dp, Alignment.Start),
@@ -1544,41 +1553,54 @@ private fun ComplexKaraokeLyricsStage(
                                     }
                                 }
                             }
+                            }
                         }
 
                         // Upcoming line preview for frosted depth
                         if (lineState.nextLineText.isNotBlank()) {
-                            Text(
-                                text = lineState.nextLineText,
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontFamily = GoogleSansRounded,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 15.sp
-                                ),
-                                color = textColor.copy(alpha = 0.36f),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            val isNextRtl = remember(lineState.nextLineText) { isRtlLyricText(lineState.nextLineText) }
+                            CompositionLocalProvider(
+                                LocalLayoutDirection provides if (isNextRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+                            ) {
+                                Text(
+                                    text = lineState.nextLineText,
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp
+                                    ),
+                                    color = textColor.copy(alpha = 0.36f),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }
             }
 
             plainLines.isNotEmpty() -> {
-                Text(
-                    text = plainLines.take(4).joinToString("\n"),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        lineHeight = 25.sp
-                    ),
-                    color = textColor.copy(alpha = 0.82f),
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 6.dp)
-                )
+                val isPlainRtl = remember(plainLines) { isRtlLyricText(plainLines.firstOrNull().orEmpty()) }
+                CompositionLocalProvider(
+                    LocalLayoutDirection provides if (isPlainRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+                ) {
+                    Text(
+                        text = plainLines.take(4).joinToString("\n"),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            lineHeight = 25.sp
+                        ),
+                        color = textColor.copy(alpha = 0.82f),
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp)
+                    )
+                }
             }
 
             else -> {

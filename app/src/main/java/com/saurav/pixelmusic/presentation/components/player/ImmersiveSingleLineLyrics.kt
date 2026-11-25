@@ -16,9 +16,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,6 +31,17 @@ import com.saurav.pixelmusic.presentation.components.sanitizeLyricLineText
 import com.saurav.pixelmusic.presentation.components.sanitizeSyncedWords
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import kotlinx.coroutines.flow.StateFlow
+
+internal fun isRtlLyricText(text: String): Boolean {
+    for (ch in text) {
+        when (Character.getDirectionality(ch)) {
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT,
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> return true
+            Character.DIRECTIONALITY_LEFT_TO_RIGHT -> return false
+        }
+    }
+    return false
+}
 
 internal data class DisplayWord(
     val word: String,
@@ -264,6 +277,11 @@ private fun WordByWordStyleLyrics(
         return
     }
 
+    val isRtlLine = remember(syncedLine) { isRtlLyricText(syncedLine?.line.orEmpty()) }
+
+    CompositionLocalProvider(
+        LocalLayoutDirection provides if (isRtlLine) LayoutDirection.Rtl else LayoutDirection.Ltr
+    ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -330,6 +348,7 @@ private fun WordByWordStyleLyrics(
                 }
             }
         }
+    }
     }
 }
 
@@ -431,6 +450,11 @@ private fun BlurFocusStyleLyrics(
             )
         }
 
+        val isRtlLine = remember(currentText) { isRtlLyricText(currentText) }
+
+        CompositionLocalProvider(
+            LocalLayoutDirection provides if (isRtlLine) LayoutDirection.Rtl else LayoutDirection.Ltr
+        ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -492,6 +516,7 @@ private fun BlurFocusStyleLyrics(
                     }
                 }
             }
+        }
         }
     }
 }
