@@ -146,7 +146,7 @@ alpha.animateTo(
  * Auto-scrolls the highlighted row into view once the screen has settled.
  * No-op when not highlighted.
  */
-private fun Modifier.autoBringIntoViewWhenHighlighted(isHighlighted: Boolean): Modifier = composed {
+internal fun Modifier.autoBringIntoViewWhenHighlighted(isHighlighted: Boolean): Modifier = composed {
     if (!isHighlighted) return@composed this
     val requester = remember { BringIntoViewRequester() }
     LaunchedEffect(Unit) {
