@@ -14,13 +14,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -633,15 +641,34 @@ fun LyricsMoreBottomSheet(
                     color = contentColor,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp)
                 )
+                val languages = PixelMusicLyricsPreferences.SupportedTranslateLanguages
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .heightIn(max = 420.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .padding(horizontal = 20.dp)
+                        .heightIn(max = 440.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    items(PixelMusicLyricsPreferences.SupportedTranslateLanguages) { (code, name) ->
+                    itemsIndexed(languages, key = { _, pair -> pair.first }) { idx, (code, name) ->
                         val isSelected = code == translateLang
+                        val cardBg by animateColorAsState(
+                            targetValue = if (isSelected) accentColor else contentColor.copy(alpha = 0.08f),
+                            animationSpec = tween(380, easing = FastOutSlowInEasing),
+                            label = "lyrics_lang_bg"
+                        )
+                        val cardFg by animateColorAsState(
+                            targetValue = if (isSelected) onAccentColor else contentColor,
+                            animationSpec = tween(380, easing = FastOutSlowInEasing),
+                            label = "lyrics_lang_fg"
+                        )
+                        val outer = 24.dp
+                        val inner = 6.dp
+                        val cardShape = when {
+                            languages.size <= 1 -> RoundedCornerShape(outer)
+                            idx == 0 -> RoundedCornerShape(topStart = outer, topEnd = outer, bottomStart = inner, bottomEnd = inner)
+                            idx == languages.lastIndex -> RoundedCornerShape(topStart = inner, topEnd = inner, bottomStart = outer, bottomEnd = outer)
+                            else -> RoundedCornerShape(inner)
+                        }
                         Surface(
                             onClick = {
                                 coroutineScope.launch {
@@ -649,30 +676,61 @@ fun LyricsMoreBottomSheet(
                                 }
                                 showLanguagePicker = false
                             },
-                            shape = RoundedCornerShape(18.dp),
-                            color = if (isSelected) accentColor else contentColor.copy(alpha = 0.08f),
-                            modifier = Modifier.fillMaxWidth()
+                            shape = cardShape,
+                            color = cardBg,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateItem(
+                                    placementSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                )
+                                .animateContentSize(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                )
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                                    .padding(horizontal = 18.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
                                     text = name,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) onAccentColor else contentColor
+                                    color = cardFg
                                 )
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Check,
-                                        contentDescription = null,
-                                        tint = onAccentColor,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                AnimatedContent(
+                                    targetState = isSelected,
+                                    transitionSpec = {
+                                        (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.85f)) togetherWith
+                                            (fadeOut(tween(220)) + scaleOut(tween(220), targetScale = 0.85f))
+                                    },
+                                    label = "lyrics_lang_check"
+                                ) { active ->
+                                    if (active) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = onAccentColor.copy(alpha = 0.2f)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Check,
+                                                contentDescription = null,
+                                                tint = onAccentColor,
+                                                modifier = Modifier
+                                                    .padding(5.dp)
+                                                    .size(16.dp)
+                                            )
+                                        }
+                                    } else {
+                                        Spacer(modifier = Modifier.size(26.dp))
+                                    }
                                 }
                             }
                         }

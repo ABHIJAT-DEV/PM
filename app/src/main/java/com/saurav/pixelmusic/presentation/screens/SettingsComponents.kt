@@ -2,8 +2,11 @@ package com.saurav.pixelmusic.presentation.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -36,6 +39,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
@@ -554,35 +558,59 @@ fun ThemeModeSelectorCard(
     }
 
     if (showSheet) {
-        val options = mapOf(
+        val options = remember(
+            stringResource(R.string.setcat_theme_dark),
+            stringResource(R.string.setup_recommended),
+            stringResource(R.string.setcat_theme_light),
+            stringResource(R.string.setcat_theme_follow_system)
+        ) {
+            listOf(
+                AppThemeMode.DARK to "${""}",
+            )
+        }
+        val optionEntries = listOf(
             AppThemeMode.DARK to "${stringResource(R.string.setcat_theme_dark)} (${stringResource(R.string.setup_recommended)})",
             AppThemeMode.LIGHT to stringResource(R.string.setcat_theme_light),
             AppThemeMode.FOLLOW_SYSTEM to stringResource(R.string.setcat_theme_follow_system)
         )
         com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet(
             onDismissRequest = { showSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
             val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
-            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 20.dp)
+            ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
                     fontWeight = FontWeight.Bold
                 )
 
                 LazyColumn(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 20.dp)
+                        .heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    items(options.entries.toList()) { (key, optionLabel) ->
+                    itemsIndexed(optionEntries, key = { _, entry -> entry.first }) { idx, (key, optionLabel) ->
                         val isSelected = key == selectedMode
-                        val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
-                        val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        val containerColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            animationSpec = tween(380, easing = FastOutSlowInEasing),
+                            label = "theme_opt_bg"
+                        )
+                        val contentColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                            animationSpec = tween(380, easing = FastOutSlowInEasing),
+                            label = "theme_opt_fg"
+                        )
                         var optionCenter by remember { mutableStateOf(Offset.Zero) }
 
                         Surface(
@@ -591,11 +619,22 @@ fun ThemeModeSelectorCard(
                                 onModeSelected(key, optionCenter)
                                 smoothDismiss(null)
                             },
-                            shape = RoundedCornerShape(24.dp),
+                            shape = expressiveSelectorCardShape(idx, optionEntries.size),
                             color = containerColor,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(72.dp)
+                                .animateItem(
+                                    placementSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                )
+                                .animateContentSize(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                )
                                 .onGloballyPositioned { coords ->
                                     val pos = coords.positionInRoot()
                                     optionCenter = pos + Offset(coords.size.width / 2f, coords.size.height / 2f)
@@ -603,16 +642,44 @@ fun ThemeModeSelectorCard(
                         ) {
                             Row(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 24.dp),
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = optionLabel,
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = contentColor
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = contentColor,
+                                    modifier = Modifier.weight(1f)
                                 )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                AnimatedContent(
+                                    targetState = isSelected,
+                                    transitionSpec = {
+                                        (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.85f)) togetherWith
+                                            (fadeOut(tween(220)) + scaleOut(tween(220), targetScale = 0.85f))
+                                    },
+                                    label = "theme_opt_check"
+                                ) { active ->
+                                    if (active) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primary
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Check,
+                                                contentDescription = stringResource(R.string.presentation_batch_f_cd_selected),
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier
+                                                    .padding(6.dp)
+                                                    .size(16.dp)
+                                            )
+                                        }
+                                    } else {
+                                        Spacer(modifier = Modifier.size(28.dp))
+                                    }
+                                }
                             }
                         }
                     }
@@ -1142,31 +1209,46 @@ fun ThemeSelectorItem(
     }
 
     if (showSheet) {
+        val optionEntries = remember(options) { options.entries.toList() }
         com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet(
             onDismissRequest = { showSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
             val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
-            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 20.dp)
+            ) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
                     fontWeight = FontWeight.Bold
                 )
 
                 LazyColumn(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 20.dp)
+                        .heightIn(max = 440.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    items(options.entries.toList()) { (key, optionLabel) ->
+                    itemsIndexed(optionEntries, key = { _, entry -> entry.key }) { idx, (key, optionLabel) ->
                         val isSelected = key == selectedKey
-                        val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
-                        val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        
+                        val containerColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            animationSpec = tween(380, easing = FastOutSlowInEasing),
+                            label = "selector_opt_bg"
+                        )
+                        val contentColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                            animationSpec = tween(380, easing = FastOutSlowInEasing),
+                            label = "selector_opt_fg"
+                        )
+
                         // Parse suffix for bottom sheet options
                         val cleanOptionLabel = optionLabel.removeSuffix(" (Beta)")
                         val isBetaOption = optionLabel.endsWith(" (Beta)")
@@ -1178,11 +1260,22 @@ fun ThemeSelectorItem(
                                 onSelectionChanged(key)
                                 smoothDismiss(null)
                             },
-                            shape = RoundedCornerShape(24.dp),
+                            shape = expressiveSelectorCardShape(idx, optionEntries.size),
                             color = containerColor,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(72.dp)
+                                .animateItem(
+                                    placementSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                )
+                                .animateContentSize(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                )
                                 .onGloballyPositioned { coords ->
                                     val pos = coords.positionInRoot()
                                     optionCenter = pos + Offset(coords.size.width / 2f, coords.size.height / 2f)
@@ -1190,17 +1283,20 @@ fun ThemeSelectorItem(
                         ) {
                             Row(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 24.dp),
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = cleanOptionLabel,
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = contentColor
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = contentColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
-                                
+
                                 if (isBetaOption) {
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Surface(
@@ -1215,15 +1311,34 @@ fun ThemeSelectorItem(
                                         )
                                     }
                                 }
-                                
+
                                 Spacer(modifier = Modifier.weight(1f))
 
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Check,
-                                        contentDescription = stringResource(R.string.presentation_batch_f_cd_selected),
-                                        tint = contentColor
-                                    )
+                                AnimatedContent(
+                                    targetState = isSelected,
+                                    transitionSpec = {
+                                        (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.85f)) togetherWith
+                                            (fadeOut(tween(220)) + scaleOut(tween(220), targetScale = 0.85f))
+                                    },
+                                    label = "selector_opt_check"
+                                ) { active ->
+                                    if (active) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primary
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Check,
+                                                contentDescription = stringResource(R.string.presentation_batch_f_cd_selected),
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier
+                                                    .padding(6.dp)
+                                                    .size(16.dp)
+                                            )
+                                        }
+                                    } else {
+                                        Spacer(modifier = Modifier.size(28.dp))
+                                    }
                                 }
                             }
                         }
@@ -1231,6 +1346,27 @@ fun ThemeSelectorItem(
                 }
             }
         }
+    }
+}
+
+internal fun expressiveSelectorCardShape(index: Int, totalCount: Int): Shape {
+    val outer = 24.dp
+    val inner = 6.dp
+    return when {
+        totalCount <= 1 -> RoundedCornerShape(outer)
+        index == 0 -> RoundedCornerShape(
+            topStart = outer,
+            topEnd = outer,
+            bottomStart = inner,
+            bottomEnd = inner
+        )
+        index == totalCount - 1 -> RoundedCornerShape(
+            topStart = inner,
+            topEnd = inner,
+            bottomStart = outer,
+            bottomEnd = outer
+        )
+        else -> RoundedCornerShape(inner)
     }
 }
 

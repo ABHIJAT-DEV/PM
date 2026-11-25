@@ -691,9 +691,9 @@ private fun AboutHeroCard(
                                 }
                             }
                             is UpdateState.Available -> {
-                                val compactVersion = formatCompactAboutVersion(state.versionName)
+                                val readableVersion = formatReadableAboutVersion(state.versionName)
                                 AboutUpdateActionPill(
-                                    defaultLabel = "$compactVersion is out",
+                                    defaultLabel = "$readableVersion is ready to download",
                                     downloadState = downloadState,
                                     onClick = {
                                         isDowngradeSheetMode = false
@@ -850,7 +850,7 @@ private fun AboutUpdateActionPill(
                     onClick = onClick,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(56.dp),
                     shape = pillShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = primaryButtonColor,
@@ -862,11 +862,12 @@ private fun AboutUpdateActionPill(
                         painter = painterResource(R.drawable.rounded_auto_awesome_24),
                         contentDescription = null,
                         tint = buttonContentColor,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = defaultLabel,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = buttonContentColor,
                         maxLines = 1,
@@ -876,6 +877,17 @@ private fun AboutUpdateActionPill(
             }
         }
     }
+}
+
+private fun formatReadableAboutVersion(rawVersion: String): String {
+    val trimmed = rawVersion.trim()
+    if (trimmed.isEmpty()) return trimmed
+    val normalized = trimmed.removePrefix("v").removePrefix("V")
+    if (normalized.startsWith("test-build-", ignoreCase = true)) {
+        val buildNum = normalized.substringAfter("-build-", normalized)
+        return "Test build $buildNum"
+    }
+    return formatCompactAboutVersion(trimmed)
 }
 
 private fun formatCompactAboutVersion(rawVersion: String): String {
