@@ -11,7 +11,12 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -23,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
@@ -36,6 +42,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -49,14 +56,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Lyrics
+import com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences
 import com.saurav.pixelmusic.presentation.components.ToggleSegmentButton
-import com.saurav.pixelmusic.presentation.components.player.BottomToggleRow
 import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -98,8 +110,18 @@ fun LyricsMoreBottomSheet(
     tertiaryColor: Color = MaterialTheme.colorScheme.tertiary,
     onTertiaryColor: Color = MaterialTheme.colorScheme.onTertiary
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val navigationBarsPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     var showResetDialog by remember { mutableStateOf(false) }
+    var showLanguagePicker by remember { mutableStateOf(false) }
+
+    val autoTranslate by remember(context) {
+        PixelMusicLyricsPreferences.autoTranslateFlow(context)
+    }.collectAsStateWithLifecycle(initialValue = false)
+    val translateLang by remember(context) {
+        PixelMusicLyricsPreferences.translateLanguageFlow(context)
+    }.collectAsStateWithLifecycle(initialValue = "en")
 
     SmoothModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -111,8 +133,9 @@ fun LyricsMoreBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(bottom = navigationBarsPadding + 10.dp),
+                .padding(bottom = navigationBarsPadding + 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // No Title - "Expressive" relies on visual grouping
@@ -320,18 +343,18 @@ fun LyricsMoreBottomSheet(
             // Control Settings Group
             val isSyncVisible = showSyncedLyrics
             val isRomanizationVisible = hasRomanizedLyrics
-            val isTranslationVisible = hasTranslatedLyrics
+            val isAutoTranslateVisible = true
+            val isTranslateLangVisible = autoTranslate
             val isImmersiveVisible = showSyncedLyrics && immersiveLyricsEnabled
             val isKeepScreenOnVisible = true
 
-            if (isSyncVisible || isRomanizationVisible || isTranslationVisible || isKeepScreenOnVisible) {
+            if (isSyncVisible || isRomanizationVisible || isAutoTranslateVisible || isKeepScreenOnVisible) {
                 // Determine first and last items for rounding
                 val isRomanizationFirst = isRomanizationVisible && !isSyncVisible
-                val isTranslationFirst = isTranslationVisible && !isSyncVisible && !isRomanizationVisible
+                val isAutoTranslateFirst = !isSyncVisible && !isRomanizationVisible
 
-                val isSyncLast = isSyncVisible && !isRomanizationVisible && !isTranslationVisible && !isImmersiveVisible && !isKeepScreenOnVisible
-                val isRomanizationLast = isRomanizationVisible && !isTranslationVisible && !isImmersiveVisible && !isKeepScreenOnVisible
-                val isTranslationLast = isTranslationVisible && !isImmersiveVisible && !isKeepScreenOnVisible
+                val isSyncLast = false
+                val isRomanizationLast = false
                 val isImmersiveLast = isImmersiveVisible && !isKeepScreenOnVisible
 
                 Column(
@@ -424,9 +447,10 @@ fun LyricsMoreBottomSheet(
                         )
                     }
 
-                    if (isTranslationVisible) {
+                    if (isAutoTranslateVisible) {
                         ListItem(
-                            headlineContent = { Text(stringResource(R.string.lyrics_more_show_translations)) },
+                            headlineContent = { Text("Translation") },
+                            supportingContent = { Text("Translate lyrics into your preferred language") },
                             leadingContent = {
                                 Icon(
                                     painter = painterResource(R.drawable.rounded_translate_24),
@@ -435,8 +459,13 @@ fun LyricsMoreBottomSheet(
                             },
                             trailingContent = {
                                 LyricsSheetSwitch(
-                                    checked = showTranslation,
-                                    onCheckedChange = onShowTranslationChange,
+                                    checked = autoTranslate,
+                                    onCheckedChange = { enabled ->
+                                        onShowTranslationChange(enabled)
+                                        coroutineScope.launch {
+                                            PixelMusicLyricsPreferences.setAutoTranslate(context, enabled)
+                                        }
+                                    },
                                     accentColor = accentColor,
                                     onAccentColor = onAccentColor,
                                     contentColor = contentColor
@@ -446,17 +475,56 @@ fun LyricsMoreBottomSheet(
                                 .fillMaxWidth()
                                 .clip(
                                     RoundedCornerShape(
-                                        topStart = if (isTranslationFirst) 18.dp else 8.dp,
-                                        topEnd = if (isTranslationFirst) 18.dp else 8.dp,
-                                        bottomStart = if (isTranslationLast) 24.dp else 8.dp,
-                                        bottomEnd = if (isTranslationLast) 24.dp else 8.dp
+                                        topStart = if (isAutoTranslateFirst) 18.dp else 8.dp,
+                                        topEnd = if (isAutoTranslateFirst) 18.dp else 8.dp,
+                                        bottomStart = 8.dp,
+                                        bottomEnd = 8.dp
                                     )
                                 )
                                 .background(itemBackgroundColor)
-                                .clickable { onShowTranslationChange(!showTranslation) },
+                                .clickable {
+                                    val next = !autoTranslate
+                                    onShowTranslationChange(next)
+                                    coroutineScope.launch {
+                                        PixelMusicLyricsPreferences.setAutoTranslate(context, next)
+                                    }
+                                },
                             colors = ListItemDefaults.colors(
                                 containerColor = Color.Transparent,
                                 headlineColor = contentColor,
+                                supportingColor = contentColor.copy(alpha = 0.7f),
+                                leadingIconColor = contentColor
+                            )
+                        )
+                    }
+
+                    if (isTranslateLangVisible) {
+                        val selectedLangLabel = PixelMusicLyricsPreferences.languageDisplayName(translateLang)
+                        ListItem(
+                            headlineContent = { Text("Translation Language") },
+                            supportingContent = { Text(selectedLangLabel) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_translate_24),
+                                    contentDescription = null
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.Rounded.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = contentColor.copy(alpha = 0.7f)
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(itemBackgroundColor)
+                                .clickable { showLanguagePicker = true },
+                            colors = ListItemDefaults.colors(
+                                containerColor = Color.Transparent,
+                                headlineColor = contentColor,
+                                supportingColor = accentColor,
                                 leadingIconColor = contentColor
                             )
                         )
@@ -543,28 +611,73 @@ fun LyricsMoreBottomSheet(
                 }
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
 
-            // Playback Options
-            Box(
+    if (showLanguagePicker) {
+        SmoothModalBottomSheet(
+            onDismissRequest = { showLanguagePicker = false },
+            containerColor = containerColor,
+            contentColor = contentColor,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    //.background(contentColor.copy(alpha = 0.08f))
-                    .padding(vertical = 0.dp, horizontal = 0.dp)
+                    .padding(bottom = navigationBarsPadding + 16.dp)
             ) {
-                 BottomToggleRow(
+                Text(
+                    text = "Translation Language",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp)
+                )
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(74.dp)
-                        .padding(horizontal = 20.dp),
-                    isShuffleEnabled = isShuffleEnabled,
-                    repeatMode = repeatMode,
-                    isFavoriteProvider = isFavoriteProvider,
-                    onShuffleToggle = onShuffleToggle,
-                    onRepeatToggle = onRepeatToggle,
-                    onFavoriteToggle = onFavoriteToggle
-                )
+                        .padding(horizontal = 16.dp)
+                        .heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(PixelMusicLyricsPreferences.SupportedTranslateLanguages) { (code, name) ->
+                        val isSelected = code == translateLang
+                        Surface(
+                            onClick = {
+                                coroutineScope.launch {
+                                    PixelMusicLyricsPreferences.setTranslateLanguage(context, code)
+                                }
+                                showLanguagePicker = false
+                            },
+                            shape = RoundedCornerShape(18.dp),
+                            color = if (isSelected) accentColor else contentColor.copy(alpha = 0.08f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) onAccentColor else contentColor
+                                )
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = onAccentColor,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
