@@ -45,6 +45,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -688,8 +691,9 @@ private fun AboutHeroCard(
                                 }
                             }
                             is UpdateState.Available -> {
+                                val compactVersion = formatCompactAboutVersion(state.versionName)
                                 AboutUpdateActionPill(
-                                    defaultLabel = "New version available · ${state.versionName}",
+                                    defaultLabel = "$compactVersion is out",
                                     downloadState = downloadState,
                                     onClick = {
                                         isDowngradeSheetMode = false
@@ -830,7 +834,7 @@ private fun AboutUpdateActionPill(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = if (!versionName.isNullOrBlank()) {
-                            "Ready to install · $versionName"
+                            "Ready to install (${formatCompactAboutVersion(versionName)})"
                         } else {
                             "Ready to install"
                         },
@@ -874,246 +878,203 @@ private fun AboutUpdateActionPill(
     }
 }
 
+private fun formatCompactAboutVersion(rawVersion: String): String {
+    val trimmed = rawVersion.trim()
+    if (trimmed.isEmpty()) return trimmed
+    if (trimmed.startsWith("test-build-", ignoreCase = true)) {
+        return "beta-" + trimmed.substringAfter("-build-", trimmed)
+    }
+    if (trimmed.startsWith("v", ignoreCase = true) || trimmed.startsWith("beta", ignoreCase = true)) {
+        return trimmed
+    }
+    return "v$trimmed"
+}
+
+private fun expressiveAboutCardShape(index: Int, totalCount: Int): Shape {
+    val outer = 22.dp
+    val inner = 6.dp
+    return when {
+        totalCount <= 1 -> RoundedCornerShape(outer)
+        index == 0 -> RoundedCornerShape(
+            topStart = outer,
+            topEnd = outer,
+            bottomStart = inner,
+            bottomEnd = inner
+        )
+        index == totalCount - 1 -> RoundedCornerShape(
+            topStart = inner,
+            topEnd = inner,
+            bottomStart = outer,
+            bottomEnd = outer
+        )
+        else -> RoundedCornerShape(inner)
+    }
+}
+
+private data class AboutLinkItem(
+    val title: String,
+    val subtitle: String,
+    val url: String,
+    @DrawableRes val iconRes: Int,
+    val badge: String? = null,
+    val usePrimaryTint: Boolean = false
+)
+
 @Composable
 private fun SocialLinksRow() {
     val context = LocalContext.current
-    
+    val links = remember {
+        listOf(
+            AboutLinkItem(
+                title = "Main Dev.",
+                subtitle = "@Saurav124x",
+                url = "https://t.me/Saurav124x",
+                iconRes = R.drawable.telegram,
+                usePrimaryTint = true
+            ),
+            AboutLinkItem(
+                title = "Update Bot",
+                subtitle = "@PixelMusicAppBot",
+                url = "https://t.me/PixelMusicAppBot",
+                iconRes = R.drawable.telegram,
+                badge = "Latest & Beta APKs",
+                usePrimaryTint = true
+            ),
+            AboutLinkItem(
+                title = "PixelMusic Website",
+                subtitle = "pixelmusic.pages.dev",
+                url = "https://pixelmusic.pages.dev",
+                iconRes = R.drawable.rounded_public_24,
+                usePrimaryTint = false
+            ),
+            AboutLinkItem(
+                title = "GitHub",
+                subtitle = "saurav-02/PixelMusic",
+                url = "https://github.com/Saurav-02/PixelMusic",
+                iconRes = R.drawable.github,
+                usePrimaryTint = false
+            )
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Telegram 1: Main Developer (Saurav)
+        links.forEachIndexed { index, item ->
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            val pressScale by animateFloatAsState(
+                targetValue = if (isPressed) 0.98f else 1f,
+                animationSpec = spring(
+                    dampingRatio = 0.85f,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "about_link_press_$index"
+            )
+
+            val containerColor = if (item.usePrimaryTint) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            }
+            val titleColor = if (item.usePrimaryTint) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
+            val iconBgColor = if (item.usePrimaryTint) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHighest
+            }
+            val iconTint = if (item.usePrimaryTint) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
+
             Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Saurav124x"))
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        try { context.startActivity(intent) } catch (e: ActivityNotFoundException) {}
-                    },
-                shape = AbsoluteSmoothCornerShape(16.dp, 60),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                        modifier = Modifier.size(30.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Icon(
-                                painter = painterResource(R.drawable.telegram),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                    }
-                    Column {
-                        Text(
-                            text = "Main Dev.",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            maxLines = 1,
-                        )
-                        Text(
-                            text = "@Saurav124x",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-
-            // Telegram 2: UI Makeover (Xyg901)
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Xyg901"))
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        try { context.startActivity(intent) } catch (e: ActivityNotFoundException) {}
-                    },
-                shape = AbsoluteSmoothCornerShape(16.dp, 60),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                        modifier = Modifier.size(30.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Icon(
-                                painter = painterResource(R.drawable.telegram),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                    }
-                    Column {
-                        Text(
-                            text = "UI Makeover",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            maxLines = 1,
-                        )
-                        Text(
-                            text = "@Xyg901",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-        }
-
-        // Telegram Update Bot
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/PixelMusicAppBot"))
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    try { context.startActivity(intent) } catch (e: ActivityNotFoundException) {}
-                },
-            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                    modifier = Modifier.size(30.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Icon(
-                            painter = painterResource(R.drawable.telegram),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(17.dp),
-                        )
-                    }
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Text(
-                            text = "Update Bot",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            maxLines = 1,
-                        )
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                        ) {
-                            Text(
-                                text = "Latest & Beta APKs",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            )
-                        }
-                    }
-                    Text(
-                        text = "@PixelMusicAppBot",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Icon(
-                    painter = painterResource(R.drawable.rounded_open_in_new_24),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
-
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    val pkgUri = android.net.Uri.parse("https://github.com/Saurav-02/PixelMusic")
-                    val intent = Intent(Intent.ACTION_VIEW, pkgUri).apply {
+                onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.url)).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
-                    try { context.startActivity(intent) } catch (e: ActivityNotFoundException) {}
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: ActivityNotFoundException) {}
                 },
-            shape = AbsoluteSmoothCornerShape(16.dp, 60),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
-        ) {
-            Row(
+                interactionSource = interactionSource,
+                shape = expressiveAboutCardShape(index, links.size),
+                color = containerColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .graphicsLayer {
+                        scaleX = pressScale
+                        scaleY = pressScale
+                    }
             ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                    modifier = Modifier.size(30.dp),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Icon(
-                            painter = painterResource(R.drawable.github),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(17.dp),
+                    Surface(
+                        shape = CircleShape,
+                        color = iconBgColor,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Icon(
+                                painter = painterResource(item.iconRes),
+                                contentDescription = null,
+                                tint = iconTint,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = item.title,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = titleColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (item.badge != null) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                ) {
+                                    Text(
+                                        text = item.badge,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
+                        }
+                        Text(
+                            text = item.subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = titleColor.copy(alpha = 0.68f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
-                }
-                Column {
-                    Text(
-                        text = "GitHub",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                    )
-                    Text(
-                        text = "saurav-02/PixelMusic",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_open_in_new_24),
+                        contentDescription = null,
+                        tint = titleColor.copy(alpha = 0.45f),
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
@@ -1168,138 +1129,152 @@ private fun CreditsCard(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val cardShape = AbsoluteSmoothCornerShape(28.dp, 60)
+    val density = LocalDensity.current
+    val cardShape = RoundedCornerShape(28.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val enterProgress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        enterProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = 560,
+                easing = FastOutSlowInEasing
+            )
+        )
+    }
+
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.975f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.85f,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "creator_card_press"
+    )
+    val enterTranslationY = with(density) { (1f - enterProgress.value) * 20.dp.toPx() }
+    val enterScale = 0.96f + (0.04f * enterProgress.value)
+
+    fun openInstagram() {
+        val intent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://www.instagram.com/holy_saurav")
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {}
+    }
 
     Surface(
-        modifier = modifier,
+        onClick = ::openInstagram,
+        interactionSource = interactionSource,
         shape = cardShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 2.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = enterProgress.value
+                translationY = enterTranslationY
+                scaleX = enterScale * pressScale
+                scaleY = enterScale * pressScale
+            }
     ) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(230.dp)
-                .clip(cardShape)
-                .clickable {
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        android.net.Uri.parse("https://www.instagram.com/holy_saurav")
-                    ).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    try {
-                        context.startActivity(intent)
-                    } catch (_: ActivityNotFoundException) {
-                        // Handle fallback if no browser is present
-                    }
-                }
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Background Image
-            Image(
-                painter = painterResource(R.drawable.saurav_profile),
-                contentDescription = "Saurav",
-                contentScale = ContentScale.Crop,
-                alignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // 2. Cinematic Gradient Overlay (clear top, smooth readable scrim at bottom)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
-                            0.0f to androidx.compose.ui.graphics.Color.Transparent,
-                            0.40f to androidx.compose.ui.graphics.Color.Transparent,
-                            0.68f to androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f),
-                            1.0f to androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.88f)
-                        )
-                    )
-            )
-
-            // 3. Top-end subtle badge
+            // Left: Rounded Creator Avatar
             Surface(
                 shape = CircleShape,
-                color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.40f),
-                border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f)),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(14.dp)
+                color = MaterialTheme.colorScheme.primaryContainer,
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                modifier = Modifier.size(74.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(androidx.compose.ui.graphics.Color(0xFFE1306C))
-                    )
-                    Text(
-                        text = "Creator",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.92f)
-                    )
-                }
+                Image(
+                    painter = painterResource(R.drawable.saurav_profile),
+                    contentDescription = "Saurav",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                )
             }
 
-            // 4. Bottom Text and Instagram Pill Button
+            // Right: Name, Made with love from India, and Instagram pill
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.Bottom,
-                horizontalAlignment = Alignment.Start
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Saurav",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Text(
+                            text = "Creator",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
                 Text(
-                    text = "With love from Saurav",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = androidx.compose.ui.graphics.Color.White
+                    text = "Made with ♥ in India",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                Text(
-                    text = "Lead Developer • PixelMusic",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.76f)
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Modern Frosted Instagram Pill
                 Surface(
+                    onClick = ::openInstagram,
                     shape = CircleShape,
-                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f),
-                    border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.28f)),
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_instagram),
                             contentDescription = "Instagram",
-                            tint = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.size(16.dp)
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(15.dp)
                         )
                         Text(
                             text = "@holy_saurav",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = androidx.compose.ui.graphics.Color.White
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Icon(
                             painter = painterResource(R.drawable.rounded_open_in_new_24),
                             contentDescription = null,
-                            tint = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.80f),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f),
                             modifier = Modifier.size(13.dp)
                         )
                     }
