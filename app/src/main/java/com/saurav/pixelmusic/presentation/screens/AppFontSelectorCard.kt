@@ -27,8 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -724,7 +723,7 @@ private fun InstalledFontPackCard(
 
             IconButton(onClick = onDelete) {
                 Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
+                    imageVector = Icons.Rounded.Delete,
                     contentDescription = "Delete font pack",
                     tint = if (isSelected) {
                         MaterialTheme.colorScheme.onPrimaryContainer
@@ -815,7 +814,7 @@ private fun CatalogFontCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Rounded.FileDownload,
+                            painter = painterResource(R.drawable.rounded_download_24),
                             contentDescription = "Download font",
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(18.dp)
