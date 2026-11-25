@@ -774,18 +774,9 @@ fun SettingsCategoryScreen(
                                             }
                                         }
                                     )
-                                    ThemeSelectorItem(
-                                        label = stringResource(R.string.setcat_app_font_label),
-                                        description = stringResource(R.string.setcat_app_font_desc),
-                                        options = mapOf(
-                                            AppFontMode.APP_DEFAULT to stringResource(R.string.setcat_font_pixelmusic),
-                                            AppFontMode.SYSTEM to stringResource(R.string.setcat_font_system)
-                                        ),
-                                        selectedKey = uiState.appFontMode,
-                                        onSelectionChanged = { settingsViewModel.setAppFontMode(it) },
-                                        leadingIcon = {
-                                            Icon(painterResource(R.drawable.rounded_style_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                    AppFontSelectorCard(
+                                        selectedFontMode = uiState.appFontMode,
+                                        onFontModeSelected = { settingsViewModel.setAppFontMode(it) }
                                     )
                                     val colorPaletteOptions = buildMap {
                                         if (AndroidVersionCompat.supportsDynamicColor) {

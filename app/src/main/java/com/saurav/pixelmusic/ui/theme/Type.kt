@@ -18,9 +18,16 @@ import com.saurav.pixelmusic.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.saurav.pixelmusic.data.preferences.AppFontMode
+import com.saurav.pixelmusic.utils.CustomFontManager
 
 object FontSettings {
-    var useSystemFont by mutableStateOf(false)
+    var appFontMode by mutableStateOf(AppFontMode.APP_DEFAULT)
+    var useSystemFont: Boolean
+        get() = appFontMode == AppFontMode.SYSTEM
+        set(value) {
+            appFontMode = if (value) AppFontMode.SYSTEM else AppFontMode.APP_DEFAULT
+        }
 }
 
 private val montserrat = GoogleFont("Montserrat")
@@ -118,7 +125,7 @@ val ActualGoogleSansRounded = FontFamily(
 )
 
 val GoogleSansRounded: FontFamily
-    get() = if (FontSettings.useSystemFont) FontFamily.Default else ActualGoogleSansRounded
+    get() = CustomFontManager.resolveFontFamily(FontSettings.appFontMode)
 
 private fun createBaseTypography(family: FontFamily): Typography = Typography(
     displayLarge = TextStyle(
@@ -230,6 +237,28 @@ private fun createBaseTypography(family: FontFamily): Typography = Typography(
 
 private val DefaultAppTypography = createBaseTypography(ActualGoogleSansRounded)
 private val SystemFontTypography = createBaseTypography(FontFamily.Default)
+private var cachedCustomMode: String? = null
+private var cachedCustomFamily: FontFamily? = null
+private var cachedCustomTypography: Typography? = null
 
 val Typography: Typography
-    get() = if (FontSettings.useSystemFont) SystemFontTypography else DefaultAppTypography
+    get() {
+        val mode = FontSettings.appFontMode
+        return when (mode) {
+            AppFontMode.APP_DEFAULT -> DefaultAppTypography
+            AppFontMode.SYSTEM -> SystemFontTypography
+            else -> {
+                val family = CustomFontManager.resolveFontFamily(mode)
+                if (family === ActualGoogleSansRounded) {
+                    DefaultAppTypography
+                } else {
+                    if (cachedCustomMode != mode || cachedCustomFamily !== family || cachedCustomTypography == null) {
+                        cachedCustomMode = mode
+                        cachedCustomFamily = family
+                        cachedCustomTypography = createBaseTypography(family)
+                    }
+                    cachedCustomTypography ?: DefaultAppTypography
+                }
+            }
+        }
+    }

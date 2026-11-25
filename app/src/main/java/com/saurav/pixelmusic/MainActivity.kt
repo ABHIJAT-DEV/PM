@@ -370,6 +370,7 @@ class MainActivity : ComponentActivity() {
                 colorSchemePairOverride = colorSchemePairOverride,
                 colorPalette = colorPalette,
                 useSystemFont = (appFontMode == AppFontMode.SYSTEM),
+                appFontMode = appFontMode,
                 isAmoledBlack = isAmoledBlackEnabled
             ) {
                 CompositionLocalProvider(

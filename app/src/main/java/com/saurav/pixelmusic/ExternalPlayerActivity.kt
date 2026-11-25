@@ -73,6 +73,7 @@ class ExternalPlayerActivity : ComponentActivity() {
                 colorSchemePairOverride = colorSchemePairOverride,
                 colorPalette = colorPalette,
                 useSystemFont = (appFontMode == AppFontMode.SYSTEM),
+                appFontMode = appFontMode,
                 isAmoledBlack = isAmoledBlackEnabled
             ) {
                 ExternalPlayerOverlay(

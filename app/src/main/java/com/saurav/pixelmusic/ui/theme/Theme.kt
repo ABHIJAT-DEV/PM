@@ -649,11 +649,13 @@ fun PixelMusicTheme(
     colorSchemePairOverride: ColorSchemePair? = null,
     colorPalette: String = "DYNAMIC",
     useSystemFont: Boolean = false,
+    appFontMode: String = if (useSystemFont) com.saurav.pixelmusic.data.preferences.AppFontMode.SYSTEM else com.saurav.pixelmusic.data.preferences.AppFontMode.APP_DEFAULT,
     isAmoledBlack: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    FontSettings.useSystemFont = useSystemFont
     val context = LocalContext.current
+    com.saurav.pixelmusic.utils.CustomFontManager.initialize(context)
+    FontSettings.appFontMode = appFontMode
     
     val isBwTheme = colorPalette == "BLACK_AND_WHITE"
 
