@@ -431,7 +431,7 @@ object InAppUpdater {
                 )
                 
                 val finishedNotif = androidx.core.app.NotificationCompat.Builder(appContext!!, "app_updates")
-                    .setSmallIcon(com.saurav.pixelmusic.R.mipmap.ic_launcher)
+                    .setSmallIcon(com.saurav.pixelmusic.R.drawable.monochrome_player)
                     .setContentTitle("Download Complete")
                     .setContentText("Tap to install PixelMusic $versionName")
                     .setContentIntent(pendingInstall)

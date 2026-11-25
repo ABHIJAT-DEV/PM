@@ -119,7 +119,7 @@ object LiveNotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setRequestPromotedOngoing(true) 
             .setShortCriticalText(criticalText)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.monochrome_player)
             .setSortKey("zzzzz_ghost") // Forces the card to the bottom of the shade
 
         val progressPercent = if (safeDuration > 0L) {
