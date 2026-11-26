@@ -2079,12 +2079,15 @@ fun QueuePlaylistSongItem(
                 .expressiveTapColorWave(
                     waveColor = colors.primary.copy(alpha = 0.22f),
                     shape = itemShape,
-                    enabled = currentOffsetPx == 0f
+                    enabled = true
                 )
                 .combinedClickable(
-                    enabled = currentOffsetPx == 0f,
-                    onClick = { onClick() },
-                    onLongClick = { onMoreOptionsClick(song) }
+                    onClick = {
+                        if (dismissOffsetAnimatable.value == 0f) onClick()
+                    },
+                    onLongClick = {
+                        if (dismissOffsetAnimatable.value == 0f) onMoreOptionsClick(song)
+                    }
                 ),
             shape = itemShape,
             color = backgroundColor,

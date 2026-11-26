@@ -46,24 +46,24 @@ fun Modifier.expressiveTapColorWave(
     durationMillis: Int = 560,
     enabled: Boolean = true
 ): Modifier = composed {
-    if (!enabled) return@composed this
-
     val scope = rememberCoroutineScope()
     val waveProgress = remember { Animatable(0f) }
     val waveAlpha = remember { Animatable(0f) }
     var waveOrigin by remember { mutableStateOf<Offset?>(null) }
     var activeJob by remember { mutableStateOf<Job?>(null) }
+    val latestEnabled = androidx.compose.runtime.rememberUpdatedState(enabled)
 
     val clipModifier = if (shape != null) Modifier.clip(shape) else Modifier
 
     this
         .then(clipModifier)
-        .pointerInput(enabled, durationMillis) {
+        .pointerInput(durationMillis) {
             awaitEachGesture {
                 val down = awaitFirstDown(
                     requireUnconsumed = false,
                     pass = PointerEventPass.Initial
                 )
+                if (!latestEnabled.value) return@awaitEachGesture
                 waveOrigin = down.position
                 activeJob?.cancel()
                 activeJob = scope.launch {
