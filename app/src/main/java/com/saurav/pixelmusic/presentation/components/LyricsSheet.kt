@@ -1250,6 +1250,10 @@ fun SyncedLyricsList(
     footer: LazyListScope.() -> Unit = {}
 ) {
     val density = LocalDensity.current
+    val lyricsEnrichment = com.saurav.pixelmusic.presentation.components.lyrics.rememberLiveLyricsEnrichment(
+        lines = lines,
+        showRomanizationPref = showRomanization,
+    )
     val playbackPosition by playbackPositionFlow.collectAsStateWithLifecycle()
     val position = remember(playbackPosition, lyricsSyncOffset, positionOverrideMs) {
         positionOverrideMs ?: (playbackPosition + lyricsSyncOffset).coerceAtLeast(0L)
@@ -1377,8 +1381,24 @@ fun SyncedLyricsList(
                     } else Modifier
 
                     if (line.line.isNotBlank()) {
+                        val resolvedTranslation = line.translation?.takeIf { it.isNotBlank() && showTranslation }
+                            ?: lyricsEnrichment.liveTranslations?.getOrNull(index)?.takeIf { it.isNotBlank() && it != line.line }
+                        val resolvedRom = lyricsEnrichment.romanized.getOrNull(index)?.takeIf { it.isNotBlank() && it != line.line }
+                        val swapRomanization = lyricsEnrichment.romanizationAsMain && resolvedRom != null
+                        val displayLine = remember(line, resolvedTranslation, resolvedRom, swapRomanization) {
+                            if (resolvedTranslation == line.translation && resolvedRom == line.romanization && !swapRomanization) {
+                                line
+                            } else {
+                                line.copy(
+                                    line = if (swapRomanization) resolvedRom!! else line.line,
+                                    words = if (swapRomanization) null else line.words,
+                                    romanization = if (swapRomanization) line.line else resolvedRom,
+                                    translation = resolvedTranslation,
+                                )
+                            }
+                        }
                         LyricLineRow(
-                            line = line,
+                            line = displayLine,
                             nextTime = nextTime,
                             position = position,
                             distanceFromCurrent = distanceFromCurrent,
@@ -1387,8 +1407,8 @@ fun SyncedLyricsList(
                             animatedLyricsBlurStrength = animatedLyricsBlurStrength,
                             immersiveMode = immersiveMode,
                             lyricsAlignment = lyricsAlignment,
-                            showTranslation = showTranslation,
-                            showRomanization = showRomanization,
+                            showTranslation = showTranslation || lyricsEnrichment.autoTranslate,
+                            showRomanization = showRomanization || lyricsEnrichment.autoRomanize,
                             accentColor = accentColor,
                             style = textStyle,
                             modifier = parallaxModifier

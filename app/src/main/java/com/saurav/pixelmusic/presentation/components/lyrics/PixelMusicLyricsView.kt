@@ -317,39 +317,20 @@ private class LyricsClock(
  * The lyrics page, PixelMusic's own: the four PixelMusic styles (Style 1, Style 2, Boring, Plain) run on PixelMusic's
  * renderer, rows, scrolling and cascade. The fifth, PixelMusic's, is drawn by the caller instead.
  */
+data class LiveLyricsEnrichment(
+    val liveTranslations: List<String>?,
+    val romanized: List<String?>,
+    val autoTranslate: Boolean,
+    val autoRomanize: Boolean,
+    val romanizationAsMain: Boolean,
+)
+
 @Composable
-fun PixelMusicSyncedLyricsView(
+fun rememberLiveLyricsEnrichment(
     lines: List<SyncedLine>,
-    listState: LazyListState,
-    playbackPositionFlow: StateFlow<Long>,
-    lyricsSyncOffset: Int,
-    positionOverrideMs: Long?,
-    accentColor: Color,
-    contentColor: Color,
-    providerName: String?,
-    lyricsAlignment: String,
-    showTranslationPref: Boolean,
     showRomanizationPref: Boolean,
-    performanceModeEnabled: Boolean,
-    immersiveMode: Boolean,
-    onLineClick: (SyncedLine) -> Unit,
-    modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(),
-    isPlaying: Boolean = true,
-    blurStrength: Float = 2.5f,
-    fontSizeScale: Float = 1f,
-    showFooter: Boolean = true,
-) {
+): LiveLyricsEnrichment {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val density = LocalDensity.current
-    val style by remember(context) { PixelMusicLyricsPreferences.styleFlow(context) }
-        .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle.MOTION)
-    val softLight by remember(context) { PixelMusicLyricsPreferences.softLightFlow(context) }
-        .collectAsStateWithLifecycle(initialValue = true)
-    val textSizeSp by remember(context) { PixelMusicLyricsPreferences.textSizeFlow(context) }
-        .collectAsStateWithLifecycle(initialValue = 26f)
-    val lineSpacing by remember(context) { PixelMusicLyricsPreferences.lineSpacingFlow(context) }
-        .collectAsStateWithLifecycle(initialValue = 1.25f)
     val autoTranslate by remember(context) { PixelMusicLyricsPreferences.autoTranslateFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
     val translateLang by remember(context) { PixelMusicLyricsPreferences.translateLanguageFlow(context) }
@@ -360,26 +341,6 @@ fun PixelMusicSyncedLyricsView(
         .collectAsStateWithLifecycle(initialValue = false)
     val romanizationAsMain by remember(context) { PixelMusicLyricsPreferences.romanizationAsMainFlow(context) }
         .collectAsStateWithLifecycle(initialValue = false)
-
-    val cascade = style.risesWords
-    val shaded = style.shaded
-    val lineBlurAllowed = softLight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val useSoftLightBlend = softLight && SoftLightSupported
-    SideEffect { AppMotion.elementBlur = lineBlurAllowed }
-
-    // position, read only inside lambdas and derived states so a playback tick doesn't recompose the page
-    val rawPosition = playbackPositionFlow.collectAsStateWithLifecycle()
-    val currentOffset by rememberUpdatedState(lyricsSyncOffset)
-    val currentOverride by rememberUpdatedState(positionOverrideMs)
-    val currentPlaying by rememberUpdatedState(isPlaying)
-    val clock = remember {
-        LyricsClock(
-            sample = { (currentOverride ?: rawPosition.value) + currentOffset },
-            isPlaying = { currentPlaying && currentOverride == null },
-        )
-    }
-    val positionProvider: () -> Long = remember(clock) { { clock.now().coerceAtLeast(0L) } }
-    val statePosition = remember { derivedStateOf { ((currentOverride ?: rawPosition.value) + currentOffset).coerceAtLeast(0L) } }
 
     // live translation (AI first when enabled, falling back to Google/Bing) and romanisation
     var liveTranslations by remember(lines, translateLang, autoTranslate, useAiTranslation) { mutableStateOf<List<String>?>(null) }
@@ -427,6 +388,76 @@ fun PixelMusicSyncedLyricsView(
                 } else null
         }
     }
+
+    return LiveLyricsEnrichment(
+        liveTranslations = liveTranslations,
+        romanized = romanized,
+        autoTranslate = autoTranslate,
+        autoRomanize = autoRomanize,
+        romanizationAsMain = romanizationAsMain,
+    )
+}
+
+@Composable
+fun PixelMusicSyncedLyricsView(
+    lines: List<SyncedLine>,
+    listState: LazyListState,
+    playbackPositionFlow: StateFlow<Long>,
+    lyricsSyncOffset: Int,
+    positionOverrideMs: Long?,
+    accentColor: Color,
+    contentColor: Color,
+    providerName: String?,
+    lyricsAlignment: String,
+    showTranslationPref: Boolean,
+    showRomanizationPref: Boolean,
+    performanceModeEnabled: Boolean,
+    immersiveMode: Boolean,
+    onLineClick: (SyncedLine) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+    isPlaying: Boolean = true,
+    blurStrength: Float = 2.5f,
+    fontSizeScale: Float = 1f,
+    showFooter: Boolean = true,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val density = LocalDensity.current
+    val style by remember(context) { PixelMusicLyricsPreferences.styleFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = com.saurav.pixelmusic.lyrics.PixelMusicLyricsStyle.MOTION)
+    val softLight by remember(context) { PixelMusicLyricsPreferences.softLightFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = true)
+    val textSizeSp by remember(context) { PixelMusicLyricsPreferences.textSizeFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = 26f)
+    val lineSpacing by remember(context) { PixelMusicLyricsPreferences.lineSpacingFlow(context) }
+        .collectAsStateWithLifecycle(initialValue = 1.25f)
+    val enrichment = rememberLiveLyricsEnrichment(
+        lines = lines,
+        showRomanizationPref = showRomanizationPref,
+    )
+    val liveTranslations = enrichment.liveTranslations
+    val romanized = enrichment.romanized
+    val romanizationAsMain = enrichment.romanizationAsMain
+
+    val cascade = style.risesWords
+    val shaded = style.shaded
+    val lineBlurAllowed = softLight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val useSoftLightBlend = softLight && SoftLightSupported
+    SideEffect { AppMotion.elementBlur = lineBlurAllowed }
+
+    // position, read only inside lambdas and derived states so a playback tick doesn't recompose the page
+    val rawPosition = playbackPositionFlow.collectAsStateWithLifecycle()
+    val currentOffset by rememberUpdatedState(lyricsSyncOffset)
+    val currentOverride by rememberUpdatedState(positionOverrideMs)
+    val currentPlaying by rememberUpdatedState(isPlaying)
+    val clock = remember {
+        LyricsClock(
+            sample = { (currentOverride ?: rawPosition.value) + currentOffset },
+            isPlaying = { currentPlaying && currentOverride == null },
+        )
+    }
+    val positionProvider: () -> Long = remember(clock) { { clock.now().coerceAtLeast(0L) } }
+    val statePosition = remember { derivedStateOf { ((currentOverride ?: rawPosition.value) + currentOffset).coerceAtLeast(0L) } }
 
     // each line as PixelMusic's renderer takes it, with the romanisation swapped on top when that's the setting
     val entries = remember(lines, romanized, romanizationAsMain) {
