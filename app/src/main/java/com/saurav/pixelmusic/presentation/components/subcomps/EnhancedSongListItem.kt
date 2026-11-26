@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.components.subcomps
 
+import com.saurav.pixelmusic.presentation.components.ExpressiveMorphingCardShape
+import com.saurav.pixelmusic.presentation.components.ExpressiveWaveEasing
 import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
 
 import androidx.compose.animation.core.animateFloat
@@ -137,7 +139,7 @@ fun EnhancedSongListItem(
             label = "EnhancedSongListItemTransition"
         )
         highlightProgress = transition.animateFloat(
-            transitionSpec = { tween(durationMillis = 400) },
+            transitionSpec = { tween(durationMillis = 560, easing = ExpressiveWaveEasing) },
             label = "highlightProgress"
         ) { state ->
             if (state.isHighlighted) 1f else 0f
@@ -161,16 +163,18 @@ fun EnhancedSongListItem(
         }.value
     }
 
-    val animatedCornerRadius = lerpDp(22.dp, 50.dp, highlightProgress)
-    val animatedAlbumCornerRadius = lerpDp(10.dp, 50.dp, highlightProgress)
+    val baseCardShape = remember(customShape) {
+        (customShape as? RoundedCornerShape) ?: RoundedCornerShape(22.dp)
+    }
+    val animatedAlbumCornerRadius = lerpDp(10.dp, albumArtSize / 2f, highlightProgress)
     val selectionScale = lerpFloat(1f, 0.98f, selectionScaleProgress)
     val selectionBorderWidth = lerpDp(0.dp, 2.5.dp, selectionVisualProgress)
 
-    val surfaceShape = remember(animatedCornerRadius, customShape, isHighlighted) {
-        if (customShape != null && !isHighlighted) {
-            customShape
+    val surfaceShape = remember(baseCardShape, highlightProgress) {
+        if (highlightProgress <= 0.001f) {
+            baseCardShape
         } else {
-            RoundedCornerShape(animatedCornerRadius)
+            ExpressiveMorphingCardShape(baseCardShape, highlightProgress)
         }
     }
 

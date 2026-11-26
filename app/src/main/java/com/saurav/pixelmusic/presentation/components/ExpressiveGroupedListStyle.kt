@@ -12,8 +12,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -49,6 +55,42 @@ fun expressiveGroupedCardShape(index: Int, totalCount: Int): Shape {
         0 -> ExpressiveTopCardShape
         totalCount - 1 -> ExpressiveBottomCardShape
         else -> ExpressiveMiddleCardShape
+    }
+}
+
+/**
+ * Smoothly interpolates every corner of [baseShape] (e.g. an expressive grouped
+ * card with 24.dp outer / 4.dp inner corners) to a full pill (`min(w, h) / 2`)
+ * as [progress] goes from `0f` to `1f`. Eliminates corner snapping on select or
+ * deselect and keeps card morphing 100% synchronized with album art & colors.
+ */
+class ExpressiveMorphingCardShape(
+    private val baseShape: RoundedCornerShape,
+    private val progress: Float
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val maxRadius = minOf(size.width, size.height) * 0.5f
+        val t = progress.coerceIn(0f, 1f)
+        val tl = baseShape.topStart.toPx(size, density).let { it + (maxRadius - it) * t }
+        val tr = baseShape.topEnd.toPx(size, density).let { it + (maxRadius - it) * t }
+        val br = baseShape.bottomEnd.toPx(size, density).let { it + (maxRadius - it) * t }
+        val bl = baseShape.bottomStart.toPx(size, density).let { it + (maxRadius - it) * t }
+        return Outline.Rounded(
+            RoundRect(
+                left = 0f,
+                top = 0f,
+                right = size.width,
+                bottom = size.height,
+                topLeftCornerRadius = CornerRadius(tl, tl),
+                topRightCornerRadius = CornerRadius(tr, tr),
+                bottomRightCornerRadius = CornerRadius(br, br),
+                bottomLeftCornerRadius = CornerRadius(bl, bl)
+            )
+        )
     }
 }
 

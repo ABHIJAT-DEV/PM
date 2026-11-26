@@ -2,6 +2,10 @@
 
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
@@ -1774,87 +1778,28 @@ onViewToggleChange = { isChecked ->
                     )
                 }
 
-                Row(
+                val canDeletePlaylist = !playlist.id.startsWith(PlaylistViewModel.FOLDER_PLAYLIST_PREFIX)
+                val totalOptionCount = if (canDeletePlaylist) 3 else 2
+
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .clickable {
-                            showSinglePlaylistOptionsSheet = false
-                            playlistViewModel.togglePinPlaylist(playlist.id)
-                        }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_push_pin_24),
-                            contentDescription = if (isPinned) "Unpin" else "Pin",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Text(
-                        text = if (isPinned) "Unpin Playlist" else "Pin Playlist",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .clickable {
-                            showSinglePlaylistOptionsSheet = false
-                            scope.launch {
-                                val songs = playerViewModel.getSongs(playlist.songIds)
-                                playerViewModel.addSongsToQueue(songs)
-                            }
-                        }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_queue_music_24),
-                            contentDescription = stringResource(R.string.cd_add_all_to_queue),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Text(
-                        text = stringResource(R.string.cd_add_all_to_queue),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                if (!playlist.id.startsWith(PlaylistViewModel.FOLDER_PLAYLIST_PREFIX)) {
+                    val pinShape = expressiveGroupedCardShape(0, totalOptionCount)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(pinShape)
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .expressiveTapColorWave(
+                                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                                shape = pinShape
+                            )
                             .clickable {
                                 showSinglePlaylistOptionsSheet = false
-                                playlistToDelete = playlist
+                                playlistViewModel.togglePinPlaylist(playlist.id)
                             }
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -1867,17 +1812,98 @@ onViewToggleChange = { isChecked ->
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.rounded_delete_24),
-                                contentDescription = stringResource(R.string.presentation_batch_b_delete_playlist),
+                                painter = painterResource(R.drawable.rounded_push_pin_24),
+                                contentDescription = if (isPinned) "Unpin" else "Pin",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
                         Spacer(modifier = Modifier.width(14.dp))
                         Text(
-                            text = stringResource(R.string.presentation_batch_b_delete_playlist),
+                            text = if (isPinned) "Unpin Playlist" else "Pin Playlist",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                    }
+
+                    val queueShape = expressiveGroupedCardShape(1, totalOptionCount)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(queueShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .expressiveTapColorWave(
+                                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                                shape = queueShape
+                            )
+                            .clickable {
+                                showSinglePlaylistOptionsSheet = false
+                                scope.launch {
+                                    val songs = playerViewModel.getSongs(playlist.songIds)
+                                    playerViewModel.addSongsToQueue(songs)
+                                }
+                            }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_queue_music_24),
+                                contentDescription = stringResource(R.string.cd_add_all_to_queue),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Text(
+                            text = stringResource(R.string.cd_add_all_to_queue),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    if (canDeletePlaylist) {
+                        val deleteShape = expressiveGroupedCardShape(2, totalOptionCount)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(deleteShape)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .expressiveTapColorWave(
+                                    waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                                    shape = deleteShape
+                                )
+                                .clickable {
+                                    showSinglePlaylistOptionsSheet = false
+                                    playlistToDelete = playlist
+                                }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_delete_24),
+                                    contentDescription = stringResource(R.string.presentation_batch_b_delete_playlist),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Text(
+                                text = stringResource(R.string.presentation_batch_b_delete_playlist),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }

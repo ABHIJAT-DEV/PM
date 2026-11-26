@@ -1949,19 +1949,25 @@ fun QueuePlaylistSongItem(
 ) {
     val colors = MaterialTheme.colorScheme
 
-    val cornerRadius by animateDpAsState(
-        targetValue = if (isCurrentSong) 60.dp else 22.dp,
-        label = "cornerRadiusAnimation"
+    val highlightProgress by animateFloatAsState(
+        targetValue = if (isCurrentSong) 1f else 0f,
+        animationSpec = tween(durationMillis = 560, easing = ExpressiveWaveEasing),
+        label = "queueHighlightProgress"
     )
 
-    val itemShape = if (customShape != null && !isCurrentSong) customShape else RoundedCornerShape(cornerRadius)
+    val baseCardShape = remember(customShape) {
+        (customShape as? RoundedCornerShape) ?: RoundedCornerShape(22.dp)
+    }
+    val itemShape = remember(baseCardShape, highlightProgress) {
+        if (highlightProgress <= 0.001f) {
+            baseCardShape
+        } else {
+            ExpressiveMorphingCardShape(baseCardShape, highlightProgress)
+        }
+    }
 
-    val albumCornerRadius by animateDpAsState(
-        targetValue = if (isCurrentSong) 60.dp else 8.dp,
-        label = "cornerRadiusAnimation"
-    )
-
-    val albumShape = RoundedCornerShape(albumCornerRadius)
+    val albumCornerRadius = androidx.compose.ui.unit.lerp(8.dp, 24.dp, highlightProgress)
+    val albumShape = remember(albumCornerRadius) { RoundedCornerShape(albumCornerRadius) }
 
     val elevation by animateDpAsState(
         targetValue = if (isDragging) 4.dp else 1.dp,
