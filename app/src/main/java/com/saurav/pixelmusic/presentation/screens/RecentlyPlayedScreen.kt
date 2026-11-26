@@ -125,6 +125,7 @@ fun RecentlyPlayedScreen(
     val context = LocalContext.current
     val queueRecentlyPlayed = stringResource(R.string.presentation_batch_b_queue_recently_played)
     val shuffleLabel = stringResource(R.string.shortcut_shuffle_short)
+    val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
     val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
     val currentSongId by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged()
@@ -146,7 +147,11 @@ fun RecentlyPlayedScreen(
 
     var ytHistorySongs by remember { mutableStateOf<List<RecentlyPlayedSongUiModel>?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(localModeEnabled) {
+        if (localModeEnabled) {
+            ytHistorySongs = emptyList()
+            return@LaunchedEffect
+        }
         if (YouTube.hasLoginCookie()) {
             val result = YouTube.musicHistory().getOrNull()
             if (result != null) {
@@ -193,9 +198,19 @@ fun RecentlyPlayedScreen(
         )
     }
 
-    val recentlyPlayedSongs = remember(ytHistorySongs, localRecentlyPlayedSongs) {
-        val yt = ytHistorySongs ?: emptyList()
-        val local = localRecentlyPlayedSongs
+    val recentlyPlayedSongs = remember(ytHistorySongs, localRecentlyPlayedSongs, localModeEnabled) {
+        val yt = if (localModeEnabled) emptyList() else (ytHistorySongs ?: emptyList())
+        val local = if (localModeEnabled) {
+            localRecentlyPlayedSongs.filter { entry ->
+                val s = entry.song
+                (!s.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+                    !s.contentUriString.startsWith("http://", ignoreCase = true) &&
+                    !s.contentUriString.startsWith("https://", ignoreCase = true)) ||
+                    (s.path.isNotBlank() && java.io.File(s.path).exists())
+            }
+        } else {
+            localRecentlyPlayedSongs
+        }
         val combined = (yt + local)
         val seen = LinkedHashSet<String>()
         combined

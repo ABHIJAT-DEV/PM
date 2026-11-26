@@ -54,7 +54,12 @@ data class ExploreUiState(
 
     // ── Extra Curated Showcase Shelves ─────────────────────────────────
     val videoSpotlightItems: List<SongItem> = emptyList(),
-    val podcastPlaylists: List<PlaylistItem> = emptyList()
+    val podcastPlaylists: List<PlaylistItem> = emptyList(),
+
+    // ── Local Mode Device Explore Data ─────────────────────────────────
+    val localSongs: List<com.saurav.pixelmusic.data.model.Song> = emptyList(),
+    val localAlbums: List<com.saurav.pixelmusic.data.model.Album> = emptyList(),
+    val localArtists: List<com.saurav.pixelmusic.data.model.Artist> = emptyList()
 )
 
 @HiltViewModel
@@ -96,7 +101,7 @@ class ExploreViewModel @Inject constructor(
                 if (localMode) {
                     stage2Job?.cancel()
                     stage3Job?.cancel()
-                    _uiState.update { it.copy(isLoading = false, isRefreshing = false, error = null) }
+                    loadLocalDeviceExploreData()
                 } else {
                     if (_uiState.value.homePageSections.isEmpty()) {
                         withContext(Dispatchers.IO) {
@@ -169,9 +174,70 @@ class ExploreViewModel @Inject constructor(
         }
     }
 
+    private fun loadLocalDeviceExploreData() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val allEntities = musicDao.getAllSongsList()
+                val storageSongs = allEntities
+                    .filter { it.sourceType == 0 || (it.filePath.isNotBlank() && java.io.File(it.filePath).exists()) }
+                    .sortedByDescending { it.dateAdded }
+                    .map { it.toSong() }
+
+                val groupedAlbums = storageSongs
+                    .groupBy { it.albumId }
+                    .map { (albumId, songsInAlbum) ->
+                        val first = songsInAlbum.first()
+                        com.saurav.pixelmusic.data.model.Album(
+                            id = albumId,
+                            title = first.album.ifBlank { "Unknown Album" },
+                            artist = first.albumArtist?.takeIf { it.isNotBlank() } ?: first.artist,
+                            songCount = songsInAlbum.size,
+                            albumArtUriString = songsInAlbum.firstNotNullOfOrNull { it.albumArtUriString },
+                            year = first.year,
+                            dateAdded = songsInAlbum.maxOf { it.dateAdded }
+                        )
+                    }
+                    .sortedByDescending { it.dateAdded }
+                    .take(24)
+
+                val groupedArtists = storageSongs
+                    .groupBy { it.artistId }
+                    .map { (artistId, songsByArtist) ->
+                        val first = songsByArtist.first()
+                        com.saurav.pixelmusic.data.model.Artist(
+                            id = artistId,
+                            name = first.artist.ifBlank { "Unknown Artist" },
+                            songCount = songsByArtist.size,
+                            imageUrl = songsByArtist.firstNotNullOfOrNull { it.albumArtUriString }
+                        )
+                    }
+                    .sortedByDescending { it.songCount }
+                    .take(24)
+
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = null,
+                        localSongs = storageSongs,
+                        localAlbums = groupedAlbums,
+                        localArtists = groupedArtists
+                    )
+                }
+            }.onFailure { e ->
+                Timber.e(e, "Failed to load local device explore data")
+                _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
+            }
+        }
+    }
+
     fun loadData(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            loadDataInternal(forceRefresh)
+            if (userPreferencesRepository.localModeEnabledFlow.first()) {
+                loadLocalDeviceExploreData()
+            } else {
+                loadDataInternal(forceRefresh)
+            }
         }
     }
 

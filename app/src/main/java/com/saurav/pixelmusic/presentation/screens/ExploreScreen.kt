@@ -408,55 +408,306 @@ fun ExploreScreen(
                         .fillMaxSize()
                         .then(if (isCustomBackground) Modifier else Modifier.background(backgroundBrush))
                 ) {
-                    if (localModeEnabled) {
-                        Column(
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = localModeEnabled,
+                        transitionSpec = {
+                            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260)) +
+                                androidx.compose.animation.scaleIn(
+                                    initialScale = 0.96f,
+                                    animationSpec = androidx.compose.animation.core.spring(
+                                        dampingRatio = 0.85f,
+                                        stiffness = 320f
+                                    )
+                                )).togetherWith(
+                                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(180)) +
+                                    androidx.compose.animation.scaleOut(targetScale = 0.98f)
+                            )
+                        },
+                        label = "explore_local_mode_transition"
+                    ) { isLocalExplore ->
+                    if (isLocalExplore) {
+                        val localListState = rememberLazyListState()
+                        val localSongs = uiState.localSongs
+                        val localAlbums = uiState.localAlbums
+                        val localArtists = uiState.localArtists
+                        LazyColumn(
+                            state = localListState,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                                .scrollMotionBlur(localListState, enabled = isMotionBlurEnabled),
+                            contentPadding = PaddingValues(
+                                top = statusBarHeight + 76.dp,
+                                bottom = paddingValuesParent.calculateBottomPadding() + 160.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(20.dp)
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = colorScheme.secondaryContainer,
-                                modifier = Modifier.size(72.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.rounded_library_music_24),
-                                        contentDescription = null,
-                                        tint = colorScheme.onSecondaryContainer,
-                                        modifier = Modifier.size(34.dp)
-                                    )
+                            item(key = "local_explore_banner") {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    shape = RoundedCornerShape(24.dp),
+                                    color = colorScheme.secondaryContainer
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = colorScheme.primary,
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.rounded_library_music_24),
+                                                    contentDescription = null,
+                                                    tint = colorScheme.onPrimary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "On Your Device",
+                                                fontFamily = GoogleSansRounded,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = colorScheme.onSecondaryContainer
+                                            )
+                                            Text(
+                                                text = "${localSongs.size} tracks · Local Mode active",
+                                                fontFamily = GoogleSansRounded,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                            )
+                                        }
+                                        Button(
+                                            onClick = { playerViewModel.setLocalModeEnabled(false) },
+                                            shape = CircleShape,
+                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(
+                                                text = "Go Online",
+                                                fontFamily = GoogleSansRounded,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Text(
-                                text = "Local Mode is active",
-                                fontFamily = GoogleSansRounded,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Connect YouTube Music to fetch Explore data, charts, and recommendations.",
-                                fontFamily = GoogleSansRounded,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(22.dp))
-                            Button(
-                                onClick = { playerViewModel.setLocalModeEnabled(false) },
-                                shape = CircleShape
-                            ) {
-                                Text(
-                                    text = "Turn Off Local Mode",
-                                    fontFamily = GoogleSansRounded,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+
+                            if (localAlbums.isNotEmpty()) {
+                                item(key = "local_albums_header") {
+                                    Text(
+                                        text = "Device Albums",
+                                        fontFamily = GoogleSansRounded,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colorScheme.onSurface,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
+                                }
+                                item(key = "local_albums_row") {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(localAlbums, key = { "loc_alb_${it.id}" }) { album ->
+                                            Column(
+                                                modifier = Modifier
+                                                    .width(136.dp)
+                                                    .clip(RoundedCornerShape(18.dp))
+                                                    .clickable {
+                                                        navController.navigateSafely(Screen.AlbumDetail.createRoute(album.id))
+                                                    }
+                                            ) {
+                                                SmartImage(
+                                                    model = album.albumArtUriString,
+                                                    contentDescription = album.title,
+                                                    contentScale = ContentScale.Crop,
+                                                    shape = RoundedCornerShape(18.dp),
+                                                    modifier = Modifier
+                                                        .size(136.dp)
+                                                        .clip(RoundedCornerShape(18.dp))
+                                                )
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Text(
+                                                    text = album.title,
+                                                    fontFamily = GoogleSansRounded,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = album.artist,
+                                                    fontFamily = GoogleSansRounded,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (localArtists.isNotEmpty()) {
+                                item(key = "local_artists_header") {
+                                    Text(
+                                        text = "Device Artists",
+                                        fontFamily = GoogleSansRounded,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colorScheme.onSurface,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
+                                }
+                                item(key = "local_artists_row") {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(localArtists, key = { "loc_art_${it.id}" }) { artist ->
+                                            Column(
+                                                modifier = Modifier
+                                                    .width(96.dp)
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .clickable {
+                                                        navController.navigateSafely(Screen.ArtistDetail.createRoute(artist.id))
+                                                    },
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                SmartImage(
+                                                    model = artist.imageUrl,
+                                                    contentDescription = artist.name,
+                                                    contentScale = ContentScale.Crop,
+                                                    shape = CircleShape,
+                                                    modifier = Modifier
+                                                        .size(84.dp)
+                                                        .clip(CircleShape)
+                                                )
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Text(
+                                                    text = artist.name,
+                                                    fontFamily = GoogleSansRounded,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (localSongs.isNotEmpty()) {
+                                item(key = "local_songs_header") {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Recently Added on Device",
+                                            fontFamily = GoogleSansRounded,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colorScheme.onSurface
+                                        )
+                                        TextButton(
+                                            onClick = {
+                                                val shuffled = localSongs.shuffled()
+                                                if (shuffled.isNotEmpty()) {
+                                                    playerViewModel.showAndPlaySong(shuffled.first(), shuffled, "Device Music")
+                                                }
+                                            }
+                                        ) {
+                                            Text("Shuffle all", fontFamily = GoogleSansRounded, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                                items(localSongs.take(40), key = { "loc_song_${it.id}" }) { song ->
+                                    val isCurrent = currentSongId == song.id
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .animateItem(
+                                                fadeInSpec = androidx.compose.animation.core.tween(220),
+                                                placementSpec = androidx.compose.animation.core.spring(
+                                                    dampingRatio = 0.82f,
+                                                    stiffness = 340f
+                                                )
+                                            ),
+                                        shape = RoundedCornerShape(18.dp),
+                                        color = if (isCurrent) colorScheme.primaryContainer.copy(alpha = 0.55f) else colorScheme.surfaceContainerLow
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    playerViewModel.showAndPlaySong(song, localSongs, "Device Music")
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            SmartImage(
+                                                model = song.albumArtUriString,
+                                                contentDescription = song.title,
+                                                contentScale = ContentScale.Crop,
+                                                shape = RoundedCornerShape(12.dp),
+                                                modifier = Modifier
+                                                    .size(50.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = song.title,
+                                                    fontFamily = GoogleSansRounded,
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = if (isCurrent) colorScheme.primary else colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = song.displayArtist,
+                                                    fontFamily = GoogleSansRounded,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = {
+                                                    playerViewModel.selectSongForInfo(song)
+                                                    showSongInfoBottomSheet = true
+                                                }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.MoreVert,
+                                                    contentDescription = "More options",
+                                                    tint = colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     } else if (uiState.isLoading && uiState.homePageSections.isEmpty() && uiState.newReleaseAlbums.isEmpty() && uiState.chartsPage == null) {

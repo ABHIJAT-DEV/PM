@@ -348,6 +348,7 @@ constructor(
         val SHOW_TELEGRAM_CLOUD_PLAYLISTS = booleanPreferencesKey("show_telegram_cloud_playlists")
         val HIDE_LOCAL_MEDIA = booleanPreferencesKey("hide_local_media")
         val LOCAL_MODE_ENABLED = booleanPreferencesKey("local_mode_enabled")
+        val LOCAL_MODE_ALLOW_ONLINE_LYRICS = booleanPreferencesKey("local_mode_allow_online_lyrics")
         val TELEGRAM_TOPIC_DISPLAY_MODE = stringPreferencesKey("telegram_topic_display_mode")
         val FOLDERS_SOURCE = stringPreferencesKey("folders_source")
         val FOLDER_BACK_GESTURE_NAVIGATION = booleanPreferencesKey("folder_back_gesture_navigation")
@@ -1935,6 +1936,8 @@ constructor(
         const val DEFAULT_ALBUM_ART_CACHE_LIMIT_MB = 200
         @Volatile
         var isLocalModeActive: Boolean = false
+        @Volatile
+        var isLocalModeOnlineLyricsAllowed: Boolean = true
     }
 
     val navBarCornerRadiusFlow: Flow<Int> =
@@ -2208,6 +2211,13 @@ constructor(
             enabled
         }.distinctUntilChanged()
 
+    val localModeAllowOnlineLyricsFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            val allowed = preferences[PreferencesKeys.LOCAL_MODE_ALLOW_ONLINE_LYRICS] ?: true
+            isLocalModeOnlineLyricsAllowed = allowed
+            allowed
+        }.distinctUntilChanged()
+
     val foldersSourceFlow: Flow<FolderSource> = dataStore.data
         .map { preferences ->
             FolderSource.fromStorageKey(preferences[PreferencesKeys.FOLDERS_SOURCE])
@@ -2267,6 +2277,13 @@ constructor(
         isLocalModeActive = enabled
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.LOCAL_MODE_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setLocalModeAllowOnlineLyrics(allowed: Boolean) {
+        isLocalModeOnlineLyricsAllowed = allowed
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LOCAL_MODE_ALLOW_ONLINE_LYRICS] = allowed
         }
     }
 

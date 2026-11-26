@@ -95,6 +95,7 @@ class LibraryStateHolder @Inject constructor(
             userPreferencesRepository.localModeEnabledFlow
         ) { filter, hideLocal, localMode ->
             when {
+                localMode && filter == StorageFilter.DOWNLOADED_ONLY -> StorageFilter.DOWNLOADED_ONLY
                 localMode -> StorageFilter.OFFLINE
                 hideLocal -> StorageFilter.ONLINE
                 else -> filter

@@ -361,6 +361,9 @@ class PlayerViewModel @Inject constructor(
     fun setLocalModeEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setLocalModeEnabled(enabled)
+            if (enabled) {
+                libraryStateHolder.setStorageFilter(com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE)
+            }
         }
     }
 
@@ -2994,11 +2997,18 @@ class PlayerViewModel @Inject constructor(
 
     fun toggleStorageFilter() {
         val current = _playerUiState.value.currentStorageFilter
-        val next = when (current) {
-            com.saurav.pixelmusic.data.model.StorageFilter.ALL -> com.saurav.pixelmusic.data.model.StorageFilter.ONLINE
-            com.saurav.pixelmusic.data.model.StorageFilter.ONLINE -> com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE
-            com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE -> com.saurav.pixelmusic.data.model.StorageFilter.DOWNLOADED_ONLY
-            com.saurav.pixelmusic.data.model.StorageFilter.DOWNLOADED_ONLY -> com.saurav.pixelmusic.data.model.StorageFilter.ALL
+        val next = if (localModeEnabled.value) {
+            when (current) {
+                com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE -> com.saurav.pixelmusic.data.model.StorageFilter.DOWNLOADED_ONLY
+                else -> com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE
+            }
+        } else {
+            when (current) {
+                com.saurav.pixelmusic.data.model.StorageFilter.ALL -> com.saurav.pixelmusic.data.model.StorageFilter.ONLINE
+                com.saurav.pixelmusic.data.model.StorageFilter.ONLINE -> com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE
+                com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE -> com.saurav.pixelmusic.data.model.StorageFilter.DOWNLOADED_ONLY
+                com.saurav.pixelmusic.data.model.StorageFilter.DOWNLOADED_ONLY -> com.saurav.pixelmusic.data.model.StorageFilter.ALL
+            }
         }
         setStorageFilter(next)
     }

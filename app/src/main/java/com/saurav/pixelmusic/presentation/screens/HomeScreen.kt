@@ -300,7 +300,16 @@ fun HomeScreen(
         )
     }
 
-    val recentlyPlayedSongs = latestRecentlyPlayedSongs
+    val recentlyPlayedSongs = remember(latestRecentlyPlayedSongs, localModeEnabled) {
+        if (!localModeEnabled) latestRecentlyPlayedSongs
+        else latestRecentlyPlayedSongs.filter { entry ->
+            val s = entry.song
+            (!s.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+                !s.contentUriString.startsWith("http://", ignoreCase = true) &&
+                !s.contentUriString.startsWith("https://", ignoreCase = true)) ||
+                (s.path.isNotBlank() && java.io.File(s.path).exists())
+        }
+    }
 
     val recentlyPlayedQueue = remember(recentlyPlayedSongs) {
         recentlyPlayedSongs.map { it.song }.toImmutableList()

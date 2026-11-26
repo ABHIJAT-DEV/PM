@@ -150,6 +150,7 @@ data class SettingsUiState(
     val avoidRepetitiveSongs: Boolean = false,
     val playerStreamClient: PlayerStreamClient = PlayerStreamClient.ANDROID_VR,
     val localModeEnabled: Boolean = false,
+    val localModeAllowOnlineLyrics: Boolean = true,
     val pureYtMusicOnly: Boolean = false,
     val contentLanguage: String = "en",
     val contentCountry: String = "US",
@@ -1003,6 +1004,11 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(localModeEnabled = enabled) }
             }
         }
+        viewModelScope.launch {
+            userPreferencesRepository.localModeAllowOnlineLyricsFlow.collect { allowed ->
+                _uiState.update { it.copy(localModeAllowOnlineLyrics = allowed) }
+            }
+        }
 
         viewModelScope.launch {
             userPreferencesRepository.pureYtMusicOnlyFlow.collect { enabled ->
@@ -1080,6 +1086,12 @@ class SettingsViewModel @Inject constructor(
     fun setLocalModeEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setLocalModeEnabled(enabled)
+        }
+    }
+
+    fun setLocalModeAllowOnlineLyrics(allowed: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLocalModeAllowOnlineLyrics(allowed)
         }
     }
 

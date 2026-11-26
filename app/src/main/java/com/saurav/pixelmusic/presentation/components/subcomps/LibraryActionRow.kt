@@ -397,10 +397,31 @@ fun LibraryActionRow(
                                 colors = IconButtonDefaults.filledTonalIconButtonColors(),
                                 modifier = Modifier.size(genHeight)
                             ) {
-                                 Icon(
-                                    painter = painterResource(finalIconRes),
-                                    contentDescription = tooltipText
-                                )
+                                androidx.compose.animation.AnimatedContent(
+                                    targetState = finalIconRes,
+                                    transitionSpec = {
+                                        (androidx.compose.animation.scaleIn(
+                                            initialScale = 0.72f,
+                                            animationSpec = androidx.compose.animation.core.spring(
+                                                dampingRatio = 0.72f,
+                                                stiffness = 420f
+                                            )
+                                        ) + androidx.compose.animation.fadeIn(
+                                            animationSpec = androidx.compose.animation.core.tween(160)
+                                        )).togetherWith(
+                                            androidx.compose.animation.scaleOut(targetScale = 0.72f) +
+                                                androidx.compose.animation.fadeOut(
+                                                    animationSpec = androidx.compose.animation.core.tween(120)
+                                                )
+                                        )
+                                    },
+                                    label = "storage_filter_icon_anim"
+                                ) { iconRes ->
+                                    Icon(
+                                        painter = painterResource(iconRes),
+                                        contentDescription = tooltipText
+                                    )
+                                }
                             }
                         }
                     }

@@ -291,78 +291,6 @@ fun SettingsScreen(
         )
     }
     item {
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = if (uiState.localModeEnabled) {
-                MaterialTheme.colorScheme.secondaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainer
-            }
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { settingsViewModel.setLocalModeEnabled(!uiState.localModeEnabled) }
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = if (uiState.localModeEnabled) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    },
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_library_music_24),
-                            contentDescription = null,
-                            tint = if (uiState.localModeEnabled) {
-                                MaterialTheme.colorScheme.onPrimary
-                            } else {
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                            },
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Local Mode",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (uiState.localModeEnabled) {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        }
-                    )
-                    Text(
-                        text = if (uiState.localModeEnabled) {
-                            "Playing device & downloaded music only · YouTube Music paused"
-                        } else {
-                            "Play only device & downloaded music without logging out"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (uiState.localModeEnabled) {
-                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                }
-                androidx.compose.material3.Switch(
-                    checked = uiState.localModeEnabled,
-                    onCheckedChange = { enabled -> settingsViewModel.setLocalModeEnabled(enabled) }
-                )
-            }
-        }
-    }
-    item {
         val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 ExpressiveSettingsGroup {
                     val mainCategories = SettingsCategory.entries.filter {
@@ -428,12 +356,303 @@ fun SettingsScreen(
             }
         }
         
+        var showLocalModeDropdown by remember { mutableStateOf(false) }
+
         CollapsibleCommonTopBar(
             title = stringResource(R.string.settings_top_bar_title),
             collapseFraction = collapseFraction,
             headerHeight = currentTopBarHeightDp,
-            onBackClick = onNavigationIconClick
+            onBackClick = onNavigationIconClick,
+            actions = {
+                val menuBtnBg by androidx.compose.animation.animateColorAsState(
+                    targetValue = if (uiState.localModeEnabled) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerLow
+                    },
+                    animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 360f),
+                    label = "localModeMenuBtnBg"
+                )
+                val menuBtnTint by androidx.compose.animation.animateColorAsState(
+                    targetValue = if (uiState.localModeEnabled) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 360f),
+                    label = "localModeMenuBtnTint"
+                )
+                FilledIconButton(
+                    onClick = { showLocalModeDropdown = !showLocalModeDropdown },
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = menuBtnBg,
+                        contentColor = menuBtnTint
+                    ),
+                    modifier = Modifier.padding(end = 12.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            if (uiState.localModeEnabled) R.drawable.rounded_library_music_24
+                            else R.drawable.rounded_tune_24
+                        ),
+                        contentDescription = "Local Mode & Quick Options"
+                    )
+                }
+            }
         )
+
+        // iOS-style smooth spring top-right dropdown menu for Local Mode & quick controls
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showLocalModeDropdown,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
+            modifier = Modifier.fillMaxSize().zIndex(20f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.22f))
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showLocalModeDropdown = false }
+                    )
+            )
+        }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showLocalModeDropdown,
+            enter = androidx.compose.animation.scaleIn(
+                initialScale = 0.84f,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.95f, 0.04f),
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = 0.78f,
+                    stiffness = 380f
+                )
+            ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160)),
+            exit = androidx.compose.animation.scaleOut(
+                targetScale = 0.88f,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.95f, 0.04f),
+                animationSpec = androidx.compose.animation.core.tween(140)
+            ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(130)),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 56.dp, end = 14.dp)
+                .zIndex(21f)
+        ) {
+            Surface(
+                modifier = Modifier.width(308.dp),
+                shape = RoundedCornerShape(26.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                tonalElevation = 6.dp,
+                shadowElevation = 14.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Playback Mode & Quick Options",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+
+                    // 1. Local Mode Toggle
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = if (uiState.localModeEnabled) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainer
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { settingsViewModel.setLocalModeEnabled(!uiState.localModeEnabled) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_library_music_24),
+                                contentDescription = null,
+                                tint = if (uiState.localModeEnabled) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Local Mode",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (uiState.localModeEnabled) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    }
+                                )
+                                Text(
+                                    text = "Device & downloaded music only",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (uiState.localModeEnabled) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.78f)
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            }
+                            androidx.compose.material3.Switch(
+                                checked = uiState.localModeEnabled,
+                                onCheckedChange = { enabled -> settingsViewModel.setLocalModeEnabled(enabled) }
+                            )
+                        }
+                    }
+
+                    // 2. Local Mode Sub-options (smooth spring expand/collapse)
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = uiState.localModeEnabled,
+                        enter = androidx.compose.animation.expandVertically(
+                            animationSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = 0.82f,
+                                stiffness = 340f
+                            )
+                        ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)),
+                        exit = androidx.compose.animation.shrinkVertically(
+                            animationSpec = androidx.compose.animation.core.tween(160)
+                        ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120))
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            settingsViewModel.setLocalModeAllowOnlineLyrics(!uiState.localModeAllowOnlineLyrics)
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_lyrics_24),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Internet for lyrics",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Fetch online lyrics if not embedded",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    androidx.compose.material3.Switch(
+                                        checked = uiState.localModeAllowOnlineLyrics,
+                                        onCheckedChange = { allowed ->
+                                            settingsViewModel.setLocalModeAllowOnlineLyrics(allowed)
+                                        }
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            settingsViewModel.setAutoQueueEnabled(!uiState.autoQueueEnabled)
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_queue_music_24),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Local Auto-Queue",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Queue similar device songs",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    androidx.compose.material3.Switch(
+                                        checked = uiState.autoQueueEnabled,
+                                        onCheckedChange = { enabled ->
+                                            settingsViewModel.setAutoQueueEnabled(enabled)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Rescan Device Music quick action
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showLocalModeDropdown = false
+                                    settingsViewModel.refreshLibrary()
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Scanning device music…",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_sync_24),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Rescan device music",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         var isTransitioning by remember { mutableStateOf(true) }
         LaunchedEffect(Unit) {

@@ -182,6 +182,12 @@ class LyricsRepositoryImpl @Inject constructor(
         val cachedJson = loadLocalLyricsJson(song)
         if (cachedJson != null && !cachedJson.synced.isNullOrEmpty()) return@withContext cachedJson
 
+        if (com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive &&
+            !com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeOnlineLyricsAllowed
+        ) {
+            return@withContext cachedJson
+        }
+
         try {
             // 1. Primary: PixelMusic 10-provider Lyrics Engine (Apple Music TTML, YouLyPlus, PaxSenix, lrc.red, SimpMusic, LRCLIB, Deezer, NetEase, QQ Music, KuGou)
             val durationSec = if (song.duration > 0) (song.duration / 1000L).toInt() else -1
