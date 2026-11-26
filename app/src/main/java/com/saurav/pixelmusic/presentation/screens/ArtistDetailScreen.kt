@@ -1219,11 +1219,12 @@ private fun SharedArtistTopBarProbe(
     val displayUrl = effectiveImageUrl?.takeIf { it.isNotBlank() }
     val headerOverlayBrush = remember(surfaceColor, expandedContentAlpha) {
         Brush.verticalGradient(
-            colors = listOf(
-                Color.Transparent,
-                surfaceColor.copy(alpha = 0.24f * expandedContentAlpha),
-                surfaceColor.copy(alpha = 0.84f * expandedContentAlpha),
-                surfaceColor
+            colorStops = arrayOf(
+                0.0f to Color.Transparent,
+                0.35f to surfaceColor.copy(alpha = 0.24f * expandedContentAlpha),
+                0.72f to surfaceColor.copy(alpha = 0.85f * expandedContentAlpha),
+                0.92f to surfaceColor,
+                1.0f to surfaceColor
             )
         )
     }
@@ -1425,11 +1426,12 @@ private fun CustomCollapsingTopBar(
     val showExpandedArtwork = headerContentAlpha > 0.01f
     val headerOverlayBrush = remember(surfaceColor, headerContentAlpha) {
         Brush.verticalGradient(
-            colors = listOf(
-                Color.Transparent,
-                surfaceColor.copy(alpha = 0.30f * headerContentAlpha),
-                surfaceColor.copy(alpha = 0.90f * headerContentAlpha),
-                surfaceColor.copy(alpha = headerContentAlpha)
+            colorStops = arrayOf(
+                0.0f to Color.Transparent,
+                0.35f to surfaceColor.copy(alpha = 0.30f * headerContentAlpha),
+                0.72f to surfaceColor.copy(alpha = 0.90f * headerContentAlpha),
+                0.92f to surfaceColor.copy(alpha = headerContentAlpha),
+                1.0f to surfaceColor.copy(alpha = headerContentAlpha)
             )
         )
     }

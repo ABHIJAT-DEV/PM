@@ -194,9 +194,10 @@ fun TopHalfBackgroundLayer(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
                             0.00f to Color.Transparent,
-                            0.38f to baseBackground.copy(alpha = 0.14f),
-                            0.68f to baseBackground.copy(alpha = 0.58f),
-                            0.88f to baseBackground.copy(alpha = 0.88f),
+                            0.36f to baseBackground.copy(alpha = 0.14f),
+                            0.64f to baseBackground.copy(alpha = 0.58f),
+                            0.84f to baseBackground.copy(alpha = 0.90f),
+                            0.93f to baseBackground,
                             1.00f to baseBackground
                         )
                     )

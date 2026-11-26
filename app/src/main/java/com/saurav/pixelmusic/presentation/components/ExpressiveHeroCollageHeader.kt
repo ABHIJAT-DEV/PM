@@ -112,8 +112,9 @@ fun ExpressiveHeroCollageHeader(
                         colorStops = arrayOf(
                             0.0f to surfaceColor.copy(alpha = 0.34f),
                             0.22f to Color.Transparent,
-                            0.55f to surfaceColor.copy(alpha = 0.35f),
-                            0.80f to surfaceColor.copy(alpha = 0.84f),
+                            0.52f to surfaceColor.copy(alpha = 0.35f),
+                            0.78f to surfaceColor.copy(alpha = 0.86f),
+                            0.92f to surfaceColor,
                             1.0f to surfaceColor
                         )
                     )

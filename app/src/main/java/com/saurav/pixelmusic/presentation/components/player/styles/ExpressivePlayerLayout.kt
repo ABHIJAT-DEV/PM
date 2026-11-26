@@ -216,11 +216,11 @@ fun ExpressivePlayerLayout(
                     )
             )
 
-            // Smooth bottom gradient fade into solidBackgroundColor
+            // Smooth bottom gradient fade reaching full opacity before the clipped bottom edge
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.46f)
+                    .fillMaxHeight(0.48f)
                     .align(Alignment.BottomCenter)
                     .graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
@@ -230,14 +230,36 @@ fun ExpressivePlayerLayout(
                         Brush.verticalGradient(
                             colorStops = arrayOf(
                                 0.0f to Color.Transparent,
-                                0.45f to solidBackgroundColor.copy(alpha = 0.58f),
-                                0.80f to solidBackgroundColor.copy(alpha = 0.92f),
+                                0.42f to solidBackgroundColor.copy(alpha = 0.58f),
+                                0.76f to solidBackgroundColor.copy(alpha = 0.92f),
+                                0.90f to solidBackgroundColor,
                                 1.0f to solidBackgroundColor
                             )
                         )
                     )
             )
         }
+
+        // Sub-pixel seam seal over the artwork Box bottom boundary so Skia clip anti-aliasing
+        // never shows a 1px horizontal line (e.g., when a bottom sheet dims/scales the screen).
+        Box(
+            modifier = Modifier
+                .layout { measurable, constraints ->
+                    val fullW = constraints.maxWidth.coerceAtLeast(1)
+                    val fullH = (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
+                    val sealH = 4.dp.roundToPx().coerceAtLeast(2)
+                    val placeable = measurable.measure(Constraints.fixed(fullW, sealH))
+                    layout(fullW, sealH) {
+                        placeable.place(0, (fullH - sealH * 0.5f).roundToInt())
+                    }
+                }
+                .graphicsLayer {
+                    val s = morphTracker.evaluate(params.expansionFractionProvider())
+                    val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                    alpha = ((s.sizeT - 0.85f) / 0.15f).coerceIn(0f, 1f) * aodFade
+                }
+                .background(solidBackgroundColor)
+        )
 
         // LOWER SECTION: Exact BottomToggleRow bottom padding + taller (92dp) asymmetric controls
         Column(

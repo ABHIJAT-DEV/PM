@@ -1098,8 +1098,9 @@ fun FullPlayerContent(
                                     Brush.verticalGradient(
                                         colorStops = arrayOf(
                                             0.0f to Color.Transparent,
-                                            0.55f to Color.Transparent,
-                                            0.80f to washColor.copy(alpha = 0.85f),
+                                            0.52f to Color.Transparent,
+                                            0.78f to washColor.copy(alpha = 0.85f),
+                                            0.92f to washColor,
                                             1.0f to washColor
                                         )
                                     )
@@ -1228,8 +1229,9 @@ fun FullPlayerContent(
                                     Brush.verticalGradient(
                                         colorStops = arrayOf(
                                             0.0f to if (isDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.Transparent,
-                                            0.50f to Color.Transparent,
-                                            0.85f to bgColor.copy(alpha = 0.9f),
+                                            0.48f to Color.Transparent,
+                                            0.82f to bgColor.copy(alpha = 0.90f),
+                                            0.93f to bgColor,
                                             1.0f to bgColor
                                         )
                                     )
