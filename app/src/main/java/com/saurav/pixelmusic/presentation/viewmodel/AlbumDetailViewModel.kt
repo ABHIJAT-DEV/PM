@@ -127,7 +127,8 @@ class AlbumDetailViewModel @Inject constructor(
                             artist = first.albumArtist?.takeIf { it.isNotBlank() } ?: first.artist,
                             songCount = visibleSongs.size,
                             albumArtUriString = first.albumArtUriString,
-                            year = first.year
+                            year = first.year,
+                            dateAdded = first.dateAdded
                         )
                     }
                     if (resolvedAlbum != null) {
