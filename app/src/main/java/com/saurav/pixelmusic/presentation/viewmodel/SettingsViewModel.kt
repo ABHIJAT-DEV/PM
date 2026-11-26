@@ -1083,9 +1083,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setLocalModeEnabled(enabled: Boolean) {
+    fun setLocalModeEnabled(enabled: Boolean, onSaved: (() -> Unit)? = null) {
         viewModelScope.launch {
             userPreferencesRepository.setLocalModeEnabled(enabled)
+            onSaved?.invoke()
         }
     }
 

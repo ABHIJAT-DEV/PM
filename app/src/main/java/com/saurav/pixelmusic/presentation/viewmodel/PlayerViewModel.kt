@@ -358,12 +358,15 @@ class PlayerViewModel @Inject constructor(
         initialValue = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
     )
 
-    fun setLocalModeEnabled(enabled: Boolean) {
+    fun setLocalModeEnabled(enabled: Boolean, onSaved: (() -> Unit)? = null) {
         viewModelScope.launch {
             userPreferencesRepository.setLocalModeEnabled(enabled)
             if (enabled) {
                 libraryStateHolder.setStorageFilter(com.saurav.pixelmusic.data.model.StorageFilter.OFFLINE)
+            } else {
+                libraryStateHolder.setStorageFilter(com.saurav.pixelmusic.data.model.StorageFilter.ALL)
             }
+            onSaved?.invoke()
         }
     }
 

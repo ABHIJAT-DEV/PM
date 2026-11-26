@@ -258,6 +258,18 @@ class MusicRepositoryImpl @Inject constructor(
     override fun getPaginatedYouTubeOnlyArtists(
         sortOption: SortOption
     ): Flow<PagingData<Artist>> {
+        if (!com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive) {
+            prefetchJob?.cancel()
+            prefetchJob = repositoryScope.launch(Dispatchers.IO) {
+                runCatching {
+                    val missing = musicDao.getYouTubeArtistsMissingImage()
+                        .map { it.id to it.name }
+                    if (missing.isNotEmpty()) {
+                        artistImageRepository.prefetchArtistImages(missing)
+                    }
+                }
+            }
+        }
         return flowOf(
             Pager(
                 config = defaultLibraryPagingConfig,

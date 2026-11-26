@@ -504,8 +504,29 @@ fun ExploreScreen(
                                                     color = colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                                                 )
                                             }
+                                            val exploreContext = LocalContext.current
                                             Button(
-                                                onClick = { playerViewModel.setLocalModeEnabled(false) },
+                                                onClick = {
+                                                    playerViewModel.setLocalModeEnabled(false) {
+                                                        android.widget.Toast.makeText(
+                                                            exploreContext,
+                                                            "Switching to Online Mode…",
+                                                            android.widget.Toast.LENGTH_SHORT
+                                                        ).show()
+                                                        val launchIntent = exploreContext.packageManager
+                                                            .getLaunchIntentForPackage(exploreContext.packageName)
+                                                            ?.apply {
+                                                                addFlags(
+                                                                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                                        android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                                                )
+                                                            }
+                                                        if (launchIntent != null) {
+                                                            exploreContext.startActivity(launchIntent)
+                                                            Runtime.getRuntime().exit(0)
+                                                        }
+                                                    }
+                                                },
                                                 shape = CircleShape,
                                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                                             ) {

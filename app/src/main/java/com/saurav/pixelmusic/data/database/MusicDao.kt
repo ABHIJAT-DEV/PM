@@ -1320,6 +1320,7 @@ interface MusicDao {
         AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
+            OR songs.id IN (SELECT songId FROM favorites WHERE isFavorite = 1)
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
             OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
             OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
@@ -1381,6 +1382,7 @@ interface MusicDao {
         AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
+            OR songs.id IN (SELECT songId FROM favorites WHERE isFavorite = 1)
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
             OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
             OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
@@ -1448,6 +1450,7 @@ interface MusicDao {
         AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
+            OR songs.id IN (SELECT songId FROM favorites WHERE isFavorite = 1)
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
             OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
             OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
@@ -1790,13 +1793,23 @@ interface MusicDao {
      * Filters out local MediaStore artists which may have combined/unsplit artist strings.
      */
     @Query("""
-        SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
-               artists.channel_id, COUNT(DISTINCT songs.id) AS track_count
+        SELECT
+            MIN(artists.id) AS id,
+            TRIM(artists.name) AS name,
+            COALESCE(
+                MAX(NULLIF(TRIM(artists.custom_image_uri), '')),
+                MAX(NULLIF(TRIM(artists.image_url), '')),
+                MAX(NULLIF(TRIM(songs.album_art_uri_string), ''))
+            ) AS image_url,
+            MAX(NULLIF(TRIM(artists.custom_image_uri), '')) AS custom_image_uri,
+            MAX(NULLIF(TRIM(artists.channel_id), '')) AS channel_id,
+            COUNT(DISTINCT songs.id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
         LEFT JOIN songs ON song_artist_cross_ref.song_id = songs.id AND (
             songs.source_type = 0
             OR songs.is_favorite = 1
+            OR songs.id IN (SELECT songId FROM favorites WHERE isFavorite = 1)
             OR (songs.file_path IS NOT NULL AND songs.file_path != '')
             OR CAST(songs.id AS TEXT) IN (SELECT song_id FROM playlist_songs)
             OR songs.content_uri_string IN (SELECT REPLACE(song_id, 'youtube_', 'youtube://') FROM playlist_songs)
@@ -1808,19 +1821,30 @@ interface MusicDao {
             )
         )
         WHERE artists.id < 0
+          AND TRIM(artists.name) != ''
           AND ((artists.channel_id IS NOT NULL AND artists.channel_id != '') OR songs.id IS NOT NULL)
-        GROUP BY artists.id
+        GROUP BY LOWER(TRIM(artists.name))
         ORDER BY
-            CASE WHEN :sortOrder = 'artist_name_az' THEN artists.name END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'artist_name_za' THEN artists.name END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'artist_name_az' THEN TRIM(artists.name) END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'artist_name_za' THEN TRIM(artists.name) END COLLATE NOCASE DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_desc' THEN track_count END DESC,
             CASE WHEN :sortOrder = 'artist_num_songs_asc' THEN track_count END ASC,
-            artists.name COLLATE NOCASE ASC,
-            artists.id ASC
+            TRIM(artists.name) COLLATE NOCASE ASC,
+            MIN(artists.id) ASC
     """)
     fun getYouTubeOnlyArtistsPaginated(
         sortOrder: String
     ): PagingSource<Int, ArtistEntity>
+
+    @Query("""
+        SELECT * FROM artists
+        WHERE id < 0
+          AND (image_url IS NULL OR TRIM(image_url) = '')
+          AND (custom_image_uri IS NULL OR TRIM(custom_image_uri) = '')
+          AND TRIM(name) != ''
+        LIMIT 80
+    """)
+    suspend fun getYouTubeArtistsMissingImage(): List<ArtistEntity>
 
     @Query("""
         SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,

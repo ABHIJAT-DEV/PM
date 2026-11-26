@@ -539,10 +539,32 @@ fun SettingsScreen(
                         shape = m3eTopShape,
                         color = localCardBg
                     ) {
+                        val localModeContext = LocalContext.current
+                        val toggleLocalModeAndRestart: (Boolean) -> Unit = { targetEnabled ->
+                            settingsViewModel.setLocalModeEnabled(targetEnabled) {
+                                android.widget.Toast.makeText(
+                                    localModeContext,
+                                    if (targetEnabled) "Switching to Local Mode…" else "Switching to Online Mode…",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                val launchIntent = localModeContext.packageManager
+                                    .getLaunchIntentForPackage(localModeContext.packageName)
+                                    ?.apply {
+                                        addFlags(
+                                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                        )
+                                    }
+                                if (launchIntent != null) {
+                                    localModeContext.startActivity(launchIntent)
+                                    Runtime.getRuntime().exit(0)
+                                }
+                            }
+                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { settingsViewModel.setLocalModeEnabled(!uiState.localModeEnabled) }
+                                .clickable { toggleLocalModeAndRestart(!uiState.localModeEnabled) }
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -580,7 +602,7 @@ fun SettingsScreen(
                             }
                             androidx.compose.material3.Switch(
                                 checked = uiState.localModeEnabled,
-                                onCheckedChange = { enabled -> settingsViewModel.setLocalModeEnabled(enabled) }
+                                onCheckedChange = { enabled -> toggleLocalModeAndRestart(enabled) }
                             )
                         }
                     }
