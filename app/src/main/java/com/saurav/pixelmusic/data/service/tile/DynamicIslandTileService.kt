@@ -4,9 +4,10 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.widget.Toast
 import androidx.annotation.RequiresApi
 import com.saurav.pixelmusic.R
+import com.saurav.pixelmusic.presentation.components.PixelToast
+import com.saurav.pixelmusic.presentation.components.PixelToastType
 import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
 import com.saurav.pixelmusic.utils.AndroidVersionCompat
 import dagger.hilt.EntryPoint
@@ -62,11 +63,11 @@ class DynamicIslandTileService : TileService() {
         super.onClick()
         if (!AndroidVersionCompat.supportsLiveNotificationOrIsland()) {
             applyUnsupportedState()
-            Toast.makeText(
+            PixelToast.show(
                 this,
                 "Dynamic Island requires Android 16+ or a supported device",
-                Toast.LENGTH_SHORT
-            ).show()
+                type = PixelToastType.ERROR
+            )
             return
         }
         serviceScope.launch(Dispatchers.IO) {

@@ -145,7 +145,7 @@ fun UnifiedPlayerSheetV2(
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             launch {
                 playerViewModel.toastEvents.collect { message ->
-                    Toast.makeText(latestContext, message, Toast.LENGTH_SHORT).show()
+                    PixelToast.show(latestContext, message)
                 }
             }
             launch {

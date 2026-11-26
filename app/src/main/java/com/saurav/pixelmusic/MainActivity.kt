@@ -39,6 +39,7 @@ import saurav.shru.pixelmusic.innertube.YouTube
 import saurav.shru.pixelmusic.innertube.models.SongItem
 import com.saurav.pixelmusic.presentation.components.HomeShuffleFab
 import com.saurav.pixelmusic.presentation.components.MusicRecognitionOverlay
+import com.saurav.pixelmusic.presentation.components.PixelToastHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.animation.slideInVertically
@@ -1532,6 +1533,9 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+
+                // 4. Global Material You Expressive Toast Pill overlay above all screens & sheets
+                PixelToastHost()
                 }
             }
         }

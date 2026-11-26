@@ -211,12 +211,12 @@ internal fun UnifiedPlayerSongInfoLayer(
                 onAddToQueue = {
                     playerViewModel.addSongToQueue(liveSong)
                     onDismissSongInfo()
-                    Toast.makeText(context, context.getString(R.string.toast_added_to_queue), Toast.LENGTH_SHORT).show()
+                    PixelToast.show(context, R.string.toast_added_to_queue, type = PixelToastType.QUEUE)
                 },
                 onAddNextToQueue = {
                     playerViewModel.addSongNextToQueue(liveSong)
                     onDismissSongInfo()
-                    Toast.makeText(context, context.getString(R.string.toast_playing_next), Toast.LENGTH_SHORT).show()
+                    PixelToast.show(context, R.string.toast_playing_next, type = PixelToastType.QUEUE)
                 },
                 onAddToPlayList = {
                     songForPlaylist = liveSong

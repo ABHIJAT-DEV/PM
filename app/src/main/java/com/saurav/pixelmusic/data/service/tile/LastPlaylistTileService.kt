@@ -99,11 +99,11 @@ class LastPlaylistTileService : TileService() {
             val playlistId = resolveLaunchablePlaylistId()
             withContext(Dispatchers.Main) {
                 if (playlistId == null) {
-                    Toast.makeText(
+                    com.saurav.pixelmusic.presentation.components.PixelToast.show(
                         this@LastPlaylistTileService,
                         R.string.tile_last_playlist_unavailable,
-                        Toast.LENGTH_SHORT
-                    ).show()
+                        type = com.saurav.pixelmusic.presentation.components.PixelToastType.ERROR
+                    )
                     qsTile?.apply {
                         state = Tile.STATE_UNAVAILABLE
                         updateTile()

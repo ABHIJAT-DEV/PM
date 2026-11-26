@@ -2087,7 +2087,7 @@ fun FullPlayerContent(
                                         } else null,
                                         onClick = {
                                             if (isLocalModePlayer) {
-                                                android.widget.Toast.makeText(context, "Playing from storage", android.widget.Toast.LENGTH_SHORT).show()
+                                                com.saurav.pixelmusic.presentation.components.PixelToast.show(context, "Playing from storage")
                                             } else if (!isDownloaded && !isDownloading) {
                                                 fileImportScope.launch {
                                                     var currentLyricsObj = lyricsProvider()
@@ -2103,7 +2103,7 @@ fun FullPlayerContent(
 
                                                     if (lyricsText.isNullOrBlank()) {
                                                         withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                            android.widget.Toast.makeText(context, "Note: Downloading without lyrics (None found)", android.widget.Toast.LENGTH_SHORT).show()
+                                                            com.saurav.pixelmusic.presentation.components.PixelToast.show(context, "Note: Downloading without lyrics (None found)")
                                                         }
                                                     }
 
