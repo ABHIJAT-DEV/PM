@@ -3,6 +3,11 @@ package com.saurav.pixelmusic.presentation.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.unit.Dp
+import com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing
+import kotlinx.coroutines.Job
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -579,6 +584,10 @@ fun ThemeModeSelectorCard(
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
             val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
+            val sheetScope = rememberCoroutineScope()
+            var pendingSelectedMode by remember(selectedMode) { mutableStateOf(selectedMode) }
+            var dismissJob by remember { mutableStateOf<Job?>(null) }
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -599,88 +608,40 @@ fun ThemeModeSelectorCard(
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     itemsIndexed(optionEntries, key = { _, entry -> entry.first }) { idx, (key, optionLabel) ->
-                        val isSelected = key == selectedMode
-                        val containerColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                            animationSpec = tween(380, easing = FastOutSlowInEasing),
-                            label = "theme_opt_bg"
-                        )
-                        val contentColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                            animationSpec = tween(380, easing = FastOutSlowInEasing),
-                            label = "theme_opt_fg"
-                        )
+                        val isSelected = key == pendingSelectedMode
                         var optionCenter by remember { mutableStateOf(Offset.Zero) }
 
-                        Surface(
+                        ExpressivePreferenceOptionCard(
+                            label = optionLabel,
+                            isSelected = isSelected,
+                            index = idx,
+                            totalCount = optionEntries.size,
+                            onPositioned = { optionCenter = it },
                             onClick = {
+                                performAppCompatHapticFeedback(
+                                    view,
+                                    appHapticsConfig,
+                                    HapticFeedbackConstantsCompat.GESTURE_START
+                                )
                                 themeTransitionController?.lastTouchOffset = optionCenter
+                                val changed = key != pendingSelectedMode
+                                pendingSelectedMode = key
                                 onModeSelected(key, optionCenter)
-                                smoothDismiss(null)
-                            },
-                            shape = expressiveSelectorCardShape(idx, optionEntries.size),
-                            color = containerColor,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .animateItem(
-                                    placementSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    )
-                                )
-                                .animateContentSize(
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    )
-                                )
-                                .onGloballyPositioned { coords ->
-                                    val pos = coords.positionInRoot()
-                                    optionCenter = pos + Offset(coords.size.width / 2f, coords.size.height / 2f)
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 18.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = optionLabel,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = contentColor,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                AnimatedContent(
-                                    targetState = isSelected,
-                                    transitionSpec = {
-                                        (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.85f)) togetherWith
-                                            (fadeOut(tween(220)) + scaleOut(tween(220), targetScale = 0.85f))
-                                    },
-                                    label = "theme_opt_check"
-                                ) { active ->
-                                    if (active) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = MaterialTheme.colorScheme.primary
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Check,
-                                                contentDescription = stringResource(R.string.presentation_batch_f_cd_selected),
-                                                tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier
-                                                    .padding(6.dp)
-                                                    .size(16.dp)
-                                            )
-                                        }
-                                    } else {
-                                        Spacer(modifier = Modifier.size(28.dp))
+                                dismissJob?.cancel()
+                                dismissJob = sheetScope.launch {
+                                    if (changed) {
+                                        delay(480L)
                                     }
+                                    smoothDismiss(null)
                                 }
-                            }
-                        }
+                            },
+                            modifier = Modifier.animateItem(
+                                placementSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            )
+                        )
                     }
                 }
             }
@@ -1115,6 +1076,8 @@ fun ThemeSelectorItem(
     val highlightTitle = LocalSettingsHighlightTitle.current
     val highlighted = highlightTitle != null && label == highlightTitle
     val shape = RoundedCornerShape(10.dp)
+    val view = LocalView.current
+    val appHapticsConfig = LocalAppHapticsConfig.current
     val themeTransitionController = LocalThemeTransitionController.current
 
     Box(
@@ -1222,6 +1185,10 @@ fun ThemeSelectorItem(
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
             val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
+            val sheetScope = rememberCoroutineScope()
+            var pendingSelectedKey by remember(selectedKey) { mutableStateOf(selectedKey) }
+            var dismissJob by remember { mutableStateOf<Job?>(null) }
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1242,112 +1209,174 @@ fun ThemeSelectorItem(
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     itemsIndexed(optionEntries, key = { _, entry -> entry.key }) { idx, (key, optionLabel) ->
-                        val isSelected = key == selectedKey
-                        val containerColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                            animationSpec = tween(380, easing = FastOutSlowInEasing),
-                            label = "selector_opt_bg"
-                        )
-                        val contentColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                            animationSpec = tween(380, easing = FastOutSlowInEasing),
-                            label = "selector_opt_fg"
-                        )
+                        val isSelected = key == pendingSelectedKey
 
                         // Parse suffix for bottom sheet options
                         val cleanOptionLabel = optionLabel.removeSuffix(" (Beta)")
                         val isBetaOption = optionLabel.endsWith(" (Beta)")
                         var optionCenter by remember { mutableStateOf(Offset.Zero) }
 
-                        Surface(
+                        ExpressivePreferenceOptionCard(
+                            label = cleanOptionLabel,
+                            isSelected = isSelected,
+                            index = idx,
+                            totalCount = optionEntries.size,
+                            isBetaOption = isBetaOption,
+                            onPositioned = { optionCenter = it },
                             onClick = {
+                                performAppCompatHapticFeedback(
+                                    view,
+                                    appHapticsConfig,
+                                    HapticFeedbackConstantsCompat.GESTURE_START
+                                )
                                 themeTransitionController?.lastTouchOffset = optionCenter
+                                val changed = key != pendingSelectedKey
+                                pendingSelectedKey = key
                                 onSelectionChanged(key)
-                                smoothDismiss(null)
+                                dismissJob?.cancel()
+                                dismissJob = sheetScope.launch {
+                                    if (changed) {
+                                        delay(480L)
+                                    }
+                                    smoothDismiss(null)
+                                }
                             },
-                            shape = expressiveSelectorCardShape(idx, optionEntries.size),
-                            color = containerColor,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .animateItem(
-                                    placementSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    )
+                            modifier = Modifier.animateItem(
+                                placementSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessLow
                                 )
-                                .animateContentSize(
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    )
-                                )
-                                .onGloballyPositioned { coords ->
-                                    val pos = coords.positionInRoot()
-                                    optionCenter = pos + Offset(coords.size.width / 2f, coords.size.height / 2f)
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 18.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = cleanOptionLabel,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = contentColor,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false)
-                                )
-
-                                if (isBetaOption) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.errorContainer,
-                                        shape = RoundedCornerShape(4.dp)
-                                    ) {
-                                        Text(
-                                            text = "BETA",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onErrorContainer,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.weight(1f))
-
-                                AnimatedContent(
-                                    targetState = isSelected,
-                                    transitionSpec = {
-                                        (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.85f)) togetherWith
-                                            (fadeOut(tween(220)) + scaleOut(tween(220), targetScale = 0.85f))
-                                    },
-                                    label = "selector_opt_check"
-                                ) { active ->
-                                    if (active) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = MaterialTheme.colorScheme.primary
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Check,
-                                                contentDescription = stringResource(R.string.presentation_batch_f_cd_selected),
-                                                tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier
-                                                    .padding(6.dp)
-                                                    .size(16.dp)
-                                            )
-                                        }
-                                    } else {
-                                        Spacer(modifier = Modifier.size(28.dp))
-                                    }
-                                }
-                            }
-                        }
+                            )
+                        )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpressivePreferenceOptionCard(
+    label: String,
+    isSelected: Boolean,
+    index: Int,
+    totalCount: Int,
+    isBetaOption: Boolean = false,
+    onPositioned: (Offset) -> Unit = {},
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val slowMorphSpec = remember { tween<Dp>(durationMillis = 620, easing = AiSmoothMorphEasing) }
+    val slowColorSpec = remember { tween<Color>(durationMillis = 620, easing = AiSmoothMorphEasing) }
+
+    val baseTopCorner = if (totalCount <= 1 || index == 0) 24.dp else 6.dp
+    val baseBottomCorner = if (totalCount <= 1 || index == totalCount - 1) 24.dp else 6.dp
+    val selectedCorner = 26.dp
+
+    val topCorner by animateDpAsState(
+        targetValue = if (isSelected) selectedCorner else baseTopCorner,
+        animationSpec = slowMorphSpec,
+        label = "pref_opt_top_corner"
+    )
+    val bottomCorner by animateDpAsState(
+        targetValue = if (isSelected) selectedCorner else baseBottomCorner,
+        animationSpec = slowMorphSpec,
+        label = "pref_opt_bottom_corner"
+    )
+    val verticalSeparation by animateDpAsState(
+        targetValue = if (isSelected) 3.dp else 0.dp,
+        animationSpec = slowMorphSpec,
+        label = "pref_opt_v_sep"
+    )
+    val contentVerticalPadding by animateDpAsState(
+        targetValue = if (isSelected) 18.dp else 15.dp,
+        animationSpec = slowMorphSpec,
+        label = "pref_opt_v_pad"
+    )
+    val labelStartOffset by animateDpAsState(
+        targetValue = if (isSelected) 4.dp else 0.dp,
+        animationSpec = slowMorphSpec,
+        label = "pref_opt_start_pad"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        animationSpec = slowColorSpec,
+        label = "pref_opt_bg"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+        animationSpec = slowColorSpec,
+        label = "pref_opt_fg"
+    )
+
+    val animatedShape = RoundedCornerShape(
+        topStart = topCorner,
+        topEnd = topCorner,
+        bottomStart = bottomCorner,
+        bottomEnd = bottomCorner
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = animatedShape,
+        color = containerColor,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = verticalSeparation)
+            .onGloballyPositioned { coords ->
+                val pos = coords.positionInRoot()
+                onPositioned(pos + Offset(coords.size.width / 2f, coords.size.height / 2f))
+            }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 18.dp + labelStartOffset,
+                    end = 18.dp,
+                    top = contentVerticalPadding,
+                    bottom = contentVerticalPadding
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+
+            if (isBetaOption) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Surface(
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    },
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "BETA",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        },
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
         }
