@@ -432,6 +432,10 @@ fun ExploreScreen(
                         val localSongs = uiState.localSongs
                         val localAlbums = uiState.localAlbums
                         val localArtists = uiState.localArtists
+                        val recentTracks = remember(localSongs) { localSongs.take(40) }
+                        var localReveal by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) { localReveal = true }
+
                         LazyColumn(
                             state = localListState,
                             modifier = Modifier
@@ -441,120 +445,145 @@ fun ExploreScreen(
                                 top = statusBarHeight + 76.dp,
                                 bottom = paddingValuesParent.calculateBottomPadding() + 160.dp
                             ),
-                            verticalArrangement = Arrangement.spacedBy(20.dp)
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
                             item(key = "local_explore_banner") {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = colorScheme.secondaryContainer
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = localReveal,
+                                    enter = androidx.compose.animation.fadeIn(
+                                        androidx.compose.animation.core.tween(420, easing = FastOutSlowInEasing)
+                                    ) + androidx.compose.animation.slideInVertically(
+                                        initialOffsetY = { it / 6 },
+                                        animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.86f, stiffness = 200f)
+                                    )
                                 ) {
-                                    Row(
+                                    Surface(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            .padding(horizontal = 16.dp)
+                                            .padding(bottom = 22.dp),
+                                        shape = RoundedCornerShape(24.dp),
+                                        color = colorScheme.secondaryContainer
                                     ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = colorScheme.primary,
-                                            modifier = Modifier.size(40.dp)
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.rounded_library_music_24),
-                                                    contentDescription = null,
-                                                    tint = colorScheme.onPrimary,
-                                                    modifier = Modifier.size(20.dp)
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = colorScheme.primary,
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        painter = painterResource(id = R.drawable.rounded_public_24),
+                                                        contentDescription = null,
+                                                        tint = colorScheme.onPrimary,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Local Mode",
+                                                    fontFamily = GoogleSansRounded,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = colorScheme.onSecondaryContainer
+                                                )
+                                                Text(
+                                                    text = "${localSongs.size} tracks ready offline",
+                                                    fontFamily = GoogleSansRounded,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                                                 )
                                             }
-                                        }
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "On Your Device",
-                                                fontFamily = GoogleSansRounded,
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = colorScheme.onSecondaryContainer
-                                            )
-                                            Text(
-                                                text = "${localSongs.size} tracks · Local Mode active",
-                                                fontFamily = GoogleSansRounded,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                            )
-                                        }
-                                        Button(
-                                            onClick = { playerViewModel.setLocalModeEnabled(false) },
-                                            shape = CircleShape,
-                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                                        ) {
-                                            Text(
-                                                text = "Go Online",
-                                                fontFamily = GoogleSansRounded,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
+                                            Button(
+                                                onClick = { playerViewModel.setLocalModeEnabled(false) },
+                                                shape = CircleShape,
+                                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Go Online",
+                                                    fontFamily = GoogleSansRounded,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
 
                             if (localAlbums.isNotEmpty()) {
-                                item(key = "local_albums_header") {
-                                    Text(
-                                        text = "Device Albums",
-                                        fontFamily = GoogleSansRounded,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = colorScheme.onSurface,
-                                        modifier = Modifier.padding(horizontal = 16.dp)
-                                    )
-                                }
-                                item(key = "local_albums_row") {
-                                    LazyRow(
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                item(key = "local_albums_section") {
+                                    androidx.compose.animation.AnimatedVisibility(
+                                        visible = localReveal,
+                                        enter = androidx.compose.animation.fadeIn(
+                                            androidx.compose.animation.core.tween(460, delayMillis = 60, easing = FastOutSlowInEasing)
+                                        ) + androidx.compose.animation.slideInVertically(
+                                            initialOffsetY = { it / 7 },
+                                            animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.86f, stiffness = 190f)
+                                        )
                                     ) {
-                                        items(localAlbums, key = { "loc_alb_${it.id}" }) { album ->
-                                            Column(
-                                                modifier = Modifier
-                                                    .width(136.dp)
-                                                    .clip(RoundedCornerShape(18.dp))
-                                                    .clickable {
-                                                        navController.navigateSafely(Screen.AlbumDetail.createRoute(album.id))
-                                                    }
+                                        Column(modifier = Modifier.padding(bottom = 24.dp)) {
+                                            Text(
+                                                text = "Albums",
+                                                fontFamily = GoogleSansRounded,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = colorScheme.onSurface,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                            )
+                                            LazyRow(
+                                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                                             ) {
-                                                SmartImage(
-                                                    model = album.albumArtUriString,
-                                                    contentDescription = album.title,
-                                                    contentScale = ContentScale.Crop,
-                                                    shape = RoundedCornerShape(18.dp),
-                                                    modifier = Modifier
-                                                        .size(136.dp)
-                                                        .clip(RoundedCornerShape(18.dp))
-                                                )
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                Text(
-                                                    text = album.title,
-                                                    fontFamily = GoogleSansRounded,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = colorScheme.onSurface,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Text(
-                                                    text = album.artist,
-                                                    fontFamily = GoogleSansRounded,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
+                                                items(localAlbums, key = { "loc_alb_${it.id}" }) { album ->
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .width(136.dp)
+                                                            .animateItem(
+                                                                fadeInSpec = androidx.compose.animation.core.tween(380),
+                                                                placementSpec = androidx.compose.animation.core.spring(dampingRatio = 0.86f, stiffness = 200f)
+                                                            )
+                                                            .clip(RoundedCornerShape(22.dp))
+                                                            .clickable {
+                                                                navController.navigateSafely(Screen.AlbumDetail.createRoute(album.id))
+                                                            }
+                                                    ) {
+                                                        SmartImage(
+                                                            model = album.albumArtUriString,
+                                                            contentDescription = album.title,
+                                                            contentScale = ContentScale.Crop,
+                                                            shape = RoundedCornerShape(22.dp),
+                                                            modifier = Modifier
+                                                                .size(136.dp)
+                                                                .clip(RoundedCornerShape(22.dp))
+                                                        )
+                                                        Spacer(modifier = Modifier.height(6.dp))
+                                                        Text(
+                                                            text = album.title,
+                                                            fontFamily = GoogleSansRounded,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = colorScheme.onSurface,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                        Text(
+                                                            text = album.artist,
+                                                            fontFamily = GoogleSansRounded,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = colorScheme.onSurfaceVariant,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -562,108 +591,145 @@ fun ExploreScreen(
                             }
 
                             if (localArtists.isNotEmpty()) {
-                                item(key = "local_artists_header") {
-                                    Text(
-                                        text = "Device Artists",
-                                        fontFamily = GoogleSansRounded,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = colorScheme.onSurface,
-                                        modifier = Modifier.padding(horizontal = 16.dp)
-                                    )
-                                }
-                                item(key = "local_artists_row") {
-                                    LazyRow(
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                item(key = "local_artists_section") {
+                                    androidx.compose.animation.AnimatedVisibility(
+                                        visible = localReveal,
+                                        enter = androidx.compose.animation.fadeIn(
+                                            androidx.compose.animation.core.tween(480, delayMillis = 120, easing = FastOutSlowInEasing)
+                                        ) + androidx.compose.animation.slideInVertically(
+                                            initialOffsetY = { it / 7 },
+                                            animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.86f, stiffness = 190f)
+                                        )
                                     ) {
-                                        items(localArtists, key = { "loc_art_${it.id}" }) { artist ->
-                                            Column(
-                                                modifier = Modifier
-                                                    .width(96.dp)
-                                                    .clip(RoundedCornerShape(16.dp))
-                                                    .clickable {
-                                                        navController.navigateSafely(Screen.ArtistDetail.createRoute(artist.id))
-                                                    },
-                                                horizontalAlignment = Alignment.CenterHorizontally
+                                        Column(modifier = Modifier.padding(bottom = 24.dp)) {
+                                            Text(
+                                                text = "Artists",
+                                                fontFamily = GoogleSansRounded,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = colorScheme.onSurface,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                            )
+                                            LazyRow(
+                                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(14.dp)
                                             ) {
-                                                SmartImage(
-                                                    model = artist.imageUrl,
-                                                    contentDescription = artist.name,
-                                                    contentScale = ContentScale.Crop,
-                                                    shape = CircleShape,
-                                                    modifier = Modifier
-                                                        .size(84.dp)
-                                                        .clip(CircleShape)
-                                                )
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                Text(
-                                                    text = artist.name,
-                                                    fontFamily = GoogleSansRounded,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = colorScheme.onSurface,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    textAlign = TextAlign.Center
-                                                )
+                                                items(localArtists, key = { "loc_art_${it.id}" }) { artist ->
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .width(96.dp)
+                                                            .animateItem(
+                                                                fadeInSpec = androidx.compose.animation.core.tween(380),
+                                                                placementSpec = androidx.compose.animation.core.spring(dampingRatio = 0.86f, stiffness = 200f)
+                                                            )
+                                                            .clip(RoundedCornerShape(18.dp))
+                                                            .clickable {
+                                                                navController.navigateSafely(Screen.ArtistDetail.createRoute(artist.id))
+                                                            },
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        SmartImage(
+                                                            model = artist.imageUrl,
+                                                            contentDescription = artist.name,
+                                                            contentScale = ContentScale.Crop,
+                                                            shape = CircleShape,
+                                                            modifier = Modifier
+                                                                .size(84.dp)
+                                                                .clip(CircleShape)
+                                                        )
+                                                        Spacer(modifier = Modifier.height(6.dp))
+                                                        Text(
+                                                            text = artist.name,
+                                                            fontFamily = GoogleSansRounded,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = colorScheme.onSurface,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            textAlign = TextAlign.Center
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
 
-                            if (localSongs.isNotEmpty()) {
+                            if (recentTracks.isNotEmpty()) {
                                 item(key = "local_songs_header") {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Recently Added on Device",
-                                            fontFamily = GoogleSansRounded,
-                                            style = MaterialTheme.typography.titleLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = colorScheme.onSurface
+                                    androidx.compose.animation.AnimatedVisibility(
+                                        visible = localReveal,
+                                        enter = androidx.compose.animation.fadeIn(
+                                            androidx.compose.animation.core.tween(500, delayMillis = 170, easing = FastOutSlowInEasing)
+                                        ) + androidx.compose.animation.slideInVertically(
+                                            initialOffsetY = { it / 7 },
+                                            animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.86f, stiffness = 190f)
                                         )
-                                        TextButton(
-                                            onClick = {
-                                                val shuffled = localSongs.shuffled()
-                                                if (shuffled.isNotEmpty()) {
-                                                    playerViewModel.showAndPlaySong(shuffled.first(), shuffled, "Device Music")
-                                                }
-                                            }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text("Shuffle all", fontFamily = GoogleSansRounded, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                text = "Recently Added",
+                                                fontFamily = GoogleSansRounded,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = colorScheme.onSurface
+                                            )
+                                            TextButton(
+                                                onClick = {
+                                                    val shuffled = localSongs.shuffled()
+                                                    if (shuffled.isNotEmpty()) {
+                                                        playerViewModel.showAndPlaySong(shuffled.first(), shuffled, "Recently Added")
+                                                    }
+                                                }
+                                            ) {
+                                                Text("Shuffle all", fontFamily = GoogleSansRounded, fontWeight = FontWeight.SemiBold)
+                                            }
                                         }
                                     }
                                 }
-                                items(localSongs.take(40), key = { "loc_song_${it.id}" }) { song ->
+                                itemsIndexed(recentTracks, key = { _, it -> "loc_song_${it.id}" }) { index, song ->
                                     val isCurrent = currentSongId == song.id
+                                    val cardShape = when {
+                                        recentTracks.size == 1 -> RoundedCornerShape(24.dp)
+                                        index == 0 -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+                                        index == recentTracks.lastIndex -> RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+                                        else -> RoundedCornerShape(6.dp)
+                                    }
+                                    val cardBg by androidx.compose.animation.animateColorAsState(
+                                        targetValue = if (isCurrent) colorScheme.primaryContainer.copy(alpha = 0.6f) else colorScheme.surfaceContainerLow,
+                                        animationSpec = androidx.compose.animation.core.tween(320),
+                                        label = "localTrackBg"
+                                    )
                                     Surface(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp)
+                                            .padding(bottom = 3.dp)
                                             .animateItem(
-                                                fadeInSpec = androidx.compose.animation.core.tween(220),
+                                                fadeInSpec = androidx.compose.animation.core.tween(420, easing = FastOutSlowInEasing),
+                                                fadeOutSpec = androidx.compose.animation.core.tween(260),
                                                 placementSpec = androidx.compose.animation.core.spring(
-                                                    dampingRatio = 0.82f,
-                                                    stiffness = 340f
+                                                    dampingRatio = 0.86f,
+                                                    stiffness = 190f
                                                 )
                                             ),
-                                        shape = RoundedCornerShape(18.dp),
-                                        color = if (isCurrent) colorScheme.primaryContainer.copy(alpha = 0.55f) else colorScheme.surfaceContainerLow
+                                        shape = cardShape,
+                                        color = cardBg
                                     ) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clickable {
-                                                    playerViewModel.showAndPlaySong(song, localSongs, "Device Music")
+                                                    playerViewModel.showAndPlaySong(song, localSongs, "Recently Added")
                                                 }
-                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                .padding(horizontal = 14.dp, vertical = 10.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
@@ -671,10 +737,10 @@ fun ExploreScreen(
                                                 model = song.albumArtUriString,
                                                 contentDescription = song.title,
                                                 contentScale = ContentScale.Crop,
-                                                shape = RoundedCornerShape(12.dp),
+                                                shape = RoundedCornerShape(14.dp),
                                                 modifier = Modifier
                                                     .size(50.dp)
-                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .clip(RoundedCornerShape(14.dp))
                                             )
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(

@@ -1159,7 +1159,9 @@ object AutoQueueManager {
             }
 
             val sameGenreSongs = if (!resolvedGenre.isNullOrBlank() && !resolvedGenre.equals("YouTube", ignoreCase = true)) {
-                dao.getSongsByGenre(resolvedGenre, currentSongLongId ?: 0L, 50).map { it.toSong() }
+                dao.getSongsByGenre(resolvedGenre, currentSongLongId ?: 0L, 50)
+                    .let { list -> if (isLocalMode) list.filter(::isStorageBackedEntity) else list }
+                    .map { it.toSong() }
             } else {
                 emptyList()
             }
@@ -1175,6 +1177,14 @@ object AutoQueueManager {
             // Helper to check artist limits and session mood to ensure acoustic consistency & diversity
             val activeMood = getActiveSessionMood()
             fun canAddSong(song: Song): Boolean {
+                if (isLocalMode) {
+                    val isRemoteUri = song.contentUriString.startsWith("youtube://", ignoreCase = true) ||
+                        song.contentUriString.startsWith("http://", ignoreCase = true) ||
+                        song.contentUriString.startsWith("https://", ignoreCase = true) ||
+                        song.id.startsWith("youtube_")
+                    val hasDiskFile = song.path.isNotBlank() && java.io.File(song.path).exists()
+                    if (isRemoteUri && !hasDiskFile) return false
+                }
                 if (minSongDurationMs > 0 && song.duration > 0 && song.duration < minSongDurationMs) return false
                 val songIdStr = song.id
                 val isNotInterested = synchronized(notInterestedSongIds) {

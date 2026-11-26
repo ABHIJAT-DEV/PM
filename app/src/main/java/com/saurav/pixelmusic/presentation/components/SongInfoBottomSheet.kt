@@ -572,7 +572,8 @@ fun SongInfoBottomSheet(
                                             }
                                         }
 
-                                        run {
+                                        val isLocalModeSheet by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
+                                        if (!isLocalModeSheet) {
                                             val interestedIds by playerViewModel.interestedSongIds.collectAsStateWithLifecycle()
                                             val notInterestedIds by playerViewModel.notInterestedSongIds.collectAsStateWithLifecycle()
                                             val isInterested = song.id in interestedIds

@@ -359,6 +359,42 @@ fun SettingsScreen(
         
         var showLocalModeDropdown by remember { mutableStateOf(false) }
 
+        // Track scroll direction: fade out top-right internet button on scroll down, reappear on scroll up
+        var isScrollingDown by remember { mutableStateOf(false) }
+        LaunchedEffect(lazyListState) {
+            var prevIndex = lazyListState.firstVisibleItemIndex
+            var prevOffset = lazyListState.firstVisibleItemScrollOffset
+            snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
+                .collect { (index, offset) ->
+                    if (index == 0 && offset <= 12) {
+                        isScrollingDown = false
+                    } else if (index > prevIndex || (index == prevIndex && offset > prevOffset + 6)) {
+                        isScrollingDown = true
+                    } else if (index < prevIndex || (index == prevIndex && offset < prevOffset - 6)) {
+                        isScrollingDown = false
+                    }
+                    prevIndex = index
+                    prevOffset = offset
+                }
+        }
+        val showTopRightBtn = !isScrollingDown || showLocalModeDropdown
+        val topRightBtnAlpha by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (showTopRightBtn) 1f else 0f,
+            animationSpec = androidx.compose.animation.core.tween(
+                durationMillis = 300,
+                easing = androidx.compose.animation.core.FastOutSlowInEasing
+            ),
+            label = "topRightBtnAlpha"
+        )
+        val topRightBtnScale by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (showTopRightBtn) 1f else 0.80f,
+            animationSpec = androidx.compose.animation.core.spring(
+                dampingRatio = 0.84f,
+                stiffness = 240f
+            ),
+            label = "topRightBtnScale"
+        )
+
         CollapsibleCommonTopBar(
             title = stringResource(R.string.settings_top_bar_title),
             collapseFraction = collapseFraction,
@@ -371,7 +407,7 @@ fun SettingsScreen(
                     } else {
                         MaterialTheme.colorScheme.surfaceContainerLow
                     },
-                    animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 360f),
+                    animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.82f, stiffness = 260f),
                     label = "localModeMenuBtnBg"
                 )
                 val menuBtnTint by androidx.compose.animation.animateColorAsState(
@@ -380,39 +416,49 @@ fun SettingsScreen(
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },
-                    animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 360f),
+                    animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.82f, stiffness = 260f),
                     label = "localModeMenuBtnTint"
                 )
                 androidx.compose.material3.FilledIconButton(
-                    onClick = { showLocalModeDropdown = !showLocalModeDropdown },
+                    onClick = { if (showTopRightBtn) showLocalModeDropdown = !showLocalModeDropdown },
+                    enabled = showTopRightBtn,
                     colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
                         containerColor = menuBtnBg,
-                        contentColor = menuBtnTint
+                        contentColor = menuBtnTint,
+                        disabledContainerColor = menuBtnBg,
+                        disabledContentColor = menuBtnTint
                     ),
-                    modifier = Modifier.padding(end = 12.dp)
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                        .graphicsLayer {
+                            alpha = topRightBtnAlpha
+                            scaleX = topRightBtnScale
+                            scaleY = topRightBtnScale
+                        }
                 ) {
                     Icon(
-                        painter = painterResource(
-                            if (uiState.localModeEnabled) R.drawable.rounded_library_music_24
-                            else R.drawable.rounded_tune_24
-                        ),
-                        contentDescription = "Local Mode & Quick Options"
+                        painter = painterResource(R.drawable.rounded_public_24),
+                        contentDescription = "Network & Local Mode"
                     )
                 }
             }
         )
 
-        // iOS-style smooth spring top-right dropdown menu for Local Mode & quick controls
+        // Smooth slow iOS-style scrim & top-right dropdown menu with Material You Expressive grouped cards
         androidx.compose.animation.AnimatedVisibility(
             visible = showLocalModeDropdown,
-            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)),
-            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
+            enter = androidx.compose.animation.fadeIn(
+                androidx.compose.animation.core.tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+            ),
+            exit = androidx.compose.animation.fadeOut(
+                androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+            ),
             modifier = Modifier.fillMaxSize().zIndex(20f)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.22f))
+                    .background(Color.Black.copy(alpha = 0.24f))
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null,
@@ -427,58 +473,71 @@ fun SettingsScreen(
                 initialScale = 0.84f,
                 transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.95f, 0.04f),
                 animationSpec = androidx.compose.animation.core.spring(
-                    dampingRatio = 0.78f,
-                    stiffness = 380f
+                    dampingRatio = 0.85f,
+                    stiffness = 200f
                 )
-            ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160)),
+            ) + androidx.compose.animation.fadeIn(
+                androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+            ),
             exit = androidx.compose.animation.scaleOut(
-                targetScale = 0.88f,
+                targetScale = 0.86f,
                 transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.95f, 0.04f),
-                animationSpec = androidx.compose.animation.core.tween(140)
-            ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(130)),
+                animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+            ) + androidx.compose.animation.fadeOut(
+                androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+            ),
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp, end = 14.dp)
                 .zIndex(21f)
         ) {
+            val m3eTopShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+            val m3eMidShape = RoundedCornerShape(6.dp)
+            val m3eBottomShape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+
             Surface(
-                modifier = Modifier.width(308.dp),
-                shape = RoundedCornerShape(26.dp),
+                modifier = Modifier.width(312.dp),
+                shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 tonalElevation = 6.dp,
-                shadowElevation = 14.dp
+                shadowElevation = 16.dp
             ) {
                 Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(
-                        text = "Playback Mode & Quick Options",
+                        text = "Network & Local Mode",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 6.dp)
                     )
 
-                    // 1. Local Mode Toggle
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = if (uiState.localModeEnabled) {
+                    // 1. Local Mode Toggle (top grouped card)
+                    val localCardBg by androidx.compose.animation.animateColorAsState(
+                        targetValue = if (uiState.localModeEnabled) {
                             MaterialTheme.colorScheme.secondaryContainer
                         } else {
                             MaterialTheme.colorScheme.surfaceContainer
-                        }
+                        },
+                        animationSpec = androidx.compose.animation.core.tween(280),
+                        label = "localCardBg"
+                    )
+                    Surface(
+                        shape = m3eTopShape,
+                        color = localCardBg
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { settingsViewModel.setLocalModeEnabled(!uiState.localModeEnabled) }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.rounded_library_music_24),
+                                painter = painterResource(R.drawable.rounded_public_24),
                                 contentDescription = null,
                                 tint = if (uiState.localModeEnabled) {
                                     MaterialTheme.colorScheme.onSecondaryContainer
@@ -499,7 +558,7 @@ fun SettingsScreen(
                                     }
                                 )
                                 Text(
-                                    text = "Device & downloaded music only",
+                                    text = "Offline & downloaded music only",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (uiState.localModeEnabled) {
                                         MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.78f)
@@ -515,22 +574,26 @@ fun SettingsScreen(
                         }
                     }
 
-                    // 2. Local Mode Sub-options (smooth spring expand/collapse)
+                    // 2. Local Mode Sub-options (middle grouped cards with slow smooth spring)
                     androidx.compose.animation.AnimatedVisibility(
                         visible = uiState.localModeEnabled,
                         enter = androidx.compose.animation.expandVertically(
                             animationSpec = androidx.compose.animation.core.spring(
-                                dampingRatio = 0.82f,
-                                stiffness = 340f
+                                dampingRatio = 0.86f,
+                                stiffness = 200f
                             )
-                        ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)),
+                        ) + androidx.compose.animation.fadeIn(
+                            androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                        ),
                         exit = androidx.compose.animation.shrinkVertically(
-                            animationSpec = androidx.compose.animation.core.tween(160)
-                        ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120))
+                            animationSpec = androidx.compose.animation.core.tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                        ) + androidx.compose.animation.fadeOut(
+                            androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                        )
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Surface(
-                                shape = RoundedCornerShape(18.dp),
+                                shape = m3eMidShape,
                                 color = MaterialTheme.colorScheme.surfaceContainer
                             ) {
                                 Row(
@@ -539,7 +602,7 @@ fun SettingsScreen(
                                         .clickable {
                                             settingsViewModel.setLocalModeAllowOnlineLyrics(!uiState.localModeAllowOnlineLyrics)
                                         }
-                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
@@ -572,7 +635,7 @@ fun SettingsScreen(
                             }
 
                             Surface(
-                                shape = RoundedCornerShape(18.dp),
+                                shape = m3eMidShape,
                                 color = MaterialTheme.colorScheme.surfaceContainer
                             ) {
                                 Row(
@@ -581,7 +644,7 @@ fun SettingsScreen(
                                         .clickable {
                                             settingsViewModel.setAutoQueueEnabled(!uiState.autoQueueEnabled)
                                         }
-                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
@@ -593,13 +656,13 @@ fun SettingsScreen(
                                     )
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Local Auto-Queue",
+                                            text = "Auto-Queue",
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Medium,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "Queue similar device songs",
+                                            text = "Queue similar local tracks",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -615,9 +678,9 @@ fun SettingsScreen(
                         }
                     }
 
-                    // 3. Rescan Device Music quick action
+                    // 3. Rescan Library quick action (bottom grouped card)
                     Surface(
-                        shape = RoundedCornerShape(18.dp),
+                        shape = m3eBottomShape,
                         color = MaterialTheme.colorScheme.surfaceContainer
                     ) {
                         Row(
@@ -628,11 +691,11 @@ fun SettingsScreen(
                                     settingsViewModel.refreshLibrary()
                                     android.widget.Toast.makeText(
                                         context,
-                                        "Scanning device music…",
+                                        "Scanning library…",
                                         android.widget.Toast.LENGTH_SHORT
                                     ).show()
                                 }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
@@ -643,7 +706,7 @@ fun SettingsScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
-                                text = "Rescan device music",
+                                text = "Rescan library",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
