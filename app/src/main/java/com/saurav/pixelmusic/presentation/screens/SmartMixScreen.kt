@@ -89,6 +89,7 @@ fun SmartMixScreen(
     playerViewModel: com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel,
     viewModel: SmartMixViewModel = hiltViewModel()
 ) {
+    val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -151,6 +152,61 @@ fun SmartMixScreen(
             }
         }
     ) { innerPadding ->
+        if (localModeEnabled) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundBrush)
+                    .padding(innerPadding)
+                    .padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.rounded_auto_awesome_24),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = "Smart Mix is unavailable in Local Mode",
+                    fontFamily = GoogleSansRounded,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Turn off Local Mode to generate Smart Mix playlists using YouTube Music.",
+                    fontFamily = GoogleSansRounded,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(22.dp))
+                Button(
+                    onClick = { playerViewModel.setLocalModeEnabled(false) },
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = "Turn Off Local Mode",
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            return@Scaffold
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()

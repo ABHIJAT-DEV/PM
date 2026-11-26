@@ -446,20 +446,37 @@ fun SettingsScreen(
             }
         )
 
-        // Smooth slow iOS-style scrim & top-right dropdown menu with Material You Expressive grouped cards
-        androidx.compose.animation.AnimatedVisibility(
-            visible = showLocalModeDropdown,
-            enter = androidx.compose.animation.fadeIn(
-                androidx.compose.animation.core.tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            ),
-            exit = androidx.compose.animation.fadeOut(
-                androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            ),
-            modifier = Modifier.fillMaxSize().zIndex(20f)
-        ) {
+        // Silky GPU-composited slow ease-in / ease-out dropdown (zero shadow rasterization, bottom-sheet smoothness)
+        var isMenuMounted by remember { mutableStateOf(false) }
+        val menuProgress = remember { androidx.compose.animation.core.Animatable(0f) }
+        LaunchedEffect(showLocalModeDropdown) {
+            if (showLocalModeDropdown) {
+                isMenuMounted = true
+                menuProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = androidx.compose.animation.core.tween(
+                        durationMillis = 420,
+                        easing = androidx.compose.animation.core.CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+                    )
+                )
+            } else if (isMenuMounted) {
+                menuProgress.animateTo(
+                    targetValue = 0f,
+                    animationSpec = androidx.compose.animation.core.tween(
+                        durationMillis = 360,
+                        easing = androidx.compose.animation.core.CubicBezierEasing(0.32f, 0f, 0.2f, 1f)
+                    )
+                )
+                isMenuMounted = false
+            }
+        }
+
+        if (isMenuMounted) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .zIndex(20f)
+                    .graphicsLayer { alpha = menuProgress.value }
                     .background(Color.Black.copy(alpha = 0.24f))
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
@@ -467,42 +484,34 @@ fun SettingsScreen(
                         onClick = { showLocalModeDropdown = false }
                     )
             )
-        }
 
-        androidx.compose.animation.AnimatedVisibility(
-            visible = showLocalModeDropdown,
-            enter = androidx.compose.animation.scaleIn(
-                initialScale = 0.84f,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.95f, 0.04f),
-                animationSpec = androidx.compose.animation.core.spring(
-                    dampingRatio = 0.85f,
-                    stiffness = 200f
-                )
-            ) + androidx.compose.animation.fadeIn(
-                androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            ),
-            exit = androidx.compose.animation.scaleOut(
-                targetScale = 0.86f,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.95f, 0.04f),
-                animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            ) + androidx.compose.animation.fadeOut(
-                androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            ),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp, end = 14.dp)
-                .zIndex(21f)
-        ) {
-            val m3eTopShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
-            val m3eMidShape = RoundedCornerShape(6.dp)
-            val m3eBottomShape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+            val m3eTopShape = remember { RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 6.dp, bottomEnd = 6.dp) }
+            val m3eMidShape = remember { RoundedCornerShape(6.dp) }
+            val m3eBottomShape = remember { RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 24.dp, bottomEnd = 24.dp) }
 
             Surface(
-                modifier = Modifier.width(312.dp),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp, end = 14.dp)
+                    .zIndex(21f)
+                    .width(312.dp)
+                    .graphicsLayer {
+                        val p = menuProgress.value
+                        alpha = p
+                        translationY = (1f - p) * -28f
+                        val s = 0.94f + 0.06f * p
+                        scaleX = s
+                        scaleY = s
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.92f, 0f)
+                    },
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                tonalElevation = 6.dp,
-                shadowElevation = 16.dp
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp),
