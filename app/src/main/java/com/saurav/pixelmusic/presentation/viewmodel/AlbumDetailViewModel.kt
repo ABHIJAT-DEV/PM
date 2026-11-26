@@ -66,6 +66,8 @@ class AlbumDetailViewModel @Inject constructor(
                 val localAlbum = musicRepository.getAlbumById(id).first()
                 val localSongs = musicRepository.getSongsForAlbum(id).first()
 
+                val isLocalMode = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
+                if (!isLocalMode) {
                 // Check if any song in this album already carries a YouTube album browseId
                 val songBrowseId = localSongs.firstNotNullOfOrNull { it.albumBrowseId?.takeIf { b -> b.isNotBlank() } }
                     ?: SearchStateHolder.albumIdMap[id]
@@ -102,15 +104,36 @@ class AlbumDetailViewModel @Inject constructor(
                         }
                     }
                 }
+                }
 
                 val albumDetailsFlow = musicRepository.getAlbumById(id)
                 val albumSongsFlow = musicRepository.getSongsForAlbum(id)
 
                 combine(albumDetailsFlow, albumSongsFlow) { album, songs ->
-                    if (album != null) {
+                    val visibleSongs = if (isLocalMode) {
+                        songs.filter { s ->
+                            (!s.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+                                !s.contentUriString.startsWith("http://", ignoreCase = true) &&
+                                !s.contentUriString.startsWith("https://", ignoreCase = true)) ||
+                                (s.path.isNotBlank() && java.io.File(s.path).exists())
+                        }
+                    } else {
+                        songs
+                    }
+                    val resolvedAlbum = album ?: visibleSongs.firstOrNull()?.let { first ->
+                        Album(
+                            id = id,
+                            title = first.album.ifBlank { "Unknown Album" },
+                            artist = first.albumArtist?.takeIf { it.isNotBlank() } ?: first.artist,
+                            songCount = visibleSongs.size,
+                            albumArtUriString = first.albumArtUriString,
+                            year = first.year
+                        )
+                    }
+                    if (resolvedAlbum != null) {
                         AlbumDetailUiState(
-                            album = album,
-                            songs = songs.sortedWith(
+                            album = resolvedAlbum,
+                            songs = visibleSongs.sortedWith(
                                 compareBy<Song> { it.discNumber ?: 1 }
                                     .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
                                     .thenBy { it.title.lowercase() }

@@ -1453,6 +1453,32 @@ private fun ComplexKaraokeLyricsStage(
     ) {
         when {
             syncedLines.isNotEmpty() -> {
+                val complexLyricsListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                key(syncedLines) {
+                    com.saurav.pixelmusic.presentation.components.lyrics.PixelMusicSyncedLyricsView(
+                        lines = syncedLines,
+                        listState = complexLyricsListState,
+                        playbackPositionFlow = playbackPositionFlow,
+                        lyricsSyncOffset = syncOffsetMs,
+                        positionOverrideMs = null,
+                        accentColor = accentColor,
+                        contentColor = textColor,
+                        providerName = lyrics?.providerName,
+                        lyricsAlignment = "LEFT",
+                        showTranslationPref = true,
+                        showRomanizationPref = true,
+                        performanceModeEnabled = false,
+                        immersiveMode = false,
+                        isPlaying = isPlayingProvider(),
+                        blurStrength = 2.5f,
+                        fontSizeScale = 0.78f,
+                        showFooter = false,
+                        onLineClick = { onClick() },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+            false && syncedLines.isNotEmpty() -> {
                 val currentLineIndex = remember(effectivePosition, syncedLines) {
                     syncedLines.indexOfLast { it.time <= effectivePosition }
                 }

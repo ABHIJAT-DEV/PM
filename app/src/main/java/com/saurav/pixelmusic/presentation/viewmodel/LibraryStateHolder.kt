@@ -118,7 +118,8 @@ class LibraryStateHolder @Inject constructor(
             effectiveStorageFilter,
             userPreferencesRepository.minTracksPerAlbumFlow
         ) { sort, filter, minTracks ->
-            Triple(sort, filter, minTracks)
+            val effectiveMinTracks = if (filter == StorageFilter.OFFLINE) 1 else minTracks
+            Triple(sort, filter, effectiveMinTracks)
         }.flatMapLatest { (sortOption, filter, minTracks) ->
             musicRepository.getPaginatedAlbums(sortOption, filter, minTracks)
         }.flowOn(Dispatchers.IO)

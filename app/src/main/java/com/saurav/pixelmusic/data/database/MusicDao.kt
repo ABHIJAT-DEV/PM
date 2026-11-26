@@ -1201,31 +1201,26 @@ interface MusicDao {
 
     @Query("""
         SELECT
-            albums.id AS id,
-            albums.title AS title,
-            albums.artist_name AS artist_name,
-            albums.artist_id AS artist_id,
-            albums.album_artist AS album_artist,
-            albums.album_art_uri_string AS album_art_uri_string,
+            COALESCE(albums.id, songs.album_id) AS id,
+            COALESCE(NULLIF(TRIM(albums.title), ''), NULLIF(TRIM(songs.album_name), ''), 'Unknown Album') AS title,
+            COALESCE(NULLIF(TRIM(albums.artist_name), ''), songs.artist_name) AS artist_name,
+            COALESCE(albums.artist_id, songs.artist_id) AS artist_id,
+            COALESCE(albums.album_artist, songs.album_artist) AS album_artist,
+            COALESCE(NULLIF(TRIM(albums.album_art_uri_string), ''), MAX(songs.album_art_uri_string)) AS album_art_uri_string,
             COUNT(songs.id) AS song_count,
-            albums.date_added AS date_added,
-            albums.year AS year
+            COALESCE(albums.date_added, MAX(songs.date_added)) AS date_added,
+            COALESCE(albums.year, MAX(songs.year)) AS year
         FROM songs
-        INNER JOIN albums ON albums.id = songs.album_id
+        LEFT JOIN albums ON albums.id = songs.album_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
         AND (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != ''))
-        AND (albums.title LIKE '%' || :query || '%' OR albums.artist_name LIKE '%' || :query || '%')
-        GROUP BY
-            albums.id,
-            albums.title,
-            albums.artist_name,
-            albums.artist_id,
-            albums.album_artist,
-            albums.album_art_uri_string,
-            albums.date_added,
-            albums.year
+        AND (
+            COALESCE(NULLIF(TRIM(albums.title), ''), songs.album_name) LIKE '%' || :query || '%'
+            OR COALESCE(NULLIF(TRIM(albums.artist_name), ''), songs.artist_name) LIKE '%' || :query || '%'
+        )
+        GROUP BY songs.album_id
         HAVING COUNT(songs.id) >= :minTracks
-        ORDER BY albums.title ASC
+        ORDER BY title ASC
         LIMIT 50
     """)
     suspend fun searchLocalAlbumsOnce(
@@ -1370,17 +1365,17 @@ interface MusicDao {
 
     @Query("""
         SELECT
-            albums.id AS id,
-            albums.title AS title,
-            albums.artist_name AS artist_name,
-            albums.artist_id AS artist_id,
-            albums.album_artist AS album_artist,
-            albums.album_art_uri_string AS album_art_uri_string,
+            COALESCE(albums.id, songs.album_id) AS id,
+            COALESCE(NULLIF(TRIM(albums.title), ''), NULLIF(TRIM(songs.album_name), ''), 'Unknown Album') AS title,
+            COALESCE(NULLIF(TRIM(albums.artist_name), ''), songs.artist_name) AS artist_name,
+            COALESCE(albums.artist_id, songs.artist_id) AS artist_id,
+            COALESCE(albums.album_artist, songs.album_artist) AS album_artist,
+            COALESCE(NULLIF(TRIM(albums.album_art_uri_string), ''), MAX(songs.album_art_uri_string)) AS album_art_uri_string,
             COUNT(songs.id) AS song_count,
-            albums.date_added AS date_added,
-            albums.year AS year
+            COALESCE(albums.date_added, MAX(songs.date_added)) AS date_added,
+            COALESCE(albums.year, MAX(songs.year)) AS year
         FROM songs
-        INNER JOIN albums ON albums.id = songs.album_id
+        LEFT JOIN albums ON albums.id = songs.album_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
         AND (
             songs.source_type = 0
@@ -1410,29 +1405,21 @@ interface MusicDao {
                 AND (songs.file_path IS NOT NULL AND songs.file_path != '')
             )
         )
-        GROUP BY
-            albums.id,
-            albums.title,
-            albums.artist_name,
-            albums.artist_id,
-            albums.album_artist,
-            albums.album_art_uri_string,
-            albums.date_added,
-            albums.year
+        GROUP BY songs.album_id
         HAVING COUNT(songs.id) >= :minTracks
         ORDER BY
-            CASE WHEN :sortOrder = 'album_title_az' THEN albums.title END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'album_title_za' THEN albums.title END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'album_artist' THEN COALESCE(NULLIF(TRIM(albums.album_artist), ''), albums.artist_name) END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'album_artist_desc' THEN COALESCE(NULLIF(TRIM(albums.album_artist), ''), albums.artist_name) END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'album_release_year' THEN albums.year END DESC,
-            CASE WHEN :sortOrder = 'album_release_year_asc' THEN albums.year END ASC,
-            CASE WHEN :sortOrder = 'album_date_added' THEN albums.date_added END DESC,
+            CASE WHEN :sortOrder = 'album_title_az' THEN title END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'album_title_za' THEN title END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'album_artist' THEN COALESCE(NULLIF(TRIM(album_artist), ''), artist_name) END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'album_artist_desc' THEN COALESCE(NULLIF(TRIM(album_artist), ''), artist_name) END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'album_release_year' THEN year END DESC,
+            CASE WHEN :sortOrder = 'album_release_year_asc' THEN year END ASC,
+            CASE WHEN :sortOrder = 'album_date_added' THEN date_added END DESC,
             CASE WHEN :sortOrder = 'album_size_asc' THEN song_count END ASC,
             CASE WHEN :sortOrder = 'album_size_desc' THEN song_count END DESC,
-            albums.title COLLATE NOCASE ASC,
-            albums.artist_name COLLATE NOCASE ASC,
-            albums.id ASC
+            title COLLATE NOCASE ASC,
+            artist_name COLLATE NOCASE ASC,
+            id ASC
     """)
     fun getAlbumsPaginated(
         allowedParentDirs: List<String>,

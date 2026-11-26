@@ -337,6 +337,8 @@ fun PixelMusicSyncedLyricsView(
     contentPadding: PaddingValues = PaddingValues(),
     isPlaying: Boolean = true,
     blurStrength: Float = 2.5f,
+    fontSizeScale: Float = 1f,
+    showFooter: Boolean = true,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val density = LocalDensity.current
@@ -620,7 +622,7 @@ fun PixelMusicSyncedLyricsView(
                                 // Use 4-tap diagonal halo on both Style 1 and Style 2 for smooth 60-120fps GPU shader rendering
                                 highBloom = false,
                                 blend = blend,
-                                fontSize = textSizeSp.sp,
+                                fontSize = (textSizeSp * fontSizeScale).sp,
                                 lineHeightMultiplier = lineSpacing,
                                 blurStrength = blurStrength,
                                 onClick = {
@@ -632,15 +634,17 @@ fun PixelMusicSyncedLyricsView(
                     }
                 }
 
-                item(key = "pixelmusic_source_footer", contentType = "source") {
-                    PixelMusicSourceFooter(
-                        providerName = providerName,
-                        contentColor = contentColor,
-                        modifier = Modifier
-                            .lyricsEdgeFade(blend)
-                            .graphicsLayer { translationY = stagger.lagOf(rows.size) }
-                            .padding(horizontal = com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsHeaderArtX),
-                    )
+                if (showFooter) {
+                    item(key = "pixelmusic_source_footer", contentType = "source") {
+                        PixelMusicSourceFooter(
+                            providerName = providerName,
+                            contentColor = contentColor,
+                            modifier = Modifier
+                                .lyricsEdgeFade(blend)
+                                .graphicsLayer { translationY = stagger.lagOf(rows.size) }
+                                .padding(horizontal = com.saurav.pixelmusic.presentation.components.lyrics.pixelmusic.LyricsHeaderArtX),
+                        )
+                    }
                 }
             }
         }
