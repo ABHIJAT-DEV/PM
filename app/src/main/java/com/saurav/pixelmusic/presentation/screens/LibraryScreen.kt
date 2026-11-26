@@ -738,9 +738,10 @@ fun LibraryScreen(
     val currentTab = tabTitles.getOrNull(currentTabIndex)?.toLibraryTabIdOrNull() ?: currentTabId
     val currentTabTitle = currentTab.displayTitle()
 
-    val headerContainerColor = androidx.compose.ui.graphics.compositeOver(
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (dm) 0.22f else 0.30f),
-        MaterialTheme.colorScheme.surface
+    val headerContainerColor = androidx.compose.ui.graphics.lerp(
+        MaterialTheme.colorScheme.surface,
+        MaterialTheme.colorScheme.primaryContainer,
+        if (dm) 0.22f else 0.30f
     )
 
     Scaffold(
