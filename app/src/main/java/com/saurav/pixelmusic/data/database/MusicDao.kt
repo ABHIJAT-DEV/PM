@@ -1220,7 +1220,7 @@ interface MusicDao {
         )
         GROUP BY songs.album_id
         HAVING COUNT(songs.id) >= :minTracks
-        ORDER BY title ASC
+        ORDER BY COALESCE(NULLIF(TRIM(albums.title), ''), NULLIF(TRIM(songs.album_name), ''), 'Unknown Album') COLLATE NOCASE ASC
         LIMIT 50
     """)
     suspend fun searchLocalAlbumsOnce(
@@ -1408,18 +1408,18 @@ interface MusicDao {
         GROUP BY songs.album_id
         HAVING COUNT(songs.id) >= :minTracks
         ORDER BY
-            CASE WHEN :sortOrder = 'album_title_az' THEN title END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'album_title_za' THEN title END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'album_artist' THEN COALESCE(NULLIF(TRIM(album_artist), ''), artist_name) END COLLATE NOCASE ASC,
-            CASE WHEN :sortOrder = 'album_artist_desc' THEN COALESCE(NULLIF(TRIM(album_artist), ''), artist_name) END COLLATE NOCASE DESC,
-            CASE WHEN :sortOrder = 'album_release_year' THEN year END DESC,
-            CASE WHEN :sortOrder = 'album_release_year_asc' THEN year END ASC,
-            CASE WHEN :sortOrder = 'album_date_added' THEN date_added END DESC,
-            CASE WHEN :sortOrder = 'album_size_asc' THEN song_count END ASC,
-            CASE WHEN :sortOrder = 'album_size_desc' THEN song_count END DESC,
-            title COLLATE NOCASE ASC,
-            artist_name COLLATE NOCASE ASC,
-            id ASC
+            CASE WHEN :sortOrder = 'album_title_az' THEN COALESCE(NULLIF(TRIM(albums.title), ''), NULLIF(TRIM(songs.album_name), ''), 'Unknown Album') END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'album_title_za' THEN COALESCE(NULLIF(TRIM(albums.title), ''), NULLIF(TRIM(songs.album_name), ''), 'Unknown Album') END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'album_artist' THEN COALESCE(NULLIF(TRIM(albums.album_artist), ''), NULLIF(TRIM(songs.album_artist), ''), NULLIF(TRIM(albums.artist_name), ''), songs.artist_name) END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'album_artist_desc' THEN COALESCE(NULLIF(TRIM(albums.album_artist), ''), NULLIF(TRIM(songs.album_artist), ''), NULLIF(TRIM(albums.artist_name), ''), songs.artist_name) END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'album_release_year' THEN COALESCE(albums.year, MAX(songs.year)) END DESC,
+            CASE WHEN :sortOrder = 'album_release_year_asc' THEN COALESCE(albums.year, MAX(songs.year)) END ASC,
+            CASE WHEN :sortOrder = 'album_date_added' THEN COALESCE(albums.date_added, MAX(songs.date_added)) END DESC,
+            CASE WHEN :sortOrder = 'album_size_asc' THEN COUNT(songs.id) END ASC,
+            CASE WHEN :sortOrder = 'album_size_desc' THEN COUNT(songs.id) END DESC,
+            COALESCE(NULLIF(TRIM(albums.title), ''), NULLIF(TRIM(songs.album_name), ''), 'Unknown Album') COLLATE NOCASE ASC,
+            COALESCE(NULLIF(TRIM(albums.artist_name), ''), songs.artist_name) COLLATE NOCASE ASC,
+            COALESCE(albums.id, songs.album_id) ASC
     """)
     fun getAlbumsPaginated(
         allowedParentDirs: List<String>,
