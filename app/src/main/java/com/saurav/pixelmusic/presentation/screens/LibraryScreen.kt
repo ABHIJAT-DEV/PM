@@ -738,18 +738,17 @@ fun LibraryScreen(
     val currentTab = tabTitles.getOrNull(currentTabIndex)?.toLibraryTabIdOrNull() ?: currentTabId
     val currentTabTitle = currentTab.displayTitle()
 
-    val headerContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+    val headerContainerColor = androidx.compose.ui.graphics.compositeOver(
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (dm) 0.22f else 0.30f),
+        MaterialTheme.colorScheme.surface
+    )
 
     Scaffold(
         modifier = Modifier.background(brush = gradientBrush),
         topBar = {
             Box {
-                ProgressiveHeaderBackdrop(
-                    scrimColor = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.matchParentSize()
-                )
                 Column(
-                    modifier = Modifier.background(headerContainerColor.copy(alpha = 0.25f))
+                    modifier = Modifier.background(headerContainerColor)
                 ) {
                     TopAppBar(
                     title = {
