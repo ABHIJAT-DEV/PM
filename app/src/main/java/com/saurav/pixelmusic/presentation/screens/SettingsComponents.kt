@@ -3,11 +3,11 @@ package com.saurav.pixelmusic.presentation.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.unit.Dp
-import com.saurav.pixelmusic.presentation.components.AiSmoothMorphEasing
-import kotlinx.coroutines.Job
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -583,10 +583,7 @@ fun ThemeModeSelectorCard(
             contentColor = MaterialTheme.colorScheme.onSurface,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
-            val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
-            val sheetScope = rememberCoroutineScope()
             var pendingSelectedMode by remember(selectedMode) { mutableStateOf(selectedMode) }
-            var dismissJob by remember { mutableStateOf<Job?>(null) }
 
             Column(
                 modifier = Modifier
@@ -605,7 +602,7 @@ fun ThemeModeSelectorCard(
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
                         .heightIn(max = 420.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     itemsIndexed(optionEntries, key = { _, entry -> entry.first }) { idx, (key, optionLabel) ->
                         val isSelected = key == pendingSelectedMode
@@ -624,23 +621,9 @@ fun ThemeModeSelectorCard(
                                     HapticFeedbackConstantsCompat.GESTURE_START
                                 )
                                 themeTransitionController?.lastTouchOffset = optionCenter
-                                val changed = key != pendingSelectedMode
                                 pendingSelectedMode = key
                                 onModeSelected(key, optionCenter)
-                                dismissJob?.cancel()
-                                dismissJob = sheetScope.launch {
-                                    if (changed) {
-                                        delay(480L)
-                                    }
-                                    smoothDismiss(null)
-                                }
-                            },
-                            modifier = Modifier.animateItem(
-                                placementSpec = spring(
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            )
+                            }
                         )
                     }
                 }
@@ -1184,10 +1167,7 @@ fun ThemeSelectorItem(
             contentColor = MaterialTheme.colorScheme.onSurface,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
-            val smoothDismiss = com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss.current
-            val sheetScope = rememberCoroutineScope()
             var pendingSelectedKey by remember(selectedKey) { mutableStateOf(selectedKey) }
-            var dismissJob by remember { mutableStateOf<Job?>(null) }
 
             Column(
                 modifier = Modifier
@@ -1206,7 +1186,7 @@ fun ThemeSelectorItem(
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
                         .heightIn(max = 440.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     itemsIndexed(optionEntries, key = { _, entry -> entry.key }) { idx, (key, optionLabel) ->
                         val isSelected = key == pendingSelectedKey
@@ -1230,23 +1210,9 @@ fun ThemeSelectorItem(
                                     HapticFeedbackConstantsCompat.GESTURE_START
                                 )
                                 themeTransitionController?.lastTouchOffset = optionCenter
-                                val changed = key != pendingSelectedKey
                                 pendingSelectedKey = key
                                 onSelectionChanged(key)
-                                dismissJob?.cancel()
-                                dismissJob = sheetScope.launch {
-                                    if (changed) {
-                                        delay(480L)
-                                    }
-                                    smoothDismiss(null)
-                                }
-                            },
-                            modifier = Modifier.animateItem(
-                                placementSpec = spring(
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            )
+                            }
                         )
                     }
                 }
@@ -1254,6 +1220,8 @@ fun ThemeSelectorItem(
         }
     }
 }
+
+private val SmoothPreferenceMorphEasing = CubicBezierEasing(0.35f, 0.0f, 0.2f, 1.0f)
 
 @Composable
 private fun ExpressivePreferenceOptionCard(
@@ -1266,55 +1234,38 @@ private fun ExpressivePreferenceOptionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val slowMorphSpec = remember { tween<Dp>(durationMillis = 620, easing = AiSmoothMorphEasing) }
-    val slowColorSpec = remember { tween<Color>(durationMillis = 620, easing = AiSmoothMorphEasing) }
+    val selectionProgress by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = tween(durationMillis = 550, easing = SmoothPreferenceMorphEasing),
+        label = "pref_opt_progress"
+    )
 
     val baseTopCorner = if (totalCount <= 1 || index == 0) 24.dp else 6.dp
     val baseBottomCorner = if (totalCount <= 1 || index == totalCount - 1) 24.dp else 6.dp
     val selectedCorner = 26.dp
 
-    val topCorner by animateDpAsState(
-        targetValue = if (isSelected) selectedCorner else baseTopCorner,
-        animationSpec = slowMorphSpec,
-        label = "pref_opt_top_corner"
+    val topCorner = lerp(baseTopCorner, selectedCorner, selectionProgress)
+    val bottomCorner = lerp(baseBottomCorner, selectedCorner, selectionProgress)
+
+    val containerColor = lerp(
+        MaterialTheme.colorScheme.surfaceContainerHigh,
+        MaterialTheme.colorScheme.primary,
+        selectionProgress
     )
-    val bottomCorner by animateDpAsState(
-        targetValue = if (isSelected) selectedCorner else baseBottomCorner,
-        animationSpec = slowMorphSpec,
-        label = "pref_opt_bottom_corner"
+    val contentColor = lerp(
+        MaterialTheme.colorScheme.onSurface,
+        MaterialTheme.colorScheme.onPrimary,
+        selectionProgress
     )
-    val verticalSeparation by animateDpAsState(
-        targetValue = if (isSelected) 3.dp else 0.dp,
-        animationSpec = slowMorphSpec,
-        label = "pref_opt_v_sep"
+    val betaContainerColor = lerp(
+        MaterialTheme.colorScheme.errorContainer,
+        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+        selectionProgress
     )
-    val contentVerticalPadding by animateDpAsState(
-        targetValue = if (isSelected) 18.dp else 15.dp,
-        animationSpec = slowMorphSpec,
-        label = "pref_opt_v_pad"
-    )
-    val labelStartOffset by animateDpAsState(
-        targetValue = if (isSelected) 4.dp else 0.dp,
-        animationSpec = slowMorphSpec,
-        label = "pref_opt_start_pad"
-    )
-    val containerColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerHigh
-        },
-        animationSpec = slowColorSpec,
-        label = "pref_opt_bg"
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.onPrimary
-        } else {
-            MaterialTheme.colorScheme.onSurface
-        },
-        animationSpec = slowColorSpec,
-        label = "pref_opt_fg"
+    val betaContentColor = lerp(
+        MaterialTheme.colorScheme.onErrorContainer,
+        MaterialTheme.colorScheme.onPrimary,
+        selectionProgress
     )
 
     val animatedShape = RoundedCornerShape(
@@ -1330,7 +1281,6 @@ private fun ExpressivePreferenceOptionCard(
         color = containerColor,
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = verticalSeparation)
             .onGloballyPositioned { coords ->
                 val pos = coords.positionInRoot()
                 onPositioned(pos + Offset(coords.size.width / 2f, coords.size.height / 2f))
@@ -1339,42 +1289,37 @@ private fun ExpressivePreferenceOptionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = 18.dp + labelStartOffset,
-                    end = 18.dp,
-                    top = contentVerticalPadding,
-                    bottom = contentVerticalPadding
-                ),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .graphicsLayer {
+                        val scale = 1f + (0.03f * selectionProgress)
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = selectionProgress * 4.dp.toPx()
+                        transformOrigin = TransformOrigin(0f, 0.5f)
+                    }
             )
 
             if (isBetaOption) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(
-                    color = if (isSelected) {
-                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
-                    } else {
-                        MaterialTheme.colorScheme.errorContainer
-                    },
+                    color = betaContainerColor,
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
                         text = "BETA",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onErrorContainer
-                        },
+                        color = betaContentColor,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
