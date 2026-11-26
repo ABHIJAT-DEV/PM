@@ -9,15 +9,20 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,6 +48,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -58,10 +65,12 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
+import androidx.media3.common.Player
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.model.Artist
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.preferences.AlbumArtQuality
+import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.WavyMusicSlider
 import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
 import com.saurav.pixelmusic.presentation.components.player.AodSourceBounds
@@ -74,9 +83,9 @@ import com.saurav.pixelmusic.presentation.components.player.captureUntransformed
 import com.saurav.pixelmusic.presentation.components.scoped.rememberSmoothProgress
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerSheetState
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
+import com.saurav.pixelmusic.ui.theme.LocalPixelMusicDarkTheme
 import com.saurav.pixelmusic.utils.ThumbnailUrlUtils
 import com.saurav.pixelmusic.utils.formatDuration
-import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
@@ -531,8 +540,10 @@ internal fun StyleProgressSection(
 }
 
 /**
- * Expressive transport button (Previous / Play-Pause / Next) that morphs directly from
- * its corresponding MiniPlayer button slot and registers bounds for AOD transitions.
+ * Zero-jump expressive transport button (Previous / Play-Pause / Next) matching ComplexPlayerLayout's
+ * exact GPU morphing math: uses drawBehind with aspect-ratio-compensated corner radii (rx = targetR / sx,
+ * ry = targetR / sy) so non-square buttons morph smoothly from MiniPlayer's 36dp circle without distortion
+ * or layout jumping, and registers exact untransformed bounds for AOD transitions.
  */
 @Composable
 internal fun StyleMorphingTransportButton(
@@ -554,11 +565,14 @@ internal fun StyleMorphingTransportButton(
 ) {
     val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
+    val latestOnClick by rememberUpdatedState(onClick)
+
     val miniBtnSizePx = remember(density) { with(density) { 36.dp.toPx() } }
     val miniBtnTopPx = remember(density) { with(density) { 14.dp.toPx() } }
     val miniEndPadPx = remember(density) { with(density) { 12.dp.toPx() } }
     val miniGapPx = remember(density) { with(density) { 8.dp.toPx() } }
     val miniIconSizePx = remember(density) { with(density) { 22.dp.toPx() } }
+    val miniCornerDp = if (slot == MiniTransportSlot.PLAY_PAUSE && isPlaying) 11.dp else 18.dp
 
     val elementBounds = when (slot) {
         MiniTransportSlot.PREVIOUS -> aodSourceBounds?.prevBounds
@@ -566,23 +580,17 @@ internal fun StyleMorphingTransportButton(
         MiniTransportSlot.NEXT -> aodSourceBounds?.nextBounds
     } ?: remember { MorphElementBounds() }
 
-    var isPressedAnim by remember { mutableStateOf(false) }
-    LaunchedEffect(isPressedAnim) {
-        if (isPressedAnim) {
-            delay(200L)
-            isPressedAnim = false
-        }
-    }
+    var isPressed by remember { mutableStateOf(false) }
 
     val animatedCorner by animateDpAsState(
-        targetValue = if (isPressedAnim) pressedCornerRadius else cornerRadius,
-        animationSpec = spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (isPressed) pressedCornerRadius else cornerRadius,
+        animationSpec = spring(dampingRatio = 0.64f, stiffness = Spring.StiffnessMedium),
         label = "transportCorner"
     )
-    val animatedScale by animateFloatAsState(
-        targetValue = if (isPressedAnim) 0.94f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
-        label = "transportScale"
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.58f, stiffness = Spring.StiffnessMedium),
+        label = "transportPressScale"
     )
     val animatedBg by animateColorAsState(
         targetValue = containerColor,
@@ -590,13 +598,15 @@ internal fun StyleMorphingTransportButton(
         label = "transportBg"
     )
 
-    val buttonShape = RoundedCornerShape(animatedCorner)
-
-    Surface(
+    Box(
         modifier = modifier
             .captureUntransformedBounds(rootCoordsHolder, elementBounds)
             .graphicsLayer {
                 val s = morphTracker.evaluate(expansionFractionProvider())
+                if (!elementBounds.hasBounds) {
+                    alpha = 0f
+                    return@graphicsLayer
+                }
                 val cw = rootCoordsHolder.widthPx.takeIf { it > 0f } ?: screenWidthPx
                 val miniNextLeftPx = (cw - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
                 val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
@@ -608,8 +618,8 @@ internal fun StyleMorphingTransportButton(
                 }
                 val destX = elementBounds.offset.x
                 val destY = elementBounds.offset.y
-                val curW = lerp(miniBtnSizePx, size.width, s.sizeT) * animatedScale
-                val curH = lerp(miniBtnSizePx, size.height, s.sizeT) * animatedScale
+                val curW = lerp(miniBtnSizePx, size.width, s.sizeT)
+                val curH = lerp(miniBtnSizePx, size.height, s.sizeT)
                 transformOrigin = TransformOrigin(0f, 0f)
                 scaleX = if (size.width > 0f) curW / size.width else 1f
                 scaleY = if (size.height > 0f) curH / size.height else 1f
@@ -617,40 +627,58 @@ internal fun StyleMorphingTransportButton(
                 translationY = (miniBtnTopPx - destY) * (1f - s.posT)
                 alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
             }
-            .clip(buttonShape)
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .drawBehind {
+                val w = size.width.coerceAtLeast(1f)
+                val h = size.height.coerceAtLeast(1f)
+                val t = morphTracker.evaluate(expansionFractionProvider()).sizeT
+                val targetVisualR = lerp(miniCornerDp.toPx(), animatedCorner.toPx(), t)
+                val sx = (lerp(miniBtnSizePx, w, t) / w).coerceAtLeast(0.01f)
+                val sy = (lerp(miniBtnSizePx, h, t) / h).coerceAtLeast(0.01f)
+                val rx = (targetVisualR / sx).coerceIn(0f, w * 0.5f)
+                val ry = (targetVisualR / sy).coerceIn(0f, h * 0.5f)
+                drawRoundRect(
+                    color = animatedBg,
+                    cornerRadius = CornerRadius(rx, ry)
+                )
+            }
             .expressiveTapColorWave(
                 waveColor = contentColor.copy(alpha = 0.24f),
-                shape = buttonShape
+                shape = RoundedCornerShape(animatedCorner)
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {
-                    isPressedAnim = true
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onClick()
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    isPressed = true
+                    val up = waitForUpOrCancellation()
+                    isPressed = false
+                    if (up != null) {
+                        up.consume()
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        latestOnClick()
+                    }
                 }
-            ),
-        shape = buttonShape,
-        color = animatedBg,
-        contentColor = contentColor
+            },
+        contentAlignment = Alignment.Center
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    val bw = elementBounds.size.width.toFloat()
-                    val bh = elementBounds.size.height.toFloat()
-                    if (bw > 0f && bh > 0f) {
-                        val s = morphTracker.evaluate(expansionFractionProvider())
-                        val parentScaleX = lerp(miniBtnSizePx, bw, s.sizeT) / bw
-                        val parentScaleY = lerp(miniBtnSizePx, bh, s.sizeT) / bh
-                        val fullIconPx = iconSize.toPx().coerceAtLeast(1f)
-                        val desiredScale = lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
-                        scaleX = if (parentScaleX > 0.001f) desiredScale / parentScaleX else 1f
-                        scaleY = if (parentScaleY > 0.001f) desiredScale / parentScaleY else 1f
-                    }
-                },
+            modifier = Modifier.graphicsLayer {
+                val bw = elementBounds.size.width.toFloat()
+                val bh = elementBounds.size.height.toFloat()
+                if (bw > 0f && bh > 0f) {
+                    val s = morphTracker.evaluate(expansionFractionProvider())
+                    val parentScaleX = lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                    val parentScaleY = lerp(miniBtnSizePx, bh, s.sizeT) / bh
+                    val fullIconPx = iconSize.toPx().coerceAtLeast(1f)
+                    val desiredScale = lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
+                    scaleX = if (parentScaleX > 0.001f) desiredScale / parentScaleX else 1f
+                    scaleY = if (parentScaleY > 0.001f) desiredScale / parentScaleY else 1f
+                }
+            },
             contentAlignment = Alignment.Center
         ) {
             when (slot) {
@@ -747,5 +775,224 @@ internal fun StyleFavoriteButton(
                 modifier = Modifier.size(iconSize)
             )
         }
+    }
+}
+
+/**
+ * Full Material You Expressive segmented bottom action dock matching PixelMusic's BottomToggleRow.
+ * Uses crisp dynamic theme container & segment colors, spring press/active corner morphing,
+ * and clean spacing with zero muddy alpha overlays.
+ */
+@Composable
+internal fun StyleExpressiveBottomDock(
+    isShuffleEnabled: Boolean,
+    repeatMode: Int,
+    onShuffleToggle: () -> Unit,
+    onRepeatToggle: () -> Unit,
+    onLyricsClick: () -> Unit,
+    onMoreOptionsClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val baseTheme = LocalMaterialTheme.current
+    val isDark = LocalPixelMusicDarkTheme.current
+    val haptics = LocalHapticFeedback.current
+
+    val outerContainerColor = if (isDark) {
+        baseTheme.surfaceContainerHigh.copy(alpha = 0.72f)
+    } else {
+        baseTheme.onPrimary.copy(alpha = 0.90f)
+    }
+    val inactiveSegmentBg = if (isDark) {
+        baseTheme.onSurface.copy(alpha = 0.09f)
+    } else {
+        baseTheme.primaryContainer.copy(alpha = 0.65f)
+    }
+    val inactiveIconTint = baseTheme.onPrimaryContainer.copy(alpha = 0.86f)
+
+    val outerShape = RoundedCornerShape(999.dp)
+
+    Box(
+        modifier = modifier
+            .height(58.dp)
+            .clip(outerShape)
+            .background(outerContainerColor, outerShape)
+            .padding(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val isFourItem = onMoreOptionsClick != null
+
+            ExpressiveDockPillButton(
+                iconRes = R.drawable.rounded_shuffle_24,
+                contentDescription = "Shuffle",
+                isActive = isShuffleEnabled,
+                isFirst = true,
+                isLast = false,
+                activeBg = baseTheme.primary,
+                activeTint = baseTheme.onPrimary,
+                inactiveBg = inactiveSegmentBg,
+                inactiveTint = inactiveIconTint,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onShuffleToggle()
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+
+            ExpressiveDockPillButton(
+                iconRes = if (repeatMode == Player.REPEAT_MODE_ONE) {
+                    R.drawable.rounded_repeat_one_24
+                } else {
+                    R.drawable.rounded_repeat_24
+                },
+                contentDescription = "Repeat",
+                isActive = repeatMode != Player.REPEAT_MODE_OFF,
+                isFirst = false,
+                isLast = false,
+                activeBg = baseTheme.secondary,
+                activeTint = baseTheme.onSecondary,
+                inactiveBg = inactiveSegmentBg,
+                inactiveTint = inactiveIconTint,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onRepeatToggle()
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+
+            ExpressiveDockPillButton(
+                iconRes = R.drawable.rounded_lyrics_24,
+                contentDescription = "Lyrics",
+                isActive = false,
+                isFirst = false,
+                isLast = !isFourItem,
+                activeBg = baseTheme.tertiary,
+                activeTint = baseTheme.onTertiary,
+                inactiveBg = inactiveSegmentBg,
+                inactiveTint = inactiveIconTint,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onLyricsClick()
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+
+            if (onMoreOptionsClick != null) {
+                ExpressiveDockPillButton(
+                    iconRes = R.drawable.rounded_more_horiz_24,
+                    contentDescription = "More options",
+                    isActive = false,
+                    isFirst = false,
+                    isLast = true,
+                    activeBg = baseTheme.primary,
+                    activeTint = baseTheme.onPrimary,
+                    inactiveBg = inactiveSegmentBg,
+                    inactiveTint = inactiveIconTint,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onMoreOptionsClick()
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpressiveDockPillButton(
+    iconRes: Int,
+    contentDescription: String,
+    isActive: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
+    activeBg: Color,
+    activeTint: Color,
+    inactiveBg: Color,
+    inactiveTint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    val latestOnClick by rememberUpdatedState(onClick)
+
+    val innerCorner by animateDpAsState(
+        targetValue = when {
+            isPressed -> 14.dp
+            isActive -> 24.dp
+            else -> 10.dp
+        },
+        animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium),
+        label = "dockInnerCorner"
+    )
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "dockPressScale"
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (isActive) activeBg else inactiveBg,
+        animationSpec = tween(200),
+        label = "dockBg"
+    )
+    val iconColor by animateColorAsState(
+        targetValue = if (isActive) activeTint else inactiveTint,
+        animationSpec = tween(200),
+        label = "dockTint"
+    )
+
+    val startR = if (isFirst) 24.dp else innerCorner
+    val endR = if (isLast) 24.dp else innerCorner
+    val shape = RoundedCornerShape(
+        topStart = startR,
+        bottomStart = startR,
+        topEnd = endR,
+        bottomEnd = endR
+    )
+
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .clip(shape)
+            .background(bgColor, shape)
+            .expressiveTapColorWave(
+                waveColor = iconColor.copy(alpha = 0.22f),
+                shape = shape
+            )
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    isPressed = true
+                    val up = waitForUpOrCancellation()
+                    isPressed = false
+                    if (up != null) {
+                        up.consume()
+                        latestOnClick()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = contentDescription,
+            tint = iconColor,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }

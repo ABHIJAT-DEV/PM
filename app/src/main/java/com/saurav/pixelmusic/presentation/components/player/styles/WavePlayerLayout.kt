@@ -1,13 +1,10 @@
 package com.saurav.pixelmusic.presentation.components.player.styles
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,11 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -43,13 +35,10 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -57,8 +46,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
-import androidx.media3.common.Player
-import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.SmartImage
 import com.saurav.pixelmusic.presentation.components.player.AodSourceArtStyle
@@ -66,11 +53,14 @@ import com.saurav.pixelmusic.presentation.components.player.ArtworkMorphTracker
 import com.saurav.pixelmusic.presentation.components.player.LayoutCoordsHolder
 import com.saurav.pixelmusic.presentation.components.player.MorphElementBounds
 import com.saurav.pixelmusic.presentation.components.player.captureRootCoords
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
  * Organic S-curve wave bottom cutout that morphs cleanly from the MiniPlayer 44dp circle
  * into a full-bleed wavy artwork silhouette.
+ * Every control point stays strictly within [0, h] so the wave never clips flat at the bottom,
+ * and top corners stay smoothly rounded during sheet drags (matching ComplexPlayerLayout).
  */
 private class MorphingOrganicWaveShape(
     private val morphProgressProvider: () -> Float
@@ -87,12 +77,15 @@ private class MorphingOrganicWaveShape(
         }
 
         val waveT = ((t - 0.08f) / 0.92f).coerceIn(0f, 1f)
-        val topCornerR = lerp(minOf(w, h) * 0.5f, 0f, waveT)
-        val waveAmp = h * 0.145f * waveT
+        val waveAmp = h * 0.16f * waveT
 
-        // Smooth S-curve: left rises slightly above bottom, middle peaks gently, right dips down
-        val leftY = h - waveAmp * 0.72f
-        val rightY = h - waveAmp * 0.85f
+        // Strictly inside [0, h]: left starts mid-wave, left-center crests up, right-center dips to h - 2f
+        val leftY = h - waveAmp * 0.52f
+        val rightY = h - waveAmp * 0.44f
+        val troughY = h - 2f
+
+        val maxTopR = minOf(w * 0.5f, leftY, rightY).coerceAtLeast(0f)
+        val topCornerR = (maxTopR * (1f - t).pow(1.15f)).coerceIn(0f, maxTopR)
 
         val path = Path().apply {
             if (topCornerR > 0.5f) {
@@ -105,15 +98,16 @@ private class MorphingOrganicWaveShape(
                 lineTo(w, 0f)
             }
             lineTo(w, rightY)
-            // Right dip to center peak to left edge
+            // Right edge -> smooth deep trough (strictly <= h) -> center inflection
             cubicTo(
-                w * 0.76f, h + waveAmp * 0.42f,
-                w * 0.50f, h - waveAmp * 0.12f,
-                w * 0.34f, h - waveAmp * 1.02f
+                w * 0.86f, troughY,
+                w * 0.64f, troughY,
+                w * 0.48f, h - waveAmp * 0.52f
             )
+            // Center inflection -> smooth left crest -> left edge
             cubicTo(
-                w * 0.20f, h - waveAmp * 1.48f,
-                w * 0.08f, h - waveAmp * 1.12f,
+                w * 0.32f, h - waveAmp * 1.04f,
+                w * 0.14f, h - waveAmp * 0.96f,
                 0f, leftY
             )
             close()
@@ -124,8 +118,9 @@ private class MorphingOrganicWaveShape(
 
 /**
  * Isolated Now Playing Style: Wave
- * Full-bleed top album artwork with an organic S-wave bottom divider, bold editorial title/artist,
- * circular expressive transport controls, and a soft decorative wave ribbon at the bottom edge.
+ * Full-bleed top album artwork with a clean, unclipped organic S-wave bottom divider,
+ * bold editorial title/artist, balanced vertical rhythm, circular expressive transport controls,
+ * and a full Material You Expressive segmented bottom dock.
  */
 @Composable
 fun WavePlayerLayout(
@@ -135,7 +130,6 @@ fun WavePlayerLayout(
     val baseTheme = LocalMaterialTheme.current
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
-    val haptics = LocalHapticFeedback.current
 
     val (optimizedArtUri, resolvedTitle, resolvedArtist) = rememberResolvedArtAndMeta(
         song = params.song,
@@ -152,7 +146,7 @@ fun WavePlayerLayout(
     val screenWidthDp = configuration.screenWidthDp.dp
     val screenHeightDp = configuration.screenHeightDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
-    val artHeightPx = with(density) { (screenHeightDp * 0.54f).toPx() }
+    val artHeightPx = with(density) { (screenHeightDp * 0.50f).toPx() }
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
     val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
     val slideOffsetPx = remember(density) { with(density) { 20.dp.toPx() } }
@@ -194,11 +188,11 @@ fun WavePlayerLayout(
             .background(solidBackgroundColor)
             .captureRootCoords(rootCoordsHolder)
     ) {
-        // Decorative subtle bottom wave ribbon
+        // Subtle decorative bottom wave ribbon behind the dock
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(68.dp + navBarBottomPadding)
+                .height(82.dp + navBarBottomPadding)
                 .align(Alignment.BottomCenter)
                 .graphicsLayer {
                     val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
@@ -209,22 +203,22 @@ fun WavePlayerLayout(
             val h = size.height
             val path = Path().apply {
                 moveTo(0f, h)
-                lineTo(0f, h * 0.58f)
-                cubicTo(w * 0.24f, h * 0.25f, w * 0.52f, h * 0.85f, w * 0.78f, h * 0.36f)
-                cubicTo(w * 0.88f, h * 0.16f, w * 0.95f, h * 0.14f, w, h * 0.18f)
+                lineTo(0f, h * 0.54f)
+                cubicTo(w * 0.24f, h * 0.22f, w * 0.52f, h * 0.78f, w * 0.78f, h * 0.34f)
+                cubicTo(w * 0.88f, h * 0.18f, w * 0.95f, h * 0.16f, w, h * 0.20f)
                 lineTo(w, h)
                 close()
             }
-            drawPath(path = path, color = accentColor.copy(alpha = 0.14f))
+            drawPath(path = path, color = accentColor.copy(alpha = 0.12f))
         }
 
-        // TOP LAYER: Morphing Organic Wave Artwork
+        // TOP LAYER: Morphing Organic Wave Artwork (50% screen height so lower controls breathe cleanly)
         Box(
             modifier = Modifier
                 .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(params.expansionFractionProvider())
                     val fullW = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
-                    val fullH = (constraints.maxHeight.toFloat() * 0.54f).takeIf { it > 0f } ?: artHeightPx
+                    val fullH = (constraints.maxHeight.toFloat() * 0.50f).takeIf { it > 0f } ?: artHeightPx
                     val baseW = lerp(miniArtSizePx, fullW, sample.sizeT)
                     val baseH = lerp(miniArtSizePx, fullH, sample.sizeT)
                     val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
@@ -289,17 +283,17 @@ fun WavePlayerLayout(
             )
         }
 
-        // LOWER SECTION: Title/Artist + Favorite, Seekbar, Circular Transport, Secondary Row
+        // LOWER SECTION: Anchored cleanly from the bottom with harmonious spacing
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
                 .padding(
-                    top = (screenHeightDp * 0.54f).coerceAtLeast(280.dp),
-                    start = 26.dp,
-                    end = 26.dp,
+                    start = 24.dp,
+                    end = 24.dp,
                     bottom = navBarBottomPadding + 18.dp
                 ),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.Bottom
         ) {
             // Song Title + Artist + Favorite Heart
             Row(
@@ -312,8 +306,8 @@ fun WavePlayerLayout(
                     artist = resolvedArtist,
                     contentColor = contentColor,
                     artistAlpha = 0.78f,
-                    titleFontSize = 28.sp,
-                    artistFontSize = 16.sp,
+                    titleFontSize = 27.sp,
+                    artistFontSize = 15.sp,
                     screenWidthPx = screenWidthPx,
                     rootCoordsHolder = rootCoordsHolder,
                     morphTracker = morphTracker,
@@ -327,12 +321,12 @@ fun WavePlayerLayout(
 
                 StyleFavoriteButton(
                     isFavorite = isFavorite,
-                    containerColor = Color.Transparent,
-                    activeContainerColor = accentColor.copy(alpha = 0.14f),
-                    iconTint = contentColor.copy(alpha = 0.72f),
-                    activeIconTint = accentColor,
-                    size = 44.dp,
-                    iconSize = 26.dp,
+                    containerColor = onAccentColor.copy(alpha = 0.72f),
+                    activeContainerColor = accentColor,
+                    iconTint = accentColor,
+                    activeIconTint = onAccentColor,
+                    size = 46.dp,
+                    iconSize = 23.dp,
                     onClick = params.onFavoriteToggle,
                     modifier = Modifier.graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
@@ -340,6 +334,8 @@ fun WavePlayerLayout(
                     }
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Progress Slider + Timestamps + Optional Audio Meta
             StyleProgressSection(
@@ -349,17 +345,19 @@ fun WavePlayerLayout(
                 activeTrackColor = accentColor,
                 inactiveTrackColor = contentColor.copy(alpha = 0.18f),
                 thumbColor = accentColor,
-                timeTextColor = contentColor.copy(alpha = 0.74f),
+                timeTextColor = contentColor.copy(alpha = 0.76f),
                 metaPillBgColor = contentColor.copy(alpha = 0.10f),
-                metaPillTextColor = contentColor.copy(alpha = 0.88f),
-                waveAmplitudeWhenPlaying = 2.2.dp,
+                metaPillTextColor = contentColor.copy(alpha = 0.90f),
+                waveAmplitudeWhenPlaying = 2.6.dp,
                 trackHeight = 4.5.dp
             )
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Centered Expressive Circular Transport Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 StyleMorphingTransportButton(
@@ -370,13 +368,13 @@ fun WavePlayerLayout(
                     expansionFractionProvider = params.expansionFractionProvider,
                     aodSourceBounds = params.aodSourceBounds,
                     aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor.copy(alpha = 0.92f),
+                    containerColor = onAccentColor,
                     contentColor = accentColor,
-                    cornerRadius = 30.dp,
+                    cornerRadius = 31.dp,
                     pressedCornerRadius = 18.dp,
                     iconSize = 28.dp,
                     onClick = params.onPrevious,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(62.dp)
                 )
 
                 StyleMorphingTransportButton(
@@ -389,12 +387,12 @@ fun WavePlayerLayout(
                     aodTransitionProgressProvider = params.aodTransitionProgressProvider,
                     containerColor = accentColor,
                     contentColor = onAccentColor,
-                    cornerRadius = if (isPlaying) 28.dp else 40.dp,
-                    pressedCornerRadius = 20.dp,
+                    cornerRadius = if (isPlaying) 26.dp else 40.dp,
+                    pressedCornerRadius = 18.dp,
                     iconSize = 36.dp,
                     isPlaying = isPlaying,
                     onClick = params.onPlayPause,
-                    modifier = Modifier.size(78.dp)
+                    modifier = Modifier.size(80.dp)
                 )
 
                 StyleMorphingTransportButton(
@@ -405,18 +403,26 @@ fun WavePlayerLayout(
                     expansionFractionProvider = params.expansionFractionProvider,
                     aodSourceBounds = params.aodSourceBounds,
                     aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor.copy(alpha = 0.92f),
+                    containerColor = onAccentColor,
                     contentColor = accentColor,
-                    cornerRadius = 30.dp,
+                    cornerRadius = 31.dp,
                     pressedCornerRadius = 18.dp,
                     iconSize = 28.dp,
                     onClick = params.onNext,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(62.dp)
                 )
             }
 
-            // Secondary Clean Action Strip (Shuffle, Lyrics, Repeat, More)
-            Row(
+            Spacer(modifier = Modifier.height(22.dp))
+
+            // Full Material You Expressive Segmented Bottom Dock
+            StyleExpressiveBottomDock(
+                isShuffleEnabled = isShuffle,
+                repeatMode = repeatMode,
+                onShuffleToggle = params.onShuffleToggle,
+                onRepeatToggle = params.onRepeatToggle,
+                onLyricsClick = params.onLyricsClick,
+                onMoreOptionsClick = params.onMoreOptionsClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .graphicsLayer {
@@ -424,100 +430,7 @@ fun WavePlayerLayout(
                         val a = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
                         alpha = a
                         translationY = (1f - a) * slideOffsetPx
-                    },
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                WaveUtilityButton(
-                    iconRes = R.drawable.rounded_shuffle_24,
-                    contentDescription = "Shuffle",
-                    isActive = isShuffle,
-                    accentColor = accentColor,
-                    contentColor = contentColor,
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        params.onShuffleToggle()
                     }
-                )
-                WaveUtilityButton(
-                    iconRes = R.drawable.rounded_lyrics_24,
-                    contentDescription = "Lyrics",
-                    isActive = false,
-                    accentColor = accentColor,
-                    contentColor = contentColor,
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        params.onLyricsClick()
-                    }
-                )
-                WaveUtilityButton(
-                    iconRes = if (repeatMode == Player.REPEAT_MODE_ONE) {
-                        R.drawable.rounded_repeat_one_24
-                    } else {
-                        R.drawable.rounded_repeat_24
-                    },
-                    contentDescription = "Repeat",
-                    isActive = repeatMode != Player.REPEAT_MODE_OFF,
-                    accentColor = accentColor,
-                    contentColor = contentColor,
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        params.onRepeatToggle()
-                    }
-                )
-                WaveUtilityButton(
-                    iconRes = R.drawable.rounded_more_horiz_24,
-                    contentDescription = "More options",
-                    isActive = false,
-                    accentColor = accentColor,
-                    contentColor = contentColor,
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        params.onMoreOptionsClick()
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WaveUtilityButton(
-    iconRes: Int,
-    contentDescription: String,
-    isActive: Boolean,
-    accentColor: Color,
-    contentColor: Color,
-    onClick: () -> Unit
-) {
-    val bg by animateColorAsState(
-        targetValue = if (isActive) accentColor.copy(alpha = 0.18f) else Color.Transparent,
-        animationSpec = tween(200),
-        label = "waveUtilBg"
-    )
-    val tint by animateColorAsState(
-        targetValue = if (isActive) accentColor else contentColor.copy(alpha = 0.72f),
-        animationSpec = tween(200),
-        label = "waveUtilTint"
-    )
-    Surface(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            ),
-        shape = CircleShape,
-        color = bg
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = contentDescription,
-                tint = tint,
-                modifier = Modifier.size(22.dp)
             )
         }
     }

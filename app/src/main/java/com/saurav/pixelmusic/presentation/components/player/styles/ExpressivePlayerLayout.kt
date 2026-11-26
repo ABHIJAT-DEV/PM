@@ -1,16 +1,19 @@
 package com.saurav.pixelmusic.presentation.components.player.styles
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -25,10 +28,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,33 +42,35 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
-import androidx.media3.common.Player
-import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.SmartImage
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
 import com.saurav.pixelmusic.presentation.components.player.AodSourceArtStyle
 import com.saurav.pixelmusic.presentation.components.player.ArtworkMorphTracker
 import com.saurav.pixelmusic.presentation.components.player.LayoutCoordsHolder
 import com.saurav.pixelmusic.presentation.components.player.MorphElementBounds
 import com.saurav.pixelmusic.presentation.components.player.captureRootCoords
+import com.saurav.pixelmusic.ui.theme.LocalPixelMusicDarkTheme
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
  * Isolated Now Playing Style: Expressive
  * Full-bleed gradient-faded top artwork, editorial title & uppercase artist with tonal heart,
  * wavy progress slider with centered audio metadata pill, asymmetric wide Play/Pause + twin
- * circular Previous/Next buttons, and a segmented pill bottom dock + circular '+' action button.
+ * high-contrast circular Previous/Next buttons, and a full Material You Expressive segmented
+ * pill dock + matching circular '+' action button.
  */
 @Composable
 fun ExpressivePlayerLayout(
@@ -71,6 +78,7 @@ fun ExpressivePlayerLayout(
     modifier: Modifier = Modifier
 ) {
     val baseTheme = LocalMaterialTheme.current
+    val isDark = LocalPixelMusicDarkTheme.current
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val haptics = LocalHapticFeedback.current
@@ -121,13 +129,19 @@ fun ExpressivePlayerLayout(
         label = "expressiveArtScale"
     )
 
+    val moreButtonBg = if (isDark) {
+        baseTheme.surfaceContainerHigh.copy(alpha = 0.72f)
+    } else {
+        baseTheme.onPrimary.copy(alpha = 0.90f)
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(solidBackgroundColor)
             .captureRootCoords(rootCoordsHolder)
     ) {
-        // TOP LAYER: Full-bleed Gradient-Faded Artwork morphing from MiniPlayer circle
+        // TOP LAYER: Full-bleed Gradient-Faded Artwork with smooth top corner rounding during drag
         Box(
             modifier = Modifier
                 .layout { measurable, constraints ->
@@ -153,8 +167,16 @@ fun ExpressivePlayerLayout(
                 }
                 .graphicsLayer {
                     val s = morphTracker.evaluate(params.expansionFractionProvider())
-                    val cornerPx = lerp(miniArtSizePx * 0.5f, 0f, s.sizeT)
-                    shape = RoundedCornerShape(cornerPx)
+                    val t = s.sizeT.coerceIn(0f, 1f)
+                    val maxR = minOf(size.width, size.height) * 0.5f
+                    val topCornerPx = (maxR * (1f - t).pow(1.15f)).coerceIn(0f, maxR)
+                    val bottomCornerPx = (maxR * (1f - t).pow(1.4f)).coerceIn(0f, maxR)
+                    shape = RoundedCornerShape(
+                        topStart = topCornerPx,
+                        topEnd = topCornerPx,
+                        bottomStart = bottomCornerPx,
+                        bottomEnd = bottomCornerPx
+                    )
                     clip = true
                     alpha = if (params.aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 }
@@ -223,17 +245,17 @@ fun ExpressivePlayerLayout(
             )
         }
 
-        // LOWER SECTION: Title/Artist + Tonal Heart, Wavy Slider + Meta Pill, Asymmetric Controls, Bottom Dock
+        // LOWER SECTION: Anchored from bottom with balanced, compact rhythm
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
                 .padding(
-                    top = (screenHeightDp * 0.56f).coerceAtLeast(310.dp),
                     start = 24.dp,
                     end = 24.dp,
-                    bottom = navBarBottomPadding + 16.dp
+                    bottom = navBarBottomPadding + 18.dp
                 ),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.Bottom
         ) {
             // Editorial Song Info + Circular Tonal Favorite
             Row(
@@ -262,10 +284,10 @@ fun ExpressivePlayerLayout(
 
                 StyleFavoriteButton(
                     isFavorite = isFavorite,
-                    containerColor = contentColor.copy(alpha = 0.14f),
-                    activeContainerColor = accentColor.copy(alpha = 0.24f),
-                    iconTint = contentColor.copy(alpha = 0.90f),
-                    activeIconTint = accentColor,
+                    containerColor = onAccentColor.copy(alpha = 0.78f),
+                    activeContainerColor = accentColor,
+                    iconTint = accentColor,
+                    activeIconTint = onAccentColor,
                     size = 48.dp,
                     iconSize = 23.dp,
                     onClick = params.onFavoriteToggle,
@@ -276,22 +298,26 @@ fun ExpressivePlayerLayout(
                 )
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Wavy Progress Slider + Timestamps + Centered Audio Metadata Pill
             StyleProgressSection(
                 params = params,
                 rootCoordsHolder = rootCoordsHolder,
                 morphTracker = morphTracker,
-                activeTrackColor = contentColor,
+                activeTrackColor = accentColor,
                 inactiveTrackColor = contentColor.copy(alpha = 0.22f),
-                thumbColor = contentColor,
+                thumbColor = accentColor,
                 timeTextColor = contentColor.copy(alpha = 0.78f),
-                metaPillBgColor = contentColor.copy(alpha = 0.14f),
+                metaPillBgColor = contentColor.copy(alpha = 0.12f),
                 metaPillTextColor = contentColor.copy(alpha = 0.90f),
                 waveAmplitudeWhenPlaying = 3.5.dp,
                 trackHeight = 5.dp
             )
 
-            // Asymmetric Expressive Transport Row: Wide Rounded Play/Pause + Twin Circular Prev/Next
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Asymmetric Expressive Transport Row: Wide Rounded Play/Pause + Twin High-Contrast Circular Prev/Next
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -327,8 +353,8 @@ fun ExpressivePlayerLayout(
                     expansionFractionProvider = params.expansionFractionProvider,
                     aodSourceBounds = params.aodSourceBounds,
                     aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = baseTheme.secondaryContainer,
-                    contentColor = baseTheme.onSecondaryContainer,
+                    containerColor = onAccentColor,
+                    contentColor = accentColor,
                     cornerRadius = 39.dp,
                     pressedCornerRadius = 22.dp,
                     iconSize = 28.dp,
@@ -344,8 +370,8 @@ fun ExpressivePlayerLayout(
                     expansionFractionProvider = params.expansionFractionProvider,
                     aodSourceBounds = params.aodSourceBounds,
                     aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = baseTheme.secondaryContainer,
-                    contentColor = baseTheme.onSecondaryContainer,
+                    containerColor = onAccentColor,
+                    contentColor = accentColor,
                     cornerRadius = 39.dp,
                     pressedCornerRadius = 22.dp,
                     iconSize = 28.dp,
@@ -354,11 +380,12 @@ fun ExpressivePlayerLayout(
                 )
             }
 
-            // Bottom Segmented Pill Dock (Shuffle | Repeat | Lyrics) + Circular '+' More Button
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Bottom M3 Expressive Segmented Pill Dock (Shuffle | Repeat | Lyrics) + Circular '+' Button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
                     .graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         val a = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
@@ -368,162 +395,77 @@ fun ExpressivePlayerLayout(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    shape = RoundedCornerShape(999.dp),
-                    color = Color.Black.copy(alpha = 0.24f)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ExpressiveDockSegment(
-                            iconRes = R.drawable.rounded_shuffle_24,
-                            contentDescription = "Shuffle",
-                            isActive = isShuffle,
-                            shape = RoundedCornerShape(
-                                topStart = 24.dp,
-                                bottomStart = 24.dp,
-                                topEnd = 8.dp,
-                                bottomEnd = 8.dp
-                            ),
-                            activeBg = accentColor,
-                            activeTint = onAccentColor,
-                            inactiveBg = contentColor.copy(alpha = 0.12f),
-                            inactiveTint = contentColor.copy(alpha = 0.88f),
-                            onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                params.onShuffleToggle()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                        )
+                StyleExpressiveBottomDock(
+                    isShuffleEnabled = isShuffle,
+                    repeatMode = repeatMode,
+                    onShuffleToggle = params.onShuffleToggle,
+                    onRepeatToggle = params.onRepeatToggle,
+                    onLyricsClick = params.onLyricsClick,
+                    onMoreOptionsClick = null,
+                    modifier = Modifier.weight(1f)
+                )
 
-                        ExpressiveDockSegment(
-                            iconRes = if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                R.drawable.rounded_repeat_one_24
-                            } else {
-                                R.drawable.rounded_repeat_24
-                            },
-                            contentDescription = "Repeat",
-                            isActive = repeatMode != Player.REPEAT_MODE_OFF,
-                            shape = RoundedCornerShape(8.dp),
-                            activeBg = accentColor,
-                            activeTint = onAccentColor,
-                            inactiveBg = contentColor.copy(alpha = 0.12f),
-                            inactiveTint = contentColor.copy(alpha = 0.88f),
-                            onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                params.onRepeatToggle()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                        )
-
-                        ExpressiveDockSegment(
-                            iconRes = R.drawable.rounded_lyrics_24,
-                            contentDescription = "Lyrics",
-                            isActive = false,
-                            shape = RoundedCornerShape(
-                                topStart = 8.dp,
-                                bottomStart = 8.dp,
-                                topEnd = 24.dp,
-                                bottomEnd = 24.dp
-                            ),
-                            activeBg = accentColor,
-                            activeTint = onAccentColor,
-                            inactiveBg = contentColor.copy(alpha = 0.12f),
-                            inactiveTint = contentColor.copy(alpha = 0.88f),
-                            onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                params.onLyricsClick()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                        )
+                ExpressiveCircleMoreButton(
+                    containerColor = moreButtonBg,
+                    iconTint = accentColor,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        params.onMoreOptionsClick()
                     }
-                }
-
-                // Standalone circular '+' button for More Options / Song Info
-                Surface(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                params.onMoreOptionsClick()
-                            }
-                        ),
-                    shape = CircleShape,
-                    color = Color.Black.copy(alpha = 0.28f),
-                    contentColor = contentColor.copy(alpha = 0.92f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = "More options",
-                            tint = contentColor.copy(alpha = 0.92f),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ExpressiveDockSegment(
-    iconRes: Int,
-    contentDescription: String,
-    isActive: Boolean,
-    shape: RoundedCornerShape,
-    activeBg: Color,
-    activeTint: Color,
-    inactiveBg: Color,
-    inactiveTint: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+private fun ExpressiveCircleMoreButton(
+    containerColor: Color,
+    iconTint: Color,
+    onClick: () -> Unit
 ) {
-    val bg by animateColorAsState(
-        targetValue = if (isActive) activeBg else inactiveBg,
-        animationSpec = tween(200),
-        label = "expSegBg"
+    var isPressed by remember { mutableStateOf(false) }
+    val latestOnClick by rememberUpdatedState(onClick)
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "moreBtnScale"
     )
-    val tint by animateColorAsState(
-        targetValue = if (isActive) activeTint else inactiveTint,
-        animationSpec = tween(200),
-        label = "expSegTint"
-    )
-    Surface(
-        modifier = modifier
+    val shape = CircleShape
+
+    Box(
+        modifier = Modifier
+            .size(58.dp)
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .clip(shape)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            ),
-        shape = shape,
-        color = bg
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = contentDescription,
-                tint = tint,
-                modifier = Modifier.size(22.dp)
+            .background(containerColor, shape)
+            .expressiveTapColorWave(
+                waveColor = iconTint.copy(alpha = 0.22f),
+                shape = shape
             )
-        }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    isPressed = true
+                    val up = waitForUpOrCancellation()
+                    isPressed = false
+                    if (up != null) {
+                        up.consume()
+                        latestOnClick()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Add,
+            contentDescription = "More options",
+            tint = iconTint,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }

@@ -1,6 +1,5 @@
 package com.saurav.pixelmusic.presentation.components.player.styles
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -11,12 +10,11 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,10 +24,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -41,19 +35,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -61,8 +51,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
-import androidx.media3.common.Player
-import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.SmartImage
 import com.saurav.pixelmusic.presentation.components.player.AodSourceArtStyle
@@ -95,7 +83,6 @@ private class MorphingTriplePillarShape(
         val splitT = ((t - 0.14f) / 0.86f).coerceIn(0f, 1f)
         val path = Path()
 
-        // Interpolate each capsule from the full bounding circle toward its staggered pillar rect
         fun addInterpolatedPill(
             targetLeft: Float,
             targetTop: Float,
@@ -124,7 +111,8 @@ private class MorphingTriplePillarShape(
 /**
  * Isolated Now Playing Style: Pillars
  * Displays continuous album artwork through three staggered vertical capsule windows
- * accented by Material You decorative circles and a subtle live audio waveform.
+ * accented by unclipped Material You decorative circles and a subtle live audio waveform,
+ * paired with balanced controls and a full Material You Expressive segmented dock.
  */
 @Composable
 fun PillarsPlayerLayout(
@@ -134,7 +122,6 @@ fun PillarsPlayerLayout(
     val baseTheme = LocalMaterialTheme.current
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
-    val haptics = LocalHapticFeedback.current
 
     val (optimizedArtUri, resolvedTitle, resolvedArtist) = rememberResolvedArtAndMeta(
         song = params.song,
@@ -153,9 +140,9 @@ fun PillarsPlayerLayout(
     val screenWidthDp = configuration.screenWidthDp.dp
     val screenHeightDp = configuration.screenHeightDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
-    val artTopOffsetDp = statusBarTopPadding + 56.dp
+    val artTopOffsetDp = statusBarTopPadding + 58.dp
     val artTopOffsetPx = with(density) { artTopOffsetDp.toPx() }
-    val artHeightDp = (screenHeightDp * 0.44f).coerceIn(260.dp, 380.dp)
+    val artHeightDp = (screenHeightDp * 0.42f).coerceIn(250.dp, 360.dp)
     val artHeightPx = with(density) { artHeightDp.toPx() }
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
     val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
@@ -192,7 +179,6 @@ fun PillarsPlayerLayout(
         label = "pillarsArtScale"
     )
 
-    // Gentle animated waveform phase for the decorative upper-left equalizer bars
     val waveTransition = rememberInfiniteTransition(label = "pillarsWave")
     val wavePhase by waveTransition.animateFloat(
         initialValue = 0f,
@@ -215,37 +201,36 @@ fun PillarsPlayerLayout(
             .background(solidBackgroundColor)
             .captureRootCoords(rootCoordsHolder)
     ) {
-        // Decorative Material You organic backdrop circles + live waveform bars behind the pillars
+        // Full-screen unclipped Canvas for decorative circles + live waveform so no circle ever clips flat at the top
         Canvas(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = artTopOffsetDp)
-                .height(artHeightDp)
+                .fillMaxSize()
                 .graphicsLayer {
                     val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                     alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
                 }
         ) {
             val w = size.width
-            val h = size.height
+            val topY = artTopOffsetPx
+            val h = artHeightPx
 
-            // Soft large organic blob in upper-right behind right pillar
+            // Soft large organic blob in upper-right behind right pillar (extends smoothly up under top bar)
             drawCircle(
-                color = accentColor.copy(alpha = 0.10f),
+                color = accentColor.copy(alpha = 0.09f),
                 radius = w * 0.44f,
-                center = Offset(w * 0.84f, h * 0.24f)
+                center = Offset(w * 0.84f, topY + h * 0.22f)
             )
-            // Coral/tertiary accent circle in upper-left
+            // Accent circle in upper-left (fully unclipped!)
             drawCircle(
-                color = tertiaryAccent.copy(alpha = 0.42f),
-                radius = w * 0.11f,
-                center = Offset(w * 0.23f, h * 0.11f)
+                color = tertiaryAccent.copy(alpha = 0.38f),
+                radius = w * 0.105f,
+                center = Offset(w * 0.23f, topY + h * 0.11f)
             )
             // Peeking accent circle along mid-left edge behind left pillar
             drawCircle(
-                color = tertiaryAccent.copy(alpha = 0.34f),
-                radius = w * 0.19f,
-                center = Offset(w * 0.04f, h * 0.68f)
+                color = tertiaryAccent.copy(alpha = 0.30f),
+                radius = w * 0.185f,
+                center = Offset(w * 0.04f, topY + h * 0.68f)
             )
 
             // Decorative subtle audio waveform bars in upper-left space above the left pillar
@@ -254,8 +239,8 @@ fun PillarsPlayerLayout(
             val regionStart = w * 0.06f
             val regionWidth = w * 0.29f
             val step = regionWidth / (barCount - 1).coerceAtLeast(1)
-            val centerY = h * 0.30f
-            val maxHalfH = h * 0.085f
+            val centerY = topY + h * 0.31f
+            val maxHalfH = h * 0.082f
             val strokeW = 3.2.dp.toPx()
 
             for (i in 0 until barCount) {
@@ -264,7 +249,7 @@ fun PillarsPlayerLayout(
                 val halfH = (maxHalfH * heightFraction).coerceAtLeast(strokeW)
                 val x = regionStart + i * step
                 drawLine(
-                    color = contentColor.copy(alpha = 0.22f),
+                    color = contentColor.copy(alpha = 0.24f),
                     start = Offset(x, centerY - halfH),
                     end = Offset(x, centerY + halfH),
                     strokeWidth = strokeW,
@@ -323,17 +308,17 @@ fun PillarsPlayerLayout(
             )
         }
 
-        // LOWER SECTION: Song Info + Favorite, Progress, Expressive Controls, Utility Pill Row
+        // LOWER SECTION: Anchored cleanly from the bottom with cohesive vertical rhythm
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
                 .padding(
-                    top = artTopOffsetDp + artHeightDp + 16.dp,
                     start = 24.dp,
                     end = 24.dp,
                     bottom = navBarBottomPadding + 18.dp
                 ),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.Bottom
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -360,12 +345,12 @@ fun PillarsPlayerLayout(
 
                 StyleFavoriteButton(
                     isFavorite = isFavorite,
-                    containerColor = contentColor.copy(alpha = 0.10f),
-                    activeContainerColor = tertiaryAccent.copy(alpha = 0.22f),
-                    iconTint = contentColor.copy(alpha = 0.82f),
-                    activeIconTint = tertiaryAccent,
+                    containerColor = onAccentColor.copy(alpha = 0.78f),
+                    activeContainerColor = accentColor,
+                    iconTint = accentColor,
+                    activeIconTint = onAccentColor,
                     size = 46.dp,
-                    iconSize = 24.dp,
+                    iconSize = 23.dp,
                     onClick = params.onFavoriteToggle,
                     modifier = Modifier.graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
@@ -374,6 +359,8 @@ fun PillarsPlayerLayout(
                 )
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
             StyleProgressSection(
                 params = params,
                 rootCoordsHolder = rootCoordsHolder,
@@ -381,12 +368,14 @@ fun PillarsPlayerLayout(
                 activeTrackColor = accentColor,
                 inactiveTrackColor = contentColor.copy(alpha = 0.18f),
                 thumbColor = accentColor,
-                timeTextColor = contentColor.copy(alpha = 0.74f),
+                timeTextColor = contentColor.copy(alpha = 0.76f),
                 metaPillBgColor = contentColor.copy(alpha = 0.10f),
                 metaPillTextColor = contentColor.copy(alpha = 0.90f),
                 waveAmplitudeWhenPlaying = 3.dp,
                 trackHeight = 5.dp
             )
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Capsule-themed Horizontal Transport Controls
             Row(
@@ -402,9 +391,9 @@ fun PillarsPlayerLayout(
                     expansionFractionProvider = params.expansionFractionProvider,
                     aodSourceBounds = params.aodSourceBounds,
                     aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor.copy(alpha = 0.92f),
+                    containerColor = onAccentColor,
                     contentColor = accentColor,
-                    cornerRadius = 32.dp,
+                    cornerRadius = 31.dp,
                     pressedCornerRadius = 18.dp,
                     iconSize = 28.dp,
                     onClick = params.onPrevious,
@@ -426,7 +415,7 @@ fun PillarsPlayerLayout(
                     iconSize = 34.dp,
                     isPlaying = isPlaying,
                     onClick = params.onPlayPause,
-                    modifier = Modifier.size(width = 104.dp, height = 72.dp)
+                    modifier = Modifier.size(width = 106.dp, height = 72.dp)
                 )
 
                 StyleMorphingTransportButton(
@@ -437,9 +426,9 @@ fun PillarsPlayerLayout(
                     expansionFractionProvider = params.expansionFractionProvider,
                     aodSourceBounds = params.aodSourceBounds,
                     aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor.copy(alpha = 0.92f),
+                    containerColor = onAccentColor,
                     contentColor = accentColor,
-                    cornerRadius = 32.dp,
+                    cornerRadius = 31.dp,
                     pressedCornerRadius = 18.dp,
                     iconSize = 28.dp,
                     onClick = params.onNext,
@@ -447,123 +436,24 @@ fun PillarsPlayerLayout(
                 )
             }
 
-            // Bottom Pill Utility Dock
-            Surface(
+            Spacer(modifier = Modifier.height(22.dp))
+
+            // Full Material You Expressive Segmented Bottom Dock
+            StyleExpressiveBottomDock(
+                isShuffleEnabled = isShuffle,
+                repeatMode = repeatMode,
+                onShuffleToggle = params.onShuffleToggle,
+                onRepeatToggle = params.onRepeatToggle,
+                onLyricsClick = params.onLyricsClick,
+                onMoreOptionsClick = params.onMoreOptionsClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
                     .graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         val a = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
                         alpha = a
                         translationY = (1f - a) * slideOffsetPx
-                    },
-                shape = RoundedCornerShape(999.dp),
-                color = contentColor.copy(alpha = 0.10f)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PillarsDockItem(
-                        iconRes = R.drawable.rounded_shuffle_24,
-                        contentDescription = "Shuffle",
-                        isActive = isShuffle,
-                        activeBg = accentColor,
-                        activeTint = onAccentColor,
-                        inactiveTint = contentColor.copy(alpha = 0.78f),
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            params.onShuffleToggle()
-                        }
-                    )
-                    PillarsDockItem(
-                        iconRes = if (repeatMode == Player.REPEAT_MODE_ONE) {
-                            R.drawable.rounded_repeat_one_24
-                        } else {
-                            R.drawable.rounded_repeat_24
-                        },
-                        contentDescription = "Repeat",
-                        isActive = repeatMode != Player.REPEAT_MODE_OFF,
-                        activeBg = accentColor,
-                        activeTint = onAccentColor,
-                        inactiveTint = contentColor.copy(alpha = 0.78f),
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            params.onRepeatToggle()
-                        }
-                    )
-                    PillarsDockItem(
-                        iconRes = R.drawable.rounded_lyrics_24,
-                        contentDescription = "Lyrics",
-                        isActive = false,
-                        activeBg = accentColor,
-                        activeTint = onAccentColor,
-                        inactiveTint = contentColor.copy(alpha = 0.78f),
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            params.onLyricsClick()
-                        }
-                    )
-                    PillarsDockItem(
-                        iconRes = R.drawable.rounded_more_horiz_24,
-                        contentDescription = "More options",
-                        isActive = false,
-                        activeBg = accentColor,
-                        activeTint = onAccentColor,
-                        inactiveTint = contentColor.copy(alpha = 0.78f),
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            params.onMoreOptionsClick()
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PillarsDockItem(
-    iconRes: Int,
-    contentDescription: String,
-    isActive: Boolean,
-    activeBg: Color,
-    activeTint: Color,
-    inactiveTint: Color,
-    onClick: () -> Unit
-) {
-    val bg by animateColorAsState(
-        targetValue = if (isActive) activeBg else Color.Transparent,
-        animationSpec = tween(200),
-        label = "pillarsDockBg"
-    )
-    val tint by animateColorAsState(
-        targetValue = if (isActive) activeTint else inactiveTint,
-        animationSpec = tween(200),
-        label = "pillarsDockTint"
-    )
-    Surface(
-        modifier = Modifier
-            .size(width = 58.dp, height = 38.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            ),
-        shape = RoundedCornerShape(999.dp),
-        color = bg
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = contentDescription,
-                tint = tint,
-                modifier = Modifier.size(22.dp)
+                    }
             )
         }
     }
