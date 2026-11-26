@@ -82,7 +82,7 @@ fun Modifier.expressiveTapColorWave(
                     waveAlpha.animateTo(
                         targetValue = 0f,
                         animationSpec = tween(
-                            durationMillis = (durationMillis * 0.65f).toLong(),
+                            durationMillis = (durationMillis * 0.65f).toInt(),
                             easing = FastOutSlowInEasing
                         )
                     )
