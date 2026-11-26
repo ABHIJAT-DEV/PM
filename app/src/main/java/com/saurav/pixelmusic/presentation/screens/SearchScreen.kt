@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -98,6 +99,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -128,8 +130,12 @@ import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.preferences.AppBackgroundStyle
 import com.saurav.pixelmusic.data.preferences.SearchSource
 import com.saurav.pixelmusic.data.remote.youtube.toNativeSong
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.ExpressiveSingleCardShape
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.PlaylistBottomSheet
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
 import com.saurav.pixelmusic.presentation.components.PlaylistCover
 import com.saurav.pixelmusic.presentation.components.SmartImage
 import com.saurav.pixelmusic.presentation.components.SmartImageListTargetSize
@@ -758,12 +764,13 @@ private fun SearchLoadingPlaceholder(bottomPadding: Dp) {
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 8.dp, bottom = bottomPadding),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 6.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp)
+                .padding(bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -775,11 +782,12 @@ private fun SearchLoadingPlaceholder(bottomPadding: Dp) {
                 fontWeight = FontWeight.SemiBold
             )
         }
-        repeat(6) {
+        repeat(6) { idx ->
             EnhancedSongListItem(
                 song = dummySong,
                 isPlaying = false,
                 isLoading = true,
+                customShape = expressiveGroupedCardShape(idx, 6),
                 onMoreOptionsClick = {},
                 onClick = {}
             )
@@ -843,7 +851,7 @@ fun SearchHistoryList(
         modifier = Modifier
             .fillMaxSize()
             .scrollMotionBlur(historyListState, enabled = isMotionBlurEnabled),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing),
         contentPadding = PaddingValues(
             top = 8.dp,
             bottom = bottomContentPadding
@@ -940,13 +948,14 @@ fun SearchHistoryList(
                 }
             }
 
-            items(
+            itemsIndexed(
                 items = historyItems,
-                key = { "history_${it.id ?: it.query}" },
-                contentType = { "search_history" }
-            ) { item ->
+                key = { _, item -> "history_${item.id ?: item.query}" },
+                contentType = { _, _ -> "search_history" }
+            ) { index, item ->
                 SearchHistoryListItem(
                     item = item,
+                    customShape = expressiveGroupedCardShape(index, historyItems.size),
                     onHistoryClick = onHistoryClick,
                     onHistoryDelete = onHistoryDelete
                 )
@@ -1038,13 +1047,19 @@ private fun ExploreCategoryCard(
 fun SearchHistoryListItem(
     item: SearchHistoryItem,
     onHistoryClick: (String) -> Unit,
-    onHistoryDelete: (String) -> Unit
+    onHistoryDelete: (String) -> Unit,
+    customShape: Shape = ExpressiveSingleCardShape
 ) {
     Surface(
         onClick = { onHistoryClick(item.query) },
-        shape = RoundedCornerShape(20.dp),
+        shape = customShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .expressiveTapColorWave(
+                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                shape = customShape
+            )
     ) {
         Row(
             modifier = Modifier
@@ -1323,7 +1338,9 @@ fun SearchResultsList(
                     }
                 ) { index ->
                     val item = itemsForSection[index]
-                    Box(modifier = Modifier.padding(bottom = 10.dp)) {
+                    val itemShape = expressiveGroupedCardShape(index, itemsForSection.size)
+                    val bottomSpace = if (index == itemsForSection.lastIndex) 12.dp else ExpressiveGroupedCardSpacing
+                    Box(modifier = Modifier.padding(bottom = bottomSpace)) {
                         when (item) {
                             is SearchResultItem.SongItem -> {
                                 SwipeActionWrapper(
@@ -1340,6 +1357,7 @@ fun SearchResultsList(
                                         song = item.song,
                                         isPlaying = isPlaying,
                                         isCurrentSong = currentPlayingSongId == item.song.id,
+                                        customShape = itemShape,
                                         onMoreOptionsClick = onSongMoreOptionsClick,
                                         onClick = { onSongResultClick(item.song) }
                                     )
@@ -1365,6 +1383,7 @@ fun SearchResultsList(
                                 }
                                 SearchResultAlbumItem(
                                     album = item.album,
+                                    customShape = itemShape,
                                     onPlayClick = onPlayClick,
                                     onOpenClick = onOpenClick
                                 )
@@ -1390,6 +1409,7 @@ fun SearchResultsList(
                                 }
                                 SearchResultArtistItem(
                                     artist = item.artist,
+                                    customShape = itemShape,
                                     onPlayClick = onPlayClick,
                                     onOpenClick = onOpenClick
                                 )
@@ -1471,6 +1491,7 @@ fun SearchResultsList(
                                 SearchResultPlaylistItem(
                                     playlist = item.playlist,
                                     playlistSongs = playlistSongs,
+                                    customShape = itemShape,
                                     onPlayClick = onPlayClick,
                                     onOpenClick = onOpenClick
                                 )
@@ -1657,22 +1678,21 @@ private data class SpotlightData(
 fun SearchResultAlbumItem(
     album: Album,
     onOpenClick: () -> Unit,
-    onPlayClick: () -> Unit
+    onPlayClick: () -> Unit,
+    customShape: Shape = ExpressiveSingleCardShape
 ) {
-    val itemShape = remember {
-        AbsoluteSmoothCornerShape(
-            cornerRadiusTL = 26.dp, smoothnessAsPercentTR = 60,
-            cornerRadiusTR = 26.dp, smoothnessAsPercentBR = 60,
-            cornerRadiusBR = 26.dp, smoothnessAsPercentBL = 60,
-            cornerRadiusBL = 26.dp, smoothnessAsPercentTL = 60
-        )
-    }
+    val artShape = remember { RoundedCornerShape(14.dp) }
 
     Card(
         onClick = onOpenClick,
-        shape = itemShape,
+        shape = customShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .expressiveTapColorWave(
+                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                shape = customShape
+            )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -1682,7 +1702,7 @@ fun SearchResultAlbumItem(
                 model = album.albumArtUriString,
                 contentDescription = "Album Art: ${album.title}",
                 targetSize = SmartImageListTargetSize,
-                modifier = Modifier.size(56.dp).clip(itemShape)
+                modifier = Modifier.size(56.dp).clip(artShape)
             )
             Spacer(Modifier.width(12.dp))
             Column(
@@ -1724,22 +1744,19 @@ fun SearchResultAlbumItem(
 fun SearchResultArtistItem(
     artist: Artist,
     onOpenClick: () -> Unit,
-    onPlayClick: () -> Unit
+    onPlayClick: () -> Unit,
+    customShape: Shape = ExpressiveSingleCardShape
 ) {
-    val itemShape = remember {
-        AbsoluteSmoothCornerShape(
-            cornerRadiusTL = 26.dp, smoothnessAsPercentTR = 60,
-            cornerRadiusTR = 26.dp, smoothnessAsPercentBR = 60,
-            cornerRadiusBR = 26.dp, smoothnessAsPercentBL = 60,
-            cornerRadiusBL = 26.dp, smoothnessAsPercentTL = 60
-        )
-    }
-
     Card(
         onClick = onOpenClick,
-        shape = itemShape,
+        shape = customShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .expressiveTapColorWave(
+                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                shape = customShape
+            )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -1804,22 +1821,19 @@ fun SearchResultPlaylistItem(
     playlist: Playlist,
     playlistSongs: List<Song>,
     onOpenClick: () -> Unit,
-    onPlayClick: () -> Unit
+    onPlayClick: () -> Unit,
+    customShape: Shape = ExpressiveSingleCardShape
 ) {
-    val itemShape = remember {
-        AbsoluteSmoothCornerShape(
-            cornerRadiusTL = 26.dp, smoothnessAsPercentTR = 60,
-            cornerRadiusTR = 26.dp, smoothnessAsPercentBR = 60,
-            cornerRadiusBR = 26.dp, smoothnessAsPercentBL = 60,
-            cornerRadiusBL = 26.dp, smoothnessAsPercentTL = 60
-        )
-    }
-
     Card(
         onClick = onOpenClick,
-        shape = itemShape,
+        shape = customShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .expressiveTapColorWave(
+                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                shape = customShape
+            )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),

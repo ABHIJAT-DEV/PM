@@ -66,7 +66,13 @@ import androidx.navigation.NavController
 import com.saurav.pixelmusic.data.model.Artist
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.presentation.components.CollapsibleCommonTopBar
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
+import com.saurav.pixelmusic.presentation.components.ExpressiveMorphingCardShape
 import com.saurav.pixelmusic.presentation.components.ExpressiveScrollBar
+import com.saurav.pixelmusic.presentation.components.ExpressiveSingleCardShape
+import com.saurav.pixelmusic.presentation.components.ExpressiveWaveEasing
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.PlaylistBottomSheet
 import com.saurav.pixelmusic.presentation.components.SmartImageCompactListTargetSize
@@ -361,8 +367,9 @@ fun ArtistDetailScreen(
                                     }
                                 )
                             }
+                            val displayedPopularSongs = if (isTransitionFinished) popularSongs else popularSongs.take(5)
                             itemsIndexed(
-                                items = if (isTransitionFinished) popularSongs else popularSongs.take(5),
+                                items = displayedPopularSongs,
                                 key = { idx, song -> "popular_${song.id}_$idx" },
                                 contentType = { _, _ -> "popular_song_item" }
                             ) { idx, song ->
@@ -371,7 +378,8 @@ fun ArtistDetailScreen(
                                     rank = idx + 1,
                                     isCurrentSong = artistCurrentSongId == song.id,
                                     isPlaying = artistIsPlaying,
-                                    isLast = idx == popularSongs.size - 1,
+                                    isLast = idx == displayedPopularSongs.lastIndex,
+                                    customShape = expressiveGroupedCardShape(idx, displayedPopularSongs.size),
                                     onSongClick = {
                                         playerViewModel.showAndPlaySong(song, popularSongs)
                                     },
@@ -498,24 +506,8 @@ fun ArtistDetailScreen(
                                     key = { idx, song -> "local_artist_song_${song.id}_$idx" },
                                     contentType = { _, _ -> "local_artist_song" }
                                 ) { idx, song ->
-                                    val isFirst = idx == 0
                                     val isLast = idx == displayedSongs.lastIndex
-                                    val songShape = when {
-                                        isFirst && isLast -> RoundedCornerShape(24.dp)
-                                        isFirst -> RoundedCornerShape(
-                                            topStart = 24.dp,
-                                            topEnd = 24.dp,
-                                            bottomStart = 4.dp,
-                                            bottomEnd = 4.dp
-                                        )
-                                        isLast -> RoundedCornerShape(
-                                            topStart = 4.dp,
-                                            topEnd = 4.dp,
-                                            bottomStart = 24.dp,
-                                            bottomEnd = 24.dp
-                                        )
-                                        else -> RoundedCornerShape(4.dp)
-                                    }
+                                    val songShape = expressiveGroupedCardShape(idx, displayedSongs.size)
                                     Box(
                                         modifier = Modifier
                                             .animateItem(
@@ -524,7 +516,7 @@ fun ArtistDetailScreen(
                                                 placementSpec = tween(durationMillis = 200)
                                             )
                                             .fillMaxWidth()
-                                            .padding(bottom = if (isLast) 0.dp else 2.dp)
+                                            .padding(bottom = if (isLast) 0.dp else ExpressiveGroupedCardSpacing)
                                     ) {
                                         EnhancedSongListItem(
                                             modifier = Modifier.fillMaxWidth(),
@@ -886,39 +878,38 @@ private fun ArtistPopularSongItem(
     isLast: Boolean,
     onSongClick: () -> Unit,
     onMoreOptionsClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    customShape: androidx.compose.ui.graphics.Shape = ExpressiveSingleCardShape
 ) {
-    val containerShape = when {
-        rank == 1 && isLast -> AbsoluteSmoothCornerShape(20.dp, 60)
-        rank == 1 -> AbsoluteSmoothCornerShape(
-            cornerRadiusTR = 20.dp, smoothnessAsPercentTR = 60,
-            cornerRadiusTL = 20.dp, smoothnessAsPercentTL = 60,
-            cornerRadiusBR = 4.dp, smoothnessAsPercentBR = 0,
-            cornerRadiusBL = 4.dp, smoothnessAsPercentBL = 0
-        )
-        isLast -> AbsoluteSmoothCornerShape(
-            cornerRadiusTR = 4.dp, smoothnessAsPercentTR = 0,
-            cornerRadiusTL = 4.dp, smoothnessAsPercentTL = 0,
-            cornerRadiusBR = 20.dp, smoothnessAsPercentBR = 60,
-            cornerRadiusBL = 20.dp, smoothnessAsPercentBL = 60
-        )
-        else -> RoundedCornerShape(4.dp)
+    val highlightProgress by animateFloatAsState(
+        targetValue = if (isCurrentSong) 1f else 0f,
+        animationSpec = tween(durationMillis = 520, easing = ExpressiveWaveEasing),
+        label = "artistPopularHighlight"
+    )
+    val baseShape = remember(customShape) {
+        (customShape as? RoundedCornerShape) ?: ExpressiveSingleCardShape
     }
-    val topPad = if (rank == 1) 0.dp else 1.dp
-    val bottomPad = if (isLast) 0.dp else 1.dp
+    val containerShape = remember(baseShape, highlightProgress) {
+        if (highlightProgress <= 0.001f) baseShape else ExpressiveMorphingCardShape(baseShape, highlightProgress)
+    }
+    val artCornerRadius = androidx.compose.ui.unit.lerp(10.dp, 22.dp, highlightProgress)
+    val artShape = remember(artCornerRadius) { RoundedCornerShape(artCornerRadius) }
+    val bgColor = androidx.compose.ui.graphics.lerp(
+        MaterialTheme.colorScheme.surfaceContainerLow,
+        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.72f),
+        highlightProgress
+    )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = topPad, bottom = bottomPad)
-            .background(
-                color = if (isCurrentSong)
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                else
-                    MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
+            .padding(bottom = if (isLast) 0.dp else ExpressiveGroupedCardSpacing)
+            .background(color = bgColor, shape = containerShape)
+            .clip(containerShape)
+            .expressiveTapColorWave(
+                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                 shape = containerShape
             )
-            .clip(containerShape)
             .clickable(onClick = onSongClick)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
@@ -957,7 +948,7 @@ private fun ArtistPopularSongItem(
                 targetSize = SmartImageCompactListTargetSize,
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(artShape)
             )
             // Title + Artist
             Column(modifier = Modifier.weight(1f)) {
@@ -1159,22 +1150,7 @@ private fun ArtistAlbumSectionSongItem(
 ) {
     val isLastSong = songIndex == songCount - 1
 
-    val songItemShape = when {
-        songCount == 1 -> RoundedCornerShape(16.dp)
-        songIndex == 0 -> RoundedCornerShape(
-            topStart = 16.dp,
-            topEnd = 16.dp,
-            bottomStart = 4.dp,
-            bottomEnd = 4.dp
-        )
-        isLastSong -> RoundedCornerShape(
-            topStart = 4.dp,
-            topEnd = 4.dp,
-            bottomStart = 16.dp,
-            bottomEnd = 16.dp
-        )
-        else -> RoundedCornerShape(4.dp)
-    }
+    val songItemShape = expressiveGroupedCardShape(songIndex, songCount)
 
     val containerShape = if (isLastSong) {
         AbsoluteSmoothCornerShape(

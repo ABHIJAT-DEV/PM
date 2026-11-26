@@ -734,12 +734,7 @@ fun ExploreScreen(
                                 }
                                 itemsIndexed(recentTracks, key = { _, it -> "loc_song_${it.id}" }) { index, song ->
                                     val isCurrent = currentSongId == song.id
-                                    val cardShape = when {
-                                        recentTracks.size == 1 -> RoundedCornerShape(24.dp)
-                                        index == 0 -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
-                                        index == recentTracks.lastIndex -> RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
-                                        else -> RoundedCornerShape(6.dp)
-                                    }
+                                    val cardShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, recentTracks.size)
                                     val cardBg by androidx.compose.animation.animateColorAsState(
                                         targetValue = if (isCurrent) colorScheme.primaryContainer.copy(alpha = 0.6f) else colorScheme.surfaceContainerLow,
                                         animationSpec = androidx.compose.animation.core.tween(320),
@@ -749,7 +744,7 @@ fun ExploreScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp)
-                                            .padding(bottom = 3.dp)
+                                            .padding(bottom = if (index == recentTracks.lastIndex) 0.dp else com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
                                             .animateItem(
                                                 fadeInSpec = androidx.compose.animation.core.tween(420, easing = FastOutSlowInEasing),
                                                 fadeOutSpec = androidx.compose.animation.core.tween(260),

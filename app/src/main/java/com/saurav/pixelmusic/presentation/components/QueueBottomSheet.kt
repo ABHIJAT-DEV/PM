@@ -761,7 +761,7 @@ fun QueueBottomSheet(
                                     }
                                 ),
                             userScrollEnabled = !(isReordering || reorderHandleInUse),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing),
                             contentPadding = PaddingValues(
                                 start = 0.dp,
                                 end = if (listState.canScrollForward || listState.canScrollBackward) 26.dp else 0.dp,
@@ -830,6 +830,7 @@ fun QueueBottomSheet(
                                         enableSwipeToDismiss = canReorder,
                                         swipeStateIdentity = itemStableKey,
                                         onDismissSong = { onRemoveSong(song.id) },
+                                        customShape = expressiveGroupedCardShape(index, displaySongCount),
                                         isFromPlaylist = true,
                                         onMoreOptionsClick = { onSongInfoClick(song) },
                                         dragHandle = {
@@ -1842,7 +1843,7 @@ fun SaveQueueAsPlaylistSheet(
                         .consumeWindowInsets(innerPadding)
                         .imePadding(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
                 ) {
                     if (filteredSongs.isEmpty()) {
                         item {
@@ -1870,18 +1871,23 @@ fun SaveQueueAsPlaylistSheet(
                             }
                         }
                     } else {
-                        itemsIndexed(filteredSongs, key = { index, song -> "${song.id}_$index" }) { _, song ->
+                        itemsIndexed(filteredSongs, key = { index, song -> "${song.id}_$index" }) { index, song ->
+                            val isSelected = selectedSongIds[song.id] ?: false
+                            val rowShape = if (isSelected) CircleShape else expressiveGroupedCardShape(index, filteredSongs.size)
                             Row(
                                 Modifier
                                     .fillMaxWidth()
-                                    .clip(CircleShape)
+                                    .clip(rowShape)
                                     .clickable {
-                                        val currentSelection = selectedSongIds[song.id] ?: false
-                                        selectedSongIds[song.id] = !currentSelection
+                                        selectedSongIds[song.id] = !isSelected
                                     }
                                     .background(
-                                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                                        shape = CircleShape
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceContainerLowest
+                                        },
+                                        shape = rowShape
                                     )
                                     .padding(horizontal = 10.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically

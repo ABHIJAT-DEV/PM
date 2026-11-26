@@ -55,8 +55,10 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.saurav.pixelmusic.data.remote.youtube.toNativeSong
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.SmartImage
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
@@ -321,7 +323,7 @@ fun ChartsScreen(
                                         val colSongs = columns[colIdx]
                                         Column(
                                             modifier = Modifier.width(300.dp),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
                                         ) {
                                             colSongs.forEachIndexed { rowIdx, nativeSong ->
                                                 val rank = colIdx * 4 + rowIdx + 1
@@ -333,7 +335,7 @@ fun ChartsScreen(
                                                             queueName = section.title
                                                         )
                                                     },
-                                                    shape = RoundedCornerShape(16.dp),
+                                                    shape = expressiveGroupedCardShape(rowIdx, colSongs.size),
                                                     color = MaterialTheme.colorScheme.surfaceContainerLow
                                                 ) {
                                                     Row(
