@@ -69,6 +69,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -406,9 +407,7 @@ fun SettingsScreen(
             visible = showLocalModeDropdown,
             enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)),
             exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
-            modifier = Modifier.fillMaxSize().then(androidx.compose.ui.Modifier.let { m ->
-                with(androidx.compose.ui.zIndex(20f)) { m }
-            })
+            modifier = Modifier.fillMaxSize().zIndex(20f)
         ) {
             Box(
                 modifier = Modifier
@@ -440,6 +439,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp, end = 14.dp)
+                .zIndex(21f)
         ) {
             Surface(
                 modifier = Modifier.width(308.dp),
