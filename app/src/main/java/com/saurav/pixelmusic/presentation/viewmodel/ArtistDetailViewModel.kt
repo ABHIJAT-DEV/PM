@@ -173,37 +173,40 @@ class ArtistDetailViewModel @Inject constructor(
             Log.d("ArtistDebug", "loadArtistData: idStr=$artistIdStr")
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
+                val isLocalMode = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
                 val numericId = artistIdStr.toLongOrNull()
                 var browseId: String? = null
-                if (numericId == null || artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA") || artistIdStr.startsWith("MPLA")) {
-                    browseId = artistIdStr
-                } else {
-                    val mappedChannelId = SearchStateHolder.artistIdMap[numericId]?.takeIf { it.isNotBlank() }
-                    val localArtist = musicRepository.getArtistById(numericId).first()
-                    val directChannelId = mappedChannelId ?: localArtist?.channelId?.takeIf { it.isNotBlank() }
-                    if (directChannelId != null) {
-                        browseId = directChannelId
+                if (!isLocalMode) {
+                    if (numericId == null || artistIdStr.startsWith("UC") || artistIdStr.startsWith("LA") || artistIdStr.startsWith("MPLA")) {
+                        browseId = artistIdStr
                     } else {
-                        val candidateName = localArtist?.name?.takeIf { it.isNotBlank() }
-                            ?: SearchStateHolder.artistNameMap[numericId]?.takeIf { it.isNotBlank() }
-                        if (candidateName != null) {
-                            val primaryArtistName = candidateName.split(
-                                ", ", " & ", " feat.", " feat ", " Feat.", " Feat ", " FT.", " FT ", " ft.", " ft "
-                            ).firstOrNull()?.trim() ?: candidateName
+                        val mappedChannelId = SearchStateHolder.artistIdMap[numericId]?.takeIf { it.isNotBlank() }
+                        val localArtist = musicRepository.getArtistById(numericId).first()
+                        val directChannelId = mappedChannelId ?: localArtist?.channelId?.takeIf { it.isNotBlank() }
+                        if (directChannelId != null) {
+                            browseId = directChannelId
+                        } else {
+                            val candidateName = localArtist?.name?.takeIf { it.isNotBlank() }
+                                ?: SearchStateHolder.artistNameMap[numericId]?.takeIf { it.isNotBlank() }
+                            if (candidateName != null) {
+                                val primaryArtistName = candidateName.split(
+                                    ", ", " & ", " feat.", " feat ", " Feat.", " Feat ", " FT.", " FT ", " ft.", " ft "
+                                ).firstOrNull()?.trim() ?: candidateName
 
-                            val searchResult = withContext(Dispatchers.IO) {
-                                InnerTubeYouTube.search(primaryArtistName, InnerTubeYouTube.SearchFilter.FILTER_ARTIST).getOrNull()
-                            }
-                            val artistItem = searchResult?.items?.find { it is ArtistItem } as? ArtistItem
-                            browseId = artistItem?.id
-                            if (browseId != null) {
-                                SearchStateHolder.artistIdMap[numericId] = browseId
+                                val searchResult = withContext(Dispatchers.IO) {
+                                    InnerTubeYouTube.search(primaryArtistName, InnerTubeYouTube.SearchFilter.FILTER_ARTIST).getOrNull()
+                                }
+                                val artistItem = searchResult?.items?.find { it is ArtistItem } as? ArtistItem
+                                browseId = artistItem?.id
+                                if (browseId != null) {
+                                    SearchStateHolder.artistIdMap[numericId] = browseId
+                                }
                             }
                         }
                     }
                 }
 
-                if (browseId != null && (browseId.startsWith("UC") || browseId.startsWith("LA") || browseId.startsWith("MPLA") || numericId == null)) {
+                if (!isLocalMode && browseId != null && (browseId.startsWith("UC") || browseId.startsWith("LA") || browseId.startsWith("MPLA") || numericId == null)) {
                     val artistPageResult = withContext(Dispatchers.IO) {
                         InnerTubeYouTube.artist(browseId)
                     }
@@ -377,24 +380,48 @@ class ArtistDetailViewModel @Inject constructor(
                             }
                         }
                         .collect { (artist, songs) ->
-                            if (artist == null) {
+                            val visibleSongs = if (isLocalMode) {
+                                songs.filter { s ->
+                                    (!s.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+                                        !s.contentUriString.startsWith("http://", ignoreCase = true) &&
+                                        !s.contentUriString.startsWith("https://", ignoreCase = true)) ||
+                                        (s.path.isNotBlank() && java.io.File(s.path).exists())
+                                }
+                            } else {
+                                songs
+                            }
+                            val resolvedArtist = artist ?: visibleSongs.firstOrNull()?.let { first ->
+                                Artist(
+                                    id = id,
+                                    name = first.artist.ifBlank { "Unknown Artist" },
+                                    songCount = visibleSongs.size,
+                                    imageUrl = first.albumArtUriString
+                                )
+                            }
+                            if (resolvedArtist == null) {
                                 _uiState.update {
                                     it.copy(error = context.getString(R.string.could_not_find_artist), isLoading = false)
                                 }
                                 return@collect
                             }
 
-                            val albumSections = buildAlbumSections(songs)
+                            val albumSections = buildAlbumSections(visibleSongs)
                             val orderedSongs = albumSections.flatMap { it.songs }
 
-                            val effectiveUrl = try {
-                                artistImageRepository.getEffectiveArtistImageUrl(
-                                    artistId = artist.id,
-                                    artistName = artist.name
-                                )
-                            } catch (e: Exception) {
-                                Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
-                                artist.effectiveImageUrl
+                            val effectiveUrl = if (isLocalMode) {
+                                resolvedArtist.customImageUri?.takeIf { it.isNotBlank() }
+                                    ?: visibleSongs.firstNotNullOfOrNull { it.albumArtUriString }
+                                    ?: resolvedArtist.imageUrl
+                            } else {
+                                try {
+                                    artistImageRepository.getEffectiveArtistImageUrl(
+                                        artistId = resolvedArtist.id,
+                                        artistName = resolvedArtist.name
+                                    )
+                                } catch (e: Exception) {
+                                    Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
+                                    resolvedArtist.effectiveImageUrl
+                                }
                             }
 
                             val newScheme = if (!effectiveUrl.isNullOrBlank()) {
@@ -408,8 +435,9 @@ class ArtistDetailViewModel @Inject constructor(
 
                             _artistColorScheme.value = newScheme
                             _uiState.value = ArtistDetailUiState(
-                                artist = artist.copy(
-                                    imageUrl = if (artist.customImageUri.isNullOrBlank()) effectiveUrl else artist.imageUrl
+                                artist = resolvedArtist.copy(
+                                    songCount = orderedSongs.size,
+                                    imageUrl = if (resolvedArtist.customImageUri.isNullOrBlank()) effectiveUrl else resolvedArtist.imageUrl
                                 ),
                                 songs = orderedSongs,
                                 popularSongs = emptyList(),

@@ -1214,6 +1214,7 @@ interface MusicDao {
         LEFT JOIN albums ON albums.id = songs.album_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
         AND (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != ''))
+        AND LOWER(TRIM(COALESCE(NULLIF(TRIM(albums.title), ''), NULLIF(TRIM(songs.album_name), ''), ''))) != 'youtube music'
         AND (
             COALESCE(NULLIF(TRIM(albums.title), ''), songs.album_name) LIKE '%' || :query || '%'
             OR COALESCE(NULLIF(TRIM(albums.artist_name), ''), songs.artist_name) LIKE '%' || :query || '%'
@@ -1405,6 +1406,7 @@ interface MusicDao {
                 AND (songs.file_path IS NOT NULL AND songs.file_path != '')
             )
         )
+        AND LOWER(TRIM(COALESCE(NULLIF(TRIM(albums.title), ''), NULLIF(TRIM(songs.album_name), ''), ''))) != 'youtube music'
         GROUP BY songs.album_id
         HAVING COUNT(songs.id) >= :minTracks
         ORDER BY

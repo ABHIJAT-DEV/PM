@@ -185,6 +185,7 @@ class ExploreViewModel @Inject constructor(
                     .map { it.toSong() }
 
                 val groupedAlbums = storageSongs
+                    .filter { !it.album.trim().equals("YouTube Music", ignoreCase = true) }
                     .groupBy { it.albumId }
                     .map { (albumId, songsInAlbum) ->
                         val first = songsInAlbum.first()
