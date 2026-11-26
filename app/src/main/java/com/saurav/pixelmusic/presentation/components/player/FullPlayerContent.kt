@@ -1,5 +1,9 @@
 package com.saurav.pixelmusic.presentation.components.player
 
+import com.saurav.pixelmusic.presentation.components.player.styles.ExpressivePlayerLayout
+import com.saurav.pixelmusic.presentation.components.player.styles.PillarsPlayerLayout
+import com.saurav.pixelmusic.presentation.components.player.styles.PlayerStyleParams
+import com.saurav.pixelmusic.presentation.components.player.styles.WavePlayerLayout
 import android.annotation.SuppressLint
 import android.os.Build
 import androidx.compose.animation.core.Animatable
@@ -326,6 +330,9 @@ fun FullPlayerContent(
                       playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE_EXTENDED
     val isImmersiveExtended = playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE_EXTENDED
     val isComplex = playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.COMPLEX
+    val isCustomStyle = playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.WAVE ||
+                        playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.PILLARS ||
+                        playerDesignStyle == com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.EXPRESSIVE
 
     // Single subscription — replaces 11 independent collectAsStateWithLifecycle calls.
     // distinctUntilChanged in the ViewModel ensures this only emits when something
@@ -441,7 +448,7 @@ fun FullPlayerContent(
     val transportPlayPauseColors = TransportButtonColors(container = playerAccentColor, content = playerOnAccentColor)
     val transportSkipButtonColors = TransportButtonColors(container = playerOnAccentColor, content = playerAccentColor)
 
-    val topBarButtonBg = if (isComplex) playerOnAccentColor else playerOnAccentColor.copy(alpha = 0.78f)
+    val topBarButtonBg = if (isComplex || isCustomStyle) playerOnAccentColor else playerOnAccentColor.copy(alpha = 0.78f)
     val topBarIconColor = playerAccentColor
 
     val progressActiveColor = playerOnBaseColor
@@ -658,7 +665,7 @@ fun FullPlayerContent(
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
     val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
 
-    if (!isComplex) {
+    if (!isComplex && !isCustomStyle) {
         aodSourceBounds.artStyle = if (isImmersive) AodSourceArtStyle.IMMERSIVE_RECT else AodSourceArtStyle.STANDARD_ROUNDED
         // Same 130dp black top shadow both immersive styles draw over the art.
         aodSourceBounds.topShadowHeightDp = if (isImmersive) 130f else 0f
@@ -1290,6 +1297,65 @@ fun FullPlayerContent(
                     aodSourceBounds = aodSourceBounds,
                     aodTransitionProgressProvider = nowPlayingAodHideProvider
                 )
+            } else if (isCustomStyle) {
+                val isCustomMetadataForCurrent = playbackAudioMetadata.mediaId == null || playbackAudioMetadata.mediaId == song.id
+                val customAudioMetaLabel = remember(
+                    showPlayerFileInfo,
+                    song.id,
+                    song.mimeType,
+                    song.bitrate,
+                    song.sampleRate,
+                    isCustomMetadataForCurrent,
+                    playbackAudioMetadata.mimeType,
+                    playbackAudioMetadata.bitrate,
+                    playbackAudioMetadata.sampleRate
+                ) {
+                    if (showPlayerFileInfo) {
+                        formatAudioMetaLabel(
+                            mimeType = if (isCustomMetadataForCurrent) playbackAudioMetadata.mimeType ?: song.mimeType else song.mimeType,
+                            bitrate = if (isCustomMetadataForCurrent) playbackAudioMetadata.bitrate ?: song.bitrate else song.bitrate,
+                            sampleRate = if (isCustomMetadataForCurrent) playbackAudioMetadata.sampleRate ?: song.sampleRate else song.sampleRate
+                        )
+                    } else {
+                        null
+                    }
+                }
+                val styleParams = PlayerStyleParams(
+                    song = song,
+                    currentSongArtists = currentSongArtists,
+                    albumArtQuality = albumArtQuality,
+                    aodScreenEnabled = aodScreenEnabled,
+                    onEnterAodScreen = { showAodScreen = true },
+                    expansionFractionProvider = expansionFractionProvider,
+                    currentSheetState = currentSheetState,
+                    allowRealtimeUpdates = allowRealtimeUpdates,
+                    currentPositionProvider = currentPositionProvider,
+                    totalDurationValue = totalDurationValue,
+                    isPlayingProvider = isPlayingProvider,
+                    isFavoriteProvider = isFavoriteProvider,
+                    isShuffleEnabledProvider = isShuffleEnabledProvider,
+                    repeatModeProvider = repeatModeProvider,
+                    onPlayPause = onPlayPause,
+                    onSeek = onSeek,
+                    onNext = onNextWithOptimisticCarousel,
+                    onPrevious = onPreviousWithOptimisticCarousel,
+                    onFavoriteToggle = onFavoriteToggle,
+                    onShuffleToggle = onShuffleToggle,
+                    onRepeatToggle = onRepeatToggle,
+                    onLyricsClick = onLyricsClick,
+                    onTitleClick = onSongMetadataTitleClick,
+                    onArtistClick = onSongMetadataArtistClick,
+                    onMoreOptionsClick = { showSongInfoBottomSheet = true },
+                    audioMetaLabel = customAudioMetaLabel,
+                    aodSourceBounds = aodSourceBounds,
+                    aodTransitionProgressProvider = nowPlayingAodHideProvider
+                )
+                when (playerDesignStyle) {
+                    com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.WAVE -> WavePlayerLayout(params = styleParams)
+                    com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.PILLARS -> PillarsPlayerLayout(params = styleParams)
+                    com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.EXPRESSIVE -> ExpressivePlayerLayout(params = styleParams)
+                    else -> WavePlayerLayout(params = styleParams)
+                }
             } else {
                 if (isLandscape) {
                     FullPlayerLandscapeContent(
@@ -1366,7 +1432,7 @@ fun FullPlayerContent(
                 titleContentColor = LocalMaterialTheme.current.onPrimaryContainer,
             ),
             title = {
-                if (!isCastConnecting && !isComplex) {
+                if (!isCastConnecting && !isComplex && !isCustomStyle) {
                     AnimatedVisibility(visible = (!isRemotePlaybackActive)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(

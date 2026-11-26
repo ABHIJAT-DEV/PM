@@ -226,7 +226,10 @@ enum class PlayerDesignStyle {
     DEFAULT, 
     IMMERSIVE, 
     IMMERSIVE_EXTENDED,
-    COMPLEX
+    COMPLEX,
+    WAVE,
+    PILLARS,
+    EXPRESSIVE
 }
 
 enum class NowPlayingLyricsStyle {

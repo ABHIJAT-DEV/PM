@@ -867,7 +867,10 @@ fun SettingsCategoryScreen(
                                             com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.DEFAULT.name to "Default",
                                             com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE.name to "Immersive",
                                             com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.IMMERSIVE_EXTENDED.name to "Immersive Extended",
-                                            com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.COMPLEX.name to "Complex"
+                                            com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.COMPLEX.name to "Complex",
+                                            com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.WAVE.name to "Wave",
+                                            com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.PILLARS.name to "Pillars",
+                                            com.saurav.pixelmusic.data.preferences.PlayerDesignStyle.EXPRESSIVE.name to "Expressive"
                                         ),
                                         selectedKey = playerDesignStyle.name,
                                         onSelectionChanged = { key ->
