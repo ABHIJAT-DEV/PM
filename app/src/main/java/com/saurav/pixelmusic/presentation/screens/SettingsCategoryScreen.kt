@@ -28,7 +28,7 @@ import android.os.Environment
 import android.os.SystemClock
 import android.provider.Settings
 import android.text.format.Formatter
-import android.widget.Toast
+import com.saurav.pixelmusic.presentation.components.PixelToast as Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -1955,10 +1955,10 @@ fun SettingsCategoryScreen(
                                                         }
                                                         context.startActivity(android.content.Intent.createChooser(intent, "Share PixelMusic Logs"))
                                                     } else {
-                                                        android.widget.Toast.makeText(context, "Log file is currently empty", android.widget.Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, "Log file is currently empty", Toast.LENGTH_SHORT).show()
                                                     }
                                                 } else {
-                                                    android.widget.Toast.makeText(context, "Log file not initialized", android.widget.Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, "Log file not initialized", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
                                         )
@@ -1970,7 +1970,7 @@ fun SettingsCategoryScreen(
                                             },
                                             onClick = {
                                                 com.saurav.pixelmusic.utils.PixelLogger.clear()
-                                                android.widget.Toast.makeText(context, "Logs cleared", android.widget.Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, "Logs cleared", Toast.LENGTH_SHORT).show()
                                             }
                                         )
                                     }

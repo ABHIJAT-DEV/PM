@@ -1641,7 +1641,7 @@ private fun handleDownloadOnLike(song: Song, isFavorite: Boolean) {
                             notificationManager.notify(song.id.hashCode() + 1, deleteNotification)
                             
                             withContext(Dispatchers.Main) {
-                                android.widget.Toast.makeText(
+                                com.saurav.pixelmusic.presentation.components.PixelToast.makeText(
                                     context, 
                                     "Removed downloaded song from storage", 
                                     android.widget.Toast.LENGTH_SHORT

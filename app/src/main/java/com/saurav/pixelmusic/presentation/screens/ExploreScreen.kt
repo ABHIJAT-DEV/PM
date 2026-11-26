@@ -513,7 +513,7 @@ fun ExploreScreen(
                                             Button(
                                                 onClick = {
                                                     playerViewModel.setLocalModeEnabled(false) {
-                                                        android.widget.Toast.makeText(
+                                                        com.saurav.pixelmusic.presentation.components.PixelToast.makeText(
                                                             exploreContext,
                                                             "Switching to Online Mode…",
                                                             android.widget.Toast.LENGTH_SHORT

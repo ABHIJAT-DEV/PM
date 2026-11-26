@@ -5,7 +5,7 @@ package com.saurav.pixelmusic.presentation.screens
 
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
+import com.saurav.pixelmusic.presentation.components.PixelToast as Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring

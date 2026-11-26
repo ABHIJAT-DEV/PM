@@ -648,7 +648,7 @@ object InAppUpdater {
             try {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                     if (!context.packageManager.canRequestPackageInstalls()) {
-                        android.widget.Toast.makeText(
+                        com.saurav.pixelmusic.presentation.components.PixelToast.makeText(
                             context,
                             "Please allow installing unknown apps to update",
                             android.widget.Toast.LENGTH_LONG
@@ -670,7 +670,7 @@ object InAppUpdater {
                 context.startActivity(intent)
             } catch (e: Exception) {
                 e.printStackTrace()
-                android.widget.Toast.makeText(
+                com.saurav.pixelmusic.presentation.components.PixelToast.makeText(
                     context,
                     "Failed to open installer: ${e.message}",
                     android.widget.Toast.LENGTH_SHORT

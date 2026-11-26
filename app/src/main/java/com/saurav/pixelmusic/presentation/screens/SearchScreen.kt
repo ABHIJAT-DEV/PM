@@ -400,7 +400,7 @@ fun SearchScreen(
                         Surface(
                             onClick = {
                                 if (localModeEnabled) {
-                                    android.widget.Toast.makeText(
+                                    com.saurav.pixelmusic.presentation.components.PixelToast.makeText(
                                         context,
                                         "Turn off Local Mode to search YouTube Music",
                                         android.widget.Toast.LENGTH_SHORT

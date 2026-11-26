@@ -1294,7 +1294,7 @@ class SettingsViewModel @Inject constructor(
             val mbFreed = String.format("%.1f", bytesFreed / (1024.0 * 1024.0))
 
             withContext(Dispatchers.Main) {
-                android.widget.Toast.makeText(context, "Sweep Complete: Freed $mbFreed MB of hidden files!", android.widget.Toast.LENGTH_LONG).show()
+                com.saurav.pixelmusic.presentation.components.PixelToast.makeText(context, "Sweep Complete: Freed $mbFreed MB of hidden files!", com.saurav.pixelmusic.presentation.components.PixelToast.LENGTH_LONG).show()
             }
         }
     }

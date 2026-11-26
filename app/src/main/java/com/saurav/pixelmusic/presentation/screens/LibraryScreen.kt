@@ -265,7 +265,7 @@ import com.saurav.pixelmusic.presentation.components.PlaylistContainer
 import com.saurav.pixelmusic.presentation.components.subcomps.PlayingEqIcon
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import java.util.Locale
-import android.widget.Toast
+import com.saurav.pixelmusic.presentation.components.PixelToast as Toast
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.focus.focusModifier
 import com.saurav.pixelmusic.data.model.PlaylistShapeType
@@ -1292,7 +1292,7 @@ onViewToggleChange = { isChecked ->
                 boxCornerRadius = if (!isLocalModeLibrary && playerUiState.hideLocalMedia) 18.dp else 50.dp,
                 onCheckedChange = { enabled ->
                     if (isLocalModeLibrary) {
-                        android.widget.Toast.makeText(
+                        Toast.makeText(
                             libraryContext,
                             "This feature requires YouTube Music integration. Turn off Local Mode to use it.",
                             android.widget.Toast.LENGTH_SHORT
@@ -4320,7 +4320,7 @@ private fun ImportPlaylistLinkBottomSheet(
                     playlistViewModel.updateImportProgress("Fetching playlist", current, total, title, artist)
                 }
                 if (result.songs.isEmpty()) {
-                    android.widget.Toast.makeText(context, "No playable songs found in that playlist", android.widget.Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "No playable songs found in that playlist", Toast.LENGTH_SHORT).show()
                     phase = LinkImportPhase.INPUT
                     return@launch
                 }
@@ -4351,11 +4351,11 @@ private fun ImportPlaylistLinkBottomSheet(
                     playlistViewModel.playlistPreferencesRepository.createPlaylist(
                         playlistNameInput.ifBlank { "Imported Playlist" }, songIds
                     )
-                    android.widget.Toast.makeText(context, "Playlist added to your library", android.widget.Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Playlist added to your library", Toast.LENGTH_SHORT).show()
                     resetState()
                     onDismiss()
                 } catch (e: Exception) {
-                    android.widget.Toast.makeText(context, "Couldn't save playlist: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Couldn't save playlist: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -4446,17 +4446,17 @@ private fun ImportPlaylistLinkBottomSheet(
                                         val existingSongIds = existingPlaylist!!.songIds.toSet()
                                         val newSongIds = songIds.filterNot { it in existingSongIds }
                                         if (newSongIds.isEmpty()) {
-                                            android.widget.Toast.makeText(context, "Playlist is already up to date", android.widget.Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Playlist is already up to date", Toast.LENGTH_SHORT).show()
                                         } else {
                                             playlistViewModel.playlistPreferencesRepository.updatePlaylist(
                                                 existingPlaylist!!.copy(songIds = existingPlaylist!!.songIds + newSongIds)
                                             )
-                                            android.widget.Toast.makeText(context, "Playlist updated with ${newSongIds.size} new songs", android.widget.Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Playlist updated with ${newSongIds.size} new songs", Toast.LENGTH_SHORT).show()
                                         }
                                         resetState()
                                         onDismiss()
                                     } catch (e: Exception) {
-                                        android.widget.Toast.makeText(context, "Failed to update playlist: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Failed to update playlist: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                         isProcessingDuplicate = false
                                         showDuplicateChoice = false
                                     }
@@ -4483,11 +4483,11 @@ private fun ImportPlaylistLinkBottomSheet(
                                             playlistNameInput.ifBlank { "Imported Playlist" },
                                             fetchedSongs.map { it.id }
                                         )
-                                        android.widget.Toast.makeText(context, "Playlist imported as a new copy", android.widget.Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Playlist imported as a new copy", Toast.LENGTH_SHORT).show()
                                         resetState()
                                         onDismiss()
                                     } catch (e: Exception) {
-                                        android.widget.Toast.makeText(context, "Failed to import playlist: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Failed to import playlist: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                         isProcessingDuplicate = false
                                         showDuplicateChoice = false
                                     }
@@ -5023,7 +5023,7 @@ private fun ImportPlaylistFileDialog(
                                 resolvedSongIds = songIds
 
                                 if (songIds.isEmpty()) {
-                                    android.widget.Toast.makeText(context, "No playable songs found to import", android.widget.Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "No playable songs found to import", Toast.LENGTH_SHORT).show()
                                     resetState()
                                     onDismiss()
                                     return@launch
@@ -5036,13 +5036,13 @@ private fun ImportPlaylistFileDialog(
                                     showDuplicateDialog = true
                                 } else {
                                     playlistViewModel.playlistPreferencesRepository.createPlaylist(playlistNameInput, songIds)
-                                    android.widget.Toast.makeText(context, "Playlist imported successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Playlist imported successfully", Toast.LENGTH_SHORT).show()
                                     resetState()
                                     onDismiss()
                                 }
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                android.widget.Toast.makeText(context, "Import failed: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Import failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                 resetState()
                                 onDismiss()
                             } finally {
@@ -5113,18 +5113,18 @@ private fun ImportPlaylistFileDialog(
                                     val newSongIds = songIds.filterNot { it in existingSongIds }
 
                                     if (newSongIds.isEmpty()) {
-                                        android.widget.Toast.makeText(context, "Playlist is already up to date", android.widget.Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Playlist is already up to date", Toast.LENGTH_SHORT).show()
                                     } else {
                                         val mergedSongIds = existingPlaylist!!.songIds + newSongIds
                                         playlistViewModel.playlistPreferencesRepository.updatePlaylist(
                                             existingPlaylist!!.copy(songIds = mergedSongIds)
                                         )
-                                        android.widget.Toast.makeText(context, "Playlist updated with ${newSongIds.size} new songs", android.widget.Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Playlist updated with ${newSongIds.size} new songs", Toast.LENGTH_SHORT).show()
                                     }
                                     resetState()
                                     onDismiss()
                                 } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Failed to update playlist: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Failed to update playlist: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                     resetState()
                                     onDismiss()
                                 }
@@ -5142,11 +5142,11 @@ private fun ImportPlaylistFileDialog(
                                 try {
                                     val songIds = resolvedSongIds ?: emptyList()
                                     playlistViewModel.playlistPreferencesRepository.createPlaylist(playlistNameInput, songIds)
-                                    android.widget.Toast.makeText(context, "Playlist imported as a new copy", android.widget.Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Playlist imported as a new copy", Toast.LENGTH_SHORT).show()
                                     resetState()
                                     onDismiss()
                                 } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Failed to import playlist: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Failed to import playlist: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                     resetState()
                                     onDismiss()
                                 }

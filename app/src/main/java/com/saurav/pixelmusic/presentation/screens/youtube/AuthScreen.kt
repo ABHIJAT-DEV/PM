@@ -7,7 +7,7 @@ import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
+import com.saurav.pixelmusic.presentation.components.PixelToast as Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect

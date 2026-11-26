@@ -120,6 +120,25 @@ data class PixelToastMessage(
  * 3. Background + No overlay permission: safe fallback to system [Toast].
  */
 object PixelToast {
+    const val LENGTH_SHORT: Int = Toast.LENGTH_SHORT
+    const val LENGTH_LONG: Int = Toast.LENGTH_LONG
+
+    class Handle internal constructor(
+        private val context: Context?,
+        private val message: String,
+        private val long: Boolean
+    ) {
+        fun show() {
+            PixelToast.show(context, message, long = long)
+        }
+    }
+
+    fun makeText(context: Context?, text: CharSequence?, duration: Int): Handle =
+        Handle(context, text?.toString().orEmpty(), duration == LENGTH_LONG)
+
+    fun makeText(context: Context, resId: Int, duration: Int): Handle =
+        Handle(context, context.getString(resId), duration == LENGTH_LONG)
+
     private val idCounter = AtomicLong(0L)
     private val hostAttached = AtomicBoolean(false)
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -519,7 +538,7 @@ fun PixelToastHost(
             .fillMaxSize()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp)
-            .padding(bottom = 32.dp),
+            .padding(bottom = 56.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         val current = activeMessage

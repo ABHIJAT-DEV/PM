@@ -542,7 +542,7 @@ fun SettingsScreen(
                         val localModeContext = LocalContext.current
                         val toggleLocalModeAndRestart: (Boolean) -> Unit = { targetEnabled ->
                             settingsViewModel.setLocalModeEnabled(targetEnabled) {
-                                android.widget.Toast.makeText(
+                                com.saurav.pixelmusic.presentation.components.PixelToast.makeText(
                                     localModeContext,
                                     if (targetEnabled) "Switching to Local Mode…" else "Switching to Online Mode…",
                                     android.widget.Toast.LENGTH_SHORT
@@ -722,7 +722,7 @@ fun SettingsScreen(
                                 .clickable {
                                     showLocalModeDropdown = false
                                     settingsViewModel.refreshLibrary()
-                                    android.widget.Toast.makeText(
+                                    com.saurav.pixelmusic.presentation.components.PixelToast.makeText(
                                         context,
                                         "Scanning library…",
                                         android.widget.Toast.LENGTH_SHORT
@@ -967,7 +967,7 @@ fun SettingsScreen(
                     showTokenDialog = false
                     authViewModel.saveManualCookie(token)
                     triggerSweepAnimation = true
-                    android.widget.Toast.makeText(context, "Cookie saved! Syncing library...", android.widget.Toast.LENGTH_SHORT).show()
+                    com.saurav.pixelmusic.presentation.components.PixelToast.makeText(context, "Cookie saved! Syncing library...", com.saurav.pixelmusic.presentation.components.PixelToast.LENGTH_SHORT).show()
                 }
             )
         }

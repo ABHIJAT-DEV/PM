@@ -2,7 +2,7 @@ package com.saurav.pixelmusic.presentation.screens
 
 import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 
-import android.widget.Toast
+import com.saurav.pixelmusic.presentation.components.PixelToast as Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background

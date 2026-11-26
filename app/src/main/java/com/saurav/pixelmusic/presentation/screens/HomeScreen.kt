@@ -151,7 +151,7 @@ import com.saurav.pixelmusic.presentation.components.subcomps.PlayingEqIcon
 import com.saurav.pixelmusic.presentation.components.subcomps.SineWaveLine
 import com.saurav.pixelmusic.presentation.model.collectRecentlyPlayedSongIds
 import com.saurav.pixelmusic.presentation.model.mapRecentlyPlayedSongs
-import android.widget.Toast
+import com.saurav.pixelmusic.presentation.components.PixelToast as Toast
 import androidx.compose.material3.ButtonDefaults
 import com.saurav.pixelmusic.presentation.components.AiMixCookieButton
 import com.saurav.pixelmusic.presentation.components.CreateAiPlaylistDialog

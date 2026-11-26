@@ -1,6 +1,6 @@
 package com.saurav.pixelmusic.presentation.screens
 
-import android.widget.Toast
+import com.saurav.pixelmusic.presentation.components.PixelToast as Toast
 import androidx.compose.ui.res.stringResource
 import com.saurav.pixelmusic.R
 import androidx.compose.animation.core.Animatable
