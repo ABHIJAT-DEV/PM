@@ -91,9 +91,14 @@ class LibraryStateHolder @Inject constructor(
     private val effectiveStorageFilter: Flow<StorageFilter> =
         combine(
             _currentStorageFilter,
-            userPreferencesRepository.hideLocalMediaFlow
-        ) { filter, hideLocal ->
-            if (hideLocal) StorageFilter.ONLINE else filter
+            userPreferencesRepository.hideLocalMediaFlow,
+            userPreferencesRepository.localModeEnabledFlow
+        ) { filter, hideLocal, localMode ->
+            when {
+                localMode -> StorageFilter.OFFLINE
+                hideLocal -> StorageFilter.ONLINE
+                else -> filter
+            }
         }
 
     // --- Paging flows wired to the local Room DB ---
@@ -120,12 +125,15 @@ class LibraryStateHolder @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val artistsPagingFlow: Flow<androidx.paging.PagingData<Artist>> =
-        _currentArtistSortOption.flatMapLatest { sortOption ->
-            // Show only YouTube Music artists — individual artists from the user's YT library/subscriptions.
-            // These have negative IDs (assigned by toUnifiedYoutubeArtistId) and are properly split
-            // per-artist via parseYoutubeArtistNames. Local MediaStore artists with combined
-            // "Artist1, Artist2" name strings are intentionally excluded from this tab.
-            musicRepository.getPaginatedYouTubeOnlyArtists(sortOption)
+        combine(_currentArtistSortOption, userPreferencesRepository.localModeEnabledFlow) { sortOption, localMode ->
+            sortOption to localMode
+        }.flatMapLatest { (sortOption, localMode) ->
+            if (localMode) {
+                musicRepository.getPaginatedArtists(sortOption, StorageFilter.OFFLINE)
+            } else {
+                // Show only YouTube Music artists — individual artists from the user's YT library/subscriptions.
+                musicRepository.getPaginatedYouTubeOnlyArtists(sortOption)
+            }
         }.flowOn(Dispatchers.IO)
 
     @OptIn(ExperimentalCoroutinesApi::class)

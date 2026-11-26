@@ -263,6 +263,7 @@ interface MusicRepository {
     suspend fun searchPlaylists(query: String): List<Playlist> // Mantener suspend, ya que no hay Flow aún
     fun searchAll(query: String, filterType: SearchFilterType): Flow<List<SearchResultItem>>
     suspend fun searchAllOnce(query: String, filterType: SearchFilterType): List<SearchResultItem>
+    suspend fun searchLocalOnce(query: String, filterType: SearchFilterType): List<SearchResultItem>
 
     // Search History
     suspend fun addSearchHistoryItem(query: String)

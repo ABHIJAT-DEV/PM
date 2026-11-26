@@ -525,6 +525,10 @@ object YoutubeHelper {
             return savedSong.audioFilePath
         }
 
+        if (com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive) {
+            throw java.io.IOException("Streaming disabled in Local Mode (track not downloaded to storage)")
+        }
+
         val activeQuality = getActiveStreamingQuality(context)
         val isBestQuality = (activeQuality == StreamingAudioQuality.HIGH)
         val maxBitrate = getTargetBitrateCeiling(context)

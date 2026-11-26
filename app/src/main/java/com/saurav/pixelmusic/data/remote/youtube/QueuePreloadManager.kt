@@ -136,7 +136,9 @@ object QueuePreloadManager {
         val ctx = appContext ?: return
 
         preloadJob?.cancel()
+        if (com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive) return
         preloadJob = currentScope.launch(Dispatchers.IO) {
+            if (com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive) return@launch
             val settings = datastoreRepository?.settings?.first() ?: return@launch
             if (!settings.preloadQueueEnabled) return@launch
 

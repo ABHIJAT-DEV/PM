@@ -347,6 +347,7 @@ constructor(
         val IS_FOLDERS_PLAYLIST_VIEW = booleanPreferencesKey("is_folders_playlist_view")
         val SHOW_TELEGRAM_CLOUD_PLAYLISTS = booleanPreferencesKey("show_telegram_cloud_playlists")
         val HIDE_LOCAL_MEDIA = booleanPreferencesKey("hide_local_media")
+        val LOCAL_MODE_ENABLED = booleanPreferencesKey("local_mode_enabled")
         val TELEGRAM_TOPIC_DISPLAY_MODE = stringPreferencesKey("telegram_topic_display_mode")
         val FOLDERS_SOURCE = stringPreferencesKey("folders_source")
         val FOLDER_BACK_GESTURE_NAVIGATION = booleanPreferencesKey("folder_back_gesture_navigation")
@@ -1932,6 +1933,8 @@ constructor(
         /** Default word-based delimiters (matched case-insensitively with whitespace boundaries) */
         val DEFAULT_ARTIST_WORD_DELIMITERS = listOf("featuring", "feat.", "feat", "ft.", "ft", "vs.", "vs", "versus", "with", "prod.", "prod")
         const val DEFAULT_ALBUM_ART_CACHE_LIMIT_MB = 200
+        @Volatile
+        var isLocalModeActive: Boolean = false
     }
 
     val navBarCornerRadiusFlow: Flow<Int> =
@@ -2198,6 +2201,13 @@ constructor(
             preferences[PreferencesKeys.HIDE_LOCAL_MEDIA] ?: false
         }.distinctUntilChanged()
 
+    val localModeEnabledFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            val enabled = preferences[PreferencesKeys.LOCAL_MODE_ENABLED] ?: false
+            isLocalModeActive = enabled
+            enabled
+        }.distinctUntilChanged()
+
     val foldersSourceFlow: Flow<FolderSource> = dataStore.data
         .map { preferences ->
             FolderSource.fromStorageKey(preferences[PreferencesKeys.FOLDERS_SOURCE])
@@ -2250,6 +2260,13 @@ constructor(
     suspend fun setHideLocalMedia(hide: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.HIDE_LOCAL_MEDIA] = hide
+        }
+    }
+
+    suspend fun setLocalModeEnabled(enabled: Boolean) {
+        isLocalModeActive = enabled
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LOCAL_MODE_ENABLED] = enabled
         }
     }
 

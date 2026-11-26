@@ -128,6 +128,7 @@ data class ImportProgressState(
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
     val playlistPreferencesRepository: PlaylistPreferencesRepository,
+    private val userPreferencesRepository: com.saurav.pixelmusic.data.preferences.UserPreferencesRepository,
     private val musicRepository: MusicRepository,
     private val dailyMixManager: DailyMixManager,
     private val aiPlaylistGenerator: AiPlaylistGenerator,
@@ -206,8 +207,17 @@ class PlaylistViewModel @Inject constructor(
             val initialSortOption = resolvePlaylistSortOption(initialSortOptionName)
             _uiState.update { it.copy(currentPlaylistSortOption = initialSortOption) }
 
-            // Then, collect playlists and apply the sort option
-            playlistPreferencesRepository.userPlaylistsFlow.collect { playlists ->
+            // Then, collect playlists and apply the sort option (filtered in Local Mode without deleting YT data)
+            kotlinx.coroutines.flow.combine(
+                playlistPreferencesRepository.userPlaylistsFlow,
+                userPreferencesRepository.localModeEnabledFlow
+            ) { playlists, localMode ->
+                if (localMode) {
+                    playlists.filter { it.source == "LOCAL" || it.id == "_downloaded_" }
+                } else {
+                    playlists
+                }
+            }.collect { playlists ->
                 val currentSortOption =
                     _uiState.value.currentPlaylistSortOption // Use the most up-to-date sort option
                 val sortedPlaylists = sortPlaylistsList(playlists, currentSortOption)

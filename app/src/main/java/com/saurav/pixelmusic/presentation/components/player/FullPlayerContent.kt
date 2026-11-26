@@ -1908,6 +1908,7 @@ fun FullPlayerContent(
                             }
 
                             // Material You Expressive Separated Action Cards
+                            val isLocalModePlayer by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
                             var isDownloaded by remember(song.id) { mutableStateOf(false) }
                             val activeDownloadProgress by com.saurav.pixelmusic.utils.SongDownloader.activeDownloadProgress.collectAsStateWithLifecycle()
                             val downloadNotificationId = remember(song.id, song.youtubeId) { (song.youtubeId ?: song.id).hashCode() }
@@ -1972,12 +1973,14 @@ fun FullPlayerContent(
                                     SongActionRow(
                                         painter = if (isDownloaded) rememberVectorPainter(Icons.Rounded.CheckCircle) else painterResource(R.drawable.rounded_download_24),
                                         title = when {
+                                            isLocalModePlayer -> "Playing from storage"
                                             isDownloaded -> "Downloaded"
                                             isDownloading && downloadProgress >= 0f -> "Downloading · ${(animatedDownloadProgress * 100).toInt()}%"
                                             isDownloading -> "Downloading…"
                                             else -> "Download"
                                         },
                                         subtitle = when {
+                                            isLocalModePlayer -> "Local Mode active"
                                             isDownloaded -> "Saved to device storage"
                                             isDownloading && downloadProgress >= 0f -> "Downloading song · ${(animatedDownloadProgress * 100).toInt()}% complete"
                                             isDownloading -> "Preparing audio download…"
@@ -2000,7 +2003,9 @@ fun FullPlayerContent(
                                             }
                                         } else null,
                                         onClick = {
-                                            if (!isDownloaded && !isDownloading) {
+                                            if (isLocalModePlayer) {
+                                                android.widget.Toast.makeText(context, "Playing from storage", android.widget.Toast.LENGTH_SHORT).show()
+                                            } else if (!isDownloaded && !isDownloading) {
                                                 fileImportScope.launch {
                                                     var currentLyricsObj = lyricsProvider()
                                                     if (currentLyricsObj == null) {

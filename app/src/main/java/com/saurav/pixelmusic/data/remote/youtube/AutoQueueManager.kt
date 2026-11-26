@@ -1122,7 +1122,8 @@ object AutoQueueManager {
             }
 
             // 2. Discover related tracks (first priority is online YouTube Music for online tracks, and local related for offline tracks)
-            val isOnline = connectivityStateHolder?.isOnline?.value ?: true
+            val isLocalMode = userPreferencesRepository?.localModeEnabledFlow?.first() == true
+            val isOnline = !isLocalMode && (connectivityStateHolder?.isOnline?.value ?: true)
             var discovered = emptyList<Song>()
             
             if (isOnline && !isLocal && resolvedVideoId.isNotBlank()) {
@@ -1144,10 +1145,15 @@ object AutoQueueManager {
                 discovered = fetchLocalRelated(currentId, currentQueueIds)
             }
 
+            fun isStorageBackedEntity(entity: com.saurav.pixelmusic.data.database.SongEntity): Boolean =
+                entity.sourceType == 0 || (entity.filePath.isNotBlank() && java.io.File(entity.filePath).exists())
+
             // 3. Extract same-artist and same-genre local pools
             val sameArtistSongs = if (currentSongEntity?.artistName != null || currentArtist.isNotBlank()) {
                 val artistToQuery = currentSongEntity?.artistName ?: currentArtist
-                dao.getSongsByArtistName(artistToQuery, 20).map { it.toSong() }
+                dao.getSongsByArtistName(artistToQuery, 20)
+                    .let { list -> if (isLocalMode) list.filter(::isStorageBackedEntity) else list }
+                    .map { it.toSong() }
             } else {
                 emptyList()
             }
@@ -1603,7 +1609,13 @@ object AutoQueueManager {
             // Only the songs actually selected by refillQueueLoop's interleave logic
             // (via addToAddedVideoIds in the batch loop) should be tracked.
             // Adding ALL fetched local songs here causes premature exhaustion of candidates.
-            return filtered.map { it.toSong() }
+            val isLocalModeActive = userPreferencesRepository?.localModeEnabledFlow?.first() == true
+            val finalFiltered = if (isLocalModeActive) {
+                filtered.filter { it.sourceType == 0 || (it.filePath.isNotBlank() && java.io.File(it.filePath).exists()) }
+            } else {
+                filtered
+            }
+            return finalFiltered.map { it.toSong() }
         } catch (e: Exception) {
             printe("AutoQueueManager: Exception fetching local related songs: ${e.message}")
             return emptyList()

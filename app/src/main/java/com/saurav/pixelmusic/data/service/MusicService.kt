@@ -496,6 +496,48 @@ class MusicService : MediaLibraryService() {
             }
         }
 
+        // Local Mode preference collector: syncs engine guard & strips non-downloaded online items from queue
+        serviceScope.launch {
+            userPreferencesRepository.localModeEnabledFlow.collect { enabled ->
+                com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive = enabled
+                engine.isLocalModeEnabled = enabled
+                if (enabled) {
+                    withContext(Dispatchers.Main) {
+                        val player = engine.masterPlayer
+                        val count = player.mediaItemCount
+                        for (i in count - 1 downTo 0) {
+                            val item = player.getMediaItemAt(i)
+                            val uriStr = item.localConfiguration?.uri?.toString()
+                                ?: item.mediaMetadata.extras?.getString("com.saurav.pixelmusic.external.CONTENT_URI")
+                                ?: ""
+                            val isRemote = uriStr.startsWith("youtube://", ignoreCase = true) ||
+                                uriStr.startsWith("http://", ignoreCase = true) ||
+                                uriStr.startsWith("https://", ignoreCase = true) ||
+                                item.mediaId.startsWith("youtube_")
+                            if (isRemote) {
+                                val ytId = item.mediaId.removePrefix("youtube_").removePrefix("youtube://")
+                                val hasDiskFile = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val ytSong = com.saurav.pixelmusic.data.database.youtube.AppDatabase
+                                            .getInstance(this@MusicService).songRepository().getSong(ytId)
+                                        val p = ytSong?.audioFilePath
+                                        if (!p.isNullOrBlank() && java.io.File(p).exists()) true
+                                        else {
+                                            val dbSong = item.mediaId.toLongOrNull()?.let { musicDao.getSongByIdOnce(it) }
+                                            !dbSong?.filePath.isNullOrBlank() && java.io.File(dbSong!!.filePath).exists()
+                                        }
+                                    }.getOrDefault(false)
+                                }
+                                if (!hasDiskFile) {
+                                    player.removeMediaItem(i)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // ReplayGain preference collectors
         serviceScope.launch {
             userPreferencesRepository.replayGainEnabledFlow.collect { enabled ->

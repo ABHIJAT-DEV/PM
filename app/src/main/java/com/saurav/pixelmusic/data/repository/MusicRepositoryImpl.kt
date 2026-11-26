@@ -700,6 +700,71 @@ class MusicRepositoryImpl @Inject constructor(
         searchAll(query, filterType).first()
     }
 
+    override suspend fun searchLocalOnce(query: String, filterType: SearchFilterType): List<SearchResultItem> = withContext(Dispatchers.IO) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank() || filterType == SearchFilterType.VIDEOS) return@withContext emptyList()
+
+        val allowedDirs = userPreferencesRepository.allowedDirectoriesFlow.first()
+        val blockedDirs = userPreferencesRepository.blockedDirectoriesFlow.first()
+        val (allowedParentDirs, applyDirectoryFilter) = computeAllowedDirs(allowedDirs, blockedDirs)
+        val minTracks = userPreferencesRepository.minTracksPerAlbumFlow.first()
+
+        fun isStorageBacked(song: Song): Boolean {
+            if (!song.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+                !song.contentUriString.startsWith("http://", ignoreCase = true) &&
+                !song.contentUriString.startsWith("https://", ignoreCase = true)
+            ) return true
+            return song.path.isNotBlank() && java.io.File(song.path).exists()
+        }
+
+        suspend fun localSongs(titleOnly: Boolean): List<SearchResultItem.SongItem> =
+            musicDao.searchLocalSongsLimitedOnce(
+                query = trimmed,
+                allowedParentDirs = allowedParentDirs,
+                applyDirectoryFilter = applyDirectoryFilter,
+                limit = SEARCH_RESULTS_LIMIT,
+                titleOnly = titleOnly
+            ).map { it.toSong() }
+                .filter(::isStorageBacked)
+                .map { SearchResultItem.SongItem(it) }
+
+        suspend fun localAlbums(): List<SearchResultItem.AlbumItem> =
+            musicDao.searchLocalAlbumsOnce(
+                query = trimmed,
+                allowedParentDirs = allowedParentDirs,
+                applyDirectoryFilter = applyDirectoryFilter,
+                minTracks = minTracks
+            ).map { SearchResultItem.AlbumItem(it.toAlbum()) }
+
+        suspend fun localArtists(): List<SearchResultItem.ArtistItem> =
+            musicDao.searchLocalArtistsOnce(
+                query = trimmed,
+                allowedParentDirs = allowedParentDirs,
+                applyDirectoryFilter = applyDirectoryFilter
+            ).map { SearchResultItem.ArtistItem(it.toArtist()) }
+
+        suspend fun localPlaylists(): List<SearchResultItem.PlaylistItem> =
+            runCatching {
+                playlistPreferencesRepository.userPlaylistsFlow.first()
+                    .filter { (it.source == "LOCAL" || it.id == "_downloaded_") && it.name.contains(trimmed, ignoreCase = true) }
+                    .map { SearchResultItem.PlaylistItem(it) }
+            }.getOrDefault(emptyList())
+
+        when (filterType) {
+            SearchFilterType.ALL -> buildList {
+                addAll(localSongs(titleOnly = false))
+                addAll(localAlbums())
+                addAll(localArtists())
+                addAll(localPlaylists())
+            }
+            SearchFilterType.SONGS -> localSongs(titleOnly = true)
+            SearchFilterType.ALBUMS -> localAlbums()
+            SearchFilterType.ARTISTS -> localArtists()
+            SearchFilterType.PLAYLISTS -> localPlaylists()
+            SearchFilterType.VIDEOS -> emptyList()
+        }
+    }
+
     override suspend fun addSearchHistoryItem(query: String) {
         withContext(Dispatchers.IO) {
             searchHistoryDao.deleteByQuery(query)

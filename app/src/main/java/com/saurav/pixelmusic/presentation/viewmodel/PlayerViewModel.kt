@@ -352,6 +352,18 @@ class PlayerViewModel @Inject constructor(
             initialValue = persistentListOf()
         )
 
+    val localModeEnabled: StateFlow<Boolean> = userPreferencesRepository.localModeEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
+    )
+
+    fun setLocalModeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLocalModeEnabled(enabled)
+        }
+    }
+
     val searchSource: StateFlow<com.saurav.pixelmusic.data.preferences.SearchSource> = userPreferencesRepository.searchSourceFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

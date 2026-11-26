@@ -200,7 +200,10 @@ fun SearchScreen(
     }.collectAsStateWithLifecycle(initialValue = false)
     val favoriteSongIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle()
     val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
-    val searchSource by playerViewModel.searchSource.collectAsStateWithLifecycle()
+    val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
+    val rawSearchSource by playerViewModel.searchSource.collectAsStateWithLifecycle()
+    val searchSource = if (localModeEnabled) SearchSource.LOCAL else rawSearchSource
+    val context = LocalContext.current
     val isMotionBlurEnabled by playerViewModel.userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -383,7 +386,17 @@ fun SearchScreen(
 
                         // Source Pill Toggle (YouTube Music vs Local Library)
                         Surface(
-                            onClick = { playerViewModel.toggleSearchSource() },
+                            onClick = {
+                                if (localModeEnabled) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Turn off Local Mode to search YouTube Music",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    playerViewModel.toggleSearchSource()
+                                }
+                            },
                             shape = CircleShape,
                             color = if (searchSource == SearchSource.LOCAL) {
                                 colorScheme.secondaryContainer
@@ -491,7 +504,8 @@ fun SearchScreen(
                             onNavigateToCharts = { navController.navigateSafely(Screen.Charts.route) },
                             onNavigateToMoodsAndGenres = { navController.navigateSafely(Screen.MoodsAndGenres.route) },
                             onNavigateToPodcasts = { navController.navigateSafely(Screen.Podcasts.route) },
-                            isMotionBlurEnabled = isMotionBlurEnabled
+                            isMotionBlurEnabled = isMotionBlurEnabled,
+                            showOnlineBrowse = !localModeEnabled
                         )
                     }
                 } else {
@@ -499,15 +513,30 @@ fun SearchScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         // Single-row horizontally scrollable filter chips
-                        val filters = remember {
-                            listOf(
-                                SearchFilterType.ALL,
-                                SearchFilterType.SONGS,
-                                SearchFilterType.VIDEOS,
-                                SearchFilterType.ALBUMS,
-                                SearchFilterType.ARTISTS,
-                                SearchFilterType.PLAYLISTS
-                            )
+                        val filters = remember(searchSource) {
+                            if (searchSource == SearchSource.LOCAL) {
+                                listOf(
+                                    SearchFilterType.ALL,
+                                    SearchFilterType.SONGS,
+                                    SearchFilterType.ALBUMS,
+                                    SearchFilterType.ARTISTS,
+                                    SearchFilterType.PLAYLISTS
+                                )
+                            } else {
+                                listOf(
+                                    SearchFilterType.ALL,
+                                    SearchFilterType.SONGS,
+                                    SearchFilterType.VIDEOS,
+                                    SearchFilterType.ALBUMS,
+                                    SearchFilterType.ARTISTS,
+                                    SearchFilterType.PLAYLISTS
+                                )
+                            }
+                        }
+                        LaunchedEffect(searchSource, currentFilter) {
+                            if (searchSource == SearchSource.LOCAL && currentFilter == SearchFilterType.VIDEOS) {
+                                playerViewModel.updateSearchFilter(SearchFilterType.ALL)
+                            }
                         }
                         CompositionLocalProvider(
                             LocalMinimumInteractiveComponentSize provides 0.dp
@@ -797,7 +826,8 @@ fun SearchHistoryList(
     onNavigateToCharts: () -> Unit = {},
     onNavigateToMoodsAndGenres: () -> Unit = {},
     onNavigateToPodcasts: () -> Unit = {},
-    isMotionBlurEnabled: Boolean = true
+    isMotionBlurEnabled: Boolean = true,
+    showOnlineBrowse: Boolean = true
 ) {
     val historyListState = rememberLazyListState()
     val colorScheme = MaterialTheme.colorScheme
@@ -813,6 +843,7 @@ fun SearchHistoryList(
             bottom = bottomContentPadding
         )
     ) {
+        if (showOnlineBrowse) {
         item(key = "explore_categories_header") {
             Text(
                 text = "Browse & Discover",
@@ -875,6 +906,7 @@ fun SearchHistoryList(
                     )
                 }
             }
+        }
         }
 
         if (historyItems.isNotEmpty()) {

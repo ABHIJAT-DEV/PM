@@ -1272,16 +1272,30 @@ onViewToggleChange = { isChecked ->
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             modifier = Modifier.padding(start = 2.dp, bottom = 8.dp)
         )
-        com.saurav.pixelmusic.presentation.components.LibrarySheetToggleCard(
-            label = stringResource(R.string.presentation_batch_d_cloud_only),
-            checked = playerUiState.hideLocalMedia,
-            boxBackgroundColor = if (playerUiState.hideLocalMedia)
-                MaterialTheme.colorScheme.tertiary
-            else
-                MaterialTheme.colorScheme.surfaceContainerLow,
-            boxCornerRadius = if (playerUiState.hideLocalMedia) 18.dp else 50.dp,
-            onCheckedChange = { playerViewModel.setHideLocalMedia(it) }
-        )
+        val isLocalModeLibrary by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
+        val libraryContext = LocalContext.current
+        Box(modifier = Modifier.graphicsLayer { alpha = if (isLocalModeLibrary) 0.48f else 1f }) {
+            com.saurav.pixelmusic.presentation.components.LibrarySheetToggleCard(
+                label = stringResource(R.string.presentation_batch_d_cloud_only),
+                checked = if (isLocalModeLibrary) false else playerUiState.hideLocalMedia,
+                boxBackgroundColor = if (!isLocalModeLibrary && playerUiState.hideLocalMedia)
+                    MaterialTheme.colorScheme.tertiary
+                else
+                    MaterialTheme.colorScheme.surfaceContainerLow,
+                boxCornerRadius = if (!isLocalModeLibrary && playerUiState.hideLocalMedia) 18.dp else 50.dp,
+                onCheckedChange = { enabled ->
+                    if (isLocalModeLibrary) {
+                        android.widget.Toast.makeText(
+                            libraryContext,
+                            "This feature requires YouTube Music integration. Turn off Local Mode to use it.",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        playerViewModel.setHideLocalMedia(enabled)
+                    }
+                }
+            )
+        }
     }
                                 }
                             )

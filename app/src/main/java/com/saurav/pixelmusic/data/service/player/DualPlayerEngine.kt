@@ -97,6 +97,8 @@ class DualPlayerEngine @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     var hiFiModeEnabled: Boolean = false
         private set
+    @Volatile
+    var isLocalModeEnabled: Boolean = false
     private var audioOffloadEnabled = false
     private var sessionOffloadDisabled = false
     private var transitionJob: Job? = null
@@ -1032,9 +1034,50 @@ class DualPlayerEngine @Inject constructor(
                     }
                 }
 
+                // Local Mode strict guard: NEVER play cached streams or remote HTTP/YouTube URLs.
+                // Only allow local device files or genuinely downloaded files on storage.
+                if (isLocalModeEnabled) {
+                    if (scheme == "http" || scheme == "https") {
+                        throw IOException("Streaming blocked in Local Mode")
+                    }
+                    if (scheme == "youtube" || uriString.startsWith("youtube://")) {
+                        val cachedDiskPath = localFilePathCache[uriString]
+                            ?: (effectiveCacheKey?.let { localFilePathCache["youtube://$it"] })
+                        if (cachedDiskPath != null && File(cachedDiskPath).exists()) {
+                            return dataSpec.buildUpon()
+                                .setUri(Uri.fromFile(File(cachedDiskPath)))
+                                .setKey(effectiveCacheKey ?: uriString)
+                                .build()
+                        }
+                        val ytLookupId = realYtId?.takeIf { it.isNotBlank() } ?: effectiveCacheKey
+                        val diskPath = runCatching {
+                            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                                val ytSaved = ytLookupId?.let {
+                                    com.saurav.pixelmusic.data.database.youtube.AppDatabase.getInstance(context).songRepository().getSong(it)?.audioFilePath
+                                }
+                                if (!ytSaved.isNullOrBlank() && File(ytSaved).exists()) {
+                                    ytSaved
+                                } else {
+                                    val longId = normalizedId?.toLongOrNull()
+                                    val dbPath = longId?.let { musicDaoLazy.get().getSongByIdOnce(it)?.filePath }
+                                    dbPath?.takeIf { it.isNotBlank() && File(it).exists() }
+                                }
+                            }
+                        }.getOrNull()
+                        if (diskPath != null) {
+                            localFilePathCache[uriString] = diskPath
+                            return dataSpec.buildUpon()
+                                .setUri(Uri.fromFile(File(diskPath)))
+                                .setKey(effectiveCacheKey ?: uriString)
+                                .build()
+                        }
+                        throw IOException("Blocked in Local Mode: not downloaded to storage")
+                    }
+                }
+
                 // 1. Instant Start: Only return early without resolving URI/headers if the ENTIRE remaining stream is cached in ExoCache.
                 // (If only the 128KB preload span is cached, CacheDataSource will hit upstreamDataSource right after 128KB, so it still needs a resolved URI & YT headers!)
-                if (effectiveCacheKey != null) {
+                if (!isLocalModeEnabled && effectiveCacheKey != null) {
                     val lookupKey = streamCacheKeyFor(uri)
                     val isFullyCached = runCatching {
                         val totalLen = androidx.media3.datasource.cache.ContentMetadata.getContentLength(

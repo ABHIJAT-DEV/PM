@@ -120,29 +120,31 @@ class SearchStateHolder @Inject constructor(
                         return@collectLatest
                     }
 
-                    val source = userPreferencesRepository.searchSourceFlow.first()
+                    val isLocalMode = userPreferencesRepository.localModeEnabledFlow.first()
+                    val source = if (isLocalMode) SearchSource.LOCAL else userPreferencesRepository.searchSourceFlow.first()
                     val cacheKey = buildCacheKey(source, filter, query)
 
                     if (source == SearchSource.LOCAL) {
                         _searchSuggestions.value = persistentListOf()
+                        lastContinuationToken = null
                         val cachedLocal = searchResultCache.get(cacheKey)
                         if (cachedLocal != null) {
                             _searchResults.value = cachedLocal
                         }
                         try {
-                            val results = musicRepository.searchAllOnce(query, filter)
+                            val results = musicRepository.searchLocalOnce(query, filter)
                             if (request.requestId == latestSearchRequestId.get()) {
                                 val immutable = results.toImmutableList()
                                 _searchResults.value = immutable
                                 searchResultCache.put(cacheKey, immutable)
-                                _isSearching.value = false
                             }
                         } catch (_: CancellationException) {
                             throw CancellationException()
                         } catch (e: Exception) {
+                            Timber.e(e, "Local search error: $query")
+                        } finally {
                             if (request.requestId == latestSearchRequestId.get()) {
                                 _isSearching.value = false
-                                Timber.e(e, "Local search error: $query")
                             }
                         }
                         return@collectLatest
@@ -212,6 +214,7 @@ class SearchStateHolder @Inject constructor(
     }
 
     fun loadMoreSearch() {
+        if (com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive) return
         val token = lastContinuationToken
         val query = activeSearchQuery
         val filter = activeFilterType
