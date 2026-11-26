@@ -364,8 +364,10 @@ fun SettingsScreen(
         LaunchedEffect(lazyListState) {
             var prevIndex = lazyListState.firstVisibleItemIndex
             var prevOffset = lazyListState.firstVisibleItemScrollOffset
-            snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
-                .collect { (index, offset) ->
+            androidx.compose.runtime.snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
+                .collect { pair ->
+                    val index = pair.first
+                    val offset = pair.second
                     if (index == 0 && offset <= 12) {
                         isScrollingDown = false
                     } else if (index > prevIndex || (index == prevIndex && offset > prevOffset + 6)) {
