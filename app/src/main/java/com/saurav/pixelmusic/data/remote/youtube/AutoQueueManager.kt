@@ -1122,7 +1122,7 @@ object AutoQueueManager {
             }
 
             // 2. Discover related tracks (first priority is online YouTube Music for online tracks, and local related for offline tracks)
-            val isLocalMode = userPreferencesRepository?.localModeEnabledFlow?.first() == true
+            val isLocalMode = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
             val isOnline = !isLocalMode && (connectivityStateHolder?.isOnline?.value ?: true)
             var discovered = emptyList<Song>()
             
@@ -1609,7 +1609,7 @@ object AutoQueueManager {
             // Only the songs actually selected by refillQueueLoop's interleave logic
             // (via addToAddedVideoIds in the batch loop) should be tracked.
             // Adding ALL fetched local songs here causes premature exhaustion of candidates.
-            val isLocalModeActive = userPreferencesRepository?.localModeEnabledFlow?.first() == true
+            val isLocalModeActive = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
             val finalFiltered = if (isLocalModeActive) {
                 filtered.filter { it.sourceType == 0 || (it.filePath.isNotBlank() && java.io.File(it.filePath).exists()) }
             } else {

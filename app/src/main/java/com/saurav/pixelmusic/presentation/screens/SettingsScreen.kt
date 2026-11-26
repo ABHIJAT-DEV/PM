@@ -355,9 +355,9 @@ fun SettingsScreen(
                         }
                     )
                 }
-                Switch(
+                androidx.compose.material3.Switch(
                     checked = uiState.localModeEnabled,
-                    onCheckedChange = { settingsViewModel.setLocalModeEnabled(it) }
+                    onCheckedChange = { enabled -> settingsViewModel.setLocalModeEnabled(enabled) }
                 )
             }
         }

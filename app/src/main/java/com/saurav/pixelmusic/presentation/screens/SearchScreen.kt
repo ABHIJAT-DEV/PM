@@ -203,7 +203,7 @@ fun SearchScreen(
     val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
     val rawSearchSource by playerViewModel.searchSource.collectAsStateWithLifecycle()
     val searchSource = if (localModeEnabled) SearchSource.LOCAL else rawSearchSource
-    val context = LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val isMotionBlurEnabled by playerViewModel.userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
