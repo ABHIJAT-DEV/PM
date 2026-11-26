@@ -14,10 +14,12 @@ import com.saurav.pixelmusic.data.preferences.PlaylistPreferencesRepository
 import com.saurav.pixelmusic.data.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -191,23 +193,31 @@ class AiStateHolder @Inject constructor(
         _lastMinLength = minLength
         _lastMaxLength = maxLength
 
-        val scope = this.scope ?: return
+        val scope = this.scope
+        if (scope == null) {
+            toastEmitter?.invoke("AI engine is still initializing, please try again.")
+            return
+        }
+
+        // Flip overlay & generating flags synchronously before launching so closing the prompt sheet
+        // transitions directly into the full-screen generating page with zero gap back to Home.
+        _isGeneratingAiPlaylist.value = true
+        if (saveAsPlaylist) {
+            _showAiGeneratingOverlay.value = true
+        }
+        _aiError.value = null
+        _aiSuccess.value = false
+        _lastCreatedAiPlaylistId.value = null
+        _aiStatus.value = "Analyzing your library stats..."
 
         scope.launch {
-            val allSongs = allSongsProvider?.invoke() ?: emptyList()
-            val favoriteIds = favoriteSongIdsProvider?.invoke() ?: emptySet()
-            _isGeneratingAiPlaylist.value = true
-            if (saveAsPlaylist) {
-                _showAiGeneratingOverlay.value = true
-            }
-            _aiError.value = null
-            _aiSuccess.value = false
-            _lastCreatedAiPlaylistId.value = null
-
             // Step 1: Pre-generation analysis (emit a single progress notification so Android's
             // per-package notification rate limiter never queues delayed progress updates)
             try {
-                _aiStatus.value = "Analyzing your library stats..."
+                val allSongs = withContext(Dispatchers.IO) {
+                    allSongsProvider?.invoke() ?: emptyList()
+                }
+                val favoriteIds = favoriteSongIdsProvider?.invoke() ?: emptySet()
                 notificationManager.showProgress(
                     title = "Creating your AI mix",
                     message = "Curating the perfect tracks for your vibe…",
@@ -291,13 +301,17 @@ class AiStateHolder @Inject constructor(
                     Timber.tag("AiPlaylist").e(error, "AI playlist generation failed")
                     _aiStatus.value = null
                     val detail = extractAiErrorDetail(error)
-                    _aiError.value = resolveAiErrorMessage(error)
+                    val userMessage = resolveAiErrorMessage(error)
+                    _aiError.value = userMessage
+                    toastEmitter?.invoke(userMessage)
                     notificationManager.showCompletion("Couldn't create your mix", detail.take(140), reopenSheet = true)
                 }
             } catch (e: Exception) {
                 Timber.tag("AiPlaylist").e(e, "AI playlist generation threw unhandled exception")
                 _aiStatus.value = null
-                _aiError.value = resolveAiErrorMessage(e)
+                val userMessage = resolveAiErrorMessage(e)
+                _aiError.value = userMessage
+                toastEmitter?.invoke(userMessage)
                 notificationManager.showCompletion("Couldn't create your mix", extractAiErrorDetail(e).take(140), reopenSheet = true)
             } finally {
                 notificationManager.hideProgress()

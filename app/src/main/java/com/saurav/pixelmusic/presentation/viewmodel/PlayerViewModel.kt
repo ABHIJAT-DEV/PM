@@ -2662,26 +2662,32 @@ class PlayerViewModel @Inject constructor(
         aiStateHolder.initialize(
             scope = viewModelScope,
             allSongsProvider = {
-                val localSongs = musicRepository.getAllSongsOnce()
-                val ytSongs = try {
-                    val ytPlaylists = com.saurav.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
-                        .playlistRepository()
-                        .observeAll()
-                        .first()
-                    ytPlaylists.flatMap { it.songs }.map { it.toNativeSong() }
-                } catch (e: Exception) {
-                    emptyList()
-                }
-                val downloadedSongs = try {
-                    com.saurav.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
-                        .songRepository()
-                        .getDownloadedSongs()
-                        .map { it.toNativeSong() }
-                } catch (e: Exception) {
-                    emptyList()
-                }
-                (localSongs + ytSongs + downloadedSongs).distinctBy {
-                    "${it.displayArtist.trim().lowercase()} - ${it.title.trim().lowercase()}"
+                withContext(Dispatchers.IO) {
+                    val localSongs = try {
+                        musicRepository.getAllSongsOnce()
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                    val ytSongs = try {
+                        val ytPlaylists = com.saurav.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                            .playlistRepository()
+                            .observeAll()
+                            .first()
+                        ytPlaylists.flatMap { it.songs }.map { it.toNativeSong() }
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                    val downloadedSongs = try {
+                        com.saurav.pixelmusic.data.database.youtube.AppDatabase.getInstance(context)
+                            .songRepository()
+                            .getDownloadedSongs()
+                            .map { it.toNativeSong() }
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                    (localSongs + ytSongs + downloadedSongs).distinctBy {
+                        "${it.displayArtist.trim().lowercase()} - ${it.title.trim().lowercase()}"
+                    }
                 }
             },
             favoriteSongIdsProvider = { favoriteSongIds.value },
