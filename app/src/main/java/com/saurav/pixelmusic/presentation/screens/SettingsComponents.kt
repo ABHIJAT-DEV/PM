@@ -5,9 +5,13 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.lerp
+import kotlin.math.hypot
+import kotlin.math.max
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -1221,7 +1225,7 @@ fun ThemeSelectorItem(
     }
 }
 
-private val SmoothPreferenceMorphEasing = CubicBezierEasing(0.35f, 0.0f, 0.2f, 1.0f)
+private val SmoothPreferenceMorphEasing = CubicBezierEasing(0.32f, 0.0f, 0.18f, 1.0f)
 
 @Composable
 private fun ExpressivePreferenceOptionCard(
@@ -1234,24 +1238,32 @@ private fun ExpressivePreferenceOptionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    var waveOrigin by remember { mutableStateOf<Offset?>(null) }
+
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interaction ->
+            if (interaction is PressInteraction.Press) {
+                waveOrigin = interaction.pressPosition
+            }
+        }
+    }
+
     val selectionProgress by animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
-        animationSpec = tween(durationMillis = 550, easing = SmoothPreferenceMorphEasing),
+        animationSpec = tween(durationMillis = 650, easing = SmoothPreferenceMorphEasing),
         label = "pref_opt_progress"
     )
 
     val baseTopCorner = if (totalCount <= 1 || index == 0) 24.dp else 6.dp
     val baseBottomCorner = if (totalCount <= 1 || index == totalCount - 1) 24.dp else 6.dp
-    val selectedCorner = 26.dp
+    val selectedCorner = 28.dp
 
     val topCorner = lerp(baseTopCorner, selectedCorner, selectionProgress)
     val bottomCorner = lerp(baseBottomCorner, selectedCorner, selectionProgress)
 
-    val containerColor = lerp(
-        MaterialTheme.colorScheme.surfaceContainerHigh,
-        MaterialTheme.colorScheme.primary,
-        selectionProgress
-    )
+    val unselectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val selectedContainerColor = MaterialTheme.colorScheme.primary
     val contentColor = lerp(
         MaterialTheme.colorScheme.onSurface,
         MaterialTheme.colorScheme.onPrimary,
@@ -1275,16 +1287,45 @@ private fun ExpressivePreferenceOptionCard(
         bottomEnd = bottomCorner
     )
 
-    Surface(
-        onClick = onClick,
-        shape = animatedShape,
-        color = containerColor,
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .onGloballyPositioned { coords ->
                 val pos = coords.positionInRoot()
                 onPositioned(pos + Offset(coords.size.width / 2f, coords.size.height / 2f))
             }
+            .clip(animatedShape)
+            .drawBehind {
+                drawRect(color = unselectedContainerColor)
+                val p = selectionProgress
+                if (p >= 0.999f) {
+                    drawRect(color = selectedContainerColor)
+                } else if (p > 0.001f) {
+                    val origin = waveOrigin ?: Offset(size.width * 0.5f, size.height * 0.5f)
+                    val maxDx = max(origin.x, size.width - origin.x)
+                    val maxDy = max(origin.y, size.height - origin.y)
+                    val maxRadius = hypot(maxDx, maxDy).coerceAtLeast(1f)
+                    val feather = maxRadius * 0.38f
+                    val outerRadius = (p * (maxRadius + feather)).coerceAtLeast(1f)
+                    val solidStop = ((outerRadius - feather) / outerRadius).coerceIn(0f, 1f)
+                    drawRect(
+                        brush = Brush.radialGradient(
+                            colorStops = arrayOf(
+                                0f to selectedContainerColor,
+                                solidStop to selectedContainerColor,
+                                1f to selectedContainerColor.copy(alpha = 0f)
+                            ),
+                            center = origin,
+                            radius = outerRadius
+                        )
+                    )
+                }
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
     ) {
         Row(
             modifier = Modifier
@@ -1299,15 +1340,7 @@ private fun ExpressivePreferenceOptionCard(
                 color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .graphicsLayer {
-                        val scale = 1f + (0.03f * selectionProgress)
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = selectionProgress * 4.dp.toPx()
-                        transformOrigin = TransformOrigin(0f, 0.5f)
-                    }
+                modifier = Modifier.weight(1f, fill = false)
             )
 
             if (isBetaOption) {
