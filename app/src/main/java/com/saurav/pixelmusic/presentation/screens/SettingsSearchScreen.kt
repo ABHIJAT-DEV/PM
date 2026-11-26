@@ -173,6 +173,10 @@ fun SettingsSearchScreen(
                         end = 16.dp,
                         bottom = 12.dp
                     )
+                    .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                        waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                        shape = CircleShape
+                    )
             ) {
                 Row(
                     modifier = Modifier

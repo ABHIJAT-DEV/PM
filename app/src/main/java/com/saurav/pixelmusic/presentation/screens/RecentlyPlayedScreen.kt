@@ -612,7 +612,11 @@ private fun RecentlyPlayedActions(
             onClick = onPlay,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                    waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                    shape = playShape
+                ),
             shape = playShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary
@@ -632,7 +636,11 @@ private fun RecentlyPlayedActions(
             onClick = onShuffle,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                    waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f),
+                    shape = shuffleShape
+                ),
             shape = shuffleShape,
             colors = ButtonDefaults.filledTonalButtonColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer

@@ -267,6 +267,10 @@ fun EnhancedSongListItem(
                 .fillMaxWidth()
                 .scale(selectionScale)
                 .clip(surfaceShape)
+                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                    waveColor = colors.primary.copy(alpha = 0.22f),
+                    shape = surfaceShape
+                )
                 .then(
                     if (showSelectionDecoration) {
                         Modifier.border(

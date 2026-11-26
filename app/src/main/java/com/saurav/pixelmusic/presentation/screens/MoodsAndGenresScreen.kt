@@ -322,7 +322,12 @@ private fun MoodPillCard(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shadowElevation = 0.dp,
         tonalElevation = 0.dp,
-        modifier = modifier.height(52.dp)
+        modifier = modifier
+            .height(52.dp)
+            .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                waveColor = mood.color.copy(alpha = 0.28f),
+                shape = cardShape
+            )
     ) {
         Row(
             modifier = Modifier

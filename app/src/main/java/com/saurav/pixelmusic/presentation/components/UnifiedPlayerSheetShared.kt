@@ -111,6 +111,9 @@ internal fun MiniPlayerContentInternal(
         modifier = modifier
             .fillMaxWidth()
             .height(MiniPlayerHeight)
+            .expressiveTapColorWave(
+                waveColor = LocalMaterialTheme.current.primary.copy(alpha = 0.20f)
+            )
             .padding(start = 10.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -285,6 +288,11 @@ internal fun MiniPlayerContentInternal(
                 }
                 .clip(playPauseShape)
                 .background(LocalMaterialTheme.current.primary)
+                .expressiveTapColorWave(
+                    waveColor = LocalMaterialTheme.current.onPrimary.copy(alpha = 0.30f),
+                    shape = playPauseShape,
+                    enabled = controlsEnabled
+                )
                 .pointerInput(controlsEnabled) {
                     if (!controlsEnabled) return@pointerInput
                     val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)

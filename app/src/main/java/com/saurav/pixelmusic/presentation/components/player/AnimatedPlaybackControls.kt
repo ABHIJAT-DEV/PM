@@ -410,7 +410,13 @@ fun AnimatedPlaybackControls(
                         }
                         drawRect(baseColor)
                     }
-                    .clickable {
+                    .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                        waveColor = tintPlayPauseIcon.copy(alpha = 0.28f)
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
                         lastClicked = PlaybackButtonType.PLAY_PAUSE
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onPlayPause()

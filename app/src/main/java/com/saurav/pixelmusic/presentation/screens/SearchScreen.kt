@@ -299,7 +299,11 @@ fun SearchScreen(
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp),
+                        .height(56.dp)
+                        .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                            waveColor = colorScheme.primary.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(28.dp)
+                        ),
                     shape = RoundedCornerShape(28.dp),
                     color = colorScheme.surfaceContainerHigh,
                     tonalElevation = 2.dp

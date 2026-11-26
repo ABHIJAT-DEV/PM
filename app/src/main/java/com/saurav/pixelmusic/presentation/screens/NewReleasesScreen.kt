@@ -35,8 +35,11 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.saurav.pixelmusic.R
+import com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.SmartImage
+import com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
@@ -373,45 +376,59 @@ fun NewReleasesScreen(
                             )
                         }
 
-                        items(albums.drop(14), key = { "album_more_${it.browseId}" }) { album ->
-                            Surface(
-                                onClick = { navController.navigateSafely(Screen.AlbumDetail.createRoute(album.browseId)) },
-                                shape = RoundedCornerShape(14.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        item(key = "more_to_explore_group") {
+                            val moreAlbums = remember(albums) { albums.drop(14) }
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 2.dp)
+                                    .padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    SmartImage(
-                                        model = album.thumbnail,
-                                        contentDescription = album.title,
-                                        contentScale = ContentScale.Crop,
-                                        shape = RoundedCornerShape(10.dp),
-                                        modifier = Modifier.size(54.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(14.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = album.title,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = album.artists?.firstOrNull()?.name ?: "Album",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                moreAlbums.forEachIndexed { index, album ->
+                                    val cardShape = expressiveGroupedCardShape(index, moreAlbums.size)
+                                    Surface(
+                                        onClick = { navController.navigateSafely(Screen.AlbumDetail.createRoute(album.browseId)) },
+                                        shape = cardShape,
+                                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .expressiveTapColorWave(
+                                                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                                shape = cardShape
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            SmartImage(
+                                                model = album.thumbnail,
+                                                contentDescription = album.title,
+                                                contentScale = ContentScale.Crop,
+                                                shape = RoundedCornerShape(10.dp),
+                                                modifier = Modifier.size(54.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(14.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = album.title,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = album.artists?.firstOrNull()?.name ?: "Album",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

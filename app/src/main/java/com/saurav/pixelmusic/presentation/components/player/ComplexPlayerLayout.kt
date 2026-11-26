@@ -2065,7 +2065,11 @@ private fun VerticalExpressiveControlStack(
                     translationX = (miniPlayLeftPx - destX) * (1f - s.posT)
                     translationY = (miniBtnTopPx - destY) * (1f - s.posT)
                     alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
-                },
+                }
+                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                    waveColor = onPlayPauseContainerColor.copy(alpha = 0.28f),
+                    shape = RoundedCornerShape(if (playPauseVisualState) 20.dp else 34.dp)
+                ),
             defaultCornerDp = if (playPauseVisualState) 20.dp else 34.dp,
             pressedCornerDp = 14.dp,
             miniCornerDp = if (playPauseVisualState) 11.dp else 18.dp,

@@ -1398,49 +1398,40 @@ private fun ExploreFilterChip(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    val animatedHorizontalPadding by animateDpAsState(
-        targetValue = if (isSelected) 22.dp else 16.dp,
-        animationSpec = spring(dampingRatio = 0.70f, stiffness = 400f),
-        label = "chip_pad_$text"
-    )
-
     val chipShape = CircleShape
-
-    val containerColor by animateColorAsState(
-        targetValue = if (isSelected) colorScheme.primary else colorScheme.surfaceContainerHigh,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
-        label = "chip_bg_$text"
-    )
 
     val contentColor by animateColorAsState(
         targetValue = if (isSelected) colorScheme.onPrimary else colorScheme.onSurface,
-        animationSpec = tween(200),
+        animationSpec = tween(520, easing = com.saurav.pixelmusic.presentation.components.ExpressiveWaveEasing),
         label = "chip_content_$text"
     )
 
-    Surface(
-        onClick = onClick,
-        shape = chipShape,
-        color = containerColor,
-        shadowElevation = 0.dp,
-        tonalElevation = 0.dp,
-        modifier = modifier.height(38.dp)
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .fillMaxHeight()
-                .padding(horizontal = animatedHorizontalPadding)
-        ) {
-            Text(
-                text = text,
-                fontFamily = GoogleSansRounded,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                style = MaterialTheme.typography.labelLarge,
-                color = contentColor,
-                maxLines = 1
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .height(38.dp)
+            .com.saurav.pixelmusic.presentation.components.expressiveSelectionColorWave(
+                isSelected = isSelected,
+                unselectedColor = colorScheme.surfaceContainerHigh,
+                selectedColor = colorScheme.primary,
+                shape = chipShape,
+                durationMillis = 560
             )
-        }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 18.dp)
+    ) {
+        Text(
+            text = text,
+            fontFamily = GoogleSansRounded,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.labelLarge,
+            color = contentColor,
+            maxLines = 1
+        )
     }
 }
 
@@ -2263,6 +2254,10 @@ private fun ExploreMoodsAndGenresSection(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(54.dp)
+                                        .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                            waveColor = stripe.copy(alpha = 0.28f),
+                                            shape = RoundedCornerShape(14.dp)
+                                        )
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -2319,6 +2314,10 @@ private fun ExploreMoodsAndGenresSection(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(54.dp)
+                                    .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                        waveColor = stripe.copy(alpha = 0.28f),
+                                        shape = RoundedCornerShape(14.dp)
+                                    )
                             ) {
                                 Row(
                                     modifier = Modifier

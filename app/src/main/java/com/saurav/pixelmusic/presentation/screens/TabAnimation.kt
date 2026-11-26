@@ -28,8 +28,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import com.saurav.pixelmusic.presentation.components.expressiveSelectionColorWave
 
-private val TabSmoothMorphEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+private val TabSmoothMorphEasing = CubicBezierEasing(0.32f, 0f, 0.18f, 1f)
 
 @Composable
 fun TabAnimation(
@@ -51,71 +52,22 @@ fun TabAnimation(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val containerColor by animateColorAsState(
-        targetValue = if (isSelected) selectedColor else unselectedColor,
-        animationSpec = tween(durationMillis = 140, easing = TabSmoothMorphEasing),
-        label = "Tab Container Color"
-    )
     val contentColor by animateColorAsState(
         targetValue = if (isSelected) onSelectedColor else onUnselectedColor,
-        animationSpec = tween(durationMillis = 140, easing = TabSmoothMorphEasing),
+        animationSpec = tween(durationMillis = 520, easing = TabSmoothMorphEasing),
         label = "Tab Content Color"
-    )
-
-    // Synchronized neighbor-push pulse across all tabs whenever selectedIndex changes:
-    // the selected pill expands symmetrically from center while pushing both left and right neighbors,
-    // then all pills smoothly fall back to their default shape and position.
-    val pushPulse = remember { Animatable(0f) }
-    var hasInitialized by remember { mutableStateOf(false) }
-    LaunchedEffect(selectedIndex) {
-        if (!hasInitialized) {
-            hasInitialized = true
-            return@LaunchedEffect
-        }
-        pushPulse.snapTo(0f)
-        pushPulse.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 120, easing = TabSmoothMorphEasing)
-        )
-        pushPulse.animateTo(
-            targetValue = 0f,
-            animationSpec = tween(durationMillis = 260, easing = TabSmoothMorphEasing)
-        )
-    }
-
-    val pressScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.94f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "Tab Press Scale"
     )
 
     Tab(
         modifier = modifier
             .padding(all = 4.dp)
-            .graphicsLayer {
-                val pulse = pushPulse.value
-                val sX = (if (isSelected) 1f + 0.14f * pulse else 1f) * pressScale
-                val sY = (if (isSelected) 1f + 0.05f * pulse else 1f) * pressScale
-                scaleX = sX
-                scaleY = sY
-                this.transformOrigin = transformOrigin
-                translationX = when {
-                    isSelected -> 0f
-                    index >= 0 && index < selectedIndex -> {
-                        val dpShift = if (index == selectedIndex - 1) -10.dp else -5.dp
-                        dpShift.toPx() * pulse
-                    }
-                    else -> {
-                        val dpShift = if (index == selectedIndex + 1) 10.dp else 5.dp
-                        dpShift.toPx() * pulse
-                    }
-                }
-            }
-            .clip(tabShape)
-            .background(containerColor, tabShape),
+            .expressiveSelectionColorWave(
+                isSelected = isSelected,
+                unselectedColor = unselectedColor,
+                selectedColor = selectedColor,
+                shape = tabShape,
+                durationMillis = 560
+            ),
         selected = isSelected,
         interactionSource = interactionSource,
         text = content,

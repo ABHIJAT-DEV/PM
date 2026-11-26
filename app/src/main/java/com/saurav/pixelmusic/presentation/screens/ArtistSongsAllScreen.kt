@@ -184,7 +184,11 @@ fun ArtistSongsAllScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 4.dp, bottom = 10.dp)
-                                .height(56.dp),
+                                .height(56.dp)
+                                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                    waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                                    shape = AbsoluteSmoothCornerShape(16.dp, 60)
+                                ),
                             shape = AbsoluteSmoothCornerShape(16.dp, 60),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,

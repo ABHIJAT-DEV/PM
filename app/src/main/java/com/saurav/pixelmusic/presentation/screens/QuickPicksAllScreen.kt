@@ -451,7 +451,12 @@ private fun QuickPicksActions(
     ) {
         Button(
             onClick = onPlay,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                    waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                    shape = playShape
+                ),
             shape = playShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary

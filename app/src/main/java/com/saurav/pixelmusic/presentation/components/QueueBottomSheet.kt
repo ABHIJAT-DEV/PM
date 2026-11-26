@@ -2064,6 +2064,11 @@ fun QueuePlaylistSongItem(
                 }
                 .padding(horizontal = 12.dp)
                 .clip(itemShape)
+                .expressiveTapColorWave(
+                    waveColor = colors.primary.copy(alpha = 0.22f),
+                    shape = itemShape,
+                    enabled = currentOffsetPx == 0f
+                )
                 .combinedClickable(
                     enabled = currentOffsetPx == 0f,
                     onClick = { onClick() },

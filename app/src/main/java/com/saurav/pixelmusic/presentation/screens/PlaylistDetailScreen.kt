@@ -385,7 +385,12 @@ fun PlaylistDetailScreen(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(76.dp),
+                            .height(76.dp)
+                            .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                                shape = playButtonShape,
+                                enabled = currentPlaylist.source == "YOUTUBE" || localReorderableSongs.isNotEmpty()
+                            ),
                         enabled = currentPlaylist.source == "YOUTUBE" || localReorderableSongs.isNotEmpty(),
                         shape = playButtonShape,
                         colors = ButtonDefaults.buttonColors(
@@ -414,7 +419,12 @@ fun PlaylistDetailScreen(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(76.dp),
+                            .height(76.dp)
+                            .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f),
+                                shape = shuffleButtonShape,
+                                enabled = localReorderableSongs.isNotEmpty()
+                            ),
                         enabled = localReorderableSongs.isNotEmpty(),
                         shape = shuffleButtonShape,
                         colors = ButtonDefaults.filledTonalButtonColors(
