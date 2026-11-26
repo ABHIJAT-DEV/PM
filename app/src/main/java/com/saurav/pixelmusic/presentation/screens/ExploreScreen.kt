@@ -504,7 +504,7 @@ fun ExploreScreen(
                                                     color = colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                                                 )
                                             }
-                                            val exploreContext = LocalContext.current
+                                            val exploreContext = androidx.compose.ui.platform.LocalContext.current
                                             Button(
                                                 onClick = {
                                                     playerViewModel.setLocalModeEnabled(false) {
