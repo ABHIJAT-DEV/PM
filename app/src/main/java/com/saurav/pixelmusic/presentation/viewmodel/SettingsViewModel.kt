@@ -149,6 +149,7 @@ data class SettingsUiState(
     val autoQueueEnabled: Boolean = true,
     val avoidRepetitiveSongs: Boolean = false,
     val playerStreamClient: PlayerStreamClient = PlayerStreamClient.ANDROID_VR,
+    val localModeEnabled: Boolean = false,
     val pureYtMusicOnly: Boolean = false,
     val contentLanguage: String = "en",
     val contentCountry: String = "US",
@@ -998,6 +999,12 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.localModeEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(localModeEnabled = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.pureYtMusicOnlyFlow.collect { enabled ->
                 _uiState.update { it.copy(pureYtMusicOnly = enabled) }
             }
@@ -1067,6 +1074,12 @@ class SettingsViewModel @Inject constructor(
             datastoreRepository.ytIsProUser.collect { value ->
                 _uiState.update { it.copy(ytIsProUser = value) }
             }
+        }
+    }
+
+    fun setLocalModeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLocalModeEnabled(enabled)
         }
     }
 

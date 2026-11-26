@@ -92,10 +92,20 @@ class ExploreViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                restoreFromCache()
+            userPreferencesRepository.localModeEnabledFlow.collect { localMode ->
+                if (localMode) {
+                    stage2Job?.cancel()
+                    stage3Job?.cancel()
+                    _uiState.update { it.copy(isLoading = false, isRefreshing = false, error = null) }
+                } else {
+                    if (_uiState.value.homePageSections.isEmpty()) {
+                        withContext(Dispatchers.IO) {
+                            restoreFromCache()
+                        }
+                    }
+                    loadDataInternal(forceRefresh = false)
+                }
             }
-            loadDataInternal(forceRefresh = false)
         }
         viewModelScope.launch {
             playlistPreferencesRepository.userPlaylistsFlow.collect { playlists ->
@@ -174,6 +184,12 @@ class ExploreViewModel @Inject constructor(
     }
 
     private suspend fun loadDataInternal(forceRefresh: Boolean) {
+        if (userPreferencesRepository.localModeEnabledFlow.first()) {
+            stage2Job?.cancel()
+            stage3Job?.cancel()
+            _uiState.update { it.copy(isLoading = false, isRefreshing = false, error = null) }
+            return
+        }
         stage2Job?.cancel()
         stage3Job?.cancel()
 

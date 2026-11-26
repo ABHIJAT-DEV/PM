@@ -247,6 +247,7 @@ fun ExploreScreen(
     quickPicksViewModel: QuickPicksViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel()
 ) {
+    val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
     val uiState by exploreViewModel.uiState.collectAsStateWithLifecycle()
     val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
@@ -407,7 +408,58 @@ fun ExploreScreen(
                         .fillMaxSize()
                         .then(if (isCustomBackground) Modifier else Modifier.background(backgroundBrush))
                 ) {
-                    if (uiState.isLoading && uiState.homePageSections.isEmpty() && uiState.newReleaseAlbums.isEmpty() && uiState.chartsPage == null) {
+                    if (localModeEnabled) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = colorScheme.secondaryContainer,
+                                modifier = Modifier.size(72.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.rounded_library_music_24),
+                                        contentDescription = null,
+                                        tint = colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.size(34.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = "Local Mode is active",
+                                fontFamily = GoogleSansRounded,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Connect YouTube Music to fetch Explore data, charts, and recommendations.",
+                                fontFamily = GoogleSansRounded,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(22.dp))
+                            Button(
+                                onClick = { playerViewModel.setLocalModeEnabled(false) },
+                                shape = CircleShape
+                            ) {
+                                Text(
+                                    text = "Turn Off Local Mode",
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    } else if (uiState.isLoading && uiState.homePageSections.isEmpty() && uiState.newReleaseAlbums.isEmpty() && uiState.chartsPage == null) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center

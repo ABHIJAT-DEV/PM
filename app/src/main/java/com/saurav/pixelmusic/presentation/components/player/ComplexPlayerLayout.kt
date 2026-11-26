@@ -1337,7 +1337,9 @@ private data class KaraokeLineState(
     val lineTimeMs: Int,
     val syncedLine: SyncedLine?,
     val nextLineTimeMs: Long,
-    val nextLineText: String
+    val nextLineText: String,
+    val romanizedSubLine: String? = null,
+    val translatedSubLine: String? = null
 )
 
 /**
@@ -1364,8 +1366,79 @@ private fun ComplexKaraokeLyricsStage(
     )
     val effectivePosition = interpolatedPositionMs + syncOffsetMs + VOCAL_ONSET_LEAD_IN_MS
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val autoTranslate by remember(context) {
+        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.autoTranslateFlow(context)
+    }.collectAsStateWithLifecycle(initialValue = false)
+    val translateLang by remember(context) {
+        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.translateLanguageFlow(context)
+    }.collectAsStateWithLifecycle(initialValue = "en")
+    val useAiTranslation by remember(context) {
+        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.useAiTranslationFlow(context)
+    }.collectAsStateWithLifecycle(initialValue = false)
+    val autoRomanize by remember(context) {
+        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.autoRomanizeFlow(context)
+    }.collectAsStateWithLifecycle(initialValue = false)
+    val romanizationAsMain by remember(context) {
+        com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.romanizationAsMainFlow(context)
+    }.collectAsStateWithLifecycle(initialValue = false)
+
     val syncedLines = lyrics?.synced ?: emptyList()
     val plainLines = lyrics?.plain?.filter { it.isNotBlank() } ?: emptyList()
+
+    val sourceLineTexts = remember(syncedLines, plainLines) {
+        if (syncedLines.isNotEmpty()) syncedLines.map { it.line } else plainLines
+    }
+
+    var liveTranslations by remember(sourceLineTexts, translateLang, autoTranslate, useAiTranslation) {
+        mutableStateOf<List<String>?>(null)
+    }
+    LaunchedEffect(sourceLineTexts, translateLang, autoTranslate, useAiTranslation) {
+        liveTranslations = if (autoTranslate && sourceLineTexts.isNotEmpty()) {
+            val aiResult = if (useAiTranslation) {
+                val langName = com.saurav.pixelmusic.lyrics.PixelMusicLyricsPreferences.languageDisplayName(translateLang)
+                com.saurav.pixelmusic.lyrics.AiLyricsTranslator.translate(
+                    context = context,
+                    lines = sourceLineTexts,
+                    targetLanguageName = langName,
+                )
+            } else null
+            aiResult ?: com.saurav.pixelmusic.lyrics.GoogleTranslateEngine.translate(sourceLineTexts, targetLanguage = translateLang)
+        } else null
+    }
+
+    var liveRomanizations by remember(sourceLineTexts, autoRomanize) {
+        mutableStateOf<List<String?>?>(null)
+    }
+    LaunchedEffect(sourceLineTexts, autoRomanize) {
+        liveRomanizations = if (autoRomanize && sourceLineTexts.isNotEmpty()) {
+            val missingIndices = sourceLineTexts.indices.filter { i ->
+                val existingRom = syncedLines.getOrNull(i)?.romanization
+                existingRom.isNullOrBlank() && com.saurav.pixelmusic.lyrics.PixelMusicRomanizer.hasNonLatinScript(sourceLineTexts[i])
+            }
+            if (missingIndices.isEmpty()) {
+                null
+            } else {
+                val fetched = com.saurav.pixelmusic.lyrics.GoogleTranslateEngine.romanize(missingIndices.map { sourceLineTexts[it] })
+                if (fetched != null && fetched.size == missingIndices.size) {
+                    MutableList<String?>(sourceLineTexts.size) { null }.also { out ->
+                        missingIndices.forEachIndexed { idx, lineIndex ->
+                            out[lineIndex] = fetched[idx]
+                        }
+                    }
+                } else null
+            }
+        } else null
+    }
+
+    val romanizedList = remember(syncedLines, sourceLineTexts, autoRomanize, liveRomanizations) {
+        if (!autoRomanize) emptyList()
+        else sourceLineTexts.mapIndexed { i, lineText ->
+            syncedLines.getOrNull(i)?.romanization?.takeIf { it.isNotBlank() }
+                ?: liveRomanizations?.getOrNull(i)?.takeIf { it.isNotBlank() }
+                ?: com.saurav.pixelmusic.lyrics.PixelMusicRomanizer.romanize(lineText)
+        }
+    }
 
     // IMPORTANT: No .clip() here so word glow and scale animations radiate freely without box edges!
     Box(
@@ -1384,7 +1457,15 @@ private fun ComplexKaraokeLyricsStage(
                     syncedLines.indexOfLast { it.time <= effectivePosition }
                 }
 
-                val activeLineState = remember(currentLineIndex, syncedLines) {
+                val activeLineState = remember(
+                    currentLineIndex,
+                    syncedLines,
+                    romanizedList,
+                    liveTranslations,
+                    romanizationAsMain,
+                    autoRomanize,
+                    autoTranslate
+                ) {
                     val resolvedIdx = if (currentLineIndex >= 0) currentLineIndex else 0
                     val line = syncedLines.getOrNull(resolvedIdx)
                     val nextLine = syncedLines.getOrNull(resolvedIdx + 1)
@@ -1393,12 +1474,32 @@ private fun ComplexKaraokeLyricsStage(
                         line != null -> line.time.toLong() + 6500L
                         else -> 6500L
                     }
+                    val rom = if (autoRomanize) {
+                        romanizedList.getOrNull(resolvedIdx)?.takeIf { it.isNotBlank() && it != line?.line }
+                    } else null
+                    val swap = romanizationAsMain && rom != null && line != null
+                    val effectiveSyncedLine = if (swap && line != null) {
+                        line.copy(line = rom, words = null)
+                    } else {
+                        line
+                    }
+                    val subRom = if (swap) line?.line?.let(::sanitizeLyricLineText) else rom?.let(::sanitizeLyricLineText)
+                    val trans = if (autoTranslate) {
+                        liveTranslations?.getOrNull(resolvedIdx)
+                            ?.takeIf { it.isNotBlank() && !it.equals(line?.line, ignoreCase = true) }
+                            ?.let(::sanitizeLyricLineText)
+                    } else null
+                    val nextRom = if (autoRomanize && romanizationAsMain) {
+                        romanizedList.getOrNull(resolvedIdx + 1)?.takeIf { it.isNotBlank() }
+                    } else null
                     KaraokeLineState(
                         lineIndex = resolvedIdx,
                         lineTimeMs = line?.time ?: -1,
-                        syncedLine = line,
+                        syncedLine = effectiveSyncedLine,
                         nextLineTimeMs = nextTimeMs,
-                        nextLineText = nextLine?.line?.let(::sanitizeLyricLineText).orEmpty()
+                        nextLineText = (nextRom ?: nextLine?.line)?.let(::sanitizeLyricLineText).orEmpty(),
+                        romanizedSubLine = subRom,
+                        translatedSubLine = trans
                     )
                 }
 
@@ -1555,6 +1656,47 @@ private fun ComplexKaraokeLyricsStage(
                             }
                         }
 
+                        // Romanisation & Translation sub-lines for active karaoke line
+                        if (!lineState.romanizedSubLine.isNullOrBlank()) {
+                            val isRomRtl = remember(lineState.romanizedSubLine) { isRtlLyricText(lineState.romanizedSubLine) }
+                            CompositionLocalProvider(
+                                LocalLayoutDirection provides if (isRomRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+                            ) {
+                                Text(
+                                    text = lineState.romanizedSubLine,
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 14.sp
+                                    ),
+                                    color = textColor.copy(alpha = 0.72f),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        if (!lineState.translatedSubLine.isNullOrBlank()) {
+                            val isTransRtl = remember(lineState.translatedSubLine) { isRtlLyricText(lineState.translatedSubLine) }
+                            CompositionLocalProvider(
+                                LocalLayoutDirection provides if (isTransRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+                            ) {
+                                Text(
+                                    text = lineState.translatedSubLine,
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 14.sp
+                                    ),
+                                    color = accentColor.copy(alpha = 0.84f),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
                         // Upcoming line preview for frosted depth
                         if (lineState.nextLineText.isNotBlank()) {
                             val isNextRtl = remember(lineState.nextLineText) { isRtlLyricText(lineState.nextLineText) }
@@ -1580,12 +1722,27 @@ private fun ComplexKaraokeLyricsStage(
             }
 
             plainLines.isNotEmpty() -> {
-                val isPlainRtl = remember(plainLines) { isRtlLyricText(plainLines.firstOrNull().orEmpty()) }
+                val displayPlainLines = remember(plainLines, romanizedList, liveTranslations, autoRomanize, autoTranslate, romanizationAsMain) {
+                    plainLines.take(4).mapIndexed { i, original ->
+                        val rom = if (autoRomanize) romanizedList.getOrNull(i)?.takeIf { it.isNotBlank() && it != original } else null
+                        val trans = if (autoTranslate) liveTranslations?.getOrNull(i)?.takeIf { it.isNotBlank() && !it.equals(original, ignoreCase = true) } else null
+                        buildString {
+                            if (romanizationAsMain && rom != null) {
+                                append(rom)
+                            } else {
+                                append(original)
+                                if (rom != null) append("\n").append(rom)
+                            }
+                            if (trans != null) append("\n").append(trans)
+                        }
+                    }
+                }
+                val isPlainRtl = remember(displayPlainLines) { isRtlLyricText(displayPlainLines.firstOrNull().orEmpty()) }
                 CompositionLocalProvider(
                     LocalLayoutDirection provides if (isPlainRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
                 ) {
                     Text(
-                        text = plainLines.take(4).joinToString("\n"),
+                        text = displayPlainLines.joinToString("\n"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = GoogleSansRounded,
                             fontWeight = FontWeight.Bold,

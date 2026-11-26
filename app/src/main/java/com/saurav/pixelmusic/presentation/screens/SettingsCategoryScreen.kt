@@ -465,6 +465,14 @@ fun SettingsCategoryScreen(
                                     )
                                 }
 
+                                val ytOnlineEnabled = !uiState.localModeEnabled
+                                val showLocalModeLockedToast: () -> Unit = {
+                                    Toast.makeText(
+                                        context,
+                                        "This feature requires YouTube Music integration. Turn off Local Mode to use it.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                                 SettingsSubsection(title = "Online Content & Sources") {
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.settings_content_language_title),
@@ -476,7 +484,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_translate_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = ytOnlineEnabled,
+                                        onDisabledClick = showLocalModeLockedToast
                                     )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.settings_content_country_title),
@@ -488,7 +498,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_public_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = ytOnlineEnabled,
+                                        onDisabledClick = showLocalModeLockedToast
                                     )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.settings_playlist_suggestion_title),
@@ -506,7 +518,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_queue_music_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = ytOnlineEnabled,
+                                        onDisabledClick = showLocalModeLockedToast
                                     )
                                     SwitchSettingItem(
                                         title = stringResource(R.string.settings_hide_explicit_title),
@@ -515,7 +529,9 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setHideExplicit(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_explicit_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = ytOnlineEnabled,
+                                        onDisabledClick = showLocalModeLockedToast
                                     )
                                     SwitchSettingItem(
                                         title = stringResource(R.string.settings_hide_video_title),
@@ -524,7 +540,9 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setHideVideo(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_videocam_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = ytOnlineEnabled,
+                                        onDisabledClick = showLocalModeLockedToast
                                     )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.settings_my_top_size_title),
@@ -540,7 +558,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_trending_up_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = ytOnlineEnabled,
+                                        onDisabledClick = showLocalModeLockedToast
                                     )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.settings_set_quick_picks_title),
@@ -558,7 +578,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_auto_awesome_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = ytOnlineEnabled,
+                                        onDisabledClick = showLocalModeLockedToast
                                     )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.settings_quick_picks_mode_title),
@@ -575,7 +597,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_grid_view_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = ytOnlineEnabled,
+                                        onDisabledClick = showLocalModeLockedToast
                                     )
                                 }
 
@@ -1296,6 +1320,14 @@ fun SettingsCategoryScreen(
                                     )
                                 }
 
+                                val playbackYtOnlineEnabled = !uiState.localModeEnabled
+                                val showPlaybackLocalModeLockedToast: () -> Unit = {
+                                    Toast.makeText(
+                                        context,
+                                        "This feature requires YouTube Music integration. Turn off Local Mode to use it.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                                 SettingsSubsection(title = stringResource(R.string.setcat_streaming_title)) {
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_streaming_audio_quality_wifi_title),
@@ -1307,7 +1339,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_wifi_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_streaming_audio_quality_mobile_title),
@@ -1319,7 +1353,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_mobile_speaker_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                     SwitchSettingItem(
                                         title = stringResource(R.string.setcat_force_high_quality_mobile_title),
@@ -1328,7 +1364,9 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setForceHighQualityOnMobile(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                     SwitchSettingItem(
                                         title = "Download on like",
@@ -1337,7 +1375,9 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setCacheLikedSongsOffline(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.round_favorite_border_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                 }
 
@@ -1420,7 +1460,9 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setPreloadQueueEnabled(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_queue_music_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                     AnimatedVisibility(
                                         visible = uiState.preloadQueueEnabled,
@@ -1443,7 +1485,9 @@ fun SettingsCategoryScreen(
                                             },
                                             leadingIcon = {
                                                 Icon(painterResource(R.drawable.rounded_queue_music_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                            }
+                                            },
+                                            enabled = playbackYtOnlineEnabled,
+                                            onDisabledClick = showPlaybackLocalModeLockedToast
                                         )
                                     }
                                 }
@@ -1459,7 +1503,9 @@ fun SettingsCategoryScreen(
                                         },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_download_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                     SwitchSettingItem(
                                         title = "Embed Rich Metadata & Lyrics",
@@ -1468,7 +1514,9 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setEmbedFullMetadataOnDownload(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                     SliderSettingsItem(
                                         label = stringResource(R.string.setcat_music_storage_limit_desc),
@@ -1486,7 +1534,9 @@ fun SettingsCategoryScreen(
                                             if (value.toInt() == 0) "Unlimited"
                                             else if (value >= 1024) "${(value / 1024).toInt()} GB"
                                             else "${value.toInt()} MB"
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                 }
 
@@ -1501,7 +1551,9 @@ fun SettingsCategoryScreen(
                                         onCheckedChange = { settingsViewModel.setPureYtMusicOnly(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_music_note_24), null, tint = MaterialTheme.colorScheme.secondary)
-                                        }
+                                        },
+                                        enabled = playbackYtOnlineEnabled,
+                                        onDisabledClick = showPlaybackLocalModeLockedToast
                                     )
                                 }
                             }

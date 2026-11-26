@@ -338,6 +338,7 @@ fun HomeScreen(
     val betaSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     val scope = rememberCoroutineScope()
 
+    val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
     val homeStatsOverview by statsViewModel.homeOverview.collectAsStateWithLifecycle()
     val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
     val homeQuickPicksStyle by playerViewModel.homeQuickPicksStyle.collectAsStateWithLifecycle()
@@ -372,17 +373,28 @@ fun HomeScreen(
 
     val activeCollagePattern = CollagePattern.FLUID_BLOB
 
-    val filteredQuickPicks = remember(quickPicks, notInterestedSongIds, interestedSongIds) {
-        quickPicks.filter { it.id !in notInterestedSongIds }
+    fun isStorageBackedHomeSong(song: Song): Boolean {
+        if (!song.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+            !song.contentUriString.startsWith("http://", ignoreCase = true) &&
+            !song.contentUriString.startsWith("https://", ignoreCase = true)
+        ) return true
+        return song.path.isNotBlank() && java.io.File(song.path).exists()
+    }
+
+    val filteredQuickPicks = remember(quickPicks, notInterestedSongIds, interestedSongIds, localModeEnabled) {
+        if (localModeEnabled) emptyList()
+        else quickPicks.filter { it.id !in notInterestedSongIds }
             .sortedByDescending { it.id in interestedSongIds }
     }
-    val filteredYourMixSongs = remember(yourMixSongs, notInterestedSongIds, interestedSongIds) {
-        yourMixSongs.filter { it.id !in notInterestedSongIds }
+    val filteredYourMixSongs = remember(yourMixSongs, notInterestedSongIds, interestedSongIds, localModeEnabled) {
+        yourMixSongs
+            .filter { it.id !in notInterestedSongIds && (!localModeEnabled || isStorageBackedHomeSong(it)) }
             .sortedByDescending { it.id in interestedSongIds }
             .toImmutableList()
     }
-    val filteredDailyMixSongs = remember(dailyMixSongs, notInterestedSongIds, interestedSongIds) {
-        dailyMixSongs.filter { it.id !in notInterestedSongIds }
+    val filteredDailyMixSongs = remember(dailyMixSongs, notInterestedSongIds, interestedSongIds, localModeEnabled) {
+        if (localModeEnabled) persistentListOf()
+        else dailyMixSongs.filter { it.id !in notInterestedSongIds }
             .sortedByDescending { it.id in interestedSongIds }
             .toImmutableList()
     }
@@ -702,7 +714,13 @@ fun HomeScreen(
                             YourMixHeader(
                                 subtitle = yourMixSong,
                                 onAiCreateClick = {
-                                    if (hasActiveAiProviderApiKey) {
+                                    if (localModeEnabled) {
+                                        Toast.makeText(
+                                            context,
+                                            "AI Playlist requires YouTube Music integration. Turn off Local Mode to use it.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else if (hasActiveAiProviderApiKey) {
                                         playerViewModel.clearAiPlaylistError()
                                         showCreateAiPlaylistDialog = true
                                     } else {

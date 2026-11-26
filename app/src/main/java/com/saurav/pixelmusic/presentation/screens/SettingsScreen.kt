@@ -291,6 +291,78 @@ fun SettingsScreen(
         )
     }
     item {
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = if (uiState.localModeEnabled) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { settingsViewModel.setLocalModeEnabled(!uiState.localModeEnabled) }
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (uiState.localModeEnabled) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    },
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_library_music_24),
+                            contentDescription = null,
+                            tint = if (uiState.localModeEnabled) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            },
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Local Mode",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (uiState.localModeEnabled) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+                    Text(
+                        text = if (uiState.localModeEnabled) {
+                            "Playing device & downloaded music only · YouTube Music paused"
+                        } else {
+                            "Play only device & downloaded music without logging out"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (uiState.localModeEnabled) {
+                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+                Switch(
+                    checked = uiState.localModeEnabled,
+                    onCheckedChange = { settingsViewModel.setLocalModeEnabled(it) }
+                )
+            }
+        }
+    }
+    item {
         val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 ExpressiveSettingsGroup {
                     val mainCategories = SettingsCategory.entries.filter {

@@ -255,7 +255,8 @@ fun SwitchSettingItem(
         checked: Boolean,
         onCheckedChange: (Boolean) -> Unit,
         leadingIcon: @Composable (() -> Unit)? = null,
-        enabled: Boolean = true
+        enabled: Boolean = true,
+        onDisabledClick: (() -> Unit)? = null
 ) {
     val view = LocalView.current
     val appHapticsConfig = LocalAppHapticsConfig.current
@@ -280,7 +281,17 @@ fun SwitchSettingItem(
     ) {
         Surface(
                 color = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.fillMaxWidth().clip(shape)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .then(
+                        if (!enabled && onDisabledClick != null) {
+                            Modifier.clickable { onDisabledClick() }
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .graphicsLayer { alpha = if (enabled) 1f else 0.48f }
         ) {
             Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1090,7 +1101,9 @@ fun ThemeSelectorItem(
         selectedKey: String,
         onSelectionChanged: (String) -> Unit,
         leadingIcon: @Composable () -> Unit,
-        showBetaBadge: Boolean = false
+        showBetaBadge: Boolean = false,
+        enabled: Boolean = true,
+        onDisabledClick: (() -> Unit)? = null
 ) {
     var showSheet by remember { mutableStateOf(false) }
     val rawSelectedOption = options[selectedKey] ?: selectedKey
@@ -1113,8 +1126,12 @@ fun ThemeSelectorItem(
                 color = MaterialTheme.colorScheme.surfaceContainer,
                 modifier =
                         Modifier.fillMaxWidth().clip(shape).clickable {
-                            showSheet = true
-                        }
+                            if (enabled) {
+                                showSheet = true
+                            } else {
+                                onDisabledClick?.invoke()
+                            }
+                        }.graphicsLayer { alpha = if (enabled) 1f else 0.48f }
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
@@ -1380,7 +1397,9 @@ fun SliderSettingsItem(
         steps: Int,
         onValueChange: (Float) -> Unit,
         onValueChangeFinished: (() -> Unit)? = null,
-        valueText: (Float) -> String
+        valueText: (Float) -> String,
+        enabled: Boolean = true,
+        onDisabledClick: (() -> Unit)? = null
 ) {
     val highlightTitle = LocalSettingsHighlightTitle.current
     val highlighted = highlightTitle != null && (
@@ -1397,7 +1416,17 @@ fun SliderSettingsItem(
     ) {
         Surface(
                 color = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.fillMaxWidth().clip(shape)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .then(
+                        if (!enabled && onDisabledClick != null) {
+                            Modifier.clickable { onDisabledClick() }
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .graphicsLayer { alpha = if (enabled) 1f else 0.48f }
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
@@ -1425,7 +1454,8 @@ fun SliderSettingsItem(
                     onValueChange = onValueChange,
                     onValueChangeFinished = onValueChangeFinished,
                     valueRange = valueRange,
-                    steps = steps
+                    steps = steps,
+                    enabled = enabled
                 )
             }
         }

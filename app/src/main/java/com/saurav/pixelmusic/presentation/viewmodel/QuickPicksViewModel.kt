@@ -68,10 +68,26 @@ class QuickPicksViewModel @Inject constructor(
 
     init {
         // Immediately populate from cache so the UI shows something on relaunch
-        loadFromCache()
+        if (!UserPreferencesRepository.isLocalModeActive) {
+            loadFromCache()
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.localModeEnabledFlow.collect { localMode ->
+                if (localMode) {
+                    loadJob?.cancel()
+                    _isLoading.value = false
+                    _quickPicks.value = emptyList()
+                } else {
+                    if (_quickPicks.value.isEmpty()) {
+                        loadFromCache()
+                    }
+                    loadQuickPicks(_selectedCategory.value, forceRefresh = false)
+                }
+            }
+        }
         viewModelScope.launch {
             userPreferencesRepository.discoverFlow.collect { _ ->
-                if (_selectedCategory.value == "All") {
+                if (_selectedCategory.value == "All" && !UserPreferencesRepository.isLocalModeActive) {
                     // Changed to prevent auto-refresh on app launch
                     loadQuickPicks("All", forceRefresh = false)
                 }
@@ -179,6 +195,12 @@ class QuickPicksViewModel @Inject constructor(
 
     // Added 'forceRefresh' parameter — manual refresh always pulls fresh personalized YouTube recommendations
     private fun loadQuickPicks(category: String, forceRefresh: Boolean = false) {
+        if (UserPreferencesRepository.isLocalModeActive) {
+            loadJob?.cancel()
+            _isLoading.value = false
+            _quickPicks.value = emptyList()
+            return
+        }
         if (!forceRefresh && _quickPicks.value.isNotEmpty()) {
             return
         }

@@ -97,6 +97,15 @@ class DailyMixStateHolder @Inject constructor(
         localSongs: List<Song>,
         forceRefresh: Boolean
     ): List<Song> = coroutineScope {
+        val isLocalMode = userPreferencesRepository.localModeEnabledFlow.first()
+        if (isLocalMode) {
+            return@coroutineScope localSongs.filter { song ->
+                (!song.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+                    !song.contentUriString.startsWith("http://", ignoreCase = true) &&
+                    !song.contentUriString.startsWith("https://", ignoreCase = true)) ||
+                    (song.path.isNotBlank() && java.io.File(song.path).exists())
+            }
+        }
         val pureYtMusicOnly = userPreferencesRepository.pureYtMusicOnlyFlow.first()
         val hideExplicit = userPreferencesRepository.hideExplicitFlow.first()
         val hideVideo = userPreferencesRepository.hideVideoFlow.first()
