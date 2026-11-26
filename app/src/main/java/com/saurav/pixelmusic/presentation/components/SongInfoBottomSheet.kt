@@ -598,10 +598,10 @@ fun SongInfoBottomSheet(
                                                     onClick = {
                                                         if (isInterested) {
                                                             playerViewModel.clearSongInterest(song.id)
-                                                            PixelToast.show(context, R.string.toast_interest_cleared)
+                                                            Toast.show(context, R.string.toast_interest_cleared)
                                                         } else {
                                                             playerViewModel.markSongInterested(song)
-                                                            PixelToast.show(context, R.string.toast_marked_interested, type = PixelToastType.FAVORITE)
+                                                            Toast.show(context, R.string.toast_marked_interested, type = PixelToastType.FAVORITE)
                                                         }
                                                         smoothDismiss(null)
                                                     }
@@ -630,10 +630,10 @@ fun SongInfoBottomSheet(
                                                     onClick = {
                                                         if (isNotInterested) {
                                                             playerViewModel.clearSongInterest(song.id)
-                                                            PixelToast.show(context, R.string.toast_interest_cleared)
+                                                            Toast.show(context, R.string.toast_interest_cleared)
                                                         } else {
                                                             playerViewModel.markSongNotInterested(song)
-                                                            PixelToast.show(context, R.string.toast_marked_not_interested)
+                                                            Toast.show(context, R.string.toast_marked_not_interested)
                                                         }
                                                         smoothDismiss(null)
                                                     }
@@ -677,17 +677,17 @@ fun SongInfoBottomSheet(
                                                         onClick = {
                                                             val targetState = !isLikedState
                                                             if (!songInfoViewModel.isLoggedIn()) {
-                                                                PixelToast.show(context, "Please login to YouTube Music first", long = true)
+                                                                Toast.show(context, "Please login to YouTube Music first", long = true)
                                                             } else {
                                                                 songInfoViewModel.likeOnYouTube(song, targetState) { success ->
                                                                     if (success) {
                                                                         isLikedState = targetState
-                                                                        PixelToast.show(context, if (targetState) "Liked on YouTube" else "Removed Like from YouTube")
+                                                                        Toast.show(context, if (targetState) "Liked on YouTube" else "Removed Like from YouTube")
                                                                         if (targetState != isFavorite) {
                                                                             onToggleFavorite()
                                                                         }
                                                                     } else {
-                                                                        PixelToast.show(context, "Failed to update YouTube like")
+                                                                        Toast.show(context, "Failed to update YouTube like")
                                                                     }
                                                                 }
                                                             }
