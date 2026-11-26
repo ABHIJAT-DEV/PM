@@ -280,9 +280,11 @@ fun ExploreScreen(
 
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val isScrolled by remember {
+    val localListState = rememberLazyListState()
+    val isScrolled by remember(localModeEnabled) {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+            val activeState = if (localModeEnabled) localListState else listState
+            activeState.firstVisibleItemIndex > 0 || activeState.firstVisibleItemScrollOffset > 0
         }
     }
 
@@ -391,7 +393,9 @@ fun ExploreScreen(
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = {
                     exploreViewModel.loadData(forceRefresh = true)
-                    quickPicksViewModel.refresh()
+                    if (!localModeEnabled) {
+                        quickPicksViewModel.refresh()
+                    }
                 },
                 state = pullRefreshState,
                 modifier = Modifier.fillMaxSize(),
@@ -428,7 +432,6 @@ fun ExploreScreen(
                         label = "explore_local_mode_transition"
                     ) { isLocalExplore ->
                     if (isLocalExplore) {
-                        val localListState = rememberLazyListState()
                         val localSongs = uiState.localSongs
                         val localAlbums = uiState.localAlbums
                         val localArtists = uiState.localArtists
@@ -644,6 +647,15 @@ fun ExploreScreen(
                                                             style = MaterialTheme.typography.bodySmall,
                                                             fontWeight = FontWeight.SemiBold,
                                                             color = colorScheme.onSurface,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            textAlign = TextAlign.Center
+                                                        )
+                                                        Text(
+                                                            text = "${artist.songCount} ${if (artist.songCount == 1) "song" else "songs"}",
+                                                            fontFamily = GoogleSansRounded,
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = colorScheme.onSurfaceVariant,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis,
                                                             textAlign = TextAlign.Center
@@ -1225,7 +1237,11 @@ fun ExploreScreen(
                 onClick = {
                     if (exploreTitleAlpha > 0.05f) {
                         scope.launch {
-                            listState.animateScrollToItem(0)
+                            if (localModeEnabled) {
+                                localListState.animateScrollToItem(0)
+                            } else {
+                                listState.animateScrollToItem(0)
+                            }
                         }
                     }
                 },

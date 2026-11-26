@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.saurav.pixelmusic.data.model.Album
 import com.saurav.pixelmusic.data.model.Song
+import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
 import com.saurav.pixelmusic.data.repository.MusicRepository // Importar MusicRepository
 import com.saurav.pixelmusic.data.remote.youtube.toNativeSong
 import saurav.shru.pixelmusic.innertube.YouTube as InnerTubeYouTube
@@ -36,6 +37,7 @@ data class AlbumDetailUiState(
 class AlbumDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -45,28 +47,30 @@ class AlbumDetailViewModel @Inject constructor(
     init {
         val albumIdString: String? = savedStateHandle.get("albumId")
         if (albumIdString != null) {
-            val albumId = albumIdString.toLongOrNull()
-            val mappedBrowseId = albumId?.let { SearchStateHolder.albumIdMap[it] }
-            if (mappedBrowseId != null) {
-                loadOnlineAlbumData(mappedBrowseId)
-            } else if (albumId != null) {
-                loadAlbumData(albumId)
-            } else {
-                loadOnlineAlbumData(albumIdString)
+            viewModelScope.launch {
+                val isLocalMode = userPreferencesRepository.localModeEnabledFlow.first()
+                val albumId = albumIdString.toLongOrNull()
+                val mappedBrowseId = if (isLocalMode) null else albumId?.let { SearchStateHolder.albumIdMap[it] }
+                when {
+                    mappedBrowseId != null -> loadOnlineAlbumData(mappedBrowseId)
+                    albumId != null -> loadAlbumData(albumId, isLocalMode)
+                    !isLocalMode -> loadOnlineAlbumData(albumIdString)
+                    else -> _uiState.update {
+                        it.copy(error = context.getString(R.string.album_not_found), isLoading = false)
+                    }
+                }
             }
         } else {
             _uiState.update { it.copy(error = context.getString(R.string.album_id_not_found), isLoading = false) }
         }
     }
 
-    private fun loadAlbumData(id: Long) {
+    private fun loadAlbumData(id: Long, isLocalMode: Boolean) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val localAlbum = musicRepository.getAlbumById(id).first()
                 val localSongs = musicRepository.getSongsForAlbum(id).first()
-
-                val isLocalMode = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
                 if (!isLocalMode) {
                 // Check if any song in this album already carries a YouTube album browseId
                 val songBrowseId = localSongs.firstNotNullOfOrNull { it.albumBrowseId?.takeIf { b -> b.isNotBlank() } }

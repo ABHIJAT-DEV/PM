@@ -203,12 +203,13 @@ class ExploreViewModel @Inject constructor(
                     .take(24)
 
                 val groupedArtists = storageSongs
-                    .groupBy { it.artistId }
-                    .map { (artistId, songsByArtist) ->
+                    .filter { it.artist.isNotBlank() }
+                    .groupBy { it.artist.trim().lowercase() }
+                    .map { (_, songsByArtist) ->
                         val first = songsByArtist.first()
                         com.saurav.pixelmusic.data.model.Artist(
-                            id = artistId,
-                            name = first.artist.ifBlank { "Unknown Artist" },
+                            id = first.artistId,
+                            name = first.artist.trim(),
                             songCount = songsByArtist.size,
                             imageUrl = songsByArtist.firstNotNullOfOrNull { it.albumArtUriString }
                         )

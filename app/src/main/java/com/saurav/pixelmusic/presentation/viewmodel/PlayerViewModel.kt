@@ -2248,12 +2248,23 @@ class PlayerViewModel @Inject constructor(
 
     fun shuffleRandomArtist() {
         viewModelScope.launch {
-            val allArtists = libraryStateHolder.artists.value
-            if (allArtists.isNotEmpty()) {
-                val randomArtist = allArtists.random()
-                val artistSongs = musicRepository.getSongsForArtist(randomArtist.id).first()
+            val isLocalMode = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
+            val allArtists = libraryStateHolder.artists.value.shuffled()
+            for (randomArtist in allArtists) {
+                val rawSongs = musicRepository.getSongsForArtist(randomArtist.id).first()
+                val artistSongs = if (isLocalMode) {
+                    rawSongs.filter { s ->
+                        (!s.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+                            !s.contentUriString.startsWith("http://", ignoreCase = true) &&
+                            !s.contentUriString.startsWith("https://", ignoreCase = true)) ||
+                            (s.path.isNotBlank() && java.io.File(s.path).exists())
+                    }
+                } else {
+                    rawSongs
+                }
                 if (artistSongs.isNotEmpty()) {
                     playSongsShuffled(artistSongs, randomArtist.name, startAtZero = true)
+                    break
                 }
             }
         }
@@ -3428,9 +3439,10 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             _playerUiState.update { it.copy(isLoadingInitialSongs = true) }
             try {
+                val effectiveIsOnline = isOnline && !com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
                 val allArtistSongs = initialArtistSongs.toMutableList()
 
-                if (isOnline && songsMoreEndpoint != null) {
+                if (effectiveIsOnline && songsMoreEndpoint != null) {
                     val fetchResult = withContext(Dispatchers.IO) {
                         YouTube.artistItems(songsMoreEndpoint)
                     }
@@ -3455,7 +3467,7 @@ class PlayerViewModel @Inject constructor(
                 var seedVideoId = uniqueArtistSongs.firstOrNull { !it.youtubeId.isNullOrBlank() }?.youtubeId
                     ?: uniqueArtistSongs.firstOrNull { it.id.startsWith("youtube_") }?.id?.removePrefix("youtube_")
 
-                if (seedVideoId == null && isOnline) {
+                if (seedVideoId == null && effectiveIsOnline) {
                     val searchResult = withContext(Dispatchers.IO) {
                         YouTube.search(artistName, YouTube.SearchFilter.FILTER_SONG).getOrNull()
                     }
@@ -3465,7 +3477,7 @@ class PlayerViewModel @Inject constructor(
 
                 var relatedSongs = emptyList<Song>()
 
-                if (isOnline && seedVideoId != null) {
+                if (effectiveIsOnline && seedVideoId != null) {
                     val radioEndpoint = saurav.shru.pixelmusic.innertube.models.WatchEndpoint(
                         playlistId = "RDAMVM$seedVideoId",
                         videoId = seedVideoId

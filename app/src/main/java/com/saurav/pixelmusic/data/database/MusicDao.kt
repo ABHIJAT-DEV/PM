@@ -1741,6 +1741,51 @@ interface MusicDao {
     ): PagingSource<Int, ArtistEntity>
 
     /**
+     * Returns strictly local/downloaded artists deduplicated by normalized artist name
+     * for Local Mode / Offline filter, excluding online-only YouTube channels.
+     */
+    @Query("""
+        SELECT
+            MIN(artists.id) AS id,
+            TRIM(artists.name) AS name,
+            COALESCE(
+                MAX(NULLIF(artists.custom_image_uri, '')),
+                MAX(NULLIF(artists.image_url, '')),
+                MAX(NULLIF(songs.album_art_uri_string, ''))
+            ) AS image_url,
+            MAX(NULLIF(artists.custom_image_uri, '')) AS custom_image_uri,
+            NULL AS channel_id,
+            COUNT(DISTINCT songs.id) AS track_count
+        FROM artists
+        INNER JOIN song_artist_cross_ref ON song_artist_cross_ref.artist_id = artists.id
+        INNER JOIN songs ON song_artist_cross_ref.song_id = songs.id
+        WHERE (
+            (:filterMode = 1 AND (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != '')))
+            OR (:filterMode = 3 AND (songs.file_path IS NOT NULL AND songs.file_path != ''))
+        )
+        AND (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+        AND TRIM(artists.name) != ''
+        GROUP BY LOWER(TRIM(artists.name))
+        HAVING COUNT(DISTINCT songs.id) > 0
+        ORDER BY
+            CASE WHEN :sortOrder = 'artist_name_az' THEN TRIM(artists.name) END COLLATE NOCASE ASC,
+            CASE WHEN :sortOrder = 'artist_name_za' THEN TRIM(artists.name) END COLLATE NOCASE DESC,
+            CASE WHEN :sortOrder = 'artist_num_songs_desc' THEN track_count END DESC,
+            CASE WHEN :sortOrder = 'artist_num_songs_asc' THEN track_count END ASC,
+            TRIM(artists.name) COLLATE NOCASE ASC,
+            MIN(artists.id) ASC
+    """)
+    fun getLocalArtistsPaginated(
+        allowedParentDirs: List<String>,
+        applyDirectoryFilter: Boolean,
+        filterMode: Int,
+        sortOrder: String
+    ): PagingSource<Int, ArtistEntity>
+
+    @Query("SELECT * FROM artists WHERE channel_id = :channelId LIMIT 1")
+    suspend fun getArtistByChannelId(channelId: String): ArtistEntity?
+
+    /**
      * Returns only YouTube Music artists (id < 0) for the Library Artists tab.
      * Filters out local MediaStore artists which may have combined/unsplit artist strings.
      */
@@ -2238,6 +2283,31 @@ interface MusicDao {
 
     fun getSongsForArtist(artistId: Long): Flow<List<SongEntity>> =
         getSongIdsForArtistFlow(artistId).map { ids ->
+            if (ids.isEmpty()) emptyList()
+            else {
+                val byId = getSongsByIdsListSimple(ids).associateBy { it.id }
+                ids.mapNotNull { byId[it] }
+            }
+        }
+
+    @Query("""
+        SELECT DISTINCT songs.id
+        FROM songs
+        LEFT JOIN song_artist_cross_ref ON songs.id = song_artist_cross_ref.song_id
+        LEFT JOIN artists ON artists.id = song_artist_cross_ref.artist_id
+        WHERE (songs.source_type = 0 OR (songs.file_path IS NOT NULL AND songs.file_path != ''))
+        AND (
+            songs.artist_id = :artistId
+            OR song_artist_cross_ref.artist_id = :artistId
+            OR (:artistName != '' AND LOWER(TRIM(artists.name)) = LOWER(TRIM(:artistName)))
+            OR (:artistName != '' AND LOWER(TRIM(songs.artist_name)) = LOWER(TRIM(:artistName)))
+        )
+        ORDER BY songs.title COLLATE NOCASE ASC
+    """)
+    fun getLocalSongIdsForArtistFlow(artistId: Long, artistName: String): Flow<List<Long>>
+
+    fun getLocalSongsForArtist(artistId: Long, artistName: String): Flow<List<SongEntity>> =
+        getLocalSongIdsForArtistFlow(artistId, artistName).map { ids ->
             if (ids.isEmpty()) emptyList()
             else {
                 val byId = getSongsByIdsListSimple(ids).associateBy { it.id }

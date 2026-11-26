@@ -1306,8 +1306,10 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        val isHomeOrExploreRoute = currentRoute == Screen.Home.route || currentRoute == Screen.Explore.route
-                        val isFabVisible by remember(currentRoute, isSearchBarActive) {
+                        val isLocalModeMain by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
+                        val isHomeOrExploreRoute = currentRoute == Screen.Home.route ||
+                            (currentRoute == Screen.Explore.route && !isLocalModeMain)
+                        val isFabVisible by remember(currentRoute, isSearchBarActive, isLocalModeMain) {
                             derivedStateOf { isHomeOrExploreRoute && !isSearchBarActive }
                         }
                         AnimatedVisibility(
@@ -1328,8 +1330,10 @@ class MainActivity : ComponentActivity() {
                             }.collectAsStateWithLifecycle(initialValue = null)
 
                             val ltUiState by playerViewModel.listenTogetherUiState.collectAsStateWithLifecycle()
-                            val isLtActive = ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Hosting ||
-                                ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Guest
+                            val isLtActive = !isLocalModeMain && (
+                                ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Hosting ||
+                                    ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Guest
+                                )
 
                             HomeShuffleFab(
                                 isShuffleEnabled = false,
@@ -1341,7 +1345,16 @@ class MainActivity : ComponentActivity() {
                                     if (isExplore) {
                                         navController.navigateSafely(Screen.SmartMix.route)
                                     } else {
-                                        val yourMix = playerViewModel.yourMixSongs.value
+                                        val yourMix = playerViewModel.yourMixSongs.value.let { mix ->
+                                            if (isLocalModeMain) {
+                                                mix.filter { s ->
+                                                    (!s.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+                                                        !s.contentUriString.startsWith("http://", ignoreCase = true) &&
+                                                        !s.contentUriString.startsWith("https://", ignoreCase = true)) ||
+                                                        (s.path.isNotBlank() && java.io.File(s.path).exists())
+                                                }
+                                            } else mix
+                                        }
                                         if (yourMix.isNotEmpty()) {
                                             playerViewModel.playSongsShuffled(yourMix, "Your Mix")
                                         } else {
@@ -1349,8 +1362,8 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 },
-                                onSwipeUp = { showRecognitionDialog = true },
-                                onListenTogetherClick = { playerViewModel.openListenTogetherSheet() }
+                                onSwipeUp = if (isLocalModeMain) null else { { showRecognitionDialog = true } },
+                                onListenTogetherClick = if (isLocalModeMain) null else { { playerViewModel.openListenTogetherSheet() } }
                             )
                         }
                             

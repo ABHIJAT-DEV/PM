@@ -230,12 +230,21 @@ class MusicRepositoryImpl @Inject constructor(
                     Pager(
                         config = defaultLibraryPagingConfig,
                         pagingSourceFactory = {
-                            musicDao.getArtistsPaginated(
-                                allowedParentDirs = allowedParentDirs,
-                                applyDirectoryFilter = applyDirectoryFilter,
-                                filterMode = storageFilter.toFilterMode(),
-                                sortOrder = sortOption.storageKey
-                            )
+                            if (storageFilter == StorageFilter.OFFLINE || storageFilter == StorageFilter.DOWNLOADED_ONLY) {
+                                musicDao.getLocalArtistsPaginated(
+                                    allowedParentDirs = allowedParentDirs,
+                                    applyDirectoryFilter = applyDirectoryFilter,
+                                    filterMode = storageFilter.toFilterMode(),
+                                    sortOrder = sortOption.storageKey
+                                )
+                            } else {
+                                musicDao.getArtistsPaginated(
+                                    allowedParentDirs = allowedParentDirs,
+                                    applyDirectoryFilter = applyDirectoryFilter,
+                                    filterMode = storageFilter.toFilterMode(),
+                                    sortOrder = sortOption.storageKey
+                                )
+                            }
                         }
                     ).flow
                 )

@@ -395,9 +395,15 @@ fun HomeScreen(
         else quickPicks.filter { it.id !in notInterestedSongIds }
             .sortedByDescending { it.id in interestedSongIds }
     }
-    val filteredYourMixSongs = remember(yourMixSongs, notInterestedSongIds, interestedSongIds, localModeEnabled) {
-        yourMixSongs
+    val filteredYourMixSongs = remember(yourMixSongs, homeMixPreviewSongs, notInterestedSongIds, interestedSongIds, localModeEnabled) {
+        val primary = yourMixSongs
             .filter { it.id !in notInterestedSongIds && (!localModeEnabled || isStorageBackedHomeSong(it)) }
+        val resolved = if (localModeEnabled && primary.isEmpty()) {
+            homeMixPreviewSongs.filter { it.id !in notInterestedSongIds && isStorageBackedHomeSong(it) }
+        } else {
+            primary
+        }
+        resolved
             .sortedByDescending { it.id in interestedSongIds }
             .toImmutableList()
     }
@@ -630,8 +636,10 @@ fun HomeScreen(
                 onRefresh = {
                     isRefreshing = true
                     homePlaceholderRefreshGeneration++
-                    quickPicksViewModel.refresh()
-                    playerViewModel.forceUpdateDailyMix()
+                    if (!localModeEnabled) {
+                        quickPicksViewModel.refresh()
+                        playerViewModel.forceUpdateDailyMix()
+                    }
                     scope.launch {
                         delay(1200)
                         isRefreshing = false

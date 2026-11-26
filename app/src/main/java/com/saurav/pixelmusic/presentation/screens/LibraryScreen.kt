@@ -784,20 +784,13 @@ fun LibraryScreen(
                                 modifier = Modifier.padding(end = 12.dp)
                             ) {
                                 val isLocalModeSmartMix by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
-                                val smartMixContext = LocalContext.current
-                                AnimatedSparklesIconButton(
-                                    onClick = {
-                                        if (isLocalModeSmartMix) {
-                                            android.widget.Toast.makeText(
-                                                smartMixContext,
-                                                "Smart Mix requires YouTube Music integration. Turn off Local Mode to use it.",
-                                                android.widget.Toast.LENGTH_SHORT
-                                            ).show()
-                                        } else {
+                                if (!isLocalModeSmartMix) {
+                                    AnimatedSparklesIconButton(
+                                        onClick = {
                                             navController.navigateSafely(Screen.SmartMix.route)
                                         }
-                                    }
-                                )
+                                    )
+                                }
                                 Surface(
                                     onClick = {
                                         navController.navigateSafely(Screen.Settings.route)

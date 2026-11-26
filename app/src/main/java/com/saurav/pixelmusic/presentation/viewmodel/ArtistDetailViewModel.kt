@@ -20,10 +20,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.saurav.pixelmusic.data.database.toArtist
+import com.saurav.pixelmusic.data.database.toSong
 import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
 import com.saurav.pixelmusic.data.remote.youtube.toNativeSong
 import saurav.shru.pixelmusic.innertube.YouTube as InnerTubeYouTube
@@ -154,10 +157,16 @@ class ArtistDetailViewModel @Inject constructor(
     }
 
     init {
-        savedStateHandle.getStateFlow<String?>("artistId", null)
-            .onEach { idString ->
+        combine(
+            savedStateHandle.getStateFlow<String?>("artistId", null),
+            userPreferencesRepository.localModeEnabledFlow
+        ) { idString, isLocalMode ->
+            idString to isLocalMode
+        }
+            .distinctUntilChanged()
+            .onEach { (idString, isLocalMode) ->
                 if (idString != null) {
-                    loadArtistData(idString)
+                    loadArtistData(idString, isLocalMode)
                 } else {
                     _uiState.update { it.copy(error = context.getString(R.string.artist_id_not_found), isLoading = false) }
                 }
@@ -167,13 +176,20 @@ class ArtistDetailViewModel @Inject constructor(
 
     private var currentLoadJob: Job? = null
 
-    private fun loadArtistData(artistIdStr: String) {
+    private fun isStorageBackedSong(song: Song): Boolean {
+        if (!song.contentUriString.startsWith("youtube://", ignoreCase = true) &&
+            !song.contentUriString.startsWith("http://", ignoreCase = true) &&
+            !song.contentUriString.startsWith("https://", ignoreCase = true)
+        ) return true
+        return song.path.isNotBlank() && java.io.File(song.path).exists()
+    }
+
+    private fun loadArtistData(artistIdStr: String, isLocalMode: Boolean) {
         currentLoadJob?.cancel()
         currentLoadJob = viewModelScope.launch {
-            Log.d("ArtistDebug", "loadArtistData: idStr=$artistIdStr")
+            Log.d("ArtistDebug", "loadArtistData: idStr=$artistIdStr, isLocalMode=$isLocalMode")
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val isLocalMode = com.saurav.pixelmusic.data.preferences.UserPreferencesRepository.isLocalModeActive
                 val numericId = artistIdStr.toLongOrNull()
                 var browseId: String? = null
                 if (!isLocalMode) {
@@ -362,6 +378,100 @@ class ArtistDetailViewModel @Inject constructor(
                             }
                         }
                     }
+                } else if (isLocalMode) {
+                    val resolvedInitialArtist = withContext(Dispatchers.IO) {
+                        when {
+                            numericId != null -> musicRepository.getArtistById(numericId).first()
+                            else -> musicDao.getArtistByChannelId(artistIdStr)?.toArtist()
+                        }
+                    }
+                    val resolvedId = resolvedInitialArtist?.id ?: numericId ?: -1L
+                    val initialArtistName = resolvedInitialArtist?.name?.trim().orEmpty()
+                        .ifBlank { numericId?.let { SearchStateHolder.artistNameMap[it]?.trim() }.orEmpty() }
+
+                    if (resolvedId == -1L && initialArtistName.isBlank()) {
+                        _uiState.value = ArtistDetailUiState(
+                            error = context.getString(R.string.could_not_find_artist),
+                            isLoading = false,
+                            isOnlineArtist = false
+                        )
+                        return@launch
+                    }
+
+                    val artistDetailsFlow = if (resolvedId != -1L) {
+                        musicRepository.getArtistById(resolvedId)
+                    } else {
+                        kotlinx.coroutines.flow.flowOf(resolvedInitialArtist)
+                    }
+                    val localArtistSongsFlow = musicDao.getLocalSongsForArtist(resolvedId, initialArtistName)
+
+                    combine(artistDetailsFlow, localArtistSongsFlow) { artist, songEntities ->
+                        artist to songEntities.map { it.toSong() }
+                    }
+                        .catch { e ->
+                            _uiState.update {
+                                it.copy(
+                                    error = context.getString(R.string.error_loading_artist, e.localizedMessage ?: ""),
+                                    isLoading = false
+                                )
+                            }
+                        }
+                        .collect { (artist, songs) ->
+                            val visibleSongs = songs
+                                .filter(::isStorageBackedSong)
+                                .distinctBy { it.id }
+                                .sortedWith(compareBy<Song> { it.title.lowercase() })
+
+                            val baseArtist = artist ?: resolvedInitialArtist ?: visibleSongs.firstOrNull()?.let { first ->
+                                Artist(
+                                    id = resolvedId,
+                                    name = first.artist.ifBlank { "Unknown Artist" },
+                                    songCount = visibleSongs.size,
+                                    imageUrl = first.albumArtUriString
+                                )
+                            }
+                            if (baseArtist == null) {
+                                _uiState.update {
+                                    it.copy(error = context.getString(R.string.could_not_find_artist), isLoading = false)
+                                }
+                                return@collect
+                            }
+
+                            val effectiveUrl = baseArtist.customImageUri?.takeIf { it.isNotBlank() }
+                                ?: visibleSongs.firstNotNullOfOrNull { it.albumArtUriString }
+                                ?: baseArtist.imageUrl
+
+                            val newScheme = if (!effectiveUrl.isNullOrBlank()) {
+                                try {
+                                    themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
+                                } catch (e: Exception) {
+                                    Log.w("ArtistDebug", "Color scheme pre-warm failed: ${e.message}")
+                                    null
+                                }
+                            } else null
+
+                            _artistColorScheme.value = newScheme
+                            _uiState.value = ArtistDetailUiState(
+                                artist = baseArtist.copy(
+                                    songCount = visibleSongs.size,
+                                    imageUrl = if (baseArtist.customImageUri.isNullOrBlank()) effectiveUrl else baseArtist.imageUrl,
+                                    channelId = null
+                                ),
+                                songs = visibleSongs,
+                                popularSongs = emptyList(),
+                                albumSections = emptyList(),
+                                singlesAndEPs = emptyList(),
+                                effectiveImageUrl = effectiveUrl,
+                                isLoading = false,
+                                isOnlineArtist = false,
+                                artistDescription = null,
+                                subscriberCount = null,
+                                browseId = null,
+                                albumsMoreEndpoint = null,
+                                singlesMoreEndpoint = null,
+                                songsMoreEndpoint = null
+                            )
+                        }
                 } else {
                     val id = numericId ?: return@launch
                     val artistDetailsFlow = musicRepository.getArtistById(id)
@@ -380,21 +490,11 @@ class ArtistDetailViewModel @Inject constructor(
                             }
                         }
                         .collect { (artist, songs) ->
-                            val visibleSongs = if (isLocalMode) {
-                                songs.filter { s ->
-                                    (!s.contentUriString.startsWith("youtube://", ignoreCase = true) &&
-                                        !s.contentUriString.startsWith("http://", ignoreCase = true) &&
-                                        !s.contentUriString.startsWith("https://", ignoreCase = true)) ||
-                                        (s.path.isNotBlank() && java.io.File(s.path).exists())
-                                }
-                            } else {
-                                songs
-                            }
-                            val resolvedArtist = artist ?: visibleSongs.firstOrNull()?.let { first ->
+                            val resolvedArtist = artist ?: songs.firstOrNull()?.let { first ->
                                 Artist(
                                     id = id,
                                     name = first.artist.ifBlank { "Unknown Artist" },
-                                    songCount = visibleSongs.size,
+                                    songCount = songs.size,
                                     imageUrl = first.albumArtUriString
                                 )
                             }
@@ -405,23 +505,17 @@ class ArtistDetailViewModel @Inject constructor(
                                 return@collect
                             }
 
-                            val albumSections = buildAlbumSections(visibleSongs)
+                            val albumSections = buildAlbumSections(songs)
                             val orderedSongs = albumSections.flatMap { it.songs }
 
-                            val effectiveUrl = if (isLocalMode) {
-                                resolvedArtist.customImageUri?.takeIf { it.isNotBlank() }
-                                    ?: visibleSongs.firstNotNullOfOrNull { it.albumArtUriString }
-                                    ?: resolvedArtist.imageUrl
-                            } else {
-                                try {
-                                    artistImageRepository.getEffectiveArtistImageUrl(
-                                        artistId = resolvedArtist.id,
-                                        artistName = resolvedArtist.name
-                                    )
-                                } catch (e: Exception) {
-                                    Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
-                                    resolvedArtist.effectiveImageUrl
-                                }
+                            val effectiveUrl = try {
+                                artistImageRepository.getEffectiveArtistImageUrl(
+                                    artistId = resolvedArtist.id,
+                                    artistName = resolvedArtist.name
+                                )
+                            } catch (e: Exception) {
+                                Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
+                                resolvedArtist.effectiveImageUrl
                             }
 
                             val newScheme = if (!effectiveUrl.isNullOrBlank()) {
@@ -543,9 +637,14 @@ class ArtistDetailViewModel @Inject constructor(
                 val oldEffectiveUrl = _uiState.value.effectiveImageUrl
                 artistImageRepository.clearCustomArtistImage(context, artist.id)
 
-                // Fall back to Deezer URL
-                val deezerUrl = artistImageRepository.getArtistImageUrl(artist.name, artist.id)
-                val newEffectiveUrl = deezerUrl.takeIf { !it.isNullOrBlank() }
+                // Fall back to local album art in Local Mode, or Deezer URL when online
+                val isLocalMode = userPreferencesRepository.localModeEnabledFlow.first()
+                val fallbackUrl = if (isLocalMode) {
+                    _uiState.value.songs.firstNotNullOfOrNull { it.albumArtUriString }
+                } else {
+                    artistImageRepository.getArtistImageUrl(artist.name, artist.id)
+                }
+                val newEffectiveUrl = fallbackUrl.takeIf { !it.isNullOrBlank() }
 
                 // Invalidate old custom image palette
                 if (!oldEffectiveUrl.isNullOrBlank()) {
@@ -565,7 +664,7 @@ class ArtistDetailViewModel @Inject constructor(
                 _uiState.update { state ->
                     state.copy(
                         effectiveImageUrl = newEffectiveUrl,
-                        artist = state.artist?.copy(customImageUri = null, imageUrl = deezerUrl)
+                        artist = state.artist?.copy(customImageUri = null, imageUrl = fallbackUrl)
                     )
                 }
 

@@ -125,6 +125,7 @@ fun ArtistDetailScreen(
         playerViewModel.stablePlayerState.map { it.isPlaying }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
     val isSubscribed by viewModel.isSubscribed.collectAsStateWithLifecycle(initialValue = false)
+    val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
     
     // Optimization: Defer heavy list rendering until navigation transition settles
     var isTransitionFinished by remember { mutableStateOf(false) }
@@ -281,7 +282,7 @@ fun ArtistDetailScreen(
                     val popularSongs = uiState.popularSongs
                     val albumSections = uiState.albumSections
                     val singlesAndEPs = uiState.singlesAndEPs
-                    val isOnlineArtist = uiState.isOnlineArtist
+                    val isOnlineArtist = uiState.isOnlineArtist && !localModeEnabled
                     val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
 
                     val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
@@ -473,8 +474,78 @@ fun ArtistDetailScreen(
                             }
                         }
 
-                        // ─── Local Album Sections (Local Artists only) ───
-                        if (!isOnlineArtist) {
+                        // ─── Local Mode: Downloaded songs of this artist only ───
+                        if (localModeEnabled) {
+                            if (songs.isEmpty()) {
+                                item(key = "local_artist_empty", contentType = "empty_state") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 48.dp, horizontal = 16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No downloaded songs for this artist",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            } else {
+                                val displayedSongs = if (isTransitionFinished) songs else songs.take(12)
+                                itemsIndexed(
+                                    items = displayedSongs,
+                                    key = { idx, song -> "local_artist_song_${song.id}_$idx" },
+                                    contentType = { _, _ -> "local_artist_song" }
+                                ) { idx, song ->
+                                    val isFirst = idx == 0
+                                    val isLast = idx == displayedSongs.lastIndex
+                                    val songShape = when {
+                                        isFirst && isLast -> RoundedCornerShape(24.dp)
+                                        isFirst -> RoundedCornerShape(
+                                            topStart = 24.dp,
+                                            topEnd = 24.dp,
+                                            bottomStart = 4.dp,
+                                            bottomEnd = 4.dp
+                                        )
+                                        isLast -> RoundedCornerShape(
+                                            topStart = 4.dp,
+                                            topEnd = 4.dp,
+                                            bottomStart = 24.dp,
+                                            bottomEnd = 24.dp
+                                        )
+                                        else -> RoundedCornerShape(4.dp)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .animateItem(
+                                                fadeInSpec = tween(durationMillis = 180),
+                                                fadeOutSpec = tween(durationMillis = 120),
+                                                placementSpec = tween(durationMillis = 200)
+                                            )
+                                            .fillMaxWidth()
+                                            .padding(bottom = if (isLast) 0.dp else 2.dp)
+                                    ) {
+                                        EnhancedSongListItem(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            song = song,
+                                            isCurrentSong = artistCurrentSongId == song.id,
+                                            isPlaying = artistIsPlaying,
+                                            showAlbumArt = true,
+                                            customShape = songShape,
+                                            onMoreOptionsClick = {
+                                                playerViewModel.selectSongForInfo(song)
+                                                showSongInfoBottomSheet = true
+                                            },
+                                            onClick = {
+                                                playerViewModel.showAndPlaySong(song, songs)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        } else if (!isOnlineArtist) {
+                            // ─── Local Album Sections (Local Artists only, Online Mode) ───
                             albumSections.forEachIndexed { index, section ->
                                 if (section.songs.isEmpty()) return@forEachIndexed
 
@@ -575,21 +646,24 @@ fun ArtistDetailScreen(
                         SharedArtistTopBarProbe(
                             artist = artist,
                             effectiveImageUrl = uiState.effectiveImageUrl,
-                            songsCount = if (uiState.isOnlineArtist) artist.songCount else songs.size,
+                            songsCount = if (isOnlineArtist) artist.songCount else songs.size,
                             collapseFraction = collapseFraction,
                             headerHeight = currentTopBarHeightDp,
                             headerImageRequestSize = headerImageRequestSize,
                             hasCustomImage = !artist.customImageUri.isNullOrBlank(),
+                            showSubscribeButton = !localModeEnabled,
                             isSubscribed = isSubscribed,
                             onSubscribeClick = { viewModel.toggleSubscription() },
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
-                                playerViewModel.playArtistSongsShuffledWithRelated(
-                                    artistName = artist.name,
-                                    initialArtistSongs = songs,
-                                    songsMoreEndpoint = uiState.songsMoreEndpoint,
-                                    isOnline = uiState.isOnlineArtist
-                                )
+                                if (songs.isNotEmpty() || isOnlineArtist) {
+                                    playerViewModel.playArtistSongsShuffledWithRelated(
+                                        artistName = artist.name,
+                                        initialArtistSongs = songs,
+                                        songsMoreEndpoint = if (isOnlineArtist) uiState.songsMoreEndpoint else null,
+                                        isOnline = isOnlineArtist
+                                    )
+                                }
                             },
                             onChangeImage = { imagePickerLauncher.launch("image/*") },
                             onClearCustomImage = { viewModel.clearCustomImage() }
@@ -599,20 +673,23 @@ fun ArtistDetailScreen(
                             artist = artist,
                             effectiveImageUrl = uiState.effectiveImageUrl,
                             hasCustomImage = !artist.customImageUri.isNullOrBlank(),
+                            showSubscribeButton = !localModeEnabled,
                             isSubscribed = isSubscribed,
                             onSubscribeClick = { viewModel.toggleSubscription() },
-                            songsCount = if (uiState.isOnlineArtist) artist.songCount else songs.size,
+                            songsCount = if (isOnlineArtist) artist.songCount else songs.size,
                             collapseFraction = collapseFraction,
                             headerHeight = currentTopBarHeightDp,
                             headerImageRequestSize = headerImageRequestSize,
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
-                                playerViewModel.playArtistSongsShuffledWithRelated(
-                                    artistName = artist.name,
-                                    initialArtistSongs = songs,
-                                    songsMoreEndpoint = uiState.songsMoreEndpoint,
-                                    isOnline = uiState.isOnlineArtist
-                                )
+                                if (songs.isNotEmpty() || isOnlineArtist) {
+                                    playerViewModel.playArtistSongsShuffledWithRelated(
+                                        artistName = artist.name,
+                                        initialArtistSongs = songs,
+                                        songsMoreEndpoint = if (isOnlineArtist) uiState.songsMoreEndpoint else null,
+                                        isOnline = isOnlineArtist
+                                    )
+                                }
                             },
                             onChangeImage = { imagePickerLauncher.launch("image/*") },
                             onClearCustomImage = { viewModel.clearCustomImage() }
@@ -1148,6 +1225,7 @@ private fun SharedArtistTopBarProbe(
     headerHeight: Dp,
     headerImageRequestSize: Size,
     hasCustomImage: Boolean,
+    showSubscribeButton: Boolean = true,
     isSubscribed: Boolean,
     onSubscribeClick: () -> Unit,
     onBackPressed: () -> Unit,
@@ -1262,20 +1340,22 @@ private fun SharedArtistTopBarProbe(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(end = 12.dp, top = 4.dp)
                 ) {
-                    Button(
-                        onClick = onSubscribeClick,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSubscribed) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.surfaceContainerLow,
-                            contentColor = if (isSubscribed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text(
-                            text = if (isSubscribed) "Subscribed" else "Subscribe",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    if (showSubscribeButton) {
+                        Button(
+                            onClick = onSubscribeClick,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSubscribed) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.surfaceContainerLow,
+                                contentColor = if (isSubscribed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text(
+                                text = if (isSubscribed) "Subscribed" else "Subscribe",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
 
                     Box {
@@ -1347,6 +1427,7 @@ private fun CustomCollapsingTopBar(
     artist: Artist,
     effectiveImageUrl: String?,
     hasCustomImage: Boolean,
+    showSubscribeButton: Boolean = true,
     isSubscribed: Boolean,
     onSubscribeClick: () -> Unit,
     songsCount: Int,
@@ -1475,20 +1556,22 @@ private fun CustomCollapsingTopBar(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
-                            onClick = onSubscribeClick,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSubscribed) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.surfaceContainerLow,
-                                contentColor = if (isSubscribed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Text(
-                                text = if (isSubscribed) "Subscribed" else "Subscribe",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                        if (showSubscribeButton) {
+                            Button(
+                                onClick = onSubscribeClick,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSubscribed) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.surfaceContainerLow,
+                                    contentColor = if (isSubscribed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text(
+                                    text = if (isSubscribed) "Subscribed" else "Subscribe",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
 
                         Box {
