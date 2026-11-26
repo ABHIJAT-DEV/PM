@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.components.player
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
@@ -2066,7 +2068,7 @@ private fun VerticalExpressiveControlStack(
                     translationY = (miniBtnTopPx - destY) * (1f - s.posT)
                     alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 }
-                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                .expressiveTapColorWave(
                     waveColor = onPlayPauseContainerColor.copy(alpha = 0.28f),
                     shape = RoundedCornerShape(if (playPauseVisualState) 20.dp else 34.dp)
                 ),

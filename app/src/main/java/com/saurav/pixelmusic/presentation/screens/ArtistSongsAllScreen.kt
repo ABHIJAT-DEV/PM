@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import androidx.compose.ui.graphics.Color
 import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 
@@ -185,7 +187,7 @@ fun ArtistSongsAllScreen(
                                 .fillMaxWidth()
                                 .padding(top = 4.dp, bottom = 10.dp)
                                 .height(56.dp)
-                                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                .expressiveTapColorWave(
                                     waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
                                     shape = AbsoluteSmoothCornerShape(16.dp, 60)
                                 ),

@@ -1,5 +1,8 @@
 package com.saurav.pixelmusic.presentation.components.player
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import android.os.Build
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.AnimationSpec
@@ -410,7 +413,7 @@ fun AnimatedPlaybackControls(
                         }
                         drawRect(baseColor)
                     }
-                    .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                    .expressiveTapColorWave(
                         waveColor = tintPlayPauseIcon.copy(alpha = 0.28f)
                     )
                     .clickable(

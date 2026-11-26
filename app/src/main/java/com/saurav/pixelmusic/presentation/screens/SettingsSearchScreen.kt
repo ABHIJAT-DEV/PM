@@ -4,6 +4,8 @@
 )
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -173,7 +175,7 @@ fun SettingsSearchScreen(
                         end = 16.dp,
                         bottom = 12.dp
                     )
-                    .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                    .expressiveTapColorWave(
                         waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
                         shape = CircleShape
                     )

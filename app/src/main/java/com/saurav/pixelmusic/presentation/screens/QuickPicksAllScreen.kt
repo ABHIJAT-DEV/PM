@@ -2,6 +2,8 @@
 
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
 import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.blur.rememberGlassState
@@ -453,7 +455,7 @@ private fun QuickPicksActions(
             onClick = onPlay,
             modifier = Modifier
                 .fillMaxSize()
-                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                .expressiveTapColorWave(
                     waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
                     shape = playShape
                 ),

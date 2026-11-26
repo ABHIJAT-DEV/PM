@@ -4,6 +4,11 @@
 )
 package com.saurav.pixelmusic.presentation.screens
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.saurav.pixelmusic.presentation.components.ExpressiveWaveEasing
+import com.saurav.pixelmusic.presentation.components.expressiveSelectionColorWave
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import com.saurav.pixelmusic.presentation.components.TopHalfBackgroundLayer
 import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 import com.saurav.pixelmusic.ui.blur.glassRoot
@@ -1402,7 +1407,7 @@ private fun ExploreFilterChip(
 
     val contentColor by animateColorAsState(
         targetValue = if (isSelected) colorScheme.onPrimary else colorScheme.onSurface,
-        animationSpec = tween(520, easing = com.saurav.pixelmusic.presentation.components.ExpressiveWaveEasing),
+        animationSpec = tween(520, easing = ExpressiveWaveEasing),
         label = "chip_content_$text"
     )
 
@@ -1410,7 +1415,7 @@ private fun ExploreFilterChip(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .height(38.dp)
-            .com.saurav.pixelmusic.presentation.components.expressiveSelectionColorWave(
+            .expressiveSelectionColorWave(
                 isSelected = isSelected,
                 unselectedColor = colorScheme.surfaceContainerHigh,
                 selectedColor = colorScheme.primary,
@@ -2254,7 +2259,7 @@ private fun ExploreMoodsAndGenresSection(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(54.dp)
-                                        .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                        .expressiveTapColorWave(
                                             waveColor = stripe.copy(alpha = 0.28f),
                                             shape = RoundedCornerShape(14.dp)
                                         )
@@ -2314,7 +2319,7 @@ private fun ExploreMoodsAndGenresSection(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(54.dp)
-                                    .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                    .expressiveTapColorWave(
                                         waveColor = stripe.copy(alpha = 0.28f),
                                         shape = RoundedCornerShape(14.dp)
                                     )

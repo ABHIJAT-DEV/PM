@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
 
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
@@ -613,7 +615,7 @@ private fun RecentlyPlayedActions(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxSize()
-                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                .expressiveTapColorWave(
                     waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
                     shape = playShape
                 ),
@@ -637,7 +639,7 @@ private fun RecentlyPlayedActions(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxSize()
-                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                .expressiveTapColorWave(
                     waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f),
                     shape = shuffleShape
                 ),

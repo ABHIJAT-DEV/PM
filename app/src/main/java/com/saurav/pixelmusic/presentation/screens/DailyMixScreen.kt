@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
 import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.blur.rememberGlassState
@@ -400,7 +402,7 @@ fun DailyMixScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(76.dp)
-                                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                .expressiveTapColorWave(
                                     waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
                                     shape = playShape,
                                     enabled = dailyMixSongs.isNotEmpty()
@@ -430,7 +432,7 @@ fun DailyMixScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(76.dp)
-                                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                                .expressiveTapColorWave(
                                     waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f),
                                     shape = shuffleShape,
                                     enabled = dailyMixSongs.isNotEmpty()

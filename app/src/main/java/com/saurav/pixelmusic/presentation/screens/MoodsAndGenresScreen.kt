@@ -4,6 +4,8 @@
 )
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -324,7 +326,7 @@ private fun MoodPillCard(
         tonalElevation = 0.dp,
         modifier = modifier
             .height(52.dp)
-            .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+            .expressiveTapColorWave(
                 waveColor = mood.color.copy(alpha = 0.28f),
                 shape = cardShape
             )

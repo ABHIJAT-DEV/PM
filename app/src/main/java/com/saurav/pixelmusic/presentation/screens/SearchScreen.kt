@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import com.saurav.pixelmusic.ui.blur.ProgressiveHeaderBackdrop
 
 import androidx.compose.animation.AnimatedContent
@@ -300,7 +302,7 @@ fun SearchScreen(
                     modifier = Modifier
                         .weight(1f)
                         .height(56.dp)
-                        .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                        .expressiveTapColorWave(
                             waveColor = colorScheme.primary.copy(alpha = 0.16f),
                             shape = RoundedCornerShape(28.dp)
                         ),

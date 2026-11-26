@@ -1,5 +1,7 @@
 package com.saurav.pixelmusic.presentation.components.subcomps
 
+import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
+
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -267,7 +269,7 @@ fun EnhancedSongListItem(
                 .fillMaxWidth()
                 .scale(selectionScale)
                 .clip(surfaceShape)
-                .com.saurav.pixelmusic.presentation.components.expressiveTapColorWave(
+                .expressiveTapColorWave(
                     waveColor = colors.primary.copy(alpha = 0.22f),
                     shape = surfaceShape
                 )
