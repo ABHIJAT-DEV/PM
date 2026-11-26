@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -75,12 +74,12 @@ private class MorphingTriplePillarShape(
         val h = size.height
         if (w <= 1f || h <= 1f) return Outline.Rectangle(Rect(0f, 0f, w, h))
 
-        if (t <= 0.14f) {
+        if (t <= 0.06f) {
             val r = minOf(w, h) * 0.5f
             return Outline.Rounded(RoundRect(0f, 0f, w, h, CornerRadius(r, r)))
         }
 
-        val splitT = ((t - 0.14f) / 0.86f).coerceIn(0f, 1f)
+        val splitT = ((t - 0.06f) / 0.94f).coerceIn(0f, 1f)
         val path = Path()
 
         fun addInterpolatedPill(
@@ -112,7 +111,7 @@ private class MorphingTriplePillarShape(
  * Isolated Now Playing Style: Pillars
  * Displays continuous album artwork through three staggered vertical capsule windows
  * accented by unclipped Material You decorative circles and a subtle live audio waveform,
- * paired with balanced controls and a full Material You Expressive segmented dock.
+ * paired with neighbor-pushing expressive controls and the exact BottomToggleRow pill geometry.
  */
 @Composable
 fun PillarsPlayerLayout(
@@ -195,13 +194,24 @@ fun PillarsPlayerLayout(
         label = "pillarsWaveLive"
     )
 
+    val pillarsOrder = remember {
+        listOf(MiniTransportSlot.PREVIOUS, MiniTransportSlot.PLAY_PAUSE, MiniTransportSlot.NEXT)
+    }
+    val pillarsWeights = remember {
+        mapOf(
+            MiniTransportSlot.PREVIOUS to 0.90f,
+            MiniTransportSlot.PLAY_PAUSE to 1.32f,
+            MiniTransportSlot.NEXT to 0.90f
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(solidBackgroundColor)
             .captureRootCoords(rootCoordsHolder)
     ) {
-        // Full-screen unclipped Canvas for decorative circles + live waveform so no circle ever clips flat at the top
+        // Full-screen unclipped Canvas for decorative circles + live waveform
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -214,26 +224,22 @@ fun PillarsPlayerLayout(
             val topY = artTopOffsetPx
             val h = artHeightPx
 
-            // Soft large organic blob in upper-right behind right pillar (extends smoothly up under top bar)
             drawCircle(
                 color = accentColor.copy(alpha = 0.09f),
                 radius = w * 0.44f,
                 center = Offset(w * 0.84f, topY + h * 0.22f)
             )
-            // Accent circle in upper-left (fully unclipped!)
             drawCircle(
                 color = tertiaryAccent.copy(alpha = 0.38f),
                 radius = w * 0.105f,
                 center = Offset(w * 0.23f, topY + h * 0.11f)
             )
-            // Peeking accent circle along mid-left edge behind left pillar
             drawCircle(
                 color = tertiaryAccent.copy(alpha = 0.30f),
                 radius = w * 0.185f,
                 center = Offset(w * 0.04f, topY + h * 0.68f)
             )
 
-            // Decorative subtle audio waveform bars in upper-left space above the left pillar
             val baseHeights = floatArrayOf(0.24f, 0.48f, 0.34f, 0.82f, 0.96f, 0.56f, 0.30f, 0.44f, 0.28f)
             val barCount = baseHeights.size
             val regionStart = w * 0.06f
@@ -308,20 +314,18 @@ fun PillarsPlayerLayout(
             )
         }
 
-        // LOWER SECTION: Anchored cleanly from the bottom with cohesive vertical rhythm
+        // LOWER SECTION: Matches exact BottomToggleRow geometry & neighbor-pushing controls
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(
-                    start = 24.dp,
-                    end = 24.dp,
-                    bottom = navBarBottomPadding + 18.dp
-                ),
+                .padding(bottom = navBarBottomPadding + 6.dp),
             verticalArrangement = Arrangement.Bottom
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -345,7 +349,7 @@ fun PillarsPlayerLayout(
 
                 StyleFavoriteButton(
                     isFavorite = isFavorite,
-                    containerColor = onAccentColor.copy(alpha = 0.78f),
+                    containerColor = onAccentColor.copy(alpha = 0.80f),
                     activeContainerColor = accentColor,
                     iconTint = accentColor,
                     activeIconTint = onAccentColor,
@@ -359,7 +363,7 @@ fun PillarsPlayerLayout(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             StyleProgressSection(
                 params = params,
@@ -372,73 +376,39 @@ fun PillarsPlayerLayout(
                 metaPillBgColor = contentColor.copy(alpha = 0.10f),
                 metaPillTextColor = contentColor.copy(alpha = 0.90f),
                 waveAmplitudeWhenPlaying = 3.dp,
-                trackHeight = 5.dp
+                trackHeight = 5.dp,
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Capsule-themed Horizontal Transport Controls
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.PREVIOUS,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor,
-                    contentColor = accentColor,
-                    cornerRadius = 31.dp,
-                    pressedCornerRadius = 18.dp,
-                    iconSize = 28.dp,
-                    onClick = params.onPrevious,
-                    modifier = Modifier.size(width = 66.dp, height = 62.dp)
-                )
+            // Neighbor-pushing Capsule Transport Row (exact 80dp height & 6dp spacing)
+            StyleMorphingTransportRow(
+                order = pillarsOrder,
+                baseWeights = pillarsWeights,
+                screenWidthPx = screenWidthPx,
+                rootCoordsHolder = rootCoordsHolder,
+                morphTracker = morphTracker,
+                expansionFractionProvider = params.expansionFractionProvider,
+                aodSourceBounds = params.aodSourceBounds,
+                aodTransitionProgressProvider = params.aodTransitionProgressProvider,
+                isPlaying = isPlaying,
+                playContainerColor = accentColor,
+                playContentColor = onAccentColor,
+                skipContainerColor = onAccentColor,
+                skipContentColor = accentColor,
+                playCornerPlaying = 24.dp,
+                playCornerPaused = 40.dp,
+                skipCorner = 40.dp,
+                onPrevious = params.onPrevious,
+                onPlayPause = params.onPlayPause,
+                onNext = params.onNext,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+            )
 
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.PLAY_PAUSE,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = accentColor,
-                    contentColor = onAccentColor,
-                    cornerRadius = if (isPlaying) 24.dp else 36.dp,
-                    pressedCornerRadius = 18.dp,
-                    iconSize = 34.dp,
-                    isPlaying = isPlaying,
-                    onClick = params.onPlayPause,
-                    modifier = Modifier.size(width = 106.dp, height = 72.dp)
-                )
+            Spacer(modifier = Modifier.height(14.dp))
 
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.NEXT,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor,
-                    contentColor = accentColor,
-                    cornerRadius = 31.dp,
-                    pressedCornerRadius = 18.dp,
-                    iconSize = 28.dp,
-                    onClick = params.onNext,
-                    modifier = Modifier.size(width = 66.dp, height = 62.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(22.dp))
-
-            // Full Material You Expressive Segmented Bottom Dock
+            // Exact BottomToggleRow geometry: 26dp horizontal padding, 66dp height, 6dp bottom padding
             StyleExpressiveBottomDock(
                 isShuffleEnabled = isShuffle,
                 repeatMode = repeatMode,
@@ -448,6 +418,8 @@ fun PillarsPlayerLayout(
                 onMoreOptionsClick = params.onMoreOptionsClick,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 26.dp)
+                    .padding(bottom = 6.dp)
                     .graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         val a = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade

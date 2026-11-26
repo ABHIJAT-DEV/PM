@@ -2,6 +2,7 @@ package com.saurav.pixelmusic.presentation.components.player.styles
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -17,17 +18,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -57,10 +55,9 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
- * Organic S-curve wave bottom cutout that morphs cleanly from the MiniPlayer 44dp circle
- * into a full-bleed wavy artwork silhouette.
- * Every control point stays strictly within [0, h] so the wave never clips flat at the bottom,
- * and top corners stay smoothly rounded during sheet drags (matching ComplexPlayerLayout).
+ * 100% continuous organic S-curve wave bottom cutout that morphs seamlessly from the MiniPlayer
+ * 44dp circle (at t = 0) into a full-bleed wavy artwork silhouette (at t = 1) with ZERO threshold
+ * snap or sharp bottom corners during drag.
  */
 private class MorphingOrganicWaveShape(
     private val morphProgressProvider: () -> Float
@@ -71,45 +68,81 @@ private class MorphingOrganicWaveShape(
         val h = size.height
         if (w <= 1f || h <= 1f) return Outline.Rectangle(Rect(0f, 0f, w, h))
 
-        if (t <= 0.08f) {
-            val r = minOf(w, h) * 0.5f
-            return Outline.Rounded(RoundRect(0f, 0f, w, h, CornerRadius(r, r)))
-        }
+        // Continuous corner radii from full circle (min/2) at t=0 down to 0 at t=1
+        val halfMin = minOf(w, h) * 0.5f
+        val topCornerR = (halfMin * (1f - t).pow(1.15f)).coerceIn(0f, halfMin)
+        val bottomCornerR = (halfMin * (1f - t).pow(1.35f)).coerceIn(0f, halfMin)
 
-        val waveT = ((t - 0.08f) / 0.92f).coerceIn(0f, 1f)
+        // S-wave amplitude grows continuously from 0 at t=0 to full organic wave at t=1
+        val waveT = t.pow(1.35f)
         val waveAmp = h * 0.16f * waveT
 
-        // Strictly inside [0, h]: left starts mid-wave, left-center crests up, right-center dips to h - 2f
+        // Endpoints & trough stay strictly inside [0, h]
         val leftY = h - waveAmp * 0.52f
         val rightY = h - waveAmp * 0.44f
         val troughY = h - 2f
 
-        val maxTopR = minOf(w * 0.5f, leftY, rightY).coerceAtLeast(0f)
-        val topCornerR = (maxTopR * (1f - t).pow(1.15f)).coerceIn(0f, maxTopR)
+        val clampedBottomR = bottomCornerR.coerceAtMost(minOf(w * 0.49f, leftY - topCornerR, rightY - topCornerR).coerceAtLeast(0f))
 
         val path = Path().apply {
+            // Top-left corner
             if (topCornerR > 0.5f) {
                 moveTo(0f, topCornerR)
                 arcTo(Rect(0f, 0f, topCornerR * 2f, topCornerR * 2f), 180f, 90f, false)
+            } else {
+                moveTo(0f, 0f)
+            }
+
+            // Top-right corner
+            if (topCornerR > 0.5f) {
                 lineTo(w - topCornerR, 0f)
                 arcTo(Rect(w - topCornerR * 2f, 0f, w, topCornerR * 2f), 270f, 90f, false)
             } else {
-                moveTo(0f, 0f)
                 lineTo(w, 0f)
             }
-            lineTo(w, rightY)
-            // Right edge -> smooth deep trough (strictly <= h) -> center inflection
-            cubicTo(
-                w * 0.86f, troughY,
-                w * 0.64f, troughY,
-                w * 0.48f, h - waveAmp * 0.52f
-            )
-            // Center inflection -> smooth left crest -> left edge
-            cubicTo(
-                w * 0.32f, h - waveAmp * 1.04f,
-                w * 0.14f, h - waveAmp * 0.96f,
-                0f, leftY
-            )
+
+            // Right side down to bottom-right corner / wave start
+            if (clampedBottomR > 0.5f) {
+                lineTo(w, rightY - clampedBottomR)
+                arcTo(
+                    Rect(w - clampedBottomR * 2f, rightY - clampedBottomR * 2f, w, rightY),
+                    0f,
+                    90f,
+                    false
+                )
+            } else {
+                lineTo(w, rightY)
+            }
+
+            // Bottom edge: smoothly blends from flat/circular bottom (waveT=0) to lush S-wave (waveT=1)
+            val rightSpanX = w - clampedBottomR
+            val leftSpanX = clampedBottomR
+            val spanW = (rightSpanX - leftSpanX).coerceAtLeast(1f)
+
+            if (waveT > 0.005f) {
+                cubicTo(
+                    leftSpanX + spanW * 0.86f, lerp(rightY, troughY, waveT),
+                    leftSpanX + spanW * 0.64f, lerp(rightY, troughY, waveT),
+                    leftSpanX + spanW * 0.48f, lerp((rightY + leftY) * 0.5f, h - waveAmp * 0.52f, waveT)
+                )
+                cubicTo(
+                    leftSpanX + spanW * 0.32f, lerp(leftY, h - waveAmp * 1.04f, waveT),
+                    leftSpanX + spanW * 0.14f, lerp(leftY, h - waveAmp * 0.96f, waveT),
+                    leftSpanX, leftY
+                )
+            } else {
+                lineTo(leftSpanX, leftY)
+            }
+
+            // Bottom-left corner back up to left edge
+            if (clampedBottomR > 0.5f) {
+                arcTo(
+                    Rect(0f, leftY - clampedBottomR * 2f, clampedBottomR * 2f, leftY),
+                    90f,
+                    90f,
+                    false
+                )
+            }
             close()
         }
         return Outline.Generic(path)
@@ -118,9 +151,9 @@ private class MorphingOrganicWaveShape(
 
 /**
  * Isolated Now Playing Style: Wave
- * Full-bleed top album artwork with a clean, unclipped organic S-wave bottom divider,
- * bold editorial title/artist, balanced vertical rhythm, circular expressive transport controls,
- * and a full Material You Expressive segmented bottom dock.
+ * Full-bleed top album artwork with a continuous morphing S-wave bottom divider,
+ * 4 lifted layered translucent colored waves that spring up/down lazily while dragging,
+ * neighbor-pushing expressive transport controls, and the exact BottomToggleRow pill geometry.
  */
 @Composable
 fun WavePlayerLayout(
@@ -182,17 +215,51 @@ fun WavePlayerLayout(
         label = "waveArtScale"
     )
 
+    // 4 staggered slow-spring drag trackers so the 4 layered bottom waves float & spring lazily while dragging
+    val currentExpansion = params.expansionFractionProvider().coerceIn(0f, 1f)
+    val waveSpring1 by animateFloatAsState(
+        targetValue = currentExpansion,
+        animationSpec = spring(dampingRatio = 0.46f, stiffness = 70f),
+        label = "waveLayerSpring1"
+    )
+    val waveSpring2 by animateFloatAsState(
+        targetValue = currentExpansion,
+        animationSpec = spring(dampingRatio = 0.50f, stiffness = 98f),
+        label = "waveLayerSpring2"
+    )
+    val waveSpring3 by animateFloatAsState(
+        targetValue = currentExpansion,
+        animationSpec = spring(dampingRatio = 0.54f, stiffness = 130f),
+        label = "waveLayerSpring3"
+    )
+    val waveSpring4 by animateFloatAsState(
+        targetValue = currentExpansion,
+        animationSpec = spring(dampingRatio = 0.58f, stiffness = 165f),
+        label = "waveLayerSpring4"
+    )
+
+    val waveOrder = remember {
+        listOf(MiniTransportSlot.PREVIOUS, MiniTransportSlot.PLAY_PAUSE, MiniTransportSlot.NEXT)
+    }
+    val waveWeights = remember {
+        mapOf(
+            MiniTransportSlot.PREVIOUS to 0.92f,
+            MiniTransportSlot.PLAY_PAUSE to 1.24f,
+            MiniTransportSlot.NEXT to 0.92f
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(solidBackgroundColor)
             .captureRootCoords(rootCoordsHolder)
     ) {
-        // Subtle decorative bottom wave ribbon behind the dock
+        // 4 lifted layered translucent colored waves that spring up/down lazily while dragging
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(82.dp + navBarBottomPadding)
+                .height(275.dp + navBarBottomPadding)
                 .align(Alignment.BottomCenter)
                 .graphicsLayer {
                     val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
@@ -201,18 +268,93 @@ fun WavePlayerLayout(
         ) {
             val w = size.width
             val h = size.height
-            val path = Path().apply {
-                moveTo(0f, h)
-                lineTo(0f, h * 0.54f)
-                cubicTo(w * 0.24f, h * 0.22f, w * 0.52f, h * 0.78f, w * 0.78f, h * 0.34f)
-                cubicTo(w * 0.88f, h * 0.18f, w * 0.95f, h * 0.16f, w, h * 0.20f)
-                lineTo(w, h)
-                close()
+
+            fun drawLayeredWave(
+                baseTopFraction: Float,
+                springValue: Float,
+                bouncePx: Float,
+                leftFrac: Float,
+                cp1X: Float,
+                cp1Y: Float,
+                midX: Float,
+                midY: Float,
+                cp2X: Float,
+                cp2Y: Float,
+                rightFrac: Float,
+                color: Color
+            ) {
+                val dragOffsetY = (1f - springValue) * bouncePx
+                val baseY = h * baseTopFraction + dragOffsetY
+                val path = Path().apply {
+                    moveTo(0f, h)
+                    lineTo(0f, baseY + h * leftFrac)
+                    cubicTo(
+                        w * cp1X, baseY + h * cp1Y,
+                        w * (midX - 0.14f), baseY + h * (midY + 0.08f),
+                        w * midX, baseY + h * midY
+                    )
+                    cubicTo(
+                        w * (midX + 0.16f), baseY + h * (midY - 0.10f),
+                        w * cp2X, baseY + h * cp2Y,
+                        w, baseY + h * rightFrac
+                    )
+                    lineTo(w, h)
+                    close()
+                }
+                drawPath(path = path, color = color)
             }
-            drawPath(path = path, color = accentColor.copy(alpha = 0.12f))
+
+            // Back-most lifted wave (highest & softest)
+            drawLayeredWave(
+                baseTopFraction = 0.16f,
+                springValue = waveSpring1,
+                bouncePx = 68.dp.toPx(),
+                leftFrac = 0.08f,
+                cp1X = 0.22f, cp1Y = -0.10f,
+                midX = 0.52f, midY = 0.06f,
+                cp2X = 0.82f, cp2Y = -0.08f,
+                rightFrac = 0.04f,
+                color = baseTheme.tertiary.copy(alpha = 0.07f)
+            )
+            // Second wave (counter-crest)
+            drawLayeredWave(
+                baseTopFraction = 0.30f,
+                springValue = waveSpring2,
+                bouncePx = 56.dp.toPx(),
+                leftFrac = 0.14f,
+                cp1X = 0.28f, cp1Y = 0.18f,
+                midX = 0.56f, midY = -0.04f,
+                cp2X = 0.84f, cp2Y = 0.10f,
+                rightFrac = 0.02f,
+                color = accentColor.copy(alpha = 0.09f)
+            )
+            // Third wave (mid rolling swell)
+            drawLayeredWave(
+                baseTopFraction = 0.45f,
+                springValue = waveSpring3,
+                bouncePx = 44.dp.toPx(),
+                leftFrac = 0.06f,
+                cp1X = 0.20f, cp1Y = -0.08f,
+                midX = 0.48f, midY = 0.12f,
+                cp2X = 0.78f, cp2Y = -0.06f,
+                rightFrac = 0.06f,
+                color = baseTheme.secondary.copy(alpha = 0.11f)
+            )
+            // Foreground lifted wave (richest accent)
+            drawLayeredWave(
+                baseTopFraction = 0.60f,
+                springValue = waveSpring4,
+                bouncePx = 32.dp.toPx(),
+                leftFrac = 0.14f,
+                cp1X = 0.26f, cp1Y = -0.02f,
+                midX = 0.58f, midY = 0.14f,
+                cp2X = 0.86f, cp2Y = -0.08f,
+                rightFrac = -0.02f,
+                color = accentColor.copy(alpha = 0.14f)
+            )
         }
 
-        // TOP LAYER: Morphing Organic Wave Artwork (50% screen height so lower controls breathe cleanly)
+        // TOP LAYER: Continuous Morphing Organic Wave Artwork
         Box(
             modifier = Modifier
                 .layout { measurable, constraints ->
@@ -283,21 +425,19 @@ fun WavePlayerLayout(
             )
         }
 
-        // LOWER SECTION: Anchored cleanly from the bottom with harmonious spacing
+        // LOWER SECTION: Matches exact BottomToggleRow position & padding from existing styles
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(
-                    start = 24.dp,
-                    end = 24.dp,
-                    bottom = navBarBottomPadding + 18.dp
-                ),
+                .padding(bottom = navBarBottomPadding + 6.dp),
             verticalArrangement = Arrangement.Bottom
         ) {
             // Song Title + Artist + Favorite Heart
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -321,7 +461,7 @@ fun WavePlayerLayout(
 
                 StyleFavoriteButton(
                     isFavorite = isFavorite,
-                    containerColor = onAccentColor.copy(alpha = 0.72f),
+                    containerColor = onAccentColor.copy(alpha = 0.80f),
                     activeContainerColor = accentColor,
                     iconTint = accentColor,
                     activeIconTint = onAccentColor,
@@ -335,7 +475,7 @@ fun WavePlayerLayout(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Progress Slider + Timestamps + Optional Audio Meta
             StyleProgressSection(
@@ -349,73 +489,39 @@ fun WavePlayerLayout(
                 metaPillBgColor = contentColor.copy(alpha = 0.10f),
                 metaPillTextColor = contentColor.copy(alpha = 0.90f),
                 waveAmplitudeWhenPlaying = 2.6.dp,
-                trackHeight = 4.5.dp
+                trackHeight = 4.5.dp,
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Centered Expressive Circular Transport Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.PREVIOUS,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor,
-                    contentColor = accentColor,
-                    cornerRadius = 31.dp,
-                    pressedCornerRadius = 18.dp,
-                    iconSize = 28.dp,
-                    onClick = params.onPrevious,
-                    modifier = Modifier.size(62.dp)
-                )
+            // Neighbor-pushing Expressive Transport Row (exact 80dp height & tight 6dp spacing)
+            StyleMorphingTransportRow(
+                order = waveOrder,
+                baseWeights = waveWeights,
+                screenWidthPx = screenWidthPx,
+                rootCoordsHolder = rootCoordsHolder,
+                morphTracker = morphTracker,
+                expansionFractionProvider = params.expansionFractionProvider,
+                aodSourceBounds = params.aodSourceBounds,
+                aodTransitionProgressProvider = params.aodTransitionProgressProvider,
+                isPlaying = isPlaying,
+                playContainerColor = accentColor,
+                playContentColor = onAccentColor,
+                skipContainerColor = onAccentColor,
+                skipContentColor = accentColor,
+                playCornerPlaying = 26.dp,
+                playCornerPaused = 40.dp,
+                skipCorner = 40.dp,
+                onPrevious = params.onPrevious,
+                onPlayPause = params.onPlayPause,
+                onNext = params.onNext,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+            )
 
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.PLAY_PAUSE,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = accentColor,
-                    contentColor = onAccentColor,
-                    cornerRadius = if (isPlaying) 26.dp else 40.dp,
-                    pressedCornerRadius = 18.dp,
-                    iconSize = 36.dp,
-                    isPlaying = isPlaying,
-                    onClick = params.onPlayPause,
-                    modifier = Modifier.size(80.dp)
-                )
+            Spacer(modifier = Modifier.height(14.dp))
 
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.NEXT,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor,
-                    contentColor = accentColor,
-                    cornerRadius = 31.dp,
-                    pressedCornerRadius = 18.dp,
-                    iconSize = 28.dp,
-                    onClick = params.onNext,
-                    modifier = Modifier.size(62.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(22.dp))
-
-            // Full Material You Expressive Segmented Bottom Dock
+            // Exact BottomToggleRow geometry: 26dp horizontal padding, 66dp height, 6dp bottom padding
             StyleExpressiveBottomDock(
                 isShuffleEnabled = isShuffle,
                 repeatMode = repeatMode,
@@ -425,6 +531,8 @@ fun WavePlayerLayout(
                 onMoreOptionsClick = params.onMoreOptionsClick,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 26.dp)
+                    .padding(bottom = 6.dp)
                     .graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         val a = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade

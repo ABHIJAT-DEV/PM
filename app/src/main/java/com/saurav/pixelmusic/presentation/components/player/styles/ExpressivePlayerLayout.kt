@@ -67,10 +67,10 @@ import kotlin.math.roundToInt
 
 /**
  * Isolated Now Playing Style: Expressive
- * Full-bleed gradient-faded top artwork, editorial title & uppercase artist with tonal heart,
- * wavy progress slider with centered audio metadata pill, asymmetric wide Play/Pause + twin
- * high-contrast circular Previous/Next buttons, and a full Material You Expressive segmented
- * pill dock + matching circular '+' action button.
+ * Full-bleed gradient-faded top artwork, natural-case editorial title & artist with tonal heart,
+ * wavy progress slider with centered audio metadata pill, asymmetric neighbor-pushing transport row
+ * (wide Play/Pause on left + twin circular Previous/Next on right), and exact BottomToggleRow height
+ * segmented pill dock + matching 66dp circular '+' action button.
  */
 @Composable
 fun ExpressivePlayerLayout(
@@ -130,9 +130,20 @@ fun ExpressivePlayerLayout(
     )
 
     val moreButtonBg = if (isDark) {
-        baseTheme.surfaceContainerHigh.copy(alpha = 0.72f)
+        baseTheme.surfaceContainer.copy(alpha = 0.55f)
     } else {
-        baseTheme.onPrimary.copy(alpha = 0.90f)
+        Color.White.copy(alpha = 0.85f)
+    }
+
+    val expressiveOrder = remember {
+        listOf(MiniTransportSlot.PLAY_PAUSE, MiniTransportSlot.PREVIOUS, MiniTransportSlot.NEXT)
+    }
+    val expressiveWeights = remember {
+        mapOf(
+            MiniTransportSlot.PLAY_PAUSE to 1.68f,
+            MiniTransportSlot.PREVIOUS to 0.92f,
+            MiniTransportSlot.NEXT to 0.92f
+        )
     }
 
     Box(
@@ -245,21 +256,19 @@ fun ExpressivePlayerLayout(
             )
         }
 
-        // LOWER SECTION: Anchored from bottom with balanced, compact rhythm
+        // LOWER SECTION: Matches exact BottomToggleRow geometry & neighbor-pushing asymmetric controls
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(
-                    start = 24.dp,
-                    end = 24.dp,
-                    bottom = navBarBottomPadding + 18.dp
-                ),
+                .padding(bottom = navBarBottomPadding + 6.dp),
             verticalArrangement = Arrangement.Bottom
         ) {
-            // Editorial Song Info + Circular Tonal Favorite
+            // Editorial Song Info (natural casing) + Circular Tonal Favorite
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -267,10 +276,9 @@ fun ExpressivePlayerLayout(
                     title = resolvedTitle,
                     artist = resolvedArtist,
                     contentColor = contentColor,
-                    artistAlpha = 0.72f,
+                    artistAlpha = 0.76f,
                     titleFontSize = 28.sp,
-                    artistFontSize = 14.sp,
-                    uppercaseArtist = true,
+                    artistFontSize = 15.sp,
                     screenWidthPx = screenWidthPx,
                     rootCoordsHolder = rootCoordsHolder,
                     morphTracker = morphTracker,
@@ -284,7 +292,7 @@ fun ExpressivePlayerLayout(
 
                 StyleFavoriteButton(
                     isFavorite = isFavorite,
-                    containerColor = onAccentColor.copy(alpha = 0.78f),
+                    containerColor = onAccentColor.copy(alpha = 0.80f),
                     activeContainerColor = accentColor,
                     iconTint = accentColor,
                     activeIconTint = onAccentColor,
@@ -298,7 +306,7 @@ fun ExpressivePlayerLayout(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Wavy Progress Slider + Timestamps + Centered Audio Metadata Pill
             StyleProgressSection(
@@ -312,87 +320,51 @@ fun ExpressivePlayerLayout(
                 metaPillBgColor = contentColor.copy(alpha = 0.12f),
                 metaPillTextColor = contentColor.copy(alpha = 0.90f),
                 waveAmplitudeWhenPlaying = 3.5.dp,
-                trackHeight = 5.dp
+                trackHeight = 5.dp,
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Asymmetric Expressive Transport Row: Wide Rounded Play/Pause + Twin High-Contrast Circular Prev/Next
+            // Asymmetric Neighbor-Pushing Transport Row (exact 80dp height & 6dp spacing)
+            StyleMorphingTransportRow(
+                order = expressiveOrder,
+                baseWeights = expressiveWeights,
+                screenWidthPx = screenWidthPx,
+                rootCoordsHolder = rootCoordsHolder,
+                morphTracker = morphTracker,
+                expansionFractionProvider = params.expansionFractionProvider,
+                aodSourceBounds = params.aodSourceBounds,
+                aodTransitionProgressProvider = params.aodTransitionProgressProvider,
+                isPlaying = isPlaying,
+                playContainerColor = accentColor,
+                playContentColor = onAccentColor,
+                skipContainerColor = onAccentColor,
+                skipContentColor = accentColor,
+                playCornerPlaying = 24.dp,
+                playCornerPaused = 40.dp,
+                skipCorner = 40.dp,
+                onPrevious = params.onPrevious,
+                onPlayPause = params.onPlayPause,
+                onNext = params.onNext,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Exact BottomToggleRow geometry: 26dp horizontal padding, 66dp height, 6dp bottom padding
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(78.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.PLAY_PAUSE,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = accentColor,
-                    contentColor = onAccentColor,
-                    cornerRadius = if (isPlaying) 24.dp else 39.dp,
-                    pressedCornerRadius = 18.dp,
-                    iconSize = 34.dp,
-                    isPlaying = isPlaying,
-                    onClick = params.onPlayPause,
-                    modifier = Modifier
-                        .weight(1.42f)
-                        .fillMaxHeight()
-                )
-
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.PREVIOUS,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor,
-                    contentColor = accentColor,
-                    cornerRadius = 39.dp,
-                    pressedCornerRadius = 22.dp,
-                    iconSize = 28.dp,
-                    onClick = params.onPrevious,
-                    modifier = Modifier.size(78.dp)
-                )
-
-                StyleMorphingTransportButton(
-                    slot = MiniTransportSlot.NEXT,
-                    screenWidthPx = screenWidthPx,
-                    rootCoordsHolder = rootCoordsHolder,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = params.expansionFractionProvider,
-                    aodSourceBounds = params.aodSourceBounds,
-                    aodTransitionProgressProvider = params.aodTransitionProgressProvider,
-                    containerColor = onAccentColor,
-                    contentColor = accentColor,
-                    cornerRadius = 39.dp,
-                    pressedCornerRadius = 22.dp,
-                    iconSize = 28.dp,
-                    onClick = params.onNext,
-                    modifier = Modifier.size(78.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Bottom M3 Expressive Segmented Pill Dock (Shuffle | Repeat | Lyrics) + Circular '+' Button
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
+                    .padding(horizontal = 26.dp)
+                    .padding(bottom = 6.dp)
                     .graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         val a = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
                         alpha = a
                         translationY = (1f - a) * slideOffsetPx
                     },
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 StyleExpressiveBottomDock(
@@ -407,7 +379,7 @@ fun ExpressivePlayerLayout(
 
                 ExpressiveCircleMoreButton(
                     containerColor = moreButtonBg,
-                    iconTint = accentColor,
+                    iconTint = baseTheme.onSurface,
                     onClick = {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         params.onMoreOptionsClick()
@@ -435,7 +407,7 @@ private fun ExpressiveCircleMoreButton(
 
     Box(
         modifier = Modifier
-            .size(58.dp)
+            .size(66.dp)
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
@@ -465,7 +437,7 @@ private fun ExpressiveCircleMoreButton(
             imageVector = Icons.Rounded.Add,
             contentDescription = "More options",
             tint = iconTint,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(25.dp)
         )
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -86,6 +87,7 @@ import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
 import com.saurav.pixelmusic.ui.theme.LocalPixelMusicDarkTheme
 import com.saurav.pixelmusic.utils.ThumbnailUrlUtils
 import com.saurav.pixelmusic.utils.formatDuration
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
@@ -210,6 +212,7 @@ internal fun Modifier.styleArtworkGestures(
 /**
  * Song Title & Artist block that morphs seamlessly from the MiniPlayer text slot
  * via GPU graphicsLayer and registers its bounds for AOD morphing.
+ * Always preserves natural artist casing (never forces uppercase).
  */
 @Composable
 internal fun StyleMorphingSongInfo(
@@ -219,7 +222,6 @@ internal fun StyleMorphingSongInfo(
     artistAlpha: Float = 0.76f,
     titleFontSize: TextUnit = 26.sp,
     artistFontSize: TextUnit = 15.sp,
-    uppercaseArtist: Boolean = false,
     screenWidthPx: Float,
     rootCoordsHolder: LayoutCoordsHolder,
     morphTracker: ArtworkMorphTracker,
@@ -278,10 +280,6 @@ internal fun StyleMorphingSongInfo(
         { lerp(baseArtistMiniScale, 1f, morphTracker.evaluate(expansionFractionProvider()).sizeT) }
     }
 
-    val displayedArtist = remember(artist, uppercaseArtist) {
-        if (uppercaseArtist) artist.uppercase() else artist
-    }
-
     Column(
         modifier = modifier
             .captureUntransformedBounds(rootCoordsHolder, songInfoBounds)
@@ -327,13 +325,12 @@ internal fun StyleMorphingSongInfo(
         Spacer(modifier = Modifier.height(4.dp))
 
         SharedPlayerMarqueeText(
-            text = displayedArtist,
+            text = artist,
             style = MaterialTheme.typography.titleMedium.copy(
                 fontFamily = GoogleSansRounded,
-                fontWeight = if (uppercaseArtist) FontWeight.Medium else FontWeight.SemiBold,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = artistFontSize,
                 lineHeight = (artistFontSize.value + 5f).sp,
-                letterSpacing = if (uppercaseArtist) 0.8.sp else 0.sp,
                 color = contentColor.copy(alpha = artistAlpha)
             ),
             marqueeState = aodSourceBounds?.artistMarquee ?: fallbackArtistMarquee,
@@ -540,6 +537,130 @@ internal fun StyleProgressSection(
 }
 
 /**
+ * Full-width Expressive Transport Row matching AnimatedPlaybackControls from the existing styles:
+ * - Tight 6dp spacing & generous 80dp height (no tiny buttons or awkward gaps)
+ * - Neighbor-pushing spring animation: tapping any button expands its weight while compressing
+ *   its neighbors smoothly (just like Default / Immersive / Complex)
+ * - Supports custom button order (e.g. [PREV, PLAY, NEXT] or asymmetric [PLAY, PREV, NEXT])
+ * - Zero-jump GPU morphing from MiniPlayer buttons & full AOD bounds registration
+ */
+@Composable
+internal fun StyleMorphingTransportRow(
+    order: List<MiniTransportSlot>,
+    baseWeights: Map<MiniTransportSlot, Float>,
+    screenWidthPx: Float,
+    rootCoordsHolder: LayoutCoordsHolder,
+    morphTracker: ArtworkMorphTracker,
+    expansionFractionProvider: () -> Float,
+    aodSourceBounds: AodSourceBounds?,
+    aodTransitionProgressProvider: () -> Float,
+    isPlaying: Boolean,
+    playContainerColor: Color,
+    playContentColor: Color,
+    skipContainerColor: Color,
+    skipContentColor: Color,
+    playCornerPlaying: Dp = 24.dp,
+    playCornerPaused: Dp = 40.dp,
+    skipCorner: Dp = 40.dp,
+    onPrevious: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    height: Dp = 80.dp,
+    spacing: Dp = 6.dp,
+    modifier: Modifier = Modifier
+) {
+    var activeSlot by remember { mutableStateOf<MiniTransportSlot?>(null) }
+    var playPauseVisualState by remember { mutableStateOf(isPlaying) }
+    val latestIsPlaying by rememberUpdatedState(isPlaying)
+
+    LaunchedEffect(activeSlot) {
+        if (activeSlot != null) {
+            delay(220L)
+            activeSlot = null
+        }
+    }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            playPauseVisualState = true
+        } else {
+            if (activeSlot == MiniTransportSlot.NEXT || activeSlot == MiniTransportSlot.PREVIOUS) {
+                delay(220L)
+            }
+            if (!latestIsPlaying) {
+                playPauseVisualState = false
+            }
+        }
+    }
+
+    val weightSpring = remember {
+        spring<Float>(
+            dampingRatio = 0.62f,
+            stiffness = Spring.StiffnessMediumLow
+        )
+    }
+
+    fun targetWeightFor(slot: MiniTransportSlot): Float {
+        val base = baseWeights[slot] ?: 1f
+        return when (activeSlot) {
+            slot -> base * 1.24f
+            null -> base
+            else -> base * 0.74f
+        }
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height),
+        horizontalArrangement = Arrangement.spacedBy(spacing),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        order.forEach { slot ->
+            val animatedWeight by animateFloatAsState(
+                targetValue = targetWeightFor(slot),
+                animationSpec = weightSpring,
+                label = "transportWeight_${slot.name}"
+            )
+            val isPlay = slot == MiniTransportSlot.PLAY_PAUSE
+            val isSlotActive = activeSlot == slot
+
+            StyleMorphingTransportButton(
+                slot = slot,
+                screenWidthPx = screenWidthPx,
+                rootCoordsHolder = rootCoordsHolder,
+                morphTracker = morphTracker,
+                expansionFractionProvider = expansionFractionProvider,
+                aodSourceBounds = aodSourceBounds,
+                aodTransitionProgressProvider = aodTransitionProgressProvider,
+                containerColor = if (isPlay) playContainerColor else skipContainerColor,
+                contentColor = if (isPlay) playContentColor else skipContentColor,
+                cornerRadius = when {
+                    isSlotActive -> 16.dp
+                    isPlay -> if (playPauseVisualState) playCornerPlaying else playCornerPaused
+                    else -> skipCorner
+                },
+                pressedCornerRadius = 16.dp,
+                iconSize = if (isPlay) 36.dp else 32.dp,
+                isPlaying = playPauseVisualState,
+                isActive = isSlotActive,
+                onClick = {
+                    activeSlot = slot
+                    when (slot) {
+                        MiniTransportSlot.PREVIOUS -> onPrevious()
+                        MiniTransportSlot.PLAY_PAUSE -> onPlayPause()
+                        MiniTransportSlot.NEXT -> onNext()
+                    }
+                },
+                modifier = Modifier
+                    .weight(animatedWeight)
+                    .fillMaxHeight()
+            )
+        }
+    }
+}
+
+/**
  * Zero-jump expressive transport button (Previous / Play-Pause / Next) matching ComplexPlayerLayout's
  * exact GPU morphing math: uses drawBehind with aspect-ratio-compensated corner radii (rx = targetR / sx,
  * ry = targetR / sy) so non-square buttons morph smoothly from MiniPlayer's 36dp circle without distortion
@@ -558,8 +679,9 @@ internal fun StyleMorphingTransportButton(
     contentColor: Color,
     cornerRadius: Dp,
     pressedCornerRadius: Dp = 16.dp,
-    iconSize: Dp = 30.dp,
+    iconSize: Dp = 32.dp,
     isPlaying: Boolean = false,
+    isActive: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -583,12 +705,12 @@ internal fun StyleMorphingTransportButton(
     var isPressed by remember { mutableStateOf(false) }
 
     val animatedCorner by animateDpAsState(
-        targetValue = if (isPressed) pressedCornerRadius else cornerRadius,
+        targetValue = if (isPressed || isActive) pressedCornerRadius else cornerRadius,
         animationSpec = spring(dampingRatio = 0.64f, stiffness = Spring.StiffnessMedium),
         label = "transportCorner"
     )
     val pressScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1.0f,
+        targetValue = if (isPressed) 0.94f else 1.0f,
         animationSpec = spring(dampingRatio = 0.58f, stiffness = Spring.StiffnessMedium),
         label = "transportPressScale"
     )
@@ -779,9 +901,9 @@ internal fun StyleFavoriteButton(
 }
 
 /**
- * Full Material You Expressive segmented bottom action dock matching PixelMusic's BottomToggleRow.
- * Uses crisp dynamic theme container & segment colors, spring press/active corner morphing,
- * and clean spacing with zero muddy alpha overlays.
+ * Full Material You Expressive segmented bottom pill matching the EXACT height (66dp),
+ * corner radius (60dp), inner padding (6dp), spacing (6dp), colors, and neighbor-pushing
+ * tap animation of BottomToggleRow in the existing styles.
  */
 @Composable
 internal fun StyleExpressiveBottomDock(
@@ -797,34 +919,56 @@ internal fun StyleExpressiveBottomDock(
     val isDark = LocalPixelMusicDarkTheme.current
     val haptics = LocalHapticFeedback.current
 
-    val outerContainerColor = if (isDark) {
-        baseTheme.surfaceContainerHigh.copy(alpha = 0.72f)
-    } else {
-        baseTheme.onPrimary.copy(alpha = 0.90f)
-    }
-    val inactiveSegmentBg = if (isDark) {
-        baseTheme.onSurface.copy(alpha = 0.09f)
-    } else {
-        baseTheme.primaryContainer.copy(alpha = 0.65f)
-    }
-    val inactiveIconTint = baseTheme.onPrimaryContainer.copy(alpha = 0.86f)
+    val rowCorners = 60.dp
+    val rowShape = RoundedCornerShape(rowCorners)
 
-    val outerShape = RoundedCornerShape(999.dp)
+    val outerContainerColor = if (isDark) {
+        baseTheme.surfaceContainer.copy(alpha = 0.55f)
+    } else {
+        Color.White.copy(alpha = 0.85f)
+    }
+    val inactiveSegmentBg = baseTheme.onSurface.copy(alpha = 0.07f)
+    val inactiveIconTint = baseTheme.onSurface
+
+    var pressedIndex by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(pressedIndex) {
+        if (pressedIndex != null) {
+            delay(200L)
+            pressedIndex = null
+        }
+    }
+
+    val weightSpring = remember {
+        spring<Float>(
+            dampingRatio = 0.64f,
+            stiffness = Spring.StiffnessMediumLow
+        )
+    }
+
+    fun segmentWeight(index: Int): Float = when (pressedIndex) {
+        index -> 1.18f
+        null -> 1f
+        else -> 0.92f
+    }
+
+    val isFourItem = onMoreOptionsClick != null
 
     Box(
         modifier = modifier
-            .height(58.dp)
-            .clip(outerShape)
-            .background(outerContainerColor, outerShape)
+            .heightIn(min = 66.dp, max = 68.dp)
+            .height(66.dp)
+            .clip(rowShape)
+            .background(outerContainerColor, rowShape)
             .padding(6.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(rowShape),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val isFourItem = onMoreOptionsClick != null
-
+            val w0 by animateFloatAsState(segmentWeight(0), weightSpring, label = "dockW0")
             ExpressiveDockPillButton(
                 iconRes = R.drawable.rounded_shuffle_24,
                 contentDescription = "Shuffle",
@@ -836,14 +980,16 @@ internal fun StyleExpressiveBottomDock(
                 inactiveBg = inactiveSegmentBg,
                 inactiveTint = inactiveIconTint,
                 onClick = {
+                    pressedIndex = 0
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onShuffleToggle()
                 },
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(w0)
                     .fillMaxHeight()
             )
 
+            val w1 by animateFloatAsState(segmentWeight(1), weightSpring, label = "dockW1")
             ExpressiveDockPillButton(
                 iconRes = if (repeatMode == Player.REPEAT_MODE_ONE) {
                     R.drawable.rounded_repeat_one_24
@@ -859,14 +1005,16 @@ internal fun StyleExpressiveBottomDock(
                 inactiveBg = inactiveSegmentBg,
                 inactiveTint = inactiveIconTint,
                 onClick = {
+                    pressedIndex = 1
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onRepeatToggle()
                 },
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(w1)
                     .fillMaxHeight()
             )
 
+            val w2 by animateFloatAsState(segmentWeight(2), weightSpring, label = "dockW2")
             ExpressiveDockPillButton(
                 iconRes = R.drawable.rounded_lyrics_24,
                 contentDescription = "Lyrics",
@@ -878,15 +1026,17 @@ internal fun StyleExpressiveBottomDock(
                 inactiveBg = inactiveSegmentBg,
                 inactiveTint = inactiveIconTint,
                 onClick = {
+                    pressedIndex = 2
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onLyricsClick()
                 },
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(w2)
                     .fillMaxHeight()
             )
 
             if (onMoreOptionsClick != null) {
+                val w3 by animateFloatAsState(segmentWeight(3), weightSpring, label = "dockW3")
                 ExpressiveDockPillButton(
                     iconRes = R.drawable.rounded_more_horiz_24,
                     contentDescription = "More options",
@@ -898,11 +1048,12 @@ internal fun StyleExpressiveBottomDock(
                     inactiveBg = inactiveSegmentBg,
                     inactiveTint = inactiveIconTint,
                     onClick = {
+                        pressedIndex = 3
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onMoreOptionsClick()
                     },
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(w3)
                         .fillMaxHeight()
                 )
             }
@@ -930,8 +1081,8 @@ private fun ExpressiveDockPillButton(
     val innerCorner by animateDpAsState(
         targetValue = when {
             isPressed -> 14.dp
-            isActive -> 24.dp
-            else -> 10.dp
+            isActive -> 30.dp
+            else -> 12.dp
         },
         animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium),
         label = "dockInnerCorner"
@@ -952,8 +1103,8 @@ private fun ExpressiveDockPillButton(
         label = "dockTint"
     )
 
-    val startR = if (isFirst) 24.dp else innerCorner
-    val endR = if (isLast) 24.dp else innerCorner
+    val startR = if (isFirst) 30.dp else innerCorner
+    val endR = if (isLast) 30.dp else innerCorner
     val shape = RoundedCornerShape(
         topStart = startR,
         bottomStart = startR,
@@ -992,7 +1143,7 @@ private fun ExpressiveDockPillButton(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
             tint = iconColor,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(23.dp)
         )
     }
 }
