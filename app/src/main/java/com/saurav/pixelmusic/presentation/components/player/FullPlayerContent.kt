@@ -697,7 +697,7 @@ fun FullPlayerContent(
             onAlbumClick = { albumSong ->
                 playerViewModel.triggerAlbumNavigationForSong(albumSong)
             },
-            modifier = modifier
+            artMorphModifier = Modifier
                 .captureUntransformedBounds(rootCoordsHolder, defaultArtBounds)
                 .graphicsLayer {
                     val s = artworkMorphTracker.evaluate(expansionFractionProvider())
@@ -705,13 +705,28 @@ fun FullPlayerContent(
                     val destY = defaultArtBounds.offset.y
                     val curW = androidx.compose.ui.util.lerp(miniArtSizePx, size.width, s.sizeT)
                     val curH = androidx.compose.ui.util.lerp(miniArtSizePx, size.height, s.sizeT)
+                    val sx = if (size.width > 0f) (curW / size.width).coerceAtLeast(0.01f) else 1f
+                    val sy = if (size.height > 0f) (curH / size.height).coerceAtLeast(0.01f) else 1f
                     transformOrigin = TransformOrigin(0f, 0f)
-                    scaleX = if (size.width > 0f) curW / size.width else 1f
-                    scaleY = if (size.height > 0f) curH / size.height else 1f
+                    scaleX = sx
+                    scaleY = sy
                     translationX = (miniArtOffsetPx - destX) * (1f - s.posT)
                     translationY = (miniArtOffsetPx - destY) * (1f - s.posT)
                     alpha = if (nowPlayingAodHideProvider() > 0.001f) 0f else 1f
-                }
+
+                    if (s.sizeT < 0.995f && size.width > 1f && size.height > 1f) {
+                        val miniCornerPx = miniArtSizePx * 0.5f
+                        val fullCornerPx = 18.dp.toPx().coerceAtMost(minOf(size.width, size.height) * 0.5f)
+                        val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, s.sizeT)
+                        val rx = (targetVisualR / sx).coerceIn(0f, size.width * 0.5f)
+                        val ry = (targetVisualR / sy).coerceIn(0f, size.height * 0.5f)
+                        clip = true
+                        shape = DynamicArtMorphShape(rxPx = rx, ryPx = ry)
+                    } else {
+                        clip = false
+                    }
+                },
+            modifier = modifier
         )
     }
 
@@ -2243,33 +2258,19 @@ private fun FullPlayerAlbumCoverSection(
     onAlbumClick: (Song) -> Unit,
     aodScreenEnabled: Boolean,        // ADD THIS
     onEnterAodScreen: () -> Unit,
+    artMorphModifier: Modifier = Modifier,
     modifier: Modifier = Modifier
 ) {
-    val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delayAlbumCarousel
     val shouldApplyPausedScale = !isPlayingProvider() && !playWhenReadyProvider()
-    // Use a short deterministic tween instead of spring(StiffnessLow). The original
-    // spring took ~1s to settle, producing ~60 frames of graphicsLayer invalidations
-    // that overlapped with any subsequent sheet-collapse gesture. A 260 ms tween
-    // finishes well before the user can start the next gesture, keeping the album
-    // art's "pause squish" visible but removing the long tail of frame work.
     val albumArtScale by animateFloatAsState(
         targetValue = if (shouldApplyPausedScale) 0.95f else 1f,
         animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
         label = "AlbumArtScale"
     )
+    val configuration = LocalConfiguration.current
+    val isLandscapeMode = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
-        val configuration = LocalConfiguration.current
-        val isLandscapeMode = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val effectiveCarouselWidth = if (isLandscapeMode) {
-            maxWidth
-        } else {
-            (configuration.screenWidthDp.dp - 48.dp).coerceAtLeast(maxWidth)
-        }
+    val renderAlbumCover: @Composable (Dp) -> Unit = { effectiveCarouselWidth ->
         val carouselHeight = when (carouselStyle) {
             CarouselStyle.NO_PEEK -> effectiveCarouselWidth
             CarouselStyle.ONE_PEEK -> effectiveCarouselWidth * 0.8f
@@ -2277,65 +2278,114 @@ private fun FullPlayerAlbumCoverSection(
             else -> effectiveCarouselWidth * 0.8f
         }
 
-        DelayedContent(
-            shouldDelay = false,
-            showPlaceholders = loadingTweaks.showPlaceholders,
-            applyPlaceholderDelayOnClose = loadingTweaks.applyPlaceholdersOnClose,
-            switchOnDragRelease = loadingTweaks.switchOnDragRelease,
-            isSheetDragGestureActive = isSheetDragGestureActive,
-            sharedBoundsModifier = Modifier.fillMaxWidth().height(carouselHeight),
-            expansionFractionProvider = expansionFractionProvider,
-            isExpandedOverride = currentSheetState == PlayerSheetState.EXPANDED,
-            normalStartThreshold = 0f,
-            delayAppearThreshold = loadingTweaks.contentAppearThresholdPercent / 100f,
-            delayCloseThreshold = 1f - (loadingTweaks.contentCloseThresholdPercent / 100f),
-            placeholder = {
-                if (loadingTweaks.transparentPlaceholders) {
-                    Box(
-                        Modifier
-                            .height(carouselHeight)
-                            .fillMaxWidth()
-                            .graphicsLayer {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(carouselHeight)
+                .then(artMorphModifier)
+        ) {
+            DelayedContent(
+                shouldDelay = false,
+                showPlaceholders = loadingTweaks.showPlaceholders,
+                applyPlaceholderDelayOnClose = loadingTweaks.applyPlaceholdersOnClose,
+                switchOnDragRelease = loadingTweaks.switchOnDragRelease,
+                isSheetDragGestureActive = isSheetDragGestureActive,
+                sharedBoundsModifier = Modifier.fillMaxWidth().height(carouselHeight),
+                expansionFractionProvider = expansionFractionProvider,
+                isExpandedOverride = currentSheetState == PlayerSheetState.EXPANDED,
+                normalStartThreshold = 0f,
+                delayAppearThreshold = loadingTweaks.contentAppearThresholdPercent / 100f,
+                delayCloseThreshold = 1f - (loadingTweaks.contentCloseThresholdPercent / 100f),
+                placeholder = {
+                    if (loadingTweaks.transparentPlaceholders) {
+                        Box(
+                            Modifier
+                                .height(carouselHeight)
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    scaleX = albumArtScale
+                                    scaleY = albumArtScale
+                                }
+                        )
+                    } else {
+                        AlbumPlaceholder(
+                            height = carouselHeight,
+                            color = placeholderColor,
+                            onColor = placeholderOnColor,
+                            modifier = Modifier.graphicsLayer {
                                 scaleX = albumArtScale
                                 scaleY = albumArtScale
                             }
-                    )
-                } else {
-                    AlbumPlaceholder(
-                        height = carouselHeight,
-                        color = placeholderColor,
-                        onColor = placeholderOnColor,
-                        modifier = Modifier.graphicsLayer {
+                        )
+                    }
+                }
+            ) {
+                AlbumCarouselSection(
+                    currentSong = song,
+                    queue = currentPlaybackQueue,
+                    expansionFraction = 1f,
+                    currentMediaItemIndex = currentMediaItemIndex,
+                    requestedScrollIndex = requestedScrollIndex,
+                    onSongSelected = { newSong ->
+                        if (newSong.id != song.id) {
+                            onSongSelected(newSong)
+                        }
+                    },
+                    onAlbumClick = onAlbumClick,
+                    onAlbumLongPress = { if (aodScreenEnabled) onEnterAodScreen() },
+                    carouselStyle = carouselStyle,
+                    modifier = Modifier
+                        .height(carouselHeight)
+                        .graphicsLayer {
                             scaleX = albumArtScale
                             scaleY = albumArtScale
-                        }
-                    )
-                }
+                        },
+                    albumArtQuality = albumArtQuality,
+                    carouselWidthOverride = effectiveCarouselWidth
+                )
             }
-        ) {
-            AlbumCarouselSection(
-                currentSong = song,
-                queue = currentPlaybackQueue,
-                expansionFraction = 1f,
-                currentMediaItemIndex = currentMediaItemIndex,
-                requestedScrollIndex = requestedScrollIndex,
-                onSongSelected = { newSong ->
-                    if (newSong.id != song.id) {
-                        onSongSelected(newSong)
-                    }
-                },
-                onAlbumClick = onAlbumClick,
-                onAlbumLongPress = { if (aodScreenEnabled) onEnterAodScreen() },
-                carouselStyle = carouselStyle,
-                modifier = Modifier
-                    .height(carouselHeight)
-                    .graphicsLayer {
-                        scaleX = albumArtScale
-                        scaleY = albumArtScale
-                    },
-                albumArtQuality = albumArtQuality
-            )
         }
+    }
+
+    if (isLandscapeMode) {
+        BoxWithConstraints(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
+            renderAlbumCover(maxWidth)
+        }
+    } else {
+        // Stable width in portrait prevents BoxWithConstraints / HorizontalPager from
+        // recomposing on every drag frame while the sheet horizontal padding animates.
+        val stablePortraitWidth = (configuration.screenWidthDp.dp - 48.dp).coerceAtLeast(1.dp)
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
+            renderAlbumCover(stablePortraitWidth)
+        }
+    }
+}
+
+private data class DynamicArtMorphShape(
+    val rxPx: Float,
+    val ryPx: Float
+) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        val rx = rxPx.coerceIn(0f, size.width * 0.5f)
+        val ry = ryPx.coerceIn(0f, size.height * 0.5f)
+        return androidx.compose.ui.graphics.Outline.Rounded(
+            androidx.compose.ui.geometry.RoundRect(
+                rect = Rect(0f, 0f, size.width, size.height),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(rx, ry)
+            )
+        )
     }
 }
 

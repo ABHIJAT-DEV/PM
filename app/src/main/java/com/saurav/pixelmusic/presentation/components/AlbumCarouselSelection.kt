@@ -48,7 +48,8 @@ fun AlbumCarouselSection(
     modifier: Modifier = Modifier,
     carouselStyle: String = CarouselStyle.NO_PEEK,
     itemSpacing: Dp = 8.dp,
-    albumArtQuality: AlbumArtQuality = AlbumArtQuality.HIGH
+    albumArtQuality: AlbumArtQuality = AlbumArtQuality.HIGH,
+    carouselWidthOverride: Dp? = null
 ) {
     if (queue.isEmpty()) return
 
@@ -149,9 +150,7 @@ fun AlbumCarouselSection(
 
         val corner = 18.dp//lerp(36.dp, 15.dp, expansionFraction.coerceIn(0f, 1f))
 
-        BoxWithConstraints(modifier = modifier) {
-            val availableWidth = this.maxWidth
-
+        val renderCarousel: @Composable (Dp) -> Unit = { availableWidth ->
             RoundedHorizontalMultiBrowseCarousel(
                 state = carouselState,
                 modifier = Modifier.fillMaxSize(), // Fill the space provided by the parent's modifier
@@ -188,6 +187,16 @@ fun AlbumCarouselSection(
                     }
                 }
             )
+        }
+
+        if (carouselWidthOverride != null) {
+            Box(modifier = modifier) {
+                renderCarousel(carouselWidthOverride)
+            }
+        } else {
+            BoxWithConstraints(modifier = modifier) {
+                renderCarousel(this.maxWidth)
+            }
         }
     }
 }

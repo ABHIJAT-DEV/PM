@@ -1,12 +1,7 @@
 package com.saurav.pixelmusic.presentation.components.player.styles
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -56,10 +51,8 @@ import com.saurav.pixelmusic.presentation.components.player.ArtworkMorphTracker
 import com.saurav.pixelmusic.presentation.components.player.LayoutCoordsHolder
 import com.saurav.pixelmusic.presentation.components.player.MorphElementBounds
 import com.saurav.pixelmusic.presentation.components.player.captureRootCoords
-import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
 /**
  * 100% continuous organic S-curve wave bottom cutout that morphs seamlessly from the MiniPlayer
@@ -181,7 +174,7 @@ fun WavePlayerLayout(
     val screenWidthDp = configuration.screenWidthDp.dp
     val screenHeightDp = configuration.screenHeightDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
-    val artHeightPx = with(density) { (screenHeightDp * 0.49f).toPx() }
+    val artHeightPx = with(density) { (screenHeightDp * 0.48f).toPx() }
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
     val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
     val slideOffsetPx = remember(density) { with(density) { 20.dp.toPx() } }
@@ -217,47 +210,32 @@ fun WavePlayerLayout(
         label = "waveArtScale"
     )
 
-    // Slow ambient floating phase + 5 staggered low-stiffness drag springs for the 5 art-edge wave layers
-    val ambientTransition = rememberInfiniteTransition(label = "waveEdgeFloat")
-    val ambientPhase by ambientTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2.0 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 5600, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "waveEdgePhase"
-    )
-    val ambientAmpFactor by animateFloatAsState(
-        targetValue = if (params.allowRealtimeUpdates) 1f else 0f,
-        animationSpec = tween(400),
-        label = "waveAmbientAmp"
-    )
-
+    // 5 staggered drag-only springs for the art-edge wave ribbons & bottom area waves.
+    // Zero infinite animations: waves spring smoothly only while dragging open/closed, then rest still.
     val currentExpansion = params.expansionFractionProvider().coerceIn(0f, 1f)
     val edgeSpring1 by animateFloatAsState(
         targetValue = currentExpansion,
-        animationSpec = spring(dampingRatio = 0.42f, stiffness = 55f),
+        animationSpec = spring(dampingRatio = 0.56f, stiffness = 72f),
         label = "waveEdgeSpring1"
     )
     val edgeSpring2 by animateFloatAsState(
         targetValue = currentExpansion,
-        animationSpec = spring(dampingRatio = 0.46f, stiffness = 78f),
+        animationSpec = spring(dampingRatio = 0.59f, stiffness = 94f),
         label = "waveEdgeSpring2"
     )
     val edgeSpring3 by animateFloatAsState(
         targetValue = currentExpansion,
-        animationSpec = spring(dampingRatio = 0.50f, stiffness = 102f),
+        animationSpec = spring(dampingRatio = 0.62f, stiffness = 118f),
         label = "waveEdgeSpring3"
     )
     val edgeSpring4 by animateFloatAsState(
         targetValue = currentExpansion,
-        animationSpec = spring(dampingRatio = 0.54f, stiffness = 128f),
+        animationSpec = spring(dampingRatio = 0.65f, stiffness = 144f),
         label = "waveEdgeSpring4"
     )
     val edgeSpring5 by animateFloatAsState(
         targetValue = currentExpansion,
-        animationSpec = spring(dampingRatio = 0.58f, stiffness = 156f),
+        animationSpec = spring(dampingRatio = 0.68f, stiffness = 172f),
         label = "waveEdgeSpring5"
     )
 
@@ -278,8 +256,8 @@ fun WavePlayerLayout(
             .background(solidBackgroundColor)
             .captureRootCoords(rootCoordsHolder)
     ) {
-        // 5 layered faded colored wave shapes cascading right underneath the album art's wavy bottom edge,
-        // springing slowly up and down during drags and gently breathing when settled.
+        // 5 layered faded wave ribbons under the album art edge + 3 subtle layered waves in the bottom area.
+        // Both animate strictly via drag springs during open/close and stay completely still once settled.
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -289,21 +267,19 @@ fun WavePlayerLayout(
                 }
         ) {
             val w = size.width
-            val artH = size.height * 0.49f
+            val h = size.height
+            val artH = h * 0.48f
             val waveAmp = artH * 0.16f
 
             fun drawEdgeWaveRibbon(
                 dropPx: Float,
                 springVal: Float,
                 dragBouncePx: Float,
-                phaseOffset: Float,
-                floatAmpPx: Float,
                 crestScale: Float,
                 color: Color
             ) {
                 val dragShiftY = (1f - springVal) * dragBouncePx
-                val floatShiftY = sin(ambientPhase + phaseOffset) * floatAmpPx * ambientAmpFactor
-                val yOff = dropPx + dragShiftY + floatShiftY
+                val yOff = dropPx + dragShiftY
 
                 val leftY = artH - waveAmp * 0.52f * crestScale + yOff
                 val rightY = artH - waveAmp * 0.44f * crestScale + yOff
@@ -328,40 +304,32 @@ fun WavePlayerLayout(
                 drawPath(path = path, color = color)
             }
 
-            // Draw back-to-front (deepest drop first, closest to art edge last)
+            // Top art-edge wave ribbons (back-to-front)
             drawEdgeWaveRibbon(
-                dropPx = 68.dp.toPx(),
+                dropPx = 64.dp.toPx(),
                 springVal = edgeSpring1,
                 dragBouncePx = 74.dp.toPx(),
-                phaseOffset = 0.0f,
-                floatAmpPx = 7.dp.toPx(),
                 crestScale = 0.78f,
                 color = baseTheme.tertiary.copy(alpha = 0.07f)
             )
             drawEdgeWaveRibbon(
-                dropPx = 52.dp.toPx(),
+                dropPx = 49.dp.toPx(),
                 springVal = edgeSpring2,
                 dragBouncePx = 60.dp.toPx(),
-                phaseOffset = 1.15f,
-                floatAmpPx = 6.dp.toPx(),
                 crestScale = 0.86f,
                 color = accentColor.copy(alpha = 0.09f)
             )
             drawEdgeWaveRibbon(
-                dropPx = 37.dp.toPx(),
+                dropPx = 35.dp.toPx(),
                 springVal = edgeSpring3,
                 dragBouncePx = 48.dp.toPx(),
-                phaseOffset = 2.3f,
-                floatAmpPx = 5.5.dp.toPx(),
                 crestScale = 0.92f,
                 color = baseTheme.secondary.copy(alpha = 0.11f)
             )
             drawEdgeWaveRibbon(
-                dropPx = 23.dp.toPx(),
+                dropPx = 22.dp.toPx(),
                 springVal = edgeSpring4,
                 dragBouncePx = 36.dp.toPx(),
-                phaseOffset = 3.45f,
-                floatAmpPx = 4.5.dp.toPx(),
                 crestScale = 0.97f,
                 color = accentColor.copy(alpha = 0.13f)
             )
@@ -369,10 +337,81 @@ fun WavePlayerLayout(
                 dropPx = 10.dp.toPx(),
                 springVal = edgeSpring5,
                 dragBouncePx = 24.dp.toPx(),
-                phaseOffset = 4.6f,
-                floatAmpPx = 3.5.dp.toPx(),
                 crestScale = 1.0f,
                 color = baseTheme.tertiary.copy(alpha = 0.16f)
+            )
+
+            // Restored subtle layered waves in the bottom controls area (drag-spring only)
+            val bottomRegionH = 250.dp.toPx() + navBarBottomPadding.toPx()
+            val bottomRegionTop = h - bottomRegionH
+
+            fun drawBottomWaveLayer(
+                baseTopFraction: Float,
+                springValue: Float,
+                bouncePx: Float,
+                leftFrac: Float,
+                cp1X: Float,
+                cp1Y: Float,
+                midX: Float,
+                midY: Float,
+                cp2X: Float,
+                cp2Y: Float,
+                rightFrac: Float,
+                color: Color
+            ) {
+                val dragOffsetY = (1f - springValue) * bouncePx
+                val baseY = bottomRegionTop + bottomRegionH * baseTopFraction + dragOffsetY
+                val path = Path().apply {
+                    moveTo(0f, h)
+                    lineTo(0f, baseY + bottomRegionH * leftFrac)
+                    cubicTo(
+                        w * cp1X, baseY + bottomRegionH * cp1Y,
+                        w * (midX - 0.14f), baseY + bottomRegionH * (midY + 0.08f),
+                        w * midX, baseY + bottomRegionH * midY
+                    )
+                    cubicTo(
+                        w * (midX + 0.16f), baseY + bottomRegionH * (midY - 0.10f),
+                        w * cp2X, baseY + bottomRegionH * cp2Y,
+                        w, baseY + bottomRegionH * rightFrac
+                    )
+                    lineTo(w, h)
+                    close()
+                }
+                drawPath(path = path, color = color)
+            }
+
+            drawBottomWaveLayer(
+                baseTopFraction = 0.18f,
+                springValue = edgeSpring1,
+                bouncePx = 64.dp.toPx(),
+                leftFrac = 0.08f,
+                cp1X = 0.22f, cp1Y = -0.10f,
+                midX = 0.52f, midY = 0.06f,
+                cp2X = 0.82f, cp2Y = -0.08f,
+                rightFrac = 0.04f,
+                color = baseTheme.tertiary.copy(alpha = 0.06f)
+            )
+            drawBottomWaveLayer(
+                baseTopFraction = 0.40f,
+                springValue = edgeSpring3,
+                bouncePx = 46.dp.toPx(),
+                leftFrac = 0.12f,
+                cp1X = 0.28f, cp1Y = 0.16f,
+                midX = 0.56f, midY = -0.04f,
+                cp2X = 0.84f, cp2Y = 0.10f,
+                rightFrac = 0.02f,
+                color = accentColor.copy(alpha = 0.08f)
+            )
+            drawBottomWaveLayer(
+                baseTopFraction = 0.62f,
+                springValue = edgeSpring5,
+                bouncePx = 30.dp.toPx(),
+                leftFrac = 0.10f,
+                cp1X = 0.26f, cp1Y = -0.04f,
+                midX = 0.58f, midY = 0.12f,
+                cp2X = 0.86f, cp2Y = -0.08f,
+                rightFrac = -0.02f,
+                color = baseTheme.secondary.copy(alpha = 0.10f)
             )
         }
 
@@ -382,7 +421,7 @@ fun WavePlayerLayout(
                 .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(params.expansionFractionProvider())
                     val fullW = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
-                    val fullH = (constraints.maxHeight.toFloat() * 0.49f).takeIf { it > 0f } ?: artHeightPx
+                    val fullH = (constraints.maxHeight.toFloat() * 0.48f).takeIf { it > 0f } ?: artHeightPx
                     val baseW = lerp(miniArtSizePx, fullW, sample.sizeT)
                     val baseH = lerp(miniArtSizePx, fullH, sample.sizeT)
                     val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
@@ -512,9 +551,9 @@ fun WavePlayerLayout(
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Neighbor-pushing Expressive Transport Row (exact old-style Play/Pause morph)
+            // Taller (92dp) Neighbor-pushing Expressive Transport Row matching Expressive mode
             StyleMorphingTransportRow(
                 order = waveOrder,
                 baseWeights = waveWeights,
@@ -529,16 +568,18 @@ fun WavePlayerLayout(
                 playContentColor = onAccentColor,
                 skipContainerColor = onAccentColor,
                 skipContentColor = accentColor,
-                playCornerPlaying = 26.dp,
-                playCornerPaused = 40.dp,
-                skipCorner = 40.dp,
+                playCornerPlaying = 28.dp,
+                playCornerPaused = 46.dp,
+                skipCorner = 46.dp,
+                height = 92.dp,
+                spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,
                 onNext = params.onNext,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Exact BottomToggleRow height + separated circular menu button
             StyleExpressiveBottomBarWithMenu(

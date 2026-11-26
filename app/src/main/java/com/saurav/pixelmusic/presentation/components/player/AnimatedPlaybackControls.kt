@@ -123,6 +123,8 @@ fun AnimatedPlaybackControls(
     val miniGapPx = remember(density) { with(density) { 8.dp.toPx() } }
     val miniIconSizePx = remember(density) { with(density) { 22.dp.toPx() } }
 
+    val rowBounds = remember { MorphElementBounds() }
+    val rowGapPx = remember(density) { with(density) { 6.dp.toPx() } }
     val prevBounds = capturePrevBounds ?: remember { MorphElementBounds() }
     val playBounds = capturePlayBounds ?: remember { MorphElementBounds() }
     val nextBounds = captureNextBounds ?: remember { MorphElementBounds() }
@@ -173,7 +175,9 @@ fun AnimatedPlaybackControls(
             .height(height)
     ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .captureUntransformedBounds(rootCoordsHolder, rowBounds),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -183,29 +187,41 @@ fun AnimatedPlaybackControls(
                 else -> compressionWeight
             }
 
-            val prevShape = remember(
-                morphTracker,
-                expansionFractionProvider,
-                miniBtnSizePx,
-                sourcePrevBounds,
-                sourceMorphProgressProvider,
-                sourceBtnCornerDp
-            ) {
-                MorphingTransportButtonShape(
-                    miniCornerDp = if (sourceMorphProgressProvider != null) sourceBtnCornerDp else 18.dp,
-                    fullCornerDpProvider = { 40.dp },
-                    miniBtnSizePx = miniBtnSizePx,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = expansionFractionProvider,
-                    sourceBounds = sourcePrevBounds,
-                    sourceMorphProgressProvider = sourceMorphProgressProvider
-                )
-            }
             val prevWeight by animateFloatAsState(
                 targetValue = weightFor(PlaybackButtonType.PREVIOUS),
                 animationSpec = pressAnimationSpec,
                 label = "prevWeight"
             )
+            val playWeight by animateFloatAsState(
+                targetValue = weightFor(PlaybackButtonType.PLAY_PAUSE),
+                animationSpec = pressAnimationSpec,
+                label = "playWeight"
+            )
+            val nextWeight by animateFloatAsState(
+                targetValue = weightFor(PlaybackButtonType.NEXT),
+                animationSpec = pressAnimationSpec,
+                label = "nextWeight"
+            )
+
+            // Exact floating-point slot geometry cancels integer-pixel Row weight jitter during drag
+            fun exactSlotWidth(weight: Float, fallbackW: Float): Float {
+                if (!rowBounds.hasBounds || rowBounds.size.width <= 0) return fallbackW
+                val totalW = (prevWeight + playWeight + nextWeight).coerceAtLeast(0.001f)
+                val usableW = (rowBounds.size.width.toFloat() - 2f * rowGapPx).coerceAtLeast(1f)
+                return usableW * (weight / totalW)
+            }
+
+            fun exactSlotLeft(slotIndex: Int, fallbackX: Float): Float {
+                if (!rowBounds.hasBounds || rowBounds.size.width <= 0) return fallbackX
+                val w0 = exactSlotWidth(prevWeight, 0f)
+                val w1 = exactSlotWidth(playWeight, 0f)
+                return when (slotIndex) {
+                    0 -> rowBounds.offset.x
+                    1 -> rowBounds.offset.x + w0 + rowGapPx
+                    else -> rowBounds.offset.x + w0 + rowGapPx + w1 + rowGapPx
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .weight(prevWeight)
@@ -246,25 +262,26 @@ fun AnimatedPlaybackControls(
                             val miniPrevLeftPx = (miniPlayLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
                             val destX = prevBounds.offset.x
                             val destY = prevBounds.offset.y
-                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                            val exactW = exactSlotWidth(prevWeight, size.width)
+                            val exactX = exactSlotLeft(0, destX)
+                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, exactW, s.sizeT)
                             val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
                             val sx = if (size.width > 0f) (curW / size.width).coerceAtLeast(0.01f) else 1f
                             val sy = if (size.height > 0f) (curH / size.height).coerceAtLeast(0.01f) else 1f
                             transformOrigin = TransformOrigin(0f, 0f)
                             scaleX = sx
                             scaleY = sy
-                            translationX = (miniPrevLeftPx - destX) * (1f - s.posT)
-                            translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                            val targetX = androidx.compose.ui.util.lerp(miniPrevLeftPx, exactX, s.posT)
+                            val targetY = androidx.compose.ui.util.lerp(miniBtnTopPx, destY, s.posT)
+                            translationX = targetX - destX
+                            translationY = targetY - destY
                             val miniCornerPx = 18.dp.toPx().coerceAtMost(miniBtnSizePx * 0.5f)
                             val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, s.sizeT)
                             rx = (targetVisualR / sx).coerceIn(0f, size.width * 0.5f)
                             ry = (targetVisualR / sy).coerceIn(0f, size.height * 0.5f)
                         }
                         clip = true
-                        shape = DynamicTransportButtonShape(
-                            rxPx = (rx * 4f).roundToInt() / 4f,
-                            ryPx = (ry * 4f).roundToInt() / 4f
-                        )
+                        shape = DynamicTransportButtonShape(rxPx = rx, ryPx = ry)
                     }
                     .drawBehind {
                         val baseColor = if (sourceMorphProgressProvider != null && sourceColorOtherButtons != Color.Unspecified) {
@@ -303,7 +320,8 @@ fun AnimatedPlaybackControls(
                             scaleY = if (parentScaleY > 0.001f) 1f / parentScaleY else 1f
                         } else if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
                             val s = morphTracker.evaluate(expansionFractionProvider())
-                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                            val exactW = exactSlotWidth(prevWeight, bw)
+                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, exactW, s.sizeT) / bw
                             val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
                             val fullIconPx = iconSize.toPx().coerceAtLeast(1f)
                             val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
@@ -314,37 +332,12 @@ fun AnimatedPlaybackControls(
                 )
             }
 
-            val playWeight by animateFloatAsState(
-                targetValue = weightFor(PlaybackButtonType.PLAY_PAUSE),
-                animationSpec = pressAnimationSpec,
-                label = "playWeight"
-            )
             val playCorner by animateDpAsState(
                 targetValue = if (!playPauseVisualState) playPauseCornerPlaying else playPauseCornerPaused,
                 animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
                 label = "playCorner"
             )
             val miniPlayCornerDp = if (playPauseVisualState) 11.dp else 18.dp
-            val playShape = remember(
-                morphTracker,
-                expansionFractionProvider,
-                miniBtnSizePx,
-                miniPlayCornerDp,
-                sourcePlayBounds,
-                sourceMorphProgressProvider,
-                sourcePlayCornerDp
-            ) {
-                MorphingTransportButtonShape(
-                    miniCornerDp = if (sourceMorphProgressProvider != null) sourcePlayCornerDp else miniPlayCornerDp,
-                    fullCornerDpProvider = { playCorner },
-                    miniBtnSizePx = miniBtnSizePx,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = expansionFractionProvider,
-                    sourceBounds = sourcePlayBounds,
-                    sourceMorphProgressProvider = sourceMorphProgressProvider
-                )
-            }
-            val playGlassCornerShape = playShape
             Box(
                 modifier = Modifier
                     .weight(playWeight)
@@ -384,25 +377,26 @@ fun AnimatedPlaybackControls(
                             val miniPlayLeftPx = (miniNextLeftPx - miniGapPx - miniBtnSizePx).coerceAtLeast(0f)
                             val destX = playBounds.offset.x
                             val destY = playBounds.offset.y
-                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                            val exactW = exactSlotWidth(playWeight, size.width)
+                            val exactX = exactSlotLeft(1, destX)
+                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, exactW, s.sizeT)
                             val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
                             val sx = if (size.width > 0f) (curW / size.width).coerceAtLeast(0.01f) else 1f
                             val sy = if (size.height > 0f) (curH / size.height).coerceAtLeast(0.01f) else 1f
                             transformOrigin = TransformOrigin(0f, 0f)
                             scaleX = sx
                             scaleY = sy
-                            translationX = (miniPlayLeftPx - destX) * (1f - s.posT)
-                            translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                            val targetX = androidx.compose.ui.util.lerp(miniPlayLeftPx, exactX, s.posT)
+                            val targetY = androidx.compose.ui.util.lerp(miniBtnTopPx, destY, s.posT)
+                            translationX = targetX - destX
+                            translationY = targetY - destY
                             val miniCornerPx = miniPlayCornerDp.toPx().coerceAtMost(miniBtnSizePx * 0.5f)
                             val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, s.sizeT)
                             rx = (targetVisualR / sx).coerceIn(0f, size.width * 0.5f)
                             ry = (targetVisualR / sy).coerceIn(0f, size.height * 0.5f)
                         }
                         clip = true
-                        shape = DynamicTransportButtonShape(
-                            rxPx = (rx * 4f).roundToInt() / 4f,
-                            ryPx = (ry * 4f).roundToInt() / 4f
-                        )
+                        shape = DynamicTransportButtonShape(rxPx = rx, ryPx = ry)
                     }
                     .drawBehind {
                         val baseColor = if (sourceMorphProgressProvider != null && sourceColorPlayPause != Color.Unspecified) {
@@ -441,7 +435,8 @@ fun AnimatedPlaybackControls(
                             scaleY = if (parentScaleY > 0.001f) 1f / parentScaleY else 1f
                         } else if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
                             val s = morphTracker.evaluate(expansionFractionProvider())
-                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                            val exactW = exactSlotWidth(playWeight, bw)
+                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, exactW, s.sizeT) / bw
                             val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
                             val fullIconPx = playPauseIconSize.toPx().coerceAtLeast(1f)
                             val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)
@@ -460,29 +455,6 @@ fun AnimatedPlaybackControls(
                 }
             }
 
-            val nextShape = remember(
-                morphTracker,
-                expansionFractionProvider,
-                miniBtnSizePx,
-                sourceNextBounds,
-                sourceMorphProgressProvider,
-                sourceBtnCornerDp
-            ) {
-                MorphingTransportButtonShape(
-                    miniCornerDp = if (sourceMorphProgressProvider != null) sourceBtnCornerDp else 18.dp,
-                    fullCornerDpProvider = { 40.dp },
-                    miniBtnSizePx = miniBtnSizePx,
-                    morphTracker = morphTracker,
-                    expansionFractionProvider = expansionFractionProvider,
-                    sourceBounds = sourceNextBounds,
-                    sourceMorphProgressProvider = sourceMorphProgressProvider
-                )
-            }
-            val nextWeight by animateFloatAsState(
-                targetValue = weightFor(PlaybackButtonType.NEXT),
-                animationSpec = pressAnimationSpec,
-                label = "nextWeight"
-            )
             Box(
                 modifier = Modifier
                     .weight(nextWeight)
@@ -521,25 +493,26 @@ fun AnimatedPlaybackControls(
                             val miniNextLeftPx = (cw - miniEndPadPx - miniBtnSizePx).coerceAtLeast(0f)
                             val destX = nextBounds.offset.x
                             val destY = nextBounds.offset.y
-                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, size.width, s.sizeT)
+                            val exactW = exactSlotWidth(nextWeight, size.width)
+                            val exactX = exactSlotLeft(2, destX)
+                            val curW = androidx.compose.ui.util.lerp(miniBtnSizePx, exactW, s.sizeT)
                             val curH = androidx.compose.ui.util.lerp(miniBtnSizePx, size.height, s.sizeT)
                             val sx = if (size.width > 0f) (curW / size.width).coerceAtLeast(0.01f) else 1f
                             val sy = if (size.height > 0f) (curH / size.height).coerceAtLeast(0.01f) else 1f
                             transformOrigin = TransformOrigin(0f, 0f)
                             scaleX = sx
                             scaleY = sy
-                            translationX = (miniNextLeftPx - destX) * (1f - s.posT)
-                            translationY = (miniBtnTopPx - destY) * (1f - s.posT)
+                            val targetX = androidx.compose.ui.util.lerp(miniNextLeftPx, exactX, s.posT)
+                            val targetY = androidx.compose.ui.util.lerp(miniBtnTopPx, destY, s.posT)
+                            translationX = targetX - destX
+                            translationY = targetY - destY
                             val miniCornerPx = 18.dp.toPx().coerceAtMost(miniBtnSizePx * 0.5f)
                             val targetVisualR = androidx.compose.ui.util.lerp(miniCornerPx, fullCornerPx, s.sizeT)
                             rx = (targetVisualR / sx).coerceIn(0f, size.width * 0.5f)
                             ry = (targetVisualR / sy).coerceIn(0f, size.height * 0.5f)
                         }
                         clip = true
-                        shape = DynamicTransportButtonShape(
-                            rxPx = (rx * 4f).roundToInt() / 4f,
-                            ryPx = (ry * 4f).roundToInt() / 4f
-                        )
+                        shape = DynamicTransportButtonShape(rxPx = rx, ryPx = ry)
                     }
                     .drawBehind {
                         val baseColor = if (sourceMorphProgressProvider != null && sourceColorOtherButtons != Color.Unspecified) {
@@ -578,7 +551,8 @@ fun AnimatedPlaybackControls(
                             scaleY = if (parentScaleY > 0.001f) 1f / parentScaleY else 1f
                         } else if (morphTracker != null && expansionFractionProvider != null && bw > 0f && bh > 0f) {
                             val s = morphTracker.evaluate(expansionFractionProvider())
-                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, bw, s.sizeT) / bw
+                            val exactW = exactSlotWidth(nextWeight, bw)
+                            val parentScaleX = androidx.compose.ui.util.lerp(miniBtnSizePx, exactW, s.sizeT) / bw
                             val parentScaleY = androidx.compose.ui.util.lerp(miniBtnSizePx, bh, s.sizeT) / bh
                             val fullIconPx = iconSize.toPx().coerceAtLeast(1f)
                             val desiredScale = androidx.compose.ui.util.lerp(miniIconSizePx / fullIconPx, 1f, s.sizeT)

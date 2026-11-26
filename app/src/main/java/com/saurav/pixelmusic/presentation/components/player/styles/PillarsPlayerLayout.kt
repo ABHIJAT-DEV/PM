@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -63,10 +64,14 @@ import kotlin.math.sin
 
 /**
  * Slices a single continuous album artwork through 3 staggered vertical rounded capsules,
- * morphing smoothly from the MiniPlayer 44dp circle into the 3-pillar composition.
+ * morphing smoothly from the MiniPlayer 44dp circle into the 3-pillar composition and
+ * reacting dynamically with staggered spring motion on Play/Pause.
  */
 private class MorphingTriplePillarShape(
-    private val morphProgressProvider: () -> Float
+    private val morphProgressProvider: () -> Float,
+    private val pillar1PlayProvider: () -> Float,
+    private val pillar2PlayProvider: () -> Float,
+    private val pillar3PlayProvider: () -> Float
 ) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val t = morphProgressProvider().coerceIn(0f, 1f)
@@ -80,25 +85,60 @@ private class MorphingTriplePillarShape(
         }
 
         val splitT = ((t - 0.06f) / 0.94f).coerceIn(0f, 1f)
+        val p1 = pillar1PlayProvider()
+        val p2 = pillar2PlayProvider()
+        val p3 = pillar3PlayProvider()
         val path = Path()
 
         fun addInterpolatedPill(
             targetLeft: Float,
-            targetTop: Float,
+            pausedTop: Float,
+            playingTop: Float,
             targetRight: Float,
-            targetBottom: Float
+            pausedBottom: Float,
+            playingBottom: Float,
+            playT: Float
         ) {
+            val dynamicTop = lerp(pausedTop, playingTop, playT).coerceIn(0.01f, 0.95f)
+            val dynamicBottom = lerp(pausedBottom, playingBottom, playT).coerceIn(dynamicTop + 0.12f, 0.995f)
             val l = lerp(0f, w * targetLeft, splitT)
-            val top = lerp(0f, h * targetTop, splitT)
+            val top = lerp(0f, h * dynamicTop, splitT)
             val r = lerp(w, w * targetRight, splitT)
-            val b = lerp(h, h * targetBottom, splitT)
+            val b = lerp(h, h * dynamicBottom, splitT)
             val radius = ((r - l) * 0.5f).coerceAtLeast(1f)
             path.addRoundRect(RoundRect(l, top, r, b, CornerRadius(radius, radius)))
         }
 
-        addInterpolatedPill(0.11f, 0.42f, 0.36f, 0.94f)
-        addInterpolatedPill(0.39f, 0.16f, 0.64f, 0.99f)
-        addInterpolatedPill(0.67f, 0.04f, 0.92f, 0.86f)
+        // Left pillar: settles calm & centered when paused, drops into energetic low stance when playing
+        addInterpolatedPill(
+            targetLeft = 0.11f,
+            pausedTop = 0.34f,
+            playingTop = 0.42f,
+            targetRight = 0.36f,
+            pausedBottom = 0.84f,
+            playingBottom = 0.95f,
+            playT = p1
+        )
+        // Center pillar: compacts gently when paused, stretches tall & proud when playing
+        addInterpolatedPill(
+            targetLeft = 0.39f,
+            pausedTop = 0.24f,
+            playingTop = 0.13f,
+            targetRight = 0.64f,
+            pausedBottom = 0.90f,
+            playingBottom = 0.99f,
+            playT = p2
+        )
+        // Right pillar: lowers slightly when paused, lifts high into the upper corner when playing
+        addInterpolatedPill(
+            targetLeft = 0.67f,
+            pausedTop = 0.16f,
+            playingTop = 0.03f,
+            targetRight = 0.92f,
+            pausedBottom = 0.80f,
+            playingBottom = 0.87f,
+            playT = p3
+        )
 
         return Outline.Generic(path)
     }
@@ -139,7 +179,7 @@ fun PillarsPlayerLayout(
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
     val artTopOffsetDp = statusBarTopPadding + 58.dp
     val artTopOffsetPx = with(density) { artTopOffsetDp.toPx() }
-    val artHeightDp = (screenHeightDp * 0.41f).coerceIn(245.dp, 355.dp)
+    val artHeightDp = (screenHeightDp * 0.40f).coerceIn(240.dp, 345.dp)
     val artHeightPx = with(density) { artHeightDp.toPx() }
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
     val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
@@ -157,22 +197,42 @@ fun PillarsPlayerLayout(
         bounds.topShadowMidAlpha = 0f
     }
 
-    val pillarShape = remember(morphTracker, params.expansionFractionProvider) {
-        MorphingTriplePillarShape(
-            morphProgressProvider = {
-                morphTracker.evaluate(params.expansionFractionProvider()).sizeT
-            }
-        )
-    }
-
     val isPlaying = params.isPlayingProvider()
     val isFavorite = params.isFavoriteProvider()
     val isShuffle = params.isShuffleEnabledProvider()
     val repeatMode = params.repeatModeProvider()
 
+    // Staggered spring reaction on Play/Pause for the 3 artwork pillars (zero infinite cost when settled)
+    val pillar1Play by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.58f, stiffness = 210f),
+        label = "pillar1Play"
+    )
+    val pillar2Play by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.54f, stiffness = 170f),
+        label = "pillar2Play"
+    )
+    val pillar3Play by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.56f, stiffness = 140f),
+        label = "pillar3Play"
+    )
+
+    val pillarShape = remember(morphTracker, params.expansionFractionProvider) {
+        MorphingTriplePillarShape(
+            morphProgressProvider = {
+                morphTracker.evaluate(params.expansionFractionProvider()).sizeT
+            },
+            pillar1PlayProvider = { pillar1Play },
+            pillar2PlayProvider = { pillar2Play },
+            pillar3PlayProvider = { pillar3Play }
+        )
+    }
+
     val artScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1.03f else 1.0f,
-        animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
+        targetValue = if (isPlaying) 1.035f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.65f, stiffness = 180f),
         label = "pillarsArtScale"
     )
 
@@ -222,20 +282,21 @@ fun PillarsPlayerLayout(
             val topY = artTopOffsetPx
             val h = artHeightPx
 
+            val circleScale = lerp(0.94f, 1.0f, pillar2Play)
             drawCircle(
                 color = accentColor.copy(alpha = 0.09f),
-                radius = w * 0.44f,
-                center = Offset(w * 0.84f, topY + h * 0.22f)
+                radius = w * 0.44f * circleScale,
+                center = Offset(w * 0.84f, topY + h * lerp(0.26f, 0.22f, pillar3Play))
             )
             drawCircle(
                 color = tertiaryAccent.copy(alpha = 0.38f),
-                radius = w * 0.105f,
-                center = Offset(w * 0.23f, topY + h * 0.11f)
+                radius = w * 0.105f * lerp(0.92f, 1.0f, pillar1Play),
+                center = Offset(w * 0.23f, topY + h * lerp(0.14f, 0.11f, pillar1Play))
             )
             drawCircle(
                 color = tertiaryAccent.copy(alpha = 0.30f),
-                radius = w * 0.185f,
-                center = Offset(w * 0.04f, topY + h * 0.68f)
+                radius = w * 0.185f * circleScale,
+                center = Offset(w * 0.04f, topY + h * lerp(0.64f, 0.68f, pillar1Play))
             )
 
             val baseHeights = floatArrayOf(0.24f, 0.48f, 0.34f, 0.82f, 0.96f, 0.56f, 0.30f, 0.44f, 0.28f)
@@ -375,9 +436,9 @@ fun PillarsPlayerLayout(
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Neighbor-pushing Capsule Transport Row (exact old-style Play/Pause morph)
+            // Taller (92dp) Neighbor-pushing Capsule Transport Row matching Wave & Expressive
             StyleMorphingTransportRow(
                 order = pillarsOrder,
                 baseWeights = pillarsWeights,
@@ -392,16 +453,18 @@ fun PillarsPlayerLayout(
                 playContentColor = onAccentColor,
                 skipContainerColor = onAccentColor,
                 skipContentColor = accentColor,
-                playCornerPlaying = 26.dp,
-                playCornerPaused = 40.dp,
-                skipCorner = 40.dp,
+                playCornerPlaying = 28.dp,
+                playCornerPaused = 46.dp,
+                skipCorner = 46.dp,
+                height = 92.dp,
+                spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,
                 onNext = params.onNext,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Exact BottomToggleRow height + separated circular menu button
             StyleExpressiveBottomBarWithMenu(

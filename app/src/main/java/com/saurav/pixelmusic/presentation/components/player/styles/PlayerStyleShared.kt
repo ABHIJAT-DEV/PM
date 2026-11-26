@@ -704,10 +704,7 @@ internal fun StyleMorphingTransportRow(
                         val ry = (targetVisualR / sy).coerceIn(0f, size.height * 0.5f)
 
                         clip = true
-                        shape = DynamicStyleTransportShape(
-                            rxPx = (rx * 4f).roundToInt() / 4f,
-                            ryPx = (ry * 4f).roundToInt() / 4f
-                        )
+                        shape = DynamicStyleTransportShape(rxPx = rx, ryPx = ry)
                     }
                     .drawBehind {
                         drawRect(targetBgColor)
