@@ -96,11 +96,8 @@ private class MorphingTriplePillarShape(
             path.addRoundRect(RoundRect(l, top, r, b, CornerRadius(radius, radius)))
         }
 
-        // Left pillar (shorter, lower)
         addInterpolatedPill(0.11f, 0.42f, 0.36f, 0.94f)
-        // Center pillar (tallest, spans most of height)
         addInterpolatedPill(0.39f, 0.16f, 0.64f, 0.99f)
-        // Right pillar (tall, elevated)
         addInterpolatedPill(0.67f, 0.04f, 0.92f, 0.86f)
 
         return Outline.Generic(path)
@@ -111,7 +108,8 @@ private class MorphingTriplePillarShape(
  * Isolated Now Playing Style: Pillars
  * Displays continuous album artwork through three staggered vertical capsule windows
  * accented by unclipped Material You decorative circles and a subtle live audio waveform,
- * paired with neighbor-pushing expressive controls and the exact BottomToggleRow pill geometry.
+ * paired with exact old-style Play/Pause morphing, neighbor-pushing controls, and the
+ * exact BottomToggleRow bottom padding + separated circular menu button.
  */
 @Composable
 fun PillarsPlayerLayout(
@@ -141,7 +139,7 @@ fun PillarsPlayerLayout(
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
     val artTopOffsetDp = statusBarTopPadding + 58.dp
     val artTopOffsetPx = with(density) { artTopOffsetDp.toPx() }
-    val artHeightDp = (screenHeightDp * 0.42f).coerceIn(250.dp, 360.dp)
+    val artHeightDp = (screenHeightDp * 0.41f).coerceIn(245.dp, 355.dp)
     val artHeightPx = with(density) { artHeightDp.toPx() }
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
     val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
@@ -293,11 +291,8 @@ fun PillarsPlayerLayout(
                 }
                 .clip(pillarShape)
                 .styleArtworkGestures(
-                    songId = params.song.id,
                     aodScreenEnabled = params.aodScreenEnabled,
-                    onEnterAodScreen = params.onEnterAodScreen,
-                    onNext = params.onNext,
-                    onPrevious = params.onPrevious
+                    onEnterAodScreen = params.onEnterAodScreen
                 )
         ) {
             SmartImage(
@@ -314,12 +309,12 @@ fun PillarsPlayerLayout(
             )
         }
 
-        // LOWER SECTION: Matches exact BottomToggleRow geometry & neighbor-pushing controls
+        // LOWER SECTION: Matches exact BottomToggleRow bottom padding from existing styles
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(bottom = navBarBottomPadding + 6.dp),
+                .padding(bottom = navBarBottomPadding + 22.dp),
             verticalArrangement = Arrangement.Bottom
         ) {
             Row(
@@ -382,7 +377,7 @@ fun PillarsPlayerLayout(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Neighbor-pushing Capsule Transport Row (exact 80dp height & 6dp spacing)
+            // Neighbor-pushing Capsule Transport Row (exact old-style Play/Pause morph)
             StyleMorphingTransportRow(
                 order = pillarsOrder,
                 baseWeights = pillarsWeights,
@@ -397,7 +392,7 @@ fun PillarsPlayerLayout(
                 playContentColor = onAccentColor,
                 skipContainerColor = onAccentColor,
                 skipContentColor = accentColor,
-                playCornerPlaying = 24.dp,
+                playCornerPlaying = 26.dp,
                 playCornerPaused = 40.dp,
                 skipCorner = 40.dp,
                 onPrevious = params.onPrevious,
@@ -408,8 +403,8 @@ fun PillarsPlayerLayout(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Exact BottomToggleRow geometry: 26dp horizontal padding, 66dp height, 6dp bottom padding
-            StyleExpressiveBottomDock(
+            // Exact BottomToggleRow height + separated circular menu button
+            StyleExpressiveBottomBarWithMenu(
                 isShuffleEnabled = isShuffle,
                 repeatMode = repeatMode,
                 onShuffleToggle = params.onShuffleToggle,
@@ -417,9 +412,7 @@ fun PillarsPlayerLayout(
                 onLyricsClick = params.onLyricsClick,
                 onMoreOptionsClick = params.onMoreOptionsClick,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 26.dp)
-                    .padding(bottom = 6.dp)
+                    .padding(horizontal = 24.dp)
                     .graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         val a = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade

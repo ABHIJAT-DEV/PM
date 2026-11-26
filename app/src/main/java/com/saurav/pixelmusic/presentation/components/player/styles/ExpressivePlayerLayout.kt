@@ -1,14 +1,9 @@
 package com.saurav.pixelmusic.presentation.components.player.styles
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,27 +17,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
@@ -55,7 +42,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import com.saurav.pixelmusic.presentation.components.LocalMaterialTheme
 import com.saurav.pixelmusic.presentation.components.SmartImage
-import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
 import com.saurav.pixelmusic.presentation.components.player.AodSourceArtStyle
 import com.saurav.pixelmusic.presentation.components.player.ArtworkMorphTracker
 import com.saurav.pixelmusic.presentation.components.player.LayoutCoordsHolder
@@ -68,9 +54,9 @@ import kotlin.math.roundToInt
 /**
  * Isolated Now Playing Style: Expressive
  * Full-bleed gradient-faded top artwork, natural-case editorial title & artist with tonal heart,
- * wavy progress slider with centered audio metadata pill, asymmetric neighbor-pushing transport row
- * (wide Play/Pause on left + twin circular Previous/Next on right), and exact BottomToggleRow height
- * segmented pill dock + matching 66dp circular '+' action button.
+ * wavy progress slider with centered audio metadata pill, taller (92dp) asymmetric neighbor-pushing
+ * transport row (wide Play/Pause on left + twin circular Previous/Next on right), and exact
+ * BottomToggleRow bottom padding + separated 66dp circular '+' menu button.
  */
 @Composable
 fun ExpressivePlayerLayout(
@@ -98,7 +84,7 @@ fun ExpressivePlayerLayout(
     val screenWidthDp = configuration.screenWidthDp.dp
     val screenHeightDp = configuration.screenHeightDp.dp
     val screenWidthPx = with(density) { screenWidthDp.toPx() }
-    val artHeightPx = with(density) { (screenHeightDp * 0.54f).toPx() }
+    val artHeightPx = with(density) { (screenHeightDp * 0.52f).toPx() }
     val miniArtSizePx = remember(density) { with(density) { 44.dp.toPx() } }
     val miniArtOffsetPx = remember(density) { with(density) { 10.dp.toPx() } }
     val slideOffsetPx = remember(density) { with(density) { 20.dp.toPx() } }
@@ -140,9 +126,9 @@ fun ExpressivePlayerLayout(
     }
     val expressiveWeights = remember {
         mapOf(
-            MiniTransportSlot.PLAY_PAUSE to 1.68f,
-            MiniTransportSlot.PREVIOUS to 0.92f,
-            MiniTransportSlot.NEXT to 0.92f
+            MiniTransportSlot.PLAY_PAUSE to 1.65f,
+            MiniTransportSlot.PREVIOUS to 0.94f,
+            MiniTransportSlot.NEXT to 0.94f
         )
     }
 
@@ -158,7 +144,7 @@ fun ExpressivePlayerLayout(
                 .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(params.expansionFractionProvider())
                     val fullW = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
-                    val fullH = (constraints.maxHeight.toFloat() * 0.54f).takeIf { it > 0f } ?: artHeightPx
+                    val fullH = (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
                     val baseW = lerp(miniArtSizePx, fullW, sample.sizeT)
                     val baseH = lerp(miniArtSizePx, fullH, sample.sizeT)
                     val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
@@ -192,11 +178,8 @@ fun ExpressivePlayerLayout(
                     alpha = if (params.aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 }
                 .styleArtworkGestures(
-                    songId = params.song.id,
                     aodScreenEnabled = params.aodScreenEnabled,
-                    onEnterAodScreen = params.onEnterAodScreen,
-                    onNext = params.onNext,
-                    onPrevious = params.onPrevious
+                    onEnterAodScreen = params.onEnterAodScreen
                 )
         ) {
             SmartImage(
@@ -256,15 +239,14 @@ fun ExpressivePlayerLayout(
             )
         }
 
-        // LOWER SECTION: Matches exact BottomToggleRow geometry & neighbor-pushing asymmetric controls
+        // LOWER SECTION: Exact BottomToggleRow bottom padding + taller (92dp) asymmetric controls
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(bottom = navBarBottomPadding + 6.dp),
+                .padding(bottom = navBarBottomPadding + 22.dp),
             verticalArrangement = Arrangement.Bottom
         ) {
-            // Editorial Song Info (natural casing) + Circular Tonal Favorite
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -308,7 +290,6 @@ fun ExpressivePlayerLayout(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Wavy Progress Slider + Timestamps + Centered Audio Metadata Pill
             StyleProgressSection(
                 params = params,
                 rootCoordsHolder = rootCoordsHolder,
@@ -326,7 +307,7 @@ fun ExpressivePlayerLayout(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Asymmetric Neighbor-Pushing Transport Row (exact 80dp height & 6dp spacing)
+            // Taller (92dp) Asymmetric Neighbor-Pushing Transport Row with exact old-style Play/Pause morph
             StyleMorphingTransportRow(
                 order = expressiveOrder,
                 baseWeights = expressiveWeights,
@@ -341,9 +322,11 @@ fun ExpressivePlayerLayout(
                 playContentColor = onAccentColor,
                 skipContainerColor = onAccentColor,
                 skipContentColor = accentColor,
-                playCornerPlaying = 24.dp,
-                playCornerPaused = 40.dp,
-                skipCorner = 40.dp,
+                playCornerPlaying = 28.dp,
+                playCornerPaused = 46.dp,
+                skipCorner = 46.dp,
+                height = 92.dp,
+                spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,
                 onNext = params.onNext,
@@ -352,12 +335,11 @@ fun ExpressivePlayerLayout(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Exact BottomToggleRow geometry: 26dp horizontal padding, 66dp height, 6dp bottom padding
+            // Exact BottomToggleRow padding + 3-segment pill + separated 66dp circular '+' menu button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 26.dp)
-                    .padding(bottom = 6.dp)
+                    .padding(horizontal = 24.dp)
                     .graphicsLayer {
                         val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         val a = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
@@ -367,77 +349,16 @@ fun ExpressivePlayerLayout(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                StyleExpressiveBottomDock(
+                StyleExpressiveBottomBarWithMenu(
                     isShuffleEnabled = isShuffle,
                     repeatMode = repeatMode,
                     onShuffleToggle = params.onShuffleToggle,
                     onRepeatToggle = params.onRepeatToggle,
                     onLyricsClick = params.onLyricsClick,
-                    onMoreOptionsClick = null,
+                    onMoreOptionsClick = params.onMoreOptionsClick,
                     modifier = Modifier.weight(1f)
-                )
-
-                ExpressiveCircleMoreButton(
-                    containerColor = moreButtonBg,
-                    iconTint = baseTheme.onSurface,
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        params.onMoreOptionsClick()
-                    }
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun ExpressiveCircleMoreButton(
-    containerColor: Color,
-    iconTint: Color,
-    onClick: () -> Unit
-) {
-    var isPressed by remember { mutableStateOf(false) }
-    val latestOnClick by rememberUpdatedState(onClick)
-    val pressScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
-        label = "moreBtnScale"
-    )
-    val shape = CircleShape
-
-    Box(
-        modifier = Modifier
-            .size(66.dp)
-            .graphicsLayer {
-                scaleX = pressScale
-                scaleY = pressScale
-            }
-            .clip(shape)
-            .background(containerColor, shape)
-            .expressiveTapColorWave(
-                waveColor = iconTint.copy(alpha = 0.22f),
-                shape = shape
-            )
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    down.consume()
-                    isPressed = true
-                    val up = waitForUpOrCancellation()
-                    isPressed = false
-                    if (up != null) {
-                        up.consume()
-                        latestOnClick()
-                    }
-                }
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.Add,
-            contentDescription = "More options",
-            tint = iconTint,
-            modifier = Modifier.size(25.dp)
-        )
     }
 }
