@@ -382,9 +382,9 @@ fun SettingsScreen(
                     animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 360f),
                     label = "localModeMenuBtnTint"
                 )
-                FilledIconButton(
+                androidx.compose.material3.FilledIconButton(
                     onClick = { showLocalModeDropdown = !showLocalModeDropdown },
-                    colors = IconButtonDefaults.filledIconButtonColors(
+                    colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
                         containerColor = menuBtnBg,
                         contentColor = menuBtnTint
                     ),
@@ -406,7 +406,9 @@ fun SettingsScreen(
             visible = showLocalModeDropdown,
             enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)),
             exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
-            modifier = Modifier.fillMaxSize().zIndex(20f)
+            modifier = Modifier.fillMaxSize().then(androidx.compose.ui.Modifier.let { m ->
+                with(androidx.compose.ui.zIndex(20f)) { m }
+            })
         ) {
             Box(
                 modifier = Modifier
@@ -437,9 +439,7 @@ fun SettingsScreen(
             ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(130)),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 56.dp, end = 14.dp)
-                .zIndex(21f)
+                .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp, end = 14.dp)
         ) {
             Surface(
                 modifier = Modifier.width(308.dp),

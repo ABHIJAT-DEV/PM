@@ -300,6 +300,7 @@ fun HomeScreen(
         )
     }
 
+    val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
     val recentlyPlayedSongs = remember(latestRecentlyPlayedSongs, localModeEnabled) {
         if (!localModeEnabled) latestRecentlyPlayedSongs
         else latestRecentlyPlayedSongs.filter { entry ->
@@ -347,7 +348,6 @@ fun HomeScreen(
     val betaSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     val scope = rememberCoroutineScope()
 
-    val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
     val homeStatsOverview by statsViewModel.homeOverview.collectAsStateWithLifecycle()
     val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
     val homeQuickPicksStyle by playerViewModel.homeQuickPicksStyle.collectAsStateWithLifecycle()
