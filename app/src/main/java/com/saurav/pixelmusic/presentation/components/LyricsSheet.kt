@@ -1091,7 +1091,6 @@ fun LyricsSheet(
                     }
                 }
             }
-        }
 
         if (showMoreSheet) {
             MaterialTheme(

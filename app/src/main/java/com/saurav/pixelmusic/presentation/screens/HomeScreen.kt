@@ -663,6 +663,7 @@ fun HomeScreen(
                     )
                 }
             ) {
+                val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -729,12 +730,12 @@ fun HomeScreen(
                                 )
                             }
                         }
-                    } else if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    } else if (isLandscape) {
                         item(
                             key = "your_mix_landscape_row",
                             contentType = "your_mix_landscape_row"
                         ) {
-                            val onAiCreateMixClick = {
+                            val onAiCreateMixClick: () -> Unit = {
                                 if (localModeEnabled) {
                                     Toast.makeText(
                                         context,

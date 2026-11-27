@@ -1364,7 +1364,7 @@ class MainActivity : ComponentActivity() {
                         val isFabVisible by remember(currentRoute, isSearchBarActive, isLocalModeMain) {
                             derivedStateOf { isHomeOrExploreRoute && !isSearchBarActive }
                         }
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = isFabVisible,
                             enter = fadeIn(animationSpec = tween(250)) + scaleIn(initialScale = 0.85f),
                             exit = fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.85f),
@@ -1475,7 +1475,7 @@ class MainActivity : ComponentActivity() {
                        playerViewModel.reportBottomChromeTop("undo_bar", null)
                        }
                        }
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = dismissUndoBarSlice.isVisible,
                             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
