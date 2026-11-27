@@ -28,6 +28,8 @@ object PixelJamConfig {
 
     fun toRoomsUrl(baseUrl: String): String = "${normalizeBaseUrl(baseUrl)}/rooms"
 
+    fun toHealthUrl(baseUrl: String): String = "${normalizeBaseUrl(baseUrl)}/health"
+
     const val INVITE_PAGE_URL = "https://pixelmusic.pages.dev/jam"
 
     fun toInviteUrl(baseUrl: String, roomCode: String): String =

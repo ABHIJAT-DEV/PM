@@ -968,11 +968,17 @@ class PlayerViewModel @Inject constructor(
         refillAutoQueueAfterPixelJamExit(currentSong, queueSize)
     }
 
-    private fun handlePixelJamServerRestart() {
+    private fun handlePixelJamServerRestart(event: PixelJamServerRestartEvent) {
         val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
         val queueSize = _playerUiState.value.currentPlaybackQueue.size
         stopPixelJamSyncLoop()
         _pixelJamSyncDriftMs.value = 0L
+        com.saurav.pixelmusic.presentation.components.PixelToast.show(
+            context = context,
+            message = event.message,
+            long = true,
+            type = com.saurav.pixelmusic.presentation.components.PixelToastType.INFO
+        )
         // Keep current playback running smoothly and refill AutoQueue so the next song plays automatically.
         refillAutoQueueAfterPixelJamExit(currentSong, queueSize)
     }
@@ -1590,8 +1596,8 @@ class PlayerViewModel @Inject constructor(
         themeStateHolder.initialize(viewModelScope)
 
         viewModelScope.launch {
-            pixelJamManager.serverRestartEvents.collect {
-                handlePixelJamServerRestart()
+            pixelJamManager.serverRestartEvents.collect { event ->
+                handlePixelJamServerRestart(event)
             }
         }
 

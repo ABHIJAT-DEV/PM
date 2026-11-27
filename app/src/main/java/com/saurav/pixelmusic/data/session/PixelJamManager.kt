@@ -74,6 +74,12 @@ class PixelJamManager @Inject constructor(
         .pingInterval(20, TimeUnit.SECONDS)
         .build()
 
+    private val healthHttpClient: OkHttpClient = okHttpClient.newBuilder()
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(4, TimeUnit.SECONDS)
+        .callTimeout(5, TimeUnit.SECONDS)
+        .build()
+
     val serverUrl: StateFlow<String> = dataStore.data
         .map { prefs -> PixelJamConfig.normalizeBaseUrl(prefs[KEY_SERVER_URL].orEmpty()) }
         .stateIn(scope, SharingStarted.Eagerly, PixelJamConfig.DEFAULT_SERVER_URL)
@@ -142,7 +148,7 @@ class PixelJamManager @Inject constructor(
     private val _events = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val events: SharedFlow<String> = _events.asSharedFlow()
 
-    private val _serverRestartEvents = MutableSharedFlow<PixelJamServerRestartEvent>(extraBufferCapacity = 4)
+    private val _serverRestartEvents = MutableSharedFlow<PixelJamServerRestartEvent>(extraBufferCapacity = 8)
     val serverRestartEvents: SharedFlow<PixelJamServerRestartEvent> = _serverRestartEvents.asSharedFlow()
 
     @Volatile
@@ -153,6 +159,8 @@ class PixelJamManager @Inject constructor(
     private var intentionalClose: Boolean = false
     @Volatile
     private var reconnectingActiveRoom: Boolean = false
+    @Volatile
+    private var sessionBootId: String? = null
 
     private var pendingConnectAction: (() -> Unit)? = null
     private var activeRoomCode: String? = null
@@ -241,6 +249,7 @@ class PixelJamManager @Inject constructor(
         activeDisplayName = cleanName
         activeAvatarUrl = avatarUrl.trim()
         activeRoomCode = null
+        sessionBootId = null
         _uiState.value = PixelJamUiState.Creating
         connectAndSend {
             val payload = JSONObject().apply {
@@ -266,6 +275,7 @@ class PixelJamManager @Inject constructor(
         activeDisplayName = cleanName
         activeAvatarUrl = avatarUrl.trim()
         activeRoomCode = cleanCode
+        sessionBootId = null
         _uiState.value = PixelJamUiState.Joining(cleanCode)
         connectAndSend {
             val payload = JSONObject().apply {
@@ -293,11 +303,13 @@ class PixelJamManager @Inject constructor(
         webSocket?.close(1000, "Leaving room")
         webSocket = null
         activeRoomCode = null
+        sessionBootId = null
         resetRoomData()
         _connectionState.value = PixelJamConnectionState.DISCONNECTED
         _uiState.value = PixelJamUiState.Idle
     }
 
+    @Synchronized
     private fun handleServerRestartKick(reason: String = "server_restart") {
         if (intentionalClose && !isInOrReconnectingRoom() && activeRoomCode == null) return
         intentionalClose = true
@@ -314,6 +326,7 @@ class PixelJamManager @Inject constructor(
         }
         webSocket = null
         activeRoomCode = null
+        sessionBootId = null
         resetRoomData()
         _connectionState.value = PixelJamConnectionState.DISCONNECTED
         _uiState.value = PixelJamUiState.Idle
@@ -323,6 +336,29 @@ class PixelJamManager @Inject constructor(
                 message = PixelJamServerRestartEvent.DEFAULT_MESSAGE
             )
         )
+    }
+
+    private fun fetchServerBootId(baseUrl: String = serverUrl.value): String? {
+        return try {
+            val req = Request.Builder()
+                .url(PixelJamConfig.toHealthUrl(baseUrl))
+                .header("Cache-Control", "no-cache")
+                .get()
+                .build()
+            healthHttpClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                val body = resp.body?.string().orEmpty()
+                if (body.isBlank()) return null
+                val root = JSONObject(body)
+                root.optString("boot_id")
+                    .ifBlank { root.optString("server_boot_id") }
+                    .trim()
+                    .ifBlank { null }
+            }
+        } catch (t: Throwable) {
+            Timber.d(t, "PixelJam: fetchServerBootId failed")
+            null
+        }
     }
 
     fun sendPlaybackAction(
@@ -429,6 +465,7 @@ class PixelJamManager @Inject constructor(
         if (intentionalClose) return
         val code = activeRoomCode ?: return
         val name = activeDisplayName ?: return
+        val expectedBootId = sessionBootId
         reconnectingActiveRoom = true
         if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
             handleServerRestartKick(reason = "connection_lost")
@@ -441,6 +478,21 @@ class PixelJamManager @Inject constructor(
             val backoffMs = (1_200L * reconnectAttempt).coerceAtMost(4_000L)
             delay(backoffMs)
             if (intentionalClose) return@launch
+
+            if (expectedBootId != null) {
+                val liveBootId = fetchServerBootId(serverUrl.value)
+                if (intentionalClose) return@launch
+                if (liveBootId != null && liveBootId != expectedBootId) {
+                    Timber.i(
+                        "PixelJam: server boot_id changed on /health (%s -> %s); kicking to solo playback",
+                        expectedBootId,
+                        liveBootId
+                    )
+                    handleServerRestartKick(reason = "server_restart")
+                    return@launch
+                }
+            }
+
             pendingConnectAction = {
                 sendEnvelope(
                     "join_room",
@@ -565,6 +617,21 @@ class PixelJamManager @Inject constructor(
                 val userId = payload.optString("user_id")
                 val name = payload.optString("name")
                 val mode = PixelJamRoomMode.fromWire(payload.optString("room_mode"))
+                val incomingBootId = payload.optString("server_boot_id")
+                    .ifBlank { payload.optString("boot_id") }
+                    .trim()
+                    .ifBlank { null }
+                if (incomingBootId != null) {
+                    sessionBootId = incomingBootId
+                } else if (sessionBootId == null) {
+                    scope.launch {
+                        fetchServerBootId()?.let { fetched ->
+                            if (sessionBootId == null && isInOrReconnectingRoom()) {
+                                sessionBootId = fetched
+                            }
+                        }
+                    }
+                }
                 reconnectAttempt = 0
                 reconnectingActiveRoom = false
                 activeRoomCode = code
@@ -596,6 +663,32 @@ class PixelJamManager @Inject constructor(
 
             "sync_state" -> {
                 if (payload == null) return
+                val incomingBootId = payload.optString("server_boot_id")
+                    .ifBlank { payload.optString("boot_id") }
+                    .trim()
+                    .ifBlank { null }
+                val previousBootId = sessionBootId
+                if (reconnectingActiveRoom && previousBootId != null && incomingBootId != null && incomingBootId != previousBootId) {
+                    Timber.i(
+                        "PixelJam: server boot_id changed on sync_state (%s -> %s); kicking to solo playback",
+                        previousBootId,
+                        incomingBootId
+                    )
+                    handleServerRestartKick(reason = "server_restart")
+                    return
+                }
+                if (incomingBootId != null) {
+                    sessionBootId = incomingBootId
+                } else if (sessionBootId == null) {
+                    scope.launch {
+                        fetchServerBootId()?.let { fetched ->
+                            if (sessionBootId == null && isInOrReconnectingRoom()) {
+                                sessionBootId = fetched
+                            }
+                        }
+                    }
+                }
+
                 val code = payload.optString("room_code")
                 val userId = payload.optString("user_id")
                 val name = payload.optString("name")
