@@ -6543,6 +6543,11 @@ class PlayerViewModel @Inject constructor(
 
     fun dismissPlaylistAndShowUndo() {
         setMiniPlayerDismissing(false)
+        if (pixelJamManager.isActive()) {
+            stopPixelJamSyncLoop()
+            pixelJamManager.leaveRoom()
+            sendToast("Left PixelJam")
+        }
         playlistDismissUndoStateHolder.dismissPlaylistAndShowUndo(
             scope = viewModelScope,
             currentSong = playbackStateHolder.stablePlayerState.value.currentSong,

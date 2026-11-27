@@ -1608,14 +1608,15 @@ fun FullPlayerContent(
                         }
                     }
 
-                    // 2. Listen Together Button (Rounded Box shape ◼️)
+                    // 2. PixelJam Button (Expressive rounded square matching Cast & Queue)
                     Box(
                         modifier = Modifier
-                            .height(48.dp)
-                            .then(if (ltActive) Modifier.widthIn(min = 44.dp).padding(horizontal = 14.dp) else Modifier.width(44.dp))
-                            .animateContentSize()
+                            .size(width = 44.dp, height = 48.dp)
                             .clip(topLtShape)
-                            .background(topBarButtonBg, topLtShape)
+                            .background(
+                                if (ltActive) MaterialTheme.colorScheme.primary else topBarButtonBg,
+                                topLtShape
+                            )
                             .clickable(enabled = !aodVisible) {
                                 playerViewModel.openPixelJamSheet()
                             },
@@ -1624,7 +1625,7 @@ fun FullPlayerContent(
                         Icon(
                             painter = painterResource(R.drawable.rounded_group_24),
                             contentDescription = stringResource(R.string.pixeljam),
-                            tint = topBarIconColor,
+                            tint = if (ltActive) MaterialTheme.colorScheme.onPrimary else topBarIconColor,
                             modifier = Modifier.size(24.dp)
                         )
                     }
