@@ -1,11 +1,11 @@
 package com.saurav.pixelmusic.presentation.screens
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +76,10 @@ import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.PixelToast
 import com.saurav.pixelmusic.presentation.components.ProfileAvatar
 import com.saurav.pixelmusic.presentation.navigation.Screen
+import com.saurav.pixelmusic.presentation.navigation.navigateSafely
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -173,6 +180,7 @@ fun PixelJamSettingsScreen(
 
     val effectiveName = userProfile.effectiveDisplayName(ytUsername, displayName)
     val effectiveAvatar = userProfile.effectiveLocalAvatar(if (ytUsername.isNotEmpty()) ytAvatarUrl else "")
+    val hasProfile = effectiveName.isNotBlank() || effectiveAvatar.isNotBlank()
 
     var showServerDialog by remember { mutableStateOf(false) }
     var serverDraft by remember(serverUrl) { mutableStateOf(serverUrl) }
@@ -232,6 +240,7 @@ fun PixelJamSettingsScreen(
         AlertDialog(
             onDismissRequest = { showServerDialog = false },
             shape = RoundedCornerShape(28.dp),
+            containerColor = colors.surfaceContainerHigh,
             title = { Text("PixelJam Server URL", fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
@@ -261,106 +270,119 @@ fun PixelJamSettingsScreen(
         )
     }
 
-    Box(
-        modifier = Modifier
-            .nestedScroll(nestedScrollConnection)
-            .fillMaxSize()
-    ) {
-        val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
-        val bottomInset = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 28.dp
+    val roomModeOptions = remember {
+        PixelJamRoomMode.entries.associate { it.wireValue to it.label }
+    }
 
-        LazyColumn(
-            state = lazyListState,
+    val avatarRingBrush = Brush.sweepGradient(
+        colors = listOf(
+            colors.primary,
+            colors.tertiary,
+            colors.secondary,
+            colors.primaryContainer,
+            colors.primary
+        )
+    )
+
+    val settingsGlassState = rememberGlassState()
+    CompositionLocalProvider(
+        LocalScreenGlassState provides settingsGlassState
+    ) {
+        Box(
             modifier = Modifier
+                .nestedScroll(nestedScrollConnection)
                 .fillMaxSize()
-                .scrollMotionBlur(lazyListState),
-            contentPadding = PaddingValues(top = currentTopBarHeightDp + 8.dp, bottom = bottomInset),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. Expressive Profile Hero Card
-            item(key = "jam_profile_hero") {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .clickable { navController.navigate(Screen.Profile.route) },
-                    shape = RoundedCornerShape(28.dp),
-                    color = colors.primaryContainer.copy(alpha = 0.55f)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        colors.primaryContainer.copy(alpha = 0.75f),
-                                        colors.tertiaryContainer.copy(alpha = 0.45f)
-                                    )
-                                )
-                            )
-                            .padding(18.dp)
+            val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
+            val bottomInset = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 24.dp
+
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .glassRoot(settingsGlassState)
+                    .scrollMotionBlur(lazyListState),
+                contentPadding = PaddingValues(
+                    top = currentTopBarHeightDp + 8.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                    bottom = bottomInset
+                )
+            ) {
+                // 1. Material You Expressive Profile Hero Card (matches ExpandableAccountCard hierarchy)
+                item(key = "jam_profile_hero") {
+                    Surface(
+                        onClick = { navController.navigateSafely(Screen.Profile.route) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(28.dp),
+                        color = colors.surfaceContainer,
+                        tonalElevation = 2.dp
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            ProfileAvatar(
-                                avatarSpec = effectiveAvatar,
-                                displayName = effectiveName.ifBlank { "P" },
-                                size = 54.dp,
-                                cacheKey = userProfile.updatedAt,
-                                fallbackInitial = "P"
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(62.dp)
+                                    .then(
+                                        if (hasProfile) Modifier.border(BorderStroke(2.5.dp, avatarRingBrush), CircleShape)
+                                        else Modifier
+                                    )
+                                    .clip(CircleShape)
+                            ) {
+                                ProfileAvatar(
+                                    avatarSpec = effectiveAvatar,
+                                    displayName = effectiveName.ifBlank { "P" },
+                                    size = 52.dp,
+                                    cacheKey = userProfile.updatedAt,
+                                    fallbackInitial = "P"
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
                                 Text(
                                     text = effectiveName.ifBlank { "Set up your profile" },
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = colors.onPrimaryContainer,
+                                    color = colors.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "Edit display name, photo & illustrated avatar",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = colors.onPrimaryContainer.copy(alpha = 0.8f)
+                                    color = colors.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                             Surface(
                                 shape = CircleShape,
-                                color = colors.primary
+                                color = colors.secondaryContainer
                             ) {
                                 Text(
                                     text = "Edit",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = colors.onPrimary,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                                    color = colors.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
-            }
 
-            // 2. Notifications & Toasts Section
-            item(key = "jam_notifications") {
-                SettingsSection(
-                    title = "Notifications & Toasts",
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_notifications_active_24),
-                            contentDescription = null,
-                            tint = colors.primary
-                        )
-                    }
-                ) {
-                    Column(
-                        modifier = Modifier.clip(RoundedCornerShape(24.dp)),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
+                // 2. Notifications & Toasts
+                item(key = "jam_notifications") {
+                    PixelJamSettingsSubsection(title = "Notifications & Toasts") {
                         SwitchSettingItem(
                             title = "Join & leave toasts",
                             subtitle = "Show a toast when someone joins or leaves your PixelJam room",
@@ -370,7 +392,7 @@ fun PixelJamSettingsScreen(
                                 Icon(
                                     painter = painterResource(R.drawable.rounded_group_24),
                                     contentDescription = null,
-                                    tint = colors.primary
+                                    tint = colors.secondary
                                 )
                             }
                         )
@@ -383,30 +405,16 @@ fun PixelJamSettingsScreen(
                                 Icon(
                                     painter = painterResource(R.drawable.rounded_forum_24),
                                     contentDescription = null,
-                                    tint = colors.primary
+                                    tint = colors.secondary
                                 )
                             }
                         )
                     }
                 }
-            }
 
-            // 3. Playback & Room Defaults Section
-            item(key = "jam_playback_behavior") {
-                SettingsSection(
-                    title = "Playback & Room Defaults",
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_music_note_24),
-                            contentDescription = null,
-                            tint = colors.primary
-                        )
-                    }
-                ) {
-                    Column(
-                        modifier = Modifier.clip(RoundedCornerShape(24.dp)),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
+                // 3. Playback & Room Defaults
+                item(key = "jam_playback_behavior") {
+                    PixelJamSettingsSubsection(title = "Playback & Room Defaults") {
                         SwitchSettingItem(
                             title = "Auto-continue queue on leave",
                             subtitle = "Automatically queue related tracks when you leave a PixelJam room",
@@ -416,7 +424,7 @@ fun PixelJamSettingsScreen(
                                 Icon(
                                     painter = painterResource(R.drawable.rounded_queue_music_24),
                                     contentDescription = null,
-                                    tint = colors.primary
+                                    tint = colors.secondary
                                 )
                             }
                         )
@@ -429,87 +437,36 @@ fun PixelJamSettingsScreen(
                                 Icon(
                                     painter = painterResource(R.drawable.rounded_sync_24),
                                     contentDescription = null,
-                                    tint = colors.primary
+                                    tint = colors.secondary
                                 )
                             }
                         )
-                        // Expressive Default Room Mode Selector
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = colors.surfaceContainer
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Text(
-                                    text = "Default room mode when hosting",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = colors.onSurface
+                        ThemeSelectorItem(
+                            label = "Default room mode",
+                            description = "Choose who controls playback when you host a new PixelJam room",
+                            options = roomModeOptions,
+                            selectedKey = defaultRoomMode.wireValue,
+                            onSelectionChanged = { key ->
+                                val mode = PixelJamRoomMode.entries.firstOrNull { it.wireValue == key }
+                                    ?: PixelJamRoomMode.HOST_ONLY
+                                vm.setDefaultRoomMode(mode)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_music_note_24),
+                                    contentDescription = null,
+                                    tint = colors.secondary
                                 )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = colors.surfaceContainerHigh,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        PixelJamRoomMode.entries.forEach { mode ->
-                                            val selected = mode == defaultRoomMode
-                                            val bg by animateColorAsState(
-                                                targetValue = if (selected) colors.primary else Color.Transparent,
-                                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                                                label = "defaultModeBg"
-                                            )
-                                            val fg by animateColorAsState(
-                                                targetValue = if (selected) colors.onPrimary else colors.onSurfaceVariant,
-                                                label = "defaultModeFg"
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(40.dp)
-                                                    .clip(CircleShape)
-                                                    .background(bg)
-                                                    .clickable { vm.setDefaultRoomMode(mode) },
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = mode.label,
-                                                    style = MaterialTheme.typography.labelLarge,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = fg
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
                             }
-                        }
+                        )
                     }
                 }
-            }
 
-            // 4. Sync Server Section
-            item(key = "jam_server") {
-                SettingsSection(
-                    title = "Sync Server",
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_cloud_sync_24),
-                            contentDescription = null,
-                            tint = colors.primary
-                        )
-                    }
-                ) {
-                    Column(
-                        modifier = Modifier.clip(RoundedCornerShape(24.dp)),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                // 4. Sync Server
+                item(key = "jam_server") {
+                    PixelJamSettingsSubsection(
+                        title = "Sync Server",
+                        addBottomSpace = false
                     ) {
                         SettingsItem(
                             title = "Sync server URL",
@@ -518,7 +475,14 @@ fun PixelJamSettingsScreen(
                                 Icon(
                                     painter = painterResource(R.drawable.rounded_cloud_sync_24),
                                     contentDescription = null,
-                                    tint = colors.primary
+                                    tint = colors.secondary
+                                )
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = colors.onSurfaceVariant
                                 )
                             },
                             onClick = {
@@ -529,13 +493,39 @@ fun PixelJamSettingsScreen(
                     }
                 }
             }
-        }
 
-        CollapsibleCommonTopBar(
-            title = stringResource(R.string.pixeljam),
-            collapseFraction = collapseFraction,
-            headerHeight = currentTopBarHeightDp,
-            onBackClick = { navController.popBackStack() }
-        )
+            CollapsibleCommonTopBar(
+                title = stringResource(R.string.pixeljam),
+                collapseFraction = collapseFraction,
+                headerHeight = currentTopBarHeightDp,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PixelJamSettingsSubsection(
+    title: String,
+    addBottomSpace: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp)
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.Transparent),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        content()
+    }
+    if (addBottomSpace) {
+        Spacer(modifier = Modifier.height(10.dp))
     }
 }

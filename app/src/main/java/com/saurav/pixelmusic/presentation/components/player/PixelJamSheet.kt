@@ -73,20 +73,18 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -119,9 +117,10 @@ import com.saurav.pixelmusic.data.session.PixelJamRoomMode
 import com.saurav.pixelmusic.data.session.PixelJamSuggestion
 import com.saurav.pixelmusic.data.session.PixelJamTrack
 import com.saurav.pixelmusic.data.session.PixelJamUiState
+import com.saurav.pixelmusic.presentation.components.LocalSmoothDismiss
+import com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.max
 
 private enum class LobbyTab { HOST, JOIN }
@@ -138,14 +137,13 @@ private fun expressiveCardShape(index: Int, count: Int): RoundedCornerShape {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PixelJamSheet(
     viewModel: PlayerViewModel,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     val uiState by viewModel.pixelJamUiState.collectAsStateWithLifecycle()
     val connectionState by viewModel.pixelJamConnectionState.collectAsStateWithLifecycle()
@@ -192,13 +190,14 @@ fun PixelJamSheet(
         viewModel.savePixelJamDisplayName(name)
     }
 
-    ModalBottomSheet(
+    SmoothModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp
     ) {
+        val smoothDismiss = LocalSmoothDismiss.current
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -266,7 +265,11 @@ fun PixelJamSheet(
                         onApproveSuggestion = { id -> viewModel.approvePixelJamSuggestion(id) },
                         onRejectSuggestion = { id -> viewModel.rejectPixelJamSuggestion(id) },
                         onResync = { viewModel.syncPixelJamNow() },
-                        onLeave = { viewModel.leavePixelJamRoom() }
+                        onLeave = {
+                            smoothDismiss {
+                                viewModel.leavePixelJamRoom()
+                            }
+                        }
                     )
                 } else {
                     PixelJamLobbyStage(
