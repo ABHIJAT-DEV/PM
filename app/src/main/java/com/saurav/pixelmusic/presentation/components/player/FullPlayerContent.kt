@@ -2397,13 +2397,12 @@ private fun FullPlayerAlbumCoverSection(
     if (isLandscapeMode) {
         BoxWithConstraints(
             modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 2.dp),
+                .fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
             val landscapeWidth = minOf(
                 maxWidth,
-                (maxHeight - 4.dp).coerceAtLeast(120.dp)
+                maxHeight
             ).coerceAtLeast(1.dp)
             renderAlbumCover(landscapeWidth)
         }
@@ -2863,12 +2862,11 @@ private fun FullPlayerLandscapeContent(
     Row(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues)
-            .statusBarsPadding()
-            .navigationBarsPadding()
             .padding(
-                horizontal = 20.dp,
-                vertical = 8.dp
+                start = 14.dp,
+                end = 20.dp,
+                top = 12.dp,
+                bottom = 12.dp
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2877,11 +2875,13 @@ private fun FullPlayerLandscapeContent(
         } else {
             albumCoverSection(Modifier.fillMaxHeight().weight(1f))
         }
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(12.dp))
         Column(
             modifier = Modifier
                 .fillMaxHeight()
                 .weight(1f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)

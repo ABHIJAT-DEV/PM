@@ -663,14 +663,14 @@ fun WavePlayerLayout(
                     .align(Alignment.CenterEnd)
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(top = 8.dp, bottom = 8.dp)
+                    .padding(top = 8.dp, bottom = 12.dp)
             } else {
                 Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .padding(bottom = navBarBottomPadding + 22.dp)
             },
-            verticalArrangement = if (isLandscape) Arrangement.Center else Arrangement.Bottom
+            verticalArrangement = Arrangement.Bottom
         ) {
             // Song Title + Artist + Favorite Heart
             Row(
