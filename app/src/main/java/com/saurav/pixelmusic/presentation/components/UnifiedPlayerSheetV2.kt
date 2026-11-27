@@ -118,6 +118,7 @@ fun UnifiedPlayerSheetV2(
     sheetCollapsedTargetY: Float,
     containerHeight: Dp,
     collapsedStateHorizontalPadding: Dp = 24.dp,
+    collapsedStateHorizontalPaddingEnd: Dp = collapsedStateHorizontalPadding,
     navController: NavHostController,
     hideMiniPlayer: Boolean = false,
     isNavBarHidden: Boolean = false
@@ -354,6 +355,7 @@ fun UnifiedPlayerSheetV2(
     val sheetVisualState = rememberSheetVisualState(
         showPlayerContentArea = showPlayerContentArea,
         collapsedStateHorizontalPadding = collapsedStateHorizontalPadding,
+        collapsedStateHorizontalPaddingEnd = collapsedStateHorizontalPaddingEnd,
         predictiveBackCollapseProgress = predictiveBackCollapseProgress,
         predictiveBackSwipeEdge = predictiveBackSwipeEdge,
         currentSheetContentState = currentSheetContentState,

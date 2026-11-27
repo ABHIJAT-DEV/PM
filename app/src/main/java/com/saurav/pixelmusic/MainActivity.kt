@@ -1089,7 +1089,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxSize()
                             .background(
-                                if (isLandscape && shouldRenderNavigationBar) {
+                                if (isLandscape) {
                                     MaterialTheme.colorScheme.surfaceContainerLow
                                 } else {
                                     MaterialTheme.colorScheme.background
@@ -1097,7 +1097,7 @@ class MainActivity : ComponentActivity() {
                             )
                     ) {
                         AnimatedVisibility(
-                            visible = isLandscape && shouldRenderNavigationBar,
+                            visible = isLandscape,
                             enter = fadeIn(animationSpec = tween(220)),
                             exit = fadeOut(animationSpec = tween(180))
                         ) {
@@ -1114,7 +1114,7 @@ class MainActivity : ComponentActivity() {
                             .weight(1f)
                             .fillMaxHeight()
                             .then(
-                                if (isLandscape && shouldRenderNavigationBar) {
+                                if (isLandscape) {
                                     Modifier.clip(RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp))
                                 } else {
                                     Modifier
@@ -1443,7 +1443,12 @@ class MainActivity : ComponentActivity() {
                             playerViewModel = playerViewModel,
                             sheetCollapsedTargetY = sheetCollapsedTargetY,
                             collapsedStateHorizontalPadding = if (isLandscape) {
-                                ((this.maxWidth - 400.dp) / 2f).coerceAtLeast(24.dp)
+                                16.dp
+                            } else {
+                                horizontalPadding + 16.dp
+                            },
+                            collapsedStateHorizontalPaddingEnd = if (isLandscape) {
+                                (this.maxWidth - 380.dp - 16.dp).coerceAtLeast(16.dp)
                             } else {
                                 horizontalPadding + 16.dp
                             },

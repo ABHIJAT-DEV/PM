@@ -23,7 +23,10 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.clickable
 
+import android.content.res.Configuration
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -122,8 +125,16 @@ fun HomeShuffleFab(
         }
     }
 
-    // 2. Calculate exact clearance: Scaffold padding + MiniPlayer (if active) + 16dp spacing
-    val targetOffset = baseBottomOffset + (if (isPlayerActiveDelayed) MiniPlayerHeight else 0.dp) + 16.dp
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    // 2. Calculate exact clearance: in landscape the MiniPlayer is docked on the left,
+    // so the right-side vertical dual pill sits cleanly at the bottom-right corner.
+    val targetOffset = if (isLandscape && configuration.screenWidthDp >= 520) {
+        baseBottomOffset + 16.dp
+    } else {
+        baseBottomOffset + (if (isPlayerActiveDelayed) MiniPlayerHeight else 0.dp) + 16.dp
+    }
 
     // Keep the FAB anchored smoothly as the mini-player appears/disappears;
     // a bouncy spring here makes the whole control feel like it is jumping.
@@ -265,7 +276,7 @@ fun HomeShuffleFab(
 
         val dualFabModifier = Modifier
             .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
-            .height(64.dp)
+            .then(if (isLandscape) Modifier.width(64.dp) else Modifier.height(64.dp))
             .clip(CircleShape)
             .background(animatedContainerColor)
             .then(fabDragModifier)
@@ -300,8 +311,7 @@ fun HomeShuffleFab(
                         )
                     }
                 } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Shuffle / Smart Mix half
+                    val shuffleButton: @Composable () -> Unit = {
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
@@ -348,55 +358,74 @@ fun HomeShuffleFab(
                                 tint = fabContentColor
                             )
                         }
-
-                        // Listen Together half
-                        if (onListenTogetherClick != null) {
-                            VerticalDivider(
-                                modifier = Modifier.height(32.dp),
-                                thickness = 1.dp,
-                                color = animatedContentColor.copy(alpha = 0.35f)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .graphicsLayer {
-                                        scaleX = 1f + (ltPress.value * 0.10f) + (ltJiggle.value * 0.15f)
-                                        scaleY = 1f - (ltPress.value * 0.08f) - (ltJiggle.value * 0.13f)
-                                    }
-                                    .clip(CircleShape)
-                                    .pointerInput(onListenTogetherClick) {
-                                        val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
-                                        val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
-                                        awaitEachGesture {
-                                            awaitFirstDown(requireUnconsumed = false)
-                                            coroutineScope.launch {
-                                                ltJiggle.snapTo(1f)
-                                                ltJiggle.animateTo(0f, jiggleSpec)
-                                            }
-                                            coroutineScope.launch { ltPress.animateTo(1f, pressSpec) }
-                                            val up = waitForUpOrCancellation()
-                                            coroutineScope.launch { ltPress.animateTo(0f, pressSpec) }
-                                            if (up != null && !isDragging) {
-                                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                onListenTogetherClick()
-                                            }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSessionActive) {
-                                    FabEqualizerBars(
-                                        color = fabContentColor,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                } else {
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_group_24),
-                                        contentDescription = stringResource(R.string.listen_together),
-                                        tint = fabContentColor,
-                                        modifier = Modifier.size(32.dp)
-                                    )
+                    }
+                    val listenTogetherButton: @Composable () -> Unit = {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .graphicsLayer {
+                                    scaleX = 1f + (ltPress.value * 0.10f) + (ltJiggle.value * 0.15f)
+                                    scaleY = 1f - (ltPress.value * 0.08f) - (ltJiggle.value * 0.13f)
                                 }
+                                .clip(CircleShape)
+                                .pointerInput(onListenTogetherClick) {
+                                    val pressSpec = spring<Float>(dampingRatio = 0.5f, stiffness = 450f)
+                                    val jiggleSpec = spring<Float>(dampingRatio = 0.32f, stiffness = 280f)
+                                    awaitEachGesture {
+                                        awaitFirstDown(requireUnconsumed = false)
+                                        coroutineScope.launch {
+                                            ltJiggle.snapTo(1f)
+                                            ltJiggle.animateTo(0f, jiggleSpec)
+                                        }
+                                        coroutineScope.launch { ltPress.animateTo(1f, pressSpec) }
+                                        val up = waitForUpOrCancellation()
+                                        coroutineScope.launch { ltPress.animateTo(0f, pressSpec) }
+                                        if (up != null && !isDragging) {
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onListenTogetherClick?.invoke()
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSessionActive) {
+                                FabEqualizerBars(
+                                    color = fabContentColor,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            } else {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_group_24),
+                                    contentDescription = stringResource(R.string.listen_together),
+                                    tint = fabContentColor,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    if (isLandscape) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            shuffleButton()
+                            if (onListenTogetherClick != null) {
+                                HorizontalDivider(
+                                    modifier = Modifier.width(32.dp),
+                                    thickness = 1.dp,
+                                    color = animatedContentColor.copy(alpha = 0.35f)
+                                )
+                                listenTogetherButton()
+                            }
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            shuffleButton()
+                            if (onListenTogetherClick != null) {
+                                VerticalDivider(
+                                    modifier = Modifier.height(32.dp),
+                                    thickness = 1.dp,
+                                    color = animatedContentColor.copy(alpha = 0.35f)
+                                )
+                                listenTogetherButton()
                             }
                         }
                     }
