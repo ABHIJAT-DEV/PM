@@ -1049,13 +1049,21 @@ fun FullPlayerContent(
                             .background(washColor)
                     )
 
-                    // Morphing top 42% artwork
+                    // Morphing top 42% (portrait) or left 50% (landscape) artwork
                     Box(
                         modifier = Modifier
                             .layout { measurable, constraints ->
                                 val sample = artworkMorphTracker.evaluate(expansionFractionProvider())
-                                val wPx = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: fullWidthPx
-                                val hPx = (constraints.maxHeight.toFloat() * 0.42f).takeIf { it > 0f } ?: targetArtHeightPx
+                                val wPx = if (isLandscape) {
+                                    (constraints.maxWidth.toFloat() * 0.50f).takeIf { it > 0f } ?: (fullWidthPx * 0.50f)
+                                } else {
+                                    constraints.maxWidth.toFloat().takeIf { it > 0f } ?: fullWidthPx
+                                }
+                                val hPx = if (isLandscape) {
+                                    constraints.maxHeight.toFloat().takeIf { it > 0f } ?: fullHeightPx
+                                } else {
+                                    (constraints.maxHeight.toFloat() * 0.42f).takeIf { it > 0f } ?: targetArtHeightPx
+                                }
                                 val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, wPx, sample.sizeT)
                                 val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, hPx, sample.sizeT)
                                 val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
@@ -1095,15 +1103,27 @@ fun FullPlayerContent(
                                     alpha = artworkMorphTracker.evaluate(expansionFractionProvider()).nonArtAlpha
                                 }
                                 .background(
-                                    Brush.verticalGradient(
-                                        colorStops = arrayOf(
-                                            0.0f to Color.Transparent,
-                                            0.52f to Color.Transparent,
-                                            0.78f to washColor.copy(alpha = 0.85f),
-                                            0.92f to washColor,
-                                            1.0f to washColor
+                                    if (isLandscape) {
+                                        Brush.horizontalGradient(
+                                            colorStops = arrayOf(
+                                                0.0f to Color.Transparent,
+                                                0.62f to Color.Transparent,
+                                                0.86f to washColor.copy(alpha = 0.85f),
+                                                0.96f to washColor,
+                                                1.0f to washColor
+                                            )
                                         )
-                                    )
+                                    } else {
+                                        Brush.verticalGradient(
+                                            colorStops = arrayOf(
+                                                0.0f to Color.Transparent,
+                                                0.52f to Color.Transparent,
+                                                0.78f to washColor.copy(alpha = 0.85f),
+                                                0.92f to washColor,
+                                                1.0f to washColor
+                                            )
+                                        )
+                                    }
                                 )
                         )
                     }
@@ -1177,13 +1197,21 @@ fun FullPlayerContent(
                             .background(bgColor)
                     )
 
-                    // LAYER 1 & 2: Morphing top 55% image + bottom gradient mask
+                    // LAYER 1 & 2: Morphing top 55% (portrait) or left 50% (landscape) image + gradient mask
                     Box(
                         modifier = Modifier
                             .layout { measurable, constraints ->
                                 val sample = artworkMorphTracker.evaluate(expansionFractionProvider())
-                                val wPx = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: fullWidthPx
-                                val hPx = (constraints.maxHeight.toFloat() * 0.55f).takeIf { it > 0f } ?: targetArtHeightPx
+                                val wPx = if (isLandscape) {
+                                    (constraints.maxWidth.toFloat() * 0.50f).takeIf { it > 0f } ?: (fullWidthPx * 0.50f)
+                                } else {
+                                    constraints.maxWidth.toFloat().takeIf { it > 0f } ?: fullWidthPx
+                                }
+                                val hPx = if (isLandscape) {
+                                    constraints.maxHeight.toFloat().takeIf { it > 0f } ?: fullHeightPx
+                                } else {
+                                    (constraints.maxHeight.toFloat() * 0.55f).takeIf { it > 0f } ?: targetArtHeightPx
+                                }
                                 val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, wPx, sample.sizeT)
                                 val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, hPx, sample.sizeT)
                                 val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
@@ -1226,15 +1254,27 @@ fun FullPlayerContent(
                                         .coerceIn(0f, 1f)
                                 }
                                 .background(
-                                    Brush.verticalGradient(
-                                        colorStops = arrayOf(
-                                            0.0f to if (isDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.Transparent,
-                                            0.48f to Color.Transparent,
-                                            0.82f to bgColor.copy(alpha = 0.90f),
-                                            0.93f to bgColor,
-                                            1.0f to bgColor
+                                    if (isLandscape) {
+                                        Brush.horizontalGradient(
+                                            colorStops = arrayOf(
+                                                0.0f to Color.Transparent,
+                                                0.62f to Color.Transparent,
+                                                0.86f to bgColor.copy(alpha = 0.90f),
+                                                0.96f to bgColor,
+                                                1.0f to bgColor
+                                            )
                                         )
-                                    )
+                                    } else {
+                                        Brush.verticalGradient(
+                                            colorStops = arrayOf(
+                                                0.0f to if (isDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.Transparent,
+                                                0.48f to Color.Transparent,
+                                                0.82f to bgColor.copy(alpha = 0.90f),
+                                                0.93f to bgColor,
+                                                1.0f to bgColor
+                                            )
+                                        )
+                                    }
                                 )
                         )
                     }
@@ -2353,9 +2393,20 @@ private fun FullPlayerAlbumCoverSection(
         BoxWithConstraints(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp)
+                .padding(vertical = 8.dp),
+            contentAlignment = Alignment.Center
         ) {
-            renderAlbumCover(maxWidth)
+            val styleHeightRatio = when (carouselStyle) {
+                CarouselStyle.NO_PEEK -> 1f
+                CarouselStyle.ONE_PEEK -> 0.8f
+                CarouselStyle.TWO_PEEK -> 0.6f
+                else -> 0.8f
+            }
+            val landscapeWidth = minOf(
+                maxWidth,
+                (maxHeight - 16.dp).coerceAtLeast(100.dp) / styleHeightRatio
+            ).coerceAtLeast(1.dp)
+            renderAlbumCover(landscapeWidth)
         }
     } else {
         // Stable width in portrait prevents BoxWithConstraints / HorizontalPager from
@@ -2432,6 +2483,13 @@ private fun FullPlayerControlsSection(
     aodSourceBounds: AodSourceBounds? = null,
     aodTransitionProgressProvider: () -> Float = { 0f }
 ) {
+    val isLandscapeControls = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val controlsSectionHeight = if (isLandscapeControls) 144.dp else 182.dp
+    val transportHeight = if (isLandscapeControls) 64.dp else 80.dp
+    val controlsSpacerHeight = if (isLandscapeControls) 8.dp else 14.dp
+    val toggleMinHeight = if (isLandscapeControls) 56.dp else 66.dp
+    val toggleMaxHeight = if (isLandscapeControls) 64.dp else 86.dp
+
     val stableControlAnimationSpec = remember {
         tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
     }
@@ -2442,7 +2500,7 @@ private fun FullPlayerControlsSection(
         applyPlaceholderDelayOnClose = loadingTweaks.applyPlaceholdersOnClose,
         switchOnDragRelease = loadingTweaks.switchOnDragRelease,
         isSheetDragGestureActive = isSheetDragGestureActive,
-        sharedBoundsModifier = Modifier.fillMaxWidth().height(182.dp),
+        sharedBoundsModifier = Modifier.fillMaxWidth().height(controlsSectionHeight),
         expansionFractionProvider = expansionFractionProvider,
         isExpandedOverride = currentSheetState == PlayerSheetState.EXPANDED,
         normalStartThreshold = 0f,
@@ -2450,7 +2508,7 @@ private fun FullPlayerControlsSection(
         delayCloseThreshold = 1f - (loadingTweaks.contentCloseThresholdPercent / 100f),
         placeholder = {
             if (loadingTweaks.transparentPlaceholders) {
-                Box(Modifier.fillMaxWidth().height(182.dp))
+                Box(Modifier.fillMaxWidth().height(controlsSectionHeight))
             } else {
                 ControlsPlaceholder(placeholderColor, placeholderOnColor)
             }
@@ -2461,7 +2519,7 @@ private fun FullPlayerControlsSection(
         ) {
             AnimatedPlaybackControls(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .padding(horizontal = 12.dp, vertical = if (isLandscapeControls) 4.dp else 8.dp)
                     .graphicsLayer {
                         alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                     },
@@ -2469,7 +2527,7 @@ private fun FullPlayerControlsSection(
                 onPrevious = onPrevious,
                 onPlayPause = onPlayPause,
                 onNext = onNext,
-                height = 80.dp,
+                height = transportHeight,
                 pressAnimationSpec = stableControlAnimationSpec,
                 releaseDelay = 220L,
                 colorOtherButtons = transportSkipColors.container,
@@ -2489,14 +2547,14 @@ private fun FullPlayerControlsSection(
                 captureNextBounds = aodSourceBounds?.nextBounds
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(controlsSpacerHeight))
 
             BottomToggleRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 66.dp, max = 86.dp)
-                    .padding(horizontal = 26.dp, vertical = 0.dp)
-                    .padding(bottom = 6.dp)
+                    .heightIn(min = toggleMinHeight, max = toggleMaxHeight)
+                    .padding(horizontal = if (isLandscapeControls) 12.dp else 26.dp, vertical = 0.dp)
+                    .padding(bottom = if (isLandscapeControls) 2.dp else 6.dp)
                     .graphicsLayer {
                         val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
                         alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
@@ -2807,9 +2865,11 @@ private fun FullPlayerLandscapeContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(
-                horizontal = 24.dp,
-                vertical = 0.dp
+                horizontal = 20.dp,
+                vertical = 8.dp
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2818,17 +2878,14 @@ private fun FullPlayerLandscapeContent(
         } else {
             albumCoverSection(Modifier.fillMaxHeight().weight(1f))
         }
-        Spacer(Modifier.width(9.dp))
+        Spacer(Modifier.width(16.dp))
         Column(
             modifier = Modifier
                 .fillMaxHeight()
                 .weight(1f)
-                .padding(
-                    horizontal = 0.dp,
-                    vertical = 0.dp
-                ),
+                .padding(horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceEvenly
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
         ) {
             singleLineLyricsSection()
             songMetadataSection()

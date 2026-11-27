@@ -1,5 +1,6 @@
 package com.saurav.pixelmusic.presentation.components.player.styles
 
+import android.content.res.Configuration
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -138,13 +139,23 @@ fun ExpressivePlayerLayout(
             .background(solidBackgroundColor)
             .captureRootCoords(rootCoordsHolder)
     ) {
-        // TOP LAYER: Full-bleed Gradient-Faded Artwork with smooth top corner rounding during drag
+        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+        // TOP (portrait) or LEFT 50% (landscape) LAYER: Full-bleed Gradient-Faded Artwork
         Box(
             modifier = Modifier
                 .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(params.expansionFractionProvider())
-                    val fullW = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
-                    val fullH = (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
+                    val fullW = if (isLandscape) {
+                        (constraints.maxWidth.toFloat() * 0.50f).takeIf { it > 0f } ?: (screenWidthPx * 0.50f)
+                    } else {
+                        constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
+                    }
+                    val fullH = if (isLandscape) {
+                        constraints.maxHeight.toFloat().takeIf { it > 0f } ?: artHeightPx
+                    } else {
+                        (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
+                    }
                     val baseW = lerp(miniArtSizePx, fullW, sample.sizeT)
                     val baseH = lerp(miniArtSizePx, fullH, sample.sizeT)
                     val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
@@ -195,79 +206,111 @@ fun ExpressivePlayerLayout(
                     }
             )
 
-            // Top status bar scrim
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .align(Alignment.TopCenter)
-                    .graphicsLayer {
-                        val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
-                        alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
-                    }
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.42f),
-                                Color.Black.copy(alpha = 0.16f),
-                                Color.Transparent
+            if (isLandscape) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer {
+                            val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                            alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
+                        }
+                        .background(
+                            Brush.horizontalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.62f to Color.Transparent,
+                                    0.86f to solidBackgroundColor.copy(alpha = 0.90f),
+                                    0.96f to solidBackgroundColor,
+                                    1.0f to solidBackgroundColor
+                                )
                             )
                         )
-                    )
-            )
+                )
+            } else {
+                // Top status bar scrim
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .align(Alignment.TopCenter)
+                        .graphicsLayer {
+                            val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                            alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
+                        }
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.42f),
+                                    Color.Black.copy(alpha = 0.16f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
 
-            // Smooth bottom gradient fade reaching full opacity before the clipped bottom edge
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.48f)
-                    .align(Alignment.BottomCenter)
-                    .graphicsLayer {
-                        val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
-                        alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
-                    }
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color.Transparent,
-                                0.42f to solidBackgroundColor.copy(alpha = 0.58f),
-                                0.76f to solidBackgroundColor.copy(alpha = 0.92f),
-                                0.90f to solidBackgroundColor,
-                                1.0f to solidBackgroundColor
+                // Smooth bottom gradient fade reaching full opacity before the clipped bottom edge
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.48f)
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer {
+                            val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                            alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
+                        }
+                        .background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.42f to solidBackgroundColor.copy(alpha = 0.58f),
+                                    0.76f to solidBackgroundColor.copy(alpha = 0.92f),
+                                    0.90f to solidBackgroundColor,
+                                    1.0f to solidBackgroundColor
+                                )
                             )
                         )
-                    )
+                )
+            }
+        }
+
+        if (!isLandscape) {
+            // Sub-pixel seam seal over the artwork Box bottom boundary so Skia clip anti-aliasing
+            // never shows a 1px horizontal line (e.g., when a bottom sheet dims/scales the screen).
+            Box(
+                modifier = Modifier
+                    .layout { measurable, constraints ->
+                        val fullW = constraints.maxWidth.coerceAtLeast(1)
+                        val fullH = (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
+                        val sealH = 4.dp.roundToPx().coerceAtLeast(2)
+                        val placeable = measurable.measure(Constraints.fixed(fullW, sealH))
+                        layout(fullW, sealH) {
+                            placeable.place(0, (fullH - sealH * 0.5f).roundToInt())
+                        }
+                    }
+                    .graphicsLayer {
+                        val s = morphTracker.evaluate(params.expansionFractionProvider())
+                        val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                        alpha = ((s.sizeT - 0.85f) / 0.15f).coerceIn(0f, 1f) * aodFade
+                    }
+                    .background(solidBackgroundColor)
             )
         }
 
-        // Sub-pixel seam seal over the artwork Box bottom boundary so Skia clip anti-aliasing
-        // never shows a 1px horizontal line (e.g., when a bottom sheet dims/scales the screen).
-        Box(
-            modifier = Modifier
-                .layout { measurable, constraints ->
-                    val fullW = constraints.maxWidth.coerceAtLeast(1)
-                    val fullH = (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
-                    val sealH = 4.dp.roundToPx().coerceAtLeast(2)
-                    val placeable = measurable.measure(Constraints.fixed(fullW, sealH))
-                    layout(fullW, sealH) {
-                        placeable.place(0, (fullH - sealH * 0.5f).roundToInt())
-                    }
-                }
-                .graphicsLayer {
-                    val s = morphTracker.evaluate(params.expansionFractionProvider())
-                    val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
-                    alpha = ((s.sizeT - 0.85f) / 0.15f).coerceIn(0f, 1f) * aodFade
-                }
-                .background(solidBackgroundColor)
-        )
-
-        // LOWER SECTION: Exact BottomToggleRow bottom padding + taller (92dp) asymmetric controls
+        // LOWER (portrait) or RIGHT 50% (landscape) SECTION
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(bottom = navBarBottomPadding + 22.dp),
-            verticalArrangement = Arrangement.Bottom
+            modifier = if (isLandscape) {
+                Modifier
+                    .fillMaxWidth(0.50f)
+                    .fillMaxHeight()
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 12.dp, bottom = navBarBottomPadding + 12.dp)
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = navBarBottomPadding + 22.dp)
+            },
+            verticalArrangement = if (isLandscape) Arrangement.Center else Arrangement.Bottom
         ) {
             Row(
                 modifier = Modifier
@@ -347,7 +390,7 @@ fun ExpressivePlayerLayout(
                 playCornerPlaying = 28.dp,
                 playCornerPaused = 46.dp,
                 skipCorner = 46.dp,
-                height = 92.dp,
+                height = if (isLandscape) 66.dp else 92.dp,
                 spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,

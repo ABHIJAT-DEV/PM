@@ -1,6 +1,8 @@
 package com.saurav.pixelmusic.presentation.components.player.styles
 
+import android.content.res.Configuration
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -323,19 +325,34 @@ fun PillarsPlayerLayout(
             }
         }
 
-        // TOP LAYER: Morphing 3-Pillar Capsule Artwork
+        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+        // TOP (portrait) or LEFT 50% (landscape) LAYER: Morphing 3-Pillar Capsule Artwork
         Box(
             modifier = Modifier
                 .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(params.expansionFractionProvider())
-                    val fullW = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
-                    val fullH = artHeightPx
+                    val fullW = if (isLandscape) {
+                        (constraints.maxWidth.toFloat() * 0.50f).takeIf { it > 0f } ?: (screenWidthPx * 0.50f)
+                    } else {
+                        constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
+                    }
+                    val fullH = if (isLandscape) {
+                        (constraints.maxHeight.toFloat() * 0.84f).takeIf { it > 0f } ?: artHeightPx
+                    } else {
+                        artHeightPx
+                    }
+                    val targetTopY = if (isLandscape) {
+                        (constraints.maxHeight.toFloat() - fullH) * 0.5f
+                    } else {
+                        artTopOffsetPx
+                    }
                     val baseW = lerp(miniArtSizePx, fullW, sample.sizeT)
                     val baseH = lerp(miniArtSizePx, fullH, sample.sizeT)
                     val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
                     val targetH = (baseH * sample.overshootScale).roundToInt().coerceAtLeast(1)
                     val baseX = lerp(miniArtOffsetPx, 0f, sample.posT)
-                    val baseY = lerp(miniArtOffsetPx, artTopOffsetPx, sample.posT)
+                    val baseY = lerp(miniArtOffsetPx, targetTopY, sample.posT)
                     val placeX = (baseX - (targetW - baseW) * 0.5f).roundToInt()
                     val placeY = (baseY - (targetH - baseH) * 0.5f).roundToInt()
 
@@ -370,13 +387,21 @@ fun PillarsPlayerLayout(
             )
         }
 
-        // LOWER SECTION: Matches exact BottomToggleRow bottom padding from existing styles
+        // LOWER (portrait) or RIGHT 50% (landscape) SECTION
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(bottom = navBarBottomPadding + 22.dp),
-            verticalArrangement = Arrangement.Bottom
+            modifier = if (isLandscape) {
+                Modifier
+                    .fillMaxWidth(0.50f)
+                    .fillMaxHeight()
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 12.dp, bottom = navBarBottomPadding + 12.dp)
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = navBarBottomPadding + 22.dp)
+            },
+            verticalArrangement = if (isLandscape) Arrangement.Center else Arrangement.Bottom
         ) {
             Row(
                 modifier = Modifier
@@ -456,7 +481,7 @@ fun PillarsPlayerLayout(
                 playCornerPlaying = 28.dp,
                 playCornerPaused = 46.dp,
                 skipCorner = 46.dp,
-                height = 92.dp,
+                height = if (isLandscape) 66.dp else 92.dp,
                 spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,

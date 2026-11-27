@@ -1,6 +1,8 @@
 package com.saurav.pixelmusic.presentation.components.player.styles
 
+import android.content.res.Configuration
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -415,13 +417,23 @@ fun WavePlayerLayout(
             )
         }
 
-        // TOP LAYER: Continuous Morphing Organic Wave Artwork
+        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+        // TOP (portrait) or LEFT 50% (landscape) LAYER: Continuous Morphing Organic Wave Artwork
         Box(
             modifier = Modifier
                 .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(params.expansionFractionProvider())
-                    val fullW = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
-                    val fullH = (constraints.maxHeight.toFloat() * 0.48f).takeIf { it > 0f } ?: artHeightPx
+                    val fullW = if (isLandscape) {
+                        (constraints.maxWidth.toFloat() * 0.50f).takeIf { it > 0f } ?: (screenWidthPx * 0.50f)
+                    } else {
+                        constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
+                    }
+                    val fullH = if (isLandscape) {
+                        constraints.maxHeight.toFloat().takeIf { it > 0f } ?: artHeightPx
+                    } else {
+                        (constraints.maxHeight.toFloat() * 0.48f).takeIf { it > 0f } ?: artHeightPx
+                    }
                     val baseW = lerp(miniArtSizePx, fullW, sample.sizeT)
                     val baseH = lerp(miniArtSizePx, fullH, sample.sizeT)
                     val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
@@ -442,7 +454,7 @@ fun WavePlayerLayout(
                 .graphicsLayer {
                     alpha = if (params.aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 }
-                .clip(waveShape)
+                .then(if (isLandscape) Modifier else Modifier.clip(waveShape))
                 .styleArtworkGestures(
                     aodScreenEnabled = params.aodScreenEnabled,
                     onEnterAodScreen = params.onEnterAodScreen
@@ -461,35 +473,65 @@ fun WavePlayerLayout(
                     }
             )
 
-            // Top scrim for TopAppBar legibility
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(104.dp)
-                    .align(Alignment.TopCenter)
-                    .graphicsLayer {
-                        val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
-                        alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
-                    }
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.36f),
-                                Color.Black.copy(alpha = 0.10f),
-                                Color.Transparent
+            if (isLandscape) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer {
+                            val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                            alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
+                        }
+                        .background(
+                            Brush.horizontalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.62f to Color.Transparent,
+                                    0.86f to solidBackgroundColor.copy(alpha = 0.88f),
+                                    0.96f to solidBackgroundColor,
+                                    1.0f to solidBackgroundColor
+                                )
                             )
                         )
-                    )
-            )
+                )
+            } else {
+                // Top scrim for TopAppBar legibility
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(104.dp)
+                        .align(Alignment.TopCenter)
+                        .graphicsLayer {
+                            val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                            alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
+                        }
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.36f),
+                                    Color.Black.copy(alpha = 0.10f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+            }
         }
 
-        // LOWER SECTION: Matches exact BottomToggleRow bottom padding from existing styles
+        // LOWER (portrait) or RIGHT 50% (landscape) SECTION
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(bottom = navBarBottomPadding + 22.dp),
-            verticalArrangement = Arrangement.Bottom
+            modifier = if (isLandscape) {
+                Modifier
+                    .fillMaxWidth(0.50f)
+                    .fillMaxHeight()
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 12.dp, bottom = navBarBottomPadding + 12.dp)
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = navBarBottomPadding + 22.dp)
+            },
+            verticalArrangement = if (isLandscape) Arrangement.Center else Arrangement.Bottom
         ) {
             // Song Title + Artist + Favorite Heart
             Row(
@@ -571,7 +613,7 @@ fun WavePlayerLayout(
                 playCornerPlaying = 28.dp,
                 playCornerPaused = 46.dp,
                 skipCorner = 46.dp,
-                height = 92.dp,
+                height = if (isLandscape) 66.dp else 92.dp,
                 spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,

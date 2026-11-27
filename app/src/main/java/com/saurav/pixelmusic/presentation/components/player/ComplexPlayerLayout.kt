@@ -2,6 +2,7 @@ package com.saurav.pixelmusic.presentation.components.player
 
 import com.saurav.pixelmusic.presentation.components.expressiveTapColorWave
 
+import android.content.res.Configuration
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
@@ -503,12 +504,22 @@ fun ComplexPlayerLayout(
             label = "complexArtScale"
         )
 
+        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
         Box(
             modifier = Modifier
                 .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(expansionFractionProvider())
-                    val fullW = constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
-                    val fullH = (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
+                    val fullW = if (isLandscape) {
+                        (constraints.maxWidth.toFloat() * 0.50f).takeIf { it > 0f } ?: (screenWidthPx * 0.50f)
+                    } else {
+                        constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
+                    }
+                    val fullH = if (isLandscape) {
+                        constraints.maxHeight.toFloat().takeIf { it > 0f } ?: screenHeightPx
+                    } else {
+                        (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
+                    }
                     val baseW = androidx.compose.ui.util.lerp(miniArtSizePx, fullW, sample.sizeT)
                     val baseH = androidx.compose.ui.util.lerp(miniArtSizePx, fullH, sample.sizeT)
                     val targetW = (baseW * sample.overshootScale).roundToInt().coerceAtLeast(1)
@@ -527,14 +538,20 @@ fun ComplexPlayerLayout(
                     }
                 }
         ) {
-            // Morphing Edge-to-Edge Artwork clipped to scoopedShape
+            // Morphing Edge-to-Edge Artwork (scooped arch in portrait, full-height left 50% in landscape)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
                         alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
                     }
-                    .clip(scoopedShape)
+                    .then(if (isLandscape) Modifier else Modifier.clip(scoopedShape))
+                    .combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                        onLongClick = { if (aodScreenEnabled) onEnterAodScreen() }
+                    )
             ) {
                 SmartImage(
                     model = optimizedAlbumArtUri,
@@ -549,75 +566,107 @@ fun ComplexPlayerLayout(
                         }
                 )
 
-                // Top scrim for status bar and drag handle legibility
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(104.dp)
-                        .align(Alignment.TopCenter)
-                        .graphicsLayer {
-                            val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
-                            alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
-                        }
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.38f),
-                                    Color.Black.copy(alpha = 0.10f),
-                                    Color.Transparent
+                if (isLandscape) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .graphicsLayer {
+                                val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                                alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
+                            }
+                            .background(
+                                Brush.horizontalGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to Color.Transparent,
+                                        0.62f to Color.Transparent,
+                                        0.86f to solidBackgroundColor.copy(alpha = 0.88f),
+                                        0.96f to solidBackgroundColor,
+                                        1.0f to solidBackgroundColor
+                                    )
                                 )
                             )
-                        )
-                )
+                    )
+                } else {
+                    // Top scrim for status bar and drag handle legibility
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(104.dp)
+                            .align(Alignment.TopCenter)
+                            .graphicsLayer {
+                                val aodFade = (1f - aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
+                                alpha = morphTracker.evaluate(expansionFractionProvider()).nonArtAlpha * aodFade
+                            }
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.38f),
+                                        Color.Black.copy(alpha = 0.10f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+                }
             }
 
-            // Bold Material You Expressive Curved Progress Bar on the Arch
-            // Tied directly to the album art arch, sharing its exact position, bounds, and curve morphing
-            CurvedArcSeekBar(
-                songId = song.id,
-                rightRiseDp = rightRiseDp,
-                morphTracker = morphTracker,
-                currentPositionProvider = currentPositionProvider,
-                totalDurationValue = totalDurationValue,
-                songDurationHintMs = song.duration,
-                isPlayingProvider = isPlayingProvider,
-                expansionFractionProvider = expansionFractionProvider,
-                currentSheetState = currentSheetState,
-                allowRealtimeUpdates = allowRealtimeUpdates,
-                activeTrackColor = baseTheme.primary,
-                inactiveTrackColor = baseTheme.onPrimary,
-                thumbColor = baseTheme.primary,
-                onSeek = onSeek,
-                aodScreenEnabled = aodScreenEnabled,
-                onEnterAodScreen = onEnterAodScreen,
-                onPrevious = onPrevious,
-                onNext = onNext,
-                aodSourceBounds = aodSourceBounds,
-                aodTransitionProgressProvider = aodTransitionProgressProvider,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (!isLandscape) {
+                // Bold Material You Expressive Curved Progress Bar on the Arch
+                // Tied directly to the album art arch, sharing its exact position, bounds, and curve morphing
+                CurvedArcSeekBar(
+                    songId = song.id,
+                    rightRiseDp = rightRiseDp,
+                    morphTracker = morphTracker,
+                    currentPositionProvider = currentPositionProvider,
+                    totalDurationValue = totalDurationValue,
+                    songDurationHintMs = song.duration,
+                    isPlayingProvider = isPlayingProvider,
+                    expansionFractionProvider = expansionFractionProvider,
+                    currentSheetState = currentSheetState,
+                    allowRealtimeUpdates = allowRealtimeUpdates,
+                    activeTrackColor = baseTheme.primary,
+                    inactiveTrackColor = baseTheme.onPrimary,
+                    thumbColor = baseTheme.primary,
+                    onSeek = onSeek,
+                    aodScreenEnabled = aodScreenEnabled,
+                    onEnterAodScreen = onEnterAodScreen,
+                    onPrevious = onPrevious,
+                    onNext = onNext,
+                    aodSourceBounds = aodSourceBounds,
+                    aodTransitionProgressProvider = aodTransitionProgressProvider,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         // =====================================================================
-        // LAYER 4: Lower Half Content
+        // LAYER 4: Lower Half (portrait) or Right Half (landscape) Content
         // Left: Reliable Song Title/Artist + Glowing Karaoke Lyrics
         // Right: Solid-Filled Vertical Stack (3-Dot Menu, Like, Previous, Play/Pause, Next)
         // =====================================================================
-        val rightColumnTopDp = (artHeightDp - rightRiseDp + 24.dp)
-            .coerceAtLeast(statusBarTopPadding + 64.dp)
-            .coerceAtLeast(0.dp)
-        val leftColumnTopDp = (artHeightDp + 18.dp).coerceAtLeast(0.dp)
+        val rightColumnTopDp = if (isLandscape) {
+            (statusBarTopPadding + 12.dp).coerceAtLeast(0.dp)
+        } else {
+            (artHeightDp - rightRiseDp + 24.dp)
+                .coerceAtLeast(statusBarTopPadding + 64.dp)
+                .coerceAtLeast(0.dp)
+        }
+        val leftColumnTopDp = if (isLandscape) {
+            (statusBarTopPadding + 16.dp).coerceAtLeast(0.dp)
+        } else {
+            (artHeightDp + 18.dp).coerceAtLeast(0.dp)
+        }
 
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
                     bottom = (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp),
-                    start = 22.dp,
+                    start = if (isLandscape) (screenWidthDp * 0.50f + 16.dp) else 22.dp,
                     end = 20.dp
                 ),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.Bottom
+            verticalAlignment = if (isLandscape) Alignment.CenterVertically else Alignment.Bottom
         ) {
             // LEFT AREA: Song Title / Artist + Glowing Word-by-Word Karaoke Lyrics
             Column(
@@ -831,7 +880,7 @@ fun ComplexPlayerLayout(
                     aodTransitionProgressProvider = aodTransitionProgressProvider,
                     modifier = Modifier
                         .width(68.dp)
-                        .height(332.dp)
+                        .height(if (isLandscape) 296.dp else 332.dp)
                 )
             }
         }
