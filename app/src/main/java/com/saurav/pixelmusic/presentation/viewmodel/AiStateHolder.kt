@@ -15,6 +15,7 @@ import com.saurav.pixelmusic.data.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -110,6 +111,7 @@ class AiStateHolder @Inject constructor(
     private var _lastMetadataFields: List<String>? = null
 
     private var scope: CoroutineScope? = null
+    private var activePlaylistJob: Job? = null
     private var allSongsProvider: (suspend () -> List<Song>)? = null
     private var favoriteSongIdsProvider: (() -> Set<String>)? = null
     
@@ -210,21 +212,25 @@ class AiStateHolder @Inject constructor(
         _lastCreatedAiPlaylistId.value = null
         _aiStatus.value = "Analyzing your library stats..."
 
-        scope.launch {
-            // Step 1: Pre-generation analysis (emit a single progress notification so Android's
-            // per-package notification rate limiter never queues delayed progress updates)
+        activePlaylistJob?.cancel()
+        activePlaylistJob = scope.launch {
+            // Step 1: Pre-generation analysis
             try {
                 val allSongs = withContext(Dispatchers.IO) {
                     allSongsProvider?.invoke() ?: emptyList()
                 }
                 val favoriteIds = favoriteSongIdsProvider?.invoke() ?: emptySet()
-                notificationManager.showProgress(
-                    title = "Creating your AI mix",
-                    message = "Curating the perfect tracks for your vibe…",
-                    progress = 0,
-                    indeterminate = true,
-                    reopenSheet = true
-                )
+                // Only post a system progress notification when the full-screen in-app overlay
+                // is not already showing in front of the user.
+                if (!_showAiGeneratingOverlay.value) {
+                    notificationManager.showProgress(
+                        title = "Creating your AI mix",
+                        message = "Curating the perfect tracks for your vibe…",
+                        progress = 0,
+                        indeterminate = true,
+                        reopenSheet = true
+                    )
+                }
                 val existingPlaylistNames = playlistPreferencesRepository.userPlaylistsFlow.first()
                     .map { it.name.trim() }
                     .filter { it.isNotEmpty() }

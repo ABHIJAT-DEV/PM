@@ -6,7 +6,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.NotificationCompat
+import java.util.concurrent.atomic.AtomicLong
 import com.saurav.pixelmusic.MainActivityIntentContract
 import com.saurav.pixelmusic.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,6 +21,8 @@ class AiNotificationManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val progressSessionToken = AtomicLong(0L)
     @Volatile
     private var progressStartedAt = 0L
 
@@ -25,7 +30,7 @@ class AiNotificationManager @Inject constructor(
         const val CHANNEL_ID = "ai_generation_channel"
         const val RESULT_CHANNEL_ID = "ai_generation_result_channel"
         const val PROGRESS_NOTIFICATION_ID = 1001
-        const val COMPLETION_NOTIFICATION_ID = 1001
+        const val COMPLETION_NOTIFICATION_ID = 1002
         const val LEGACY_COMPLETION_NOTIFICATION_ID = 1002
 
         private const val REQUEST_PROGRESS = 2001
@@ -97,6 +102,7 @@ class AiNotificationManager @Inject constructor(
         indeterminate: Boolean = false,
         reopenSheet: Boolean = false
     ) {
+        progressSessionToken.incrementAndGet()
         if (progressStartedAt == 0L) progressStartedAt = System.currentTimeMillis()
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -127,12 +133,8 @@ class AiNotificationManager @Inject constructor(
         openPlayer: Boolean = false,
         reopenSheet: Boolean = false
     ) {
-        progressStartedAt = 0L
-        notificationManager.cancel(LEGACY_COMPLETION_NOTIFICATION_ID)
+        hideProgress()
 
-        // Post to the SAME notification ID (PROGRESS_NOTIFICATION_ID) with chronometer & progress
-        // explicitly cleared so Android's NotificationManagerService coalesces it in-place and a
-        // rate-limited earlier progress update can never outlive completion.
         val builder = NotificationCompat.Builder(context, RESULT_CHANNEL_ID)
             .setSmallIcon(R.drawable.monochrome_player)
             .setContentTitle(title)
@@ -159,15 +161,28 @@ class AiNotificationManager @Inject constructor(
     }
 
     fun hideProgress() {
+        val token = progressSessionToken.incrementAndGet()
         progressStartedAt = 0L
         notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
-        notificationManager.cancel(LEGACY_COMPLETION_NOTIFICATION_ID)
+        // Re-cancel shortly after to defeat OEM NotificationManagerService rate-limit lag
+        // where a queued notify(PROGRESS_NOTIFICATION_ID) lands right after cancel().
+        mainHandler.postDelayed({
+            if (progressSessionToken.get() == token) {
+                notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
+            }
+        }, 450L)
     }
 
     fun clearAll() {
+        val token = progressSessionToken.incrementAndGet()
         progressStartedAt = 0L
         notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
         notificationManager.cancel(COMPLETION_NOTIFICATION_ID)
-        notificationManager.cancel(LEGACY_COMPLETION_NOTIFICATION_ID)
+        mainHandler.postDelayed({
+            if (progressSessionToken.get() == token) {
+                notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
+                notificationManager.cancel(COMPLETION_NOTIFICATION_ID)
+            }
+        }, 450L)
     }
 }
