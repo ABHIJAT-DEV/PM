@@ -30,7 +30,7 @@ import com.saurav.pixelmusic.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.saurav.pixelmusic.data.model.Song
-import com.saurav.pixelmusic.presentation.components.player.ListenTogetherSheet
+import com.saurav.pixelmusic.presentation.components.player.PixelJamSheet
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.PlaylistViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.StablePlayerState
@@ -500,11 +500,11 @@ internal fun UnifiedPlayerCastLayer(
 }
 
 @Composable
-internal fun UnifiedPlayerListenTogetherLayer(
+internal fun UnifiedPlayerPixelJamLayer(
     albumColorScheme: ColorScheme,
     playerViewModel: PlayerViewModel
 ) {
-    val showSheet by playerViewModel.showListenTogetherSheet.collectAsStateWithLifecycle()
+    val showSheet by playerViewModel.showPixelJamSheet.collectAsStateWithLifecycle()
     if (showSheet) {
         CompositionLocalProvider(
             LocalMaterialTheme provides albumColorScheme
@@ -514,9 +514,9 @@ internal fun UnifiedPlayerListenTogetherLayer(
                 typography = MaterialTheme.typography,
                 shapes = MaterialTheme.shapes
             ) {
-                ListenTogetherSheet(
+                PixelJamSheet(
                     viewModel = playerViewModel,
-                    onDismiss = { playerViewModel.closeListenTogetherSheet() }
+                    onDismiss = { playerViewModel.closePixelJamSheet() }
                 )
             }
         }

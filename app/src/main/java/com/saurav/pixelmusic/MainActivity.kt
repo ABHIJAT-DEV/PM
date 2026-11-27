@@ -567,12 +567,14 @@ class MainActivity : ComponentActivity() {
             intent.action == android.content.Intent.ACTION_VIEW && intent.data != null -> {
                 intent.data?.let { uri ->
                     if (uri.scheme == "pixelmusic") {
-                        if (uri.host == "listen_together" || uri.path?.contains("listen_together") == true) {
-                            val roomCode = uri.getQueryParameter("code")
+                        if (uri.host == "jam" || uri.path?.contains("jam") == true ||
+                            uri.host == "listen_together" || uri.path?.contains("listen_together") == true
+                        ) {
+                            val roomCode = uri.getQueryParameter("code") ?: uri.getQueryParameter("room")
                             if (!roomCode.isNullOrBlank()) {
-                                playerViewModel.setPendingListenTogetherCode(roomCode)
+                                playerViewModel.setPendingPixelJamCode(roomCode)
                             }
-                            playerViewModel.openListenTogetherSheet()
+                            playerViewModel.openPixelJamSheet()
                         } else if (uri.host == "update_download" || uri.path?.contains("update_download") == true) {
                             com.saurav.pixelmusic.utils.InAppUpdater.requestOpenUpdateSheet()
                         }
@@ -1330,11 +1332,9 @@ class MainActivity : ComponentActivity() {
                                     .distinctUntilChanged()
                             }.collectAsStateWithLifecycle(initialValue = null)
 
-                            val ltUiState by playerViewModel.listenTogetherUiState.collectAsStateWithLifecycle()
-                            val isLtActive = !isLocalModeMain && (
-                                ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Hosting ||
-                                    ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Guest
-                                )
+                            val pjUiState by playerViewModel.pixelJamUiState.collectAsStateWithLifecycle()
+                            val isLtActive = !isLocalModeMain &&
+                                pjUiState is com.saurav.pixelmusic.data.session.PixelJamUiState.InRoom
 
                             HomeShuffleFab(
                                 isShuffleEnabled = false,
@@ -1364,7 +1364,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onSwipeUp = if (isLocalModeMain) null else { { showRecognitionDialog = true } },
-                                onListenTogetherClick = if (isLocalModeMain) null else { { playerViewModel.openListenTogetherSheet() } }
+                                onListenTogetherClick = if (isLocalModeMain) null else { { playerViewModel.openPixelJamSheet() } }
                             )
                         }
                             

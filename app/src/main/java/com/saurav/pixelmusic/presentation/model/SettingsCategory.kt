@@ -43,10 +43,10 @@ enum class SettingsCategory(
         subtitleRes = R.string.settings_category_equalizer_subtitle,
         iconRes = R.drawable.rounded_graphic_eq_24
     ),
-    LISTEN_TOGETHER(
-        id = "listen_together",
-        titleRes = R.string.listen_together,
-        subtitleRes = R.string.listen_together_desc,
+    PIXEL_JAM(
+        id = "pixel_jam",
+        titleRes = R.string.pixeljam,
+        subtitleRes = R.string.pixeljam_desc,
         iconRes = R.drawable.rounded_group_24
     ),
     AI_INTEGRATION(

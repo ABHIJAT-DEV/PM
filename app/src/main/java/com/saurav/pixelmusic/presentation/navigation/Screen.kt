@@ -13,7 +13,7 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object SettingsSearch : Screen("settings_search")
     object Accounts : Screen("settings_accounts")
-    object ListenTogetherSettings : Screen("listen_together_settings")
+    object PixelJamSettings : Screen("pixeljam_settings")
     object Equalizer : Screen("equalizer") {
         const val ROUTE_PATTERN = "equalizer?highlight={highlight}"
         fun createRouteWithHighlight(highlightTitle: String) =

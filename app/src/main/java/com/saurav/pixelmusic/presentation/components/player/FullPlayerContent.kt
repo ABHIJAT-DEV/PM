@@ -1554,9 +1554,8 @@ fun FullPlayerContent(
                     )
                 }
 
-                val ltUiState by playerViewModel.listenTogetherUiState.collectAsStateWithLifecycle()
-                val ltActive = ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Hosting ||
-                    ltUiState is com.saurav.pixelmusic.data.session.ListenTogetherUiState.Guest
+                val pjUiState by playerViewModel.pixelJamUiState.collectAsStateWithLifecycle()
+                val ltActive = pjUiState is com.saurav.pixelmusic.data.session.PixelJamUiState.InRoom
 
                 Row(
                     modifier = Modifier.padding(end = 14.dp),
@@ -1618,13 +1617,13 @@ fun FullPlayerContent(
                             .clip(topLtShape)
                             .background(topBarButtonBg, topLtShape)
                             .clickable(enabled = !aodVisible) {
-                                playerViewModel.openListenTogetherSheet()
+                                playerViewModel.openPixelJamSheet()
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.rounded_group_24),
-                            contentDescription = stringResource(R.string.listen_together),
+                            contentDescription = stringResource(R.string.pixeljam),
                             tint = topBarIconColor,
                             modifier = Modifier.size(24.dp)
                         )

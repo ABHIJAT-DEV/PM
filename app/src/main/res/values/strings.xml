@@ -265,8 +265,10 @@
     <string name="setcat_navbar_style_floating_pill">Floating Pill</string>
 
     <!-- Listen Together -->
-    <string name="listen_together">Listen Together</string>
-    <string name="listen_together_desc">Play the same music at the same time, wherever your friends are</string>
+    <string name="listen_together">PixelJam</string>
+    <string name="listen_together_desc">Real-time synced rooms, shared queues &amp; live chat</string>
+    <string name="pixeljam">PixelJam</string>
+    <string name="pixeljam_desc">Real-time synced rooms, shared queues &amp; live chat</string>
     <string name="listen_together_host_only">Only the host can control playback</string>
     <string name="listen_together_your_name">Your name</string>
     <string name="listen_together_start">Start a session</string>

@@ -398,18 +398,18 @@ fun UnifiedPlayerSheetV2(
         showPlayerContentArea = showPlayerContentArea,
         currentSheetContentState = currentSheetContentState
     )
-    val showListenTogetherSheet by playerViewModel.showListenTogetherSheet.collectAsStateWithLifecycle()
+    val showPixelJamSheet by playerViewModel.showPixelJamSheet.collectAsStateWithLifecycle()
     val canHandlePlayerBack by remember(
         sheetBackAndDragState.predictiveBackEnabled,
         showQueueSheet,
         castSheetState.showCastSheet,
-        showListenTogetherSheet
+        showPixelJamSheet
     ) {
         derivedStateOf {
             sheetBackAndDragState.predictiveBackEnabled &&
                 !showQueueSheet &&
                 !castSheetState.showCastSheet &&
-                !showListenTogetherSheet
+                !showPixelJamSheet
         }
     }
     val velocityTracker = remember { VelocityTracker() }
@@ -768,7 +768,7 @@ fun UnifiedPlayerSheetV2(
         onExpansionChanged = castSheetState.onCastExpansionChanged
     )
 
-    UnifiedPlayerListenTogetherLayer(
+    UnifiedPlayerPixelJamLayer(
         albumColorScheme = albumColorScheme,
         playerViewModel = playerViewModel
     )

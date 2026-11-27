@@ -134,7 +134,7 @@ startupScope.launch {
 }
 
     MediaItemBuilder.initialize(this)
-    com.saurav.pixelmusic.data.session.ListenTogetherFirebase.init(this)
+
     com.saurav.pixelmusic.data.service.wallpaper.MusicLiveWallpaperStateHolder.initialize(this)
     // Music Live Wallpaper needs Android 12+; hide its live wallpaper entry on older versions.
     runCatching {

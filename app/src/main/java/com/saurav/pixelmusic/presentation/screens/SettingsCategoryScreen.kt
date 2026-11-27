@@ -2004,8 +2004,8 @@ fun SettingsCategoryScreen(
                                 }
                             }
 
-                            SettingsCategory.LISTEN_TOGETHER -> {
-                                // Listen Together has its own dedicated screen
+                            SettingsCategory.PIXEL_JAM -> {
+                                // PixelJam has its own dedicated screen
                             }
 
                             SettingsCategory.EQUALIZER -> {
