@@ -696,7 +696,7 @@ private fun PixelToastPill(
             shape = CircleShape,
             color = pillContainerColor,
             tonalElevation = 4.dp,
-            shadowElevation = 8.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier.widthIn(max = 340.dp)
         ) {
         Row(

@@ -172,8 +172,10 @@ import coil.memory.MemoryCache
 import dagger.Lazy
 
 private const val CAST_LOG_TAG = "PlayerCastTransfer"
-private const val PIXELJAM_DRIFT_THRESHOLD_MS = 1_800L
-private const val PIXELJAM_SEEK_COOLDOWN_MS = 4_000L
+private const val PIXELJAM_DRIFT_THRESHOLD_MS = 2_500L
+private const val PIXELJAM_SEEK_COOLDOWN_MS = 6_000L
+private const val PIXELJAM_START_GRACE_MS = 3_000L
+private const val PIXELJAM_OUTRO_GUARD_MS = 4_000L
 private const val ENABLE_FOLDERS_SOURCE_SWITCHING = true
 private const val MAX_ALBUM_BATCH_SELECTION = 6
 private const val SONG_ID_QUERY_CHUNK_SIZE = 900
@@ -895,6 +897,7 @@ class PlayerViewModel @Inject constructor(
     private var lastPublishedIsPlaying: Boolean? = null
     private var lastPublishedQueueIds: List<String> = emptyList()
     private var lastPixelJamSeekAtMs: Long = 0L
+    private var lastPixelJamTrackStartAtMs: Long = 0L
 
     fun openPixelJamSheet() { _showPixelJamSheet.value = true }
     fun closePixelJamSheet() { _showPixelJamSheet.value = false }
@@ -1119,6 +1122,7 @@ class PlayerViewModel @Inject constructor(
             lastSyncedRemoteVideoId = remoteTrack.id
             lastPublishedVideoId = remoteTrack.id
             lastPublishedIsPlaying = snap.isPlaying
+            lastPixelJamTrackStartAtMs = System.currentTimeMillis()
             val song = com.saurav.pixelmusic.data.model.youtube.Song(
                 youtubeId = remoteTrack.id,
                 title = remoteTrack.title.ifBlank { "Unknown title" },
@@ -1131,6 +1135,27 @@ class PlayerViewModel @Inject constructor(
             } finally {
                 sessionSyncBypass = false
             }
+            // Let ExoPlayer resolve and start cleanly before checking drift,
+            // only seeking once if joining mid-track (>4s in).
+            val livePos = if (snap.isPlaying) {
+                snap.positionMs + (pixelJamManager.estimatedServerNowMs() - snap.serverTimeMs).coerceAtLeast(0L)
+            } else {
+                snap.positionMs
+            }
+            if (livePos > 4_000L) {
+                viewModelScope.launch {
+                    val deadline = System.currentTimeMillis() + 8_000L
+                    while (isActive && System.currentTimeMillis() < deadline) {
+                        val st = playbackStateHolder.stablePlayerState.value
+                        if (st.currentSong?.youtubeId == remoteTrack.id && st.totalDuration > 0L) {
+                            convergeToPixelJamSnapshot(snap)
+                            break
+                        }
+                        delay(250)
+                    }
+                }
+            }
+            return
         }
         convergeToPixelJamSnapshot(snap)
     }
@@ -1161,11 +1186,19 @@ class PlayerViewModel @Inject constructor(
             } else {
                 rawExpected
             }
-            val drift = abs(expected - playbackStateHolder.currentPosition.value)
+            val curPos = playbackStateHolder.currentPosition.value
+            val totalDur = playbackStateHolder.stablePlayerState.value.totalDuration
+                .takeIf { it > 0L } ?: remoteTrack.durationMs
+            val drift = abs(expected - curPos)
             _pixelJamSyncDriftMs.value = drift
+
             val nowMs = System.currentTimeMillis()
-            val canSeek = (nowMs - lastPixelJamSeekAtMs) >= PIXELJAM_SEEK_COOLDOWN_MS
-            if (playbackStateHolder.stablePlayerState.value.isPlaying != snap.isPlaying) {
+            // Avoid choppy seeks during the first moments of a fresh track or during the outro
+            val inStartGrace = (nowMs - lastPixelJamTrackStartAtMs) < PIXELJAM_START_GRACE_MS && expected < 4_000L
+            val inOutro = totalDur > 0L && (totalDur - curPos < PIXELJAM_OUTRO_GUARD_MS || totalDur - expected < PIXELJAM_OUTRO_GUARD_MS)
+            val canSeek = !inStartGrace && !inOutro && (nowMs - lastPixelJamSeekAtMs) >= PIXELJAM_SEEK_COOLDOWN_MS
+
+            if (playbackStateHolder.stablePlayerState.value.isPlaying != snap.isPlaying && !inStartGrace) {
                 if (drift > PIXELJAM_DRIFT_THRESHOLD_MS && canSeek) {
                     lastPixelJamSeekAtMs = nowMs
                     seekTo(expected)
