@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -63,6 +64,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,12 +80,20 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.ui.theme.GoogleSansRounded
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.PI
 import kotlin.math.cos
@@ -140,7 +150,9 @@ object PixelToast {
         Handle(context, context.getString(resId), duration == LENGTH_LONG)
 
     private val idCounter = AtomicLong(0L)
-    private val hostAttached = AtomicBoolean(false)
+    private val hostIdCounter = AtomicLong(0L)
+    private val attachedHostCount = AtomicInteger(0)
+    internal val activeHostIds = mutableStateListOf<Long>()
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val _currentToast = MutableStateFlow<PixelToastMessage?>(null)
@@ -151,8 +163,19 @@ object PixelToast {
     @Volatile
     private var activeOverlayDismissRunnable: Runnable? = null
 
-    internal fun setHostAttached(attached: Boolean) {
-        hostAttached.set(attached)
+    internal fun allocateHostId(): Long = hostIdCounter.incrementAndGet()
+
+    internal fun registerHost(hostId: Long) {
+        if (!activeHostIds.contains(hostId)) {
+            activeHostIds.add(hostId)
+            attachedHostCount.incrementAndGet()
+        }
+    }
+
+    internal fun unregisterHost(hostId: Long) {
+        if (activeHostIds.remove(hostId)) {
+            attachedHostCount.decrementAndGet()
+        }
     }
 
     fun dismissCurrent() {
@@ -171,7 +194,7 @@ object PixelToast {
         val resolvedType = type ?: inferToastType(trimmed)
         val durationMs = if (long) 3600L else 2400L
 
-        if (hostAttached.get()) {
+        if (attachedHostCount.get() > 0) {
             _currentToast.value = PixelToastMessage(
                 id = idCounter.incrementAndGet(),
                 message = trimmed,
@@ -516,42 +539,97 @@ private class ExpressiveOverlayCookieView(
 }
 
 /**
- * Root Compose host mounted once inside MainActivity above Scaffold, player sheet, and overlays.
- * Renders Material You Expressive toast pills rising smoothly from the bottom system toast position
- * with a rotating expressive shape badge and swipe-down dismissal.
+ * Compose host for Material You Expressive toast pills.
+ * Mounted at the root of MainActivity and inside [SmoothModalBottomSheet] dialog windows.
+ * Uses a topmost-host stack so only the highest active window renders the toast without duplicates.
  */
 @Composable
 fun PixelToastHost(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    usePopup: Boolean = false
 ) {
-    DisposableEffect(Unit) {
-        PixelToast.setHostAttached(true)
+    val hostId = remember { PixelToast.allocateHostId() }
+    DisposableEffect(hostId) {
+        PixelToast.registerHost(hostId)
         onDispose {
-            PixelToast.setHostAttached(false)
+            PixelToast.unregisterHost(hostId)
         }
     }
 
+    val isTopmostHost = PixelToast.activeHostIds.lastOrNull() == hostId
     val activeMessage by PixelToast.currentToast.collectAsState()
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .navigationBarsPadding()
-            .padding(horizontal = 4.dp)
-            .padding(bottom = 40.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        val current = activeMessage
-        if (current != null) {
-            key(current.id) {
-                PixelToastPill(
-                    toast = current,
-                    onFinished = {
-                        if (PixelToast.currentToast.value?.id == current.id) {
-                            PixelToast.dismissCurrent()
+    if (!isTopmostHost) return
+
+    if (usePopup) {
+        val current = activeMessage ?: return
+        val density = LocalDensity.current
+        val bottomMarginPx = remember(density) { with(density) { 40.dp.roundToPx() } }
+        val positionProvider = remember(bottomMarginPx) {
+            object : PopupPositionProvider {
+                override fun calculatePosition(
+                    anchorBounds: IntRect,
+                    windowSize: IntSize,
+                    layoutDirection: LayoutDirection,
+                    popupContentSize: IntSize
+                ): IntOffset {
+                    val x = ((windowSize.width - popupContentSize.width) / 2).coerceAtLeast(0)
+                    val y = (windowSize.height - popupContentSize.height - bottomMarginPx).coerceAtLeast(0)
+                    return IntOffset(x, y)
+                }
+            }
+        }
+
+        Popup(
+            popupPositionProvider = positionProvider,
+            properties = PopupProperties(
+                focusable = false,
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+                clippingEnabled = true
+            )
+        ) {
+            Box(
+                modifier = modifier
+                    .zIndex(Float.MAX_VALUE)
+                    .padding(horizontal = 4.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                key(current.id) {
+                    PixelToastPill(
+                        toast = current,
+                        onFinished = {
+                            if (PixelToast.currentToast.value?.id == current.id) {
+                                PixelToast.dismissCurrent()
+                            }
                         }
-                    }
-                )
+                    )
+                }
+            }
+        }
+    } else {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .zIndex(Float.MAX_VALUE)
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 4.dp)
+                .padding(bottom = 40.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            val current = activeMessage
+            if (current != null) {
+                key(current.id) {
+                    PixelToastPill(
+                        toast = current,
+                        onFinished = {
+                            if (PixelToast.currentToast.value?.id == current.id) {
+                                PixelToast.dismissCurrent()
+                            }
+                        }
+                    )
+                }
             }
         }
     }

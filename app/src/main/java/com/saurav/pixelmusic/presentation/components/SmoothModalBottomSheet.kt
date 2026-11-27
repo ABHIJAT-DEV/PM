@@ -306,6 +306,7 @@ fun SmoothModalBottomSheet(
                     ) {
                         content()
                     }
+                    PixelToastHost(usePopup = true)
                 }
             }
         )
