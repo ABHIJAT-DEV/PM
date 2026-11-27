@@ -6,9 +6,21 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.graphicsLayer
+import coil.compose.AsyncImage
+import com.saurav.pixelmusic.ui.blur.LocalScreenGlassState
+import com.saurav.pixelmusic.ui.blur.glassRoot
+import com.saurav.pixelmusic.ui.blur.rememberGlassState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -156,9 +168,21 @@ fun ProfileScreen(
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
 
+    val transitionState = remember { MutableTransitionState(false) }
+    LaunchedEffect(Unit) { transitionState.targetState = true }
+    val enterTransition = rememberTransition(transitionState, label = "ProfileAppear")
+    val contentAlpha by enterTransition.animateFloat(
+        label = "ProfileContentAlpha",
+        transitionSpec = { tween(durationMillis = 360, easing = FastOutSlowInEasing) }
+    ) { if (it) 1f else 0f }
+    val contentOffset by enterTransition.animateDp(
+        label = "ProfileContentOffset",
+        transitionSpec = { spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow) }
+    ) { if (it) 0.dp else 24.dp }
+
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val minTopBarHeight = 64.dp + statusBarHeight
-    val maxTopBarHeight = 172.dp
+    val maxTopBarHeight = 180.dp
     val minTopBarHeightPx = with(density) { minTopBarHeight.toPx() }
     val maxTopBarHeightPx = with(density) { maxTopBarHeight.toPx() }
 
@@ -214,6 +238,8 @@ fun ProfileScreen(
         }
     }
     val previewName = nameDraft.trim().ifBlank { uiState.effectiveDisplayName.ifBlank { "Guest User" } }
+    val hasGooglePhoto = uiState.ytAvatarUrl.isNotBlank()
+    val isUsingGooglePhoto = hasGooglePhoto && uiState.profile.avatarSpec.isBlank()
     val isUsingInitial = uiState.effectiveLocalAvatar.isBlank()
     val nameHasUnsavedChanges = nameDraft.trim() != uiState.profile.displayName.trim()
 
@@ -227,6 +253,8 @@ fun ProfileScreen(
         )
     )
 
+    val profileGlassState = rememberGlassState()
+    CompositionLocalProvider(LocalScreenGlassState provides profileGlassState) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -245,6 +273,11 @@ fun ProfileScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .fillMaxSize()
+                .glassRoot(profileGlassState)
+                .graphicsLayer {
+                    alpha = contentAlpha
+                    translationY = contentOffset.toPx()
+                }
                 .scrollMotionBlur(lazyListState)
         ) {
             // 1. Hero Profile Preview Card
@@ -308,6 +341,7 @@ fun ProfileScreen(
                             val avatarSubtitle = when {
                                 currentBuiltIn != null -> "${currentBuiltIn.first.label} · ${currentBuiltIn.second.label}"
                                 ProfileAvatarCatalog.isLocalFilePath(uiState.profile.avatarSpec) -> "Custom photo"
+                                isUsingGooglePhoto -> "Google account photo"
                                 isUsingInitial -> "Using first letter of your name"
                                 else -> "Account photo"
                             }
@@ -318,31 +352,82 @@ fun ProfileScreen(
                             )
                         }
 
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            ProfileQuickActionChip(
-                                label = "Photo",
-                                iconRes = R.drawable.rounded_photo_library_24,
-                                selected = ProfileAvatarCatalog.isLocalFilePath(uiState.profile.avatarSpec),
-                                onClick = { launchPhotoPicker() },
-                                modifier = Modifier.weight(1f)
-                            )
-                            ProfileQuickActionChip(
-                                label = "Surprise",
-                                iconRes = R.drawable.rounded_shuffle_24,
-                                selected = false,
-                                onClick = { viewModel.selectRandomBuiltInAvatar() },
-                                modifier = Modifier.weight(1f)
-                            )
-                            ProfileQuickActionChip(
-                                label = "Initial",
-                                iconRes = null,
-                                selected = isUsingInitial,
-                                onClick = { viewModel.useFirstLetterAvatar() },
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                            ) {
+                                ProfileQuickActionChip(
+                                    label = "Photo",
+                                    iconRes = R.drawable.rounded_photo_library_24,
+                                    selected = ProfileAvatarCatalog.isLocalFilePath(uiState.profile.avatarSpec),
+                                    onClick = { launchPhotoPicker() },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                ProfileQuickActionChip(
+                                    label = "Surprise",
+                                    iconRes = R.drawable.rounded_shuffle_24,
+                                    selected = false,
+                                    onClick = { viewModel.selectRandomBuiltInAvatar() },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                ProfileQuickActionChip(
+                                    label = "Initial",
+                                    iconRes = null,
+                                    selected = isUsingInitial,
+                                    onClick = { viewModel.useFirstLetterAvatar() },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            if (hasGooglePhoto) {
+                                val gContainer = if (isUsingGooglePhoto) colors.primaryContainer else colors.surfaceContainerHigh
+                                val gContent = if (isUsingGooglePhoto) colors.onPrimaryContainer else colors.onSurface
+                                Surface(
+                                    onClick = { viewModel.useGoogleAccountPhoto() },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = gContainer,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.padding(horizontal = 14.dp)
+                                    ) {
+                                        AsyncImage(
+                                            model = uiState.ytAvatarUrl,
+                                            contentDescription = "Google account photo",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(22.dp)
+                                                .clip(CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Keep Google account photo",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = gContent,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (isUsingGooglePhoto) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Icon(
+                                                imageVector = Icons.Rounded.Check,
+                                                contentDescription = "Active",
+                                                tint = gContent,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -596,6 +681,7 @@ fun ProfileScreen(
             headerHeight = currentTopBarHeightDp,
             onBackClick = { navController.popBackStack() }
         )
+    }
     }
 }
 

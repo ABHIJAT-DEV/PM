@@ -255,6 +255,9 @@ fun ExploreScreen(
     playlistViewModel: PlaylistViewModel = hiltViewModel()
 ) {
     val localModeEnabled by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
+    val userProfile by playerViewModel.userProfile.collectAsStateWithLifecycle()
+    val userLocalAvatar by playerViewModel.currentUserLocalAvatar.collectAsStateWithLifecycle()
+    val ytUsername by playerViewModel.currentYtUsername.collectAsStateWithLifecycle()
     val uiState by exploreViewModel.uiState.collectAsStateWithLifecycle()
     val quickPicks by quickPicksViewModel.quickPicks.collectAsStateWithLifecycle()
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
@@ -1285,6 +1288,7 @@ fun ExploreScreen(
                 }
             }
 
+            val exploreAvatarName = userProfile.effectiveDisplayName(ytUsername, "Guest")
             Surface(
                 onClick = {
                     if (exploreTitleAlpha > 0.05f) {
@@ -1296,11 +1300,12 @@ fun ExploreScreen(
                 modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(R.drawable.rounded_settings_24),
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
+                    com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                        avatarSpec = userLocalAvatar,
+                        displayName = exploreAvatarName,
+                        size = 40.dp,
+                        cacheKey = userProfile.updatedAt,
+                        fallbackInitial = "G"
                     )
                 }
             }

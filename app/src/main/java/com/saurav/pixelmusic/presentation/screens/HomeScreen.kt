@@ -994,53 +994,28 @@ fun HomeScreen(
                 }
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            val homeAvatarName = userName ?: settingsUiState.ytUsername.ifBlank { "Guest" }
+            val homeAvatarSpec = settingsUiState.userProfile.effectiveLocalAvatar(
+                if (settingsUiState.ytUsername.isNotEmpty()) settingsUiState.ytAvatarUrl else ""
+            )
+            Surface(
+                onClick = {
+                    if (homeTitleAlpha > 0.05f) {
+                        navController.navigateSafely(Screen.Settings.route)
+                    }
+                },
+                shape = CircleShape,
+                color = headerPillColor,
+                modifier = Modifier.size(48.dp)
             ) {
-                val homeAvatarName = userName ?: settingsUiState.ytUsername.ifBlank { "Guest" }
-                val homeAvatarSpec = settingsUiState.userProfile.effectiveLocalAvatar(
-                    if (settingsUiState.ytUsername.isNotEmpty()) settingsUiState.ytAvatarUrl else ""
-                )
-                Surface(
-                    onClick = {
-                        if (homeTitleAlpha > 0.05f) {
-                            navController.navigateSafely(Screen.Profile.route)
-                        }
-                    },
-                    shape = CircleShape,
-                    color = headerPillColor,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        com.saurav.pixelmusic.presentation.components.ProfileAvatar(
-                            avatarSpec = homeAvatarSpec,
-                            displayName = homeAvatarName,
-                            size = 38.dp,
-                            cacheKey = settingsUiState.userProfile.updatedAt,
-                            fallbackInitial = "G"
-                        )
-                    }
-                }
-
-                Surface(
-                    onClick = {
-                        if (homeTitleAlpha > 0.05f) {
-                            navController.navigateSafely(Screen.Settings.route)
-                        }
-                    },
-                    shape = CircleShape,
-                    color = headerPillColor,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_settings_24),
-                            contentDescription = "Settings",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                        avatarSpec = homeAvatarSpec,
+                        displayName = homeAvatarName,
+                        size = 40.dp,
+                        cacheKey = settingsUiState.userProfile.updatedAt,
+                        fallbackInitial = "G"
+                    )
                 }
             }
         }

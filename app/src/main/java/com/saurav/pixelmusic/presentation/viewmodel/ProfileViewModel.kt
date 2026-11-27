@@ -95,6 +95,14 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    fun useGoogleAccountPhoto() {
+        viewModelScope.launch {
+            ProfilePhotoHelper.deleteLocalPhoto(context)
+            userPreferencesRepository.clearProfileAvatar(forceInitialOnly = false)
+            _statusMessage.value = "Using Google account photo"
+        }
+    }
+
     fun setPickedPhoto(uri: Uri) {
         if (_isSavingPhoto.value) return
         viewModelScope.launch {
