@@ -137,6 +137,7 @@ sealed interface PixelJamUiState {
         val hostId: String,
         val coHostId: String,
         val permanent: Boolean = false,
+        val isRadio: Boolean = false,
         val roomMode: PixelJamRoomMode = PixelJamRoomMode.HOST_ONLY,
         val participants: List<PixelJamParticipant> = emptyList()
     ) : PixelJamUiState

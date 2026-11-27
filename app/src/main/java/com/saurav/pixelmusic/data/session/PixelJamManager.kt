@@ -125,8 +125,11 @@ class PixelJamManager @Inject constructor(
 
     fun isMainHost(): Boolean = (_uiState.value as? PixelJamUiState.InRoom)?.isMainHost == true
 
+    fun isRadioRoom(): Boolean = (_uiState.value as? PixelJamUiState.InRoom)?.isRadio == true
+
     fun canControlPlayback(): Boolean {
         val room = _uiState.value as? PixelJamUiState.InRoom ?: return false
+        if (room.isRadio) return false
         return room.isHost || room.roomMode == PixelJamRoomMode.COLLABORATIVE
     }
 
@@ -516,6 +519,7 @@ class PixelJamManager @Inject constructor(
                 val coHostId = payload.optString("cohost_id")
                 val isHost = payload.optBoolean("is_host", false)
                 val permanent = payload.optBoolean("permanent", false)
+                val isRadio = payload.optBoolean("radio", false)
                 val roomName = payload.optString("room_name", "")
                 val mode = PixelJamRoomMode.fromWire(payload.optString("room_mode"))
 
@@ -542,6 +546,7 @@ class PixelJamManager @Inject constructor(
                     hostId = hostId,
                     coHostId = coHostId,
                     permanent = permanent,
+                    isRadio = isRadio,
                     roomMode = mode,
                     participants = participants
                 )

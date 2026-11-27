@@ -520,7 +520,11 @@ private fun PixelJamLobbyStage(
                                     color = colors.onSurface
                                 )
                                 Text(
-                                    text = if (room.participants > 0) "${room.participants} listening now" else "Open collaborative room",
+                                    text = if (room.participants > 0) {
+                                        "24/7 Live Radio · ${room.participants} listening"
+                                    } else {
+                                        "24/7 Live Radio · Always playing"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = colors.onSurfaceVariant
                                 )
@@ -879,11 +883,11 @@ private fun PixelJamRoomStage(
                         )
                     }
 
-                    // Mode pill (tappable by host in private rooms)
+                    // Mode pill (24/7 Live Radio for stations, tappable by host in private rooms)
                     Surface(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .clickable(enabled = room.isHost && !room.permanent) {
+                            .clickable(enabled = room.isHost && !room.permanent && !room.isRadio) {
                                 val next = if (room.roomMode == PixelJamRoomMode.HOST_ONLY) {
                                     PixelJamRoomMode.COLLABORATIVE
                                 } else {
@@ -895,7 +899,7 @@ private fun PixelJamRoomStage(
                         color = colors.surface.copy(alpha = 0.5f)
                     ) {
                         Text(
-                            text = room.roomMode.label,
+                            text = if (room.isRadio) "24/7 Radio" else room.roomMode.label,
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = colors.onSurface,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
@@ -1130,13 +1134,26 @@ private fun PixelJamRoomStage(
                         onSendChat = onSendChat
                     )
                     RoomTab.QUEUE -> QueueTabContent(queue = sharedQueue)
-                    RoomTab.SUGGEST -> SuggestionsTabContent(
-                        isHost = room.isHost,
-                        suggestions = suggestions,
-                        onSuggestTrack = onSuggestTrack,
-                        onApprove = onApproveSuggestion,
-                        onReject = onRejectSuggestion
-                    )
+                    RoomTab.SUGGEST -> if (room.isRadio) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(180.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "24/7 Live Radio — playing nonstop with no host.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        SuggestionsTabContent(
+                            isHost = room.isHost,
+                            suggestions = suggestions,
+                            onSuggestTrack = onSuggestTrack,
+                            onApprove = onApproveSuggestion,
+                            onReject = onRejectSuggestion
+                        )
+                    }
                 }
             }
         }

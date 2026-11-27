@@ -904,7 +904,12 @@ class PlayerViewModel @Inject constructor(
 
     private fun blockTransportForGuest(): Boolean {
         if (pixelJamManager.isActive() && !pixelJamManager.canControlPlayback() && !sessionSyncBypass) {
-            sendToast(context.getString(R.string.listen_together_host_only))
+            val msg = if (pixelJamManager.isRadioRoom()) {
+                "24/7 Live Radio — playback is synced automatically"
+            } else {
+                context.getString(R.string.listen_together_host_only)
+            }
+            sendToast(msg)
             return true
         }
         return false
