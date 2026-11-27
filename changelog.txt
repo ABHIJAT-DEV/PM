@@ -2,7 +2,7 @@
 • Added a brand-new lyrics engine with 11 providers including BetterLyrics, Unison, YouLyPlus, Paxsenix, lrc.red, SimpMusic, LRCLIB, Deezer, NetEase, QQ Music and KuGou.
 • Word-by-word synced lyrics now get top priority when a lyrics source is picked.
 • Lyrics providers can be reordered by drag, and lyrics can be searched manually by song and artist.
-• Added translation and romanization in lyrics.
+• Added translation and romanization in lyrics, including support for the PixelMusic Original lyrics style.
 • Added new lyrics styles, Style 1 and Style 2 with wavy glowing word-by-word animation, plus Boring and Plain styles, along with the PixelMusic Original style.
 • Added lockscreen AOD that opens automatically when the screen turns off during playback.
 • Added iOS-style live karaoke lyrics and a line-by-line lyrics mode on AOD, with three AOD styles and battery-friendly dimming.
@@ -11,8 +11,13 @@
 • Improved AI Playlists with cloud library, taste learning, online discovery and smart titles.
 • Added a full-screen expressive AI playlist generation experience, AI Quick Mix and an AI Mix button on Home.
 • AI lyrics finder can now generate timed lyrics from a YouTube Music link.
-• Added a new Complex Now Playing design, the fourth player layout, with an arch seekbar.
-• Album art, song info and playback controls now morph smoothly between the Mini Player and Now Playing in all four player designs.
+• Added PIXELJAM (with @lastwave jam), replacing Listen Together with real-time synced listening rooms, live chat, shared queues, track suggestions, shareable invite links, and 24/7 hostless live radio rooms for India and International.
+• Added customizable User Profiles with Google account photo support, illustrated animal and character avatars, and a quick profile overview sheet across Home, Settings, and PIXELJAM.
+• Added four new Now Playing screen styles — Complex (with an arch seekbar), Wave (with layered spring waves), Pillars, and Expressive — with neighbor-pushing spring animations on playback controls.
+• Album art, song info and playback controls now morph smoothly between the Mini Player and Now Playing across all player designs.
+• Added custom app icon customization with 8 adaptive app icons and an animated App Icon picker in Appearance settings.
+• Added PixelToast, a Material You Expressive toast pill with a rotating morphing shape and spring entrance used across the app.
+• Added new Material You Expressive animations, including corner-morphing highlights, spreading color waves on selection, synchronized song card and album art shape morphing, and expressive grouped card lists across Search, Queue, Artist, Charts, Explore, Settings, and bottom sheets.
 • Added a progressive blur engine to the top headers of all screens, with a Material You Gradient Blur style.
 • Added top-half background wallpapers on Home and Explore.
 • Added crossfade on manual skip and a gentle fade on play and pause.
@@ -27,7 +32,8 @@
 • With Best Quality selected, streaming and downloads now prefer the JioSaavn 320kbps source.
 • Added live download progress on songs.
 • Added a new splash animation that flies into the Home logo.
-• Reorganized Settings, with all lyrics options in one Lyrics Management section.
+• Reorganized Settings, with all lyrics options in one Lyrics Management section and Network & Local Mode moved to Developer Options.
+• Improved Local Mode so artists and artist detail pages stay strictly offline, with automatic restart when toggling Local Mode.
 • Improved overall performance and smoothness across the app.
 • Improved animation and screen transition smoothness, including bottom tab, bottom sheet and player transitions.
 • Optimized the progressive blur engine for high refresh rate displays.
