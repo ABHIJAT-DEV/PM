@@ -1844,6 +1844,96 @@ fun SettingsCategoryScreen(
                             }
 
                             SettingsCategory.DEVELOPER -> {
+                                SettingsSubsection(title = "Network & Local Mode") {
+                                    val toggleLocalModeAndRestart: (Boolean) -> Unit = { targetEnabled ->
+                                        settingsViewModel.setLocalModeEnabled(targetEnabled) {
+                                            Toast.makeText(
+                                                context,
+                                                if (targetEnabled) "Switching to Local Mode…" else "Switching to Online Mode…",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            val launchIntent = context.packageManager
+                                                .getLaunchIntentForPackage(context.packageName)
+                                                ?.apply {
+                                                    addFlags(
+                                                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                            Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                                    )
+                                                }
+                                            if (launchIntent != null) {
+                                                context.startActivity(launchIntent)
+                                                Runtime.getRuntime().exit(0)
+                                            }
+                                        }
+                                    }
+                                    SwitchSettingItem(
+                                        title = "Local Mode",
+                                        subtitle = "Offline & downloaded music only",
+                                        checked = uiState.localModeEnabled,
+                                        onCheckedChange = { enabled -> toggleLocalModeAndRestart(enabled) },
+                                        leadingIcon = {
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_public_24),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
+                                    )
+                                    AnimatedVisibility(
+                                        visible = uiState.localModeEnabled,
+                                        enter = expandVertically() + fadeIn(),
+                                        exit = shrinkVertically() + fadeOut()
+                                    ) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            SwitchSettingItem(
+                                                title = "Internet for lyrics",
+                                                subtitle = "Fetch online lyrics if not embedded",
+                                                checked = uiState.localModeAllowOnlineLyrics,
+                                                onCheckedChange = { allowed ->
+                                                    settingsViewModel.setLocalModeAllowOnlineLyrics(allowed)
+                                                },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.rounded_lyrics_24),
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.secondary
+                                                    )
+                                                }
+                                            )
+                                            SwitchSettingItem(
+                                                title = "Auto-Queue",
+                                                subtitle = "Queue similar local tracks",
+                                                checked = uiState.autoQueueEnabled,
+                                                onCheckedChange = { enabled ->
+                                                    settingsViewModel.setAutoQueueEnabled(enabled)
+                                                },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.rounded_queue_music_24),
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.secondary
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    }
+                                    SettingsItem(
+                                        title = "Rescan library",
+                                        subtitle = "Scan local storage for new or updated audio files",
+                                        leadingIcon = {
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_sync_24),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.secondary
+                                            )
+                                        },
+                                        onClick = {
+                                            settingsViewModel.refreshLibrary()
+                                            Toast.makeText(context, "Scanning library…", Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }
+
                                 SettingsSubsection(title = stringResource(R.string.setcat_experiments)) {
                                     SettingsItem(
                                         title = stringResource(R.string.setcat_experimental_title),
