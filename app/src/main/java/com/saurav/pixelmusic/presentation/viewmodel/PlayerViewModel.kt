@@ -994,6 +994,7 @@ class PlayerViewModel @Inject constructor(
 
     fun syncPixelJamNow() {
         val snap = pixelJamManager.playbackState.value ?: return
+        lastSyncedRemoteVideoId = null
         viewModelScope.launch { applyPixelJamPlayback(snap, force = true) }
     }
 
@@ -1137,7 +1138,14 @@ class PlayerViewModel @Inject constructor(
     private fun convergeToPixelJamSnapshot(snap: PixelJamPlaybackState) {
         if (!pixelJamManager.isActive() || sessionSyncBypass) return
         val remoteTrack = snap.currentTrack ?: return
-        if (playbackStateHolder.stablePlayerState.value.currentSong?.youtubeId != remoteTrack.id) return
+        if (playbackStateHolder.stablePlayerState.value.currentSong?.youtubeId != remoteTrack.id) {
+            // If playback was cleared while still in PixelJam, reset so resync/next tick reloads it.
+            if (playbackStateHolder.stablePlayerState.value.currentSong == null && snap.isPlaying) {
+                lastSyncedRemoteVideoId = null
+                viewModelScope.launch { applyPixelJamPlayback(snap, force = true) }
+            }
+            return
+        }
 
         sessionSyncBypass = true
         try {

@@ -43,6 +43,21 @@ class PixelJamManager @Inject constructor(
         val KEY_DEFAULT_MODE = stringPreferencesKey("pixeljam_default_mode")
         private const val PING_INTERVAL_MS = 15_000L
         private const val MAX_RECONNECT_ATTEMPTS = 5
+
+        @Volatile
+        private var activeInstance: PixelJamManager? = null
+
+        /** Called when the user explicitly closes/unloads the player notification. */
+        fun leaveIfActive() {
+            val inst = activeInstance ?: return
+            if (inst.isActive()) {
+                inst.leaveRoom()
+            }
+        }
+    }
+
+    init {
+        activeInstance = this
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

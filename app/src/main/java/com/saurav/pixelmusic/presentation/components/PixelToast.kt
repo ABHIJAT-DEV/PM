@@ -537,8 +537,8 @@ fun PixelToastHost(
         modifier = modifier
             .fillMaxSize()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 56.dp),
+            .padding(horizontal = 4.dp)
+            .padding(bottom = 40.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         val current = activeMessage
@@ -667,19 +667,16 @@ private fun PixelToastPill(
     val pillContainerColor = colorScheme.surfaceContainerHigh
     val pillTextColor = colorScheme.onSurface
 
-    Surface(
-        shape = CircleShape,
-        color = pillContainerColor,
-        tonalElevation = 4.dp,
-        shadowElevation = 8.dp,
+    Box(
         modifier = Modifier
-            .widthIn(max = 340.dp)
             .graphicsLayer {
                 translationY = offsetY.value
                 scaleX = pillScale.value
                 scaleY = pillScale.value
                 alpha = pillAlpha.value
+                clip = false
             }
+            .padding(16.dp)
             .pointerInput(toast.id) {
                 var draggedY = 0f
                 detectVerticalDragGestures(
@@ -695,6 +692,13 @@ private fun PixelToastPill(
                 )
             }
     ) {
+        Surface(
+            shape = CircleShape,
+            color = pillContainerColor,
+            tonalElevation = 4.dp,
+            shadowElevation = 8.dp,
+            modifier = Modifier.widthIn(max = 340.dp)
+        ) {
         Row(
             modifier = Modifier.padding(start = 10.dp, end = 18.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -743,6 +747,7 @@ private fun PixelToastPill(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+        }
         }
     }
 }

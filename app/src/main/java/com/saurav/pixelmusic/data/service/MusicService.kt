@@ -3625,6 +3625,9 @@ class MusicService : MediaLibraryService() {
 
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
 
+        if (reason == "notification_close_button") {
+            com.saurav.pixelmusic.data.session.PixelJamManager.leaveIfActive()
+        }
         player.playWhenReady = false
         player.stop()
         player.clearMediaItems()
