@@ -958,9 +958,33 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun leavePixelJamRoom() {
+        val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
+        val queueSize = _playerUiState.value.currentPlaybackQueue.size
         stopPixelJamSyncLoop()
         pixelJamManager.leaveRoom()
         closePixelJamSheet()
+
+        // If user left a PixelJam room while playing a single-track queue,
+        // automatically seed AutoQueueManager so the next song plays seamlessly.
+        if (pixelJamManager.autoQueueOnLeave.value && currentSong != null && queueSize <= 1) {
+            val videoId = currentSong.youtubeId?.takeIf { it.isNotBlank() }
+                ?: currentSong.id.substringAfter("youtube_", "").takeIf { it.isNotBlank() }
+            if (videoId != null) {
+                viewModelScope.launch {
+                    com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.isPaused = false
+                    com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.reset()
+                    com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.seed(
+                        endpoint = saurav.shru.pixelmusic.innertube.models.WatchEndpoint(
+                            videoId = videoId,
+                            playlistId = "RDAMVM$videoId"
+                        ),
+                        continuation = null,
+                        videoId = videoId
+                    )
+                    com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.forceRefill(forceRefresh = true)
+                }
+            }
+        }
     }
 
     fun sendPixelJamChat(text: String, replyToId: String? = null) {
@@ -1150,6 +1174,7 @@ class PlayerViewModel @Inject constructor(
             lastPublishedVideoId = remoteTrack.id
             lastPublishedIsPlaying = snap.isPlaying
             lastPixelJamTrackStartAtMs = System.currentTimeMillis()
+            _pixelJamSyncDriftMs.value = 0L
             val song = com.saurav.pixelmusic.data.model.youtube.Song(
                 youtubeId = remoteTrack.id,
                 title = remoteTrack.title.ifBlank { "Unknown title" },

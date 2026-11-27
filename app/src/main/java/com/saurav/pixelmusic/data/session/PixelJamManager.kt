@@ -2,6 +2,7 @@ package com.saurav.pixelmusic.data.session
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +42,9 @@ class PixelJamManager @Inject constructor(
         val KEY_SERVER_URL = stringPreferencesKey("pixeljam_server_url")
         val KEY_DISPLAY_NAME = stringPreferencesKey("pixeljam_display_name")
         val KEY_DEFAULT_MODE = stringPreferencesKey("pixeljam_default_mode")
+        val KEY_NOTIFY_JOIN_LEAVE = booleanPreferencesKey("pixeljam_notify_join_leave")
+        val KEY_NOTIFY_ROOM_ALERTS = booleanPreferencesKey("pixeljam_notify_room_alerts")
+        val KEY_AUTO_QUEUE_ON_LEAVE = booleanPreferencesKey("pixeljam_auto_queue_on_leave")
         private const val PING_INTERVAL_MS = 15_000L
         private const val MAX_RECONNECT_ATTEMPTS = 5
 
@@ -76,6 +80,22 @@ class PixelJamManager @Inject constructor(
     val savedDisplayName: StateFlow<String> = dataStore.data
         .map { prefs -> prefs[KEY_DISPLAY_NAME].orEmpty() }
         .stateIn(scope, SharingStarted.Eagerly, "")
+
+    val notifyJoinLeave: StateFlow<Boolean> = dataStore.data
+        .map { prefs -> prefs[KEY_NOTIFY_JOIN_LEAVE] ?: true }
+        .stateIn(scope, SharingStarted.Eagerly, true)
+
+    val notifyRoomAlerts: StateFlow<Boolean> = dataStore.data
+        .map { prefs -> prefs[KEY_NOTIFY_ROOM_ALERTS] ?: true }
+        .stateIn(scope, SharingStarted.Eagerly, true)
+
+    val autoQueueOnLeave: StateFlow<Boolean> = dataStore.data
+        .map { prefs -> prefs[KEY_AUTO_QUEUE_ON_LEAVE] ?: true }
+        .stateIn(scope, SharingStarted.Eagerly, true)
+
+    val defaultRoomMode: StateFlow<PixelJamRoomMode> = dataStore.data
+        .map { prefs -> PixelJamRoomMode.fromWire(prefs[KEY_DEFAULT_MODE]) }
+        .stateIn(scope, SharingStarted.Eagerly, PixelJamRoomMode.HOST_ONLY)
 
     fun saveDisplayName(name: String) {
         val trimmed = name.trim().take(32)
@@ -583,7 +603,7 @@ class PixelJamManager @Inject constructor(
                     joinedAt = System.currentTimeMillis()
                 )
                 _uiState.value = room.copy(participants = updated)
-                if (uid != room.userId) {
+                if (uid != room.userId && notifyJoinLeave.value) {
                     _events.tryEmit("$name joined PixelJam")
                 }
             }
@@ -595,7 +615,7 @@ class PixelJamManager @Inject constructor(
                 val name = payload.optString("name")
                 val updated = room.participants.filterNot { it.userId == uid }
                 _uiState.value = room.copy(participants = updated)
-                if (uid != room.userId && name.isNotBlank()) {
+                if (uid != room.userId && name.isNotBlank() && notifyJoinLeave.value) {
                     _events.tryEmit("$name left the room")
                 }
             }
@@ -620,7 +640,7 @@ class PixelJamManager @Inject constructor(
                     isHost = room.userId == hostId || (coHostId.isNotBlank() && room.userId == coHostId),
                     participants = updatedParticipants
                 )
-                if (newHostName.isNotBlank()) {
+                if (newHostName.isNotBlank() && notifyRoomAlerts.value) {
                     _events.tryEmit("$newHostName is now the host")
                 }
             }
@@ -645,7 +665,7 @@ class PixelJamManager @Inject constructor(
                     isHost = room.userId == hostId || (coHostId.isNotBlank() && room.userId == coHostId),
                     participants = updatedParticipants
                 )
-                if (coHostId.isNotBlank() && coHostName.isNotBlank()) {
+                if (coHostId.isNotBlank() && coHostName.isNotBlank() && notifyRoomAlerts.value) {
                     _events.tryEmit("$coHostName is now a co-host")
                 }
             }
@@ -689,7 +709,9 @@ class PixelJamManager @Inject constructor(
                     track = track
                 )
                 _suggestions.value = (_suggestions.value.filterNot { it.suggestionId == suggestion.suggestionId } + suggestion)
-                _events.tryEmit("${suggestion.fromUserName} suggested \"${track.title}\"")
+                if (notifyRoomAlerts.value) {
+                    _events.tryEmit("${suggestion.fromUserName} suggested \"${track.title}\"")
+                }
             }
 
             "cooldown" -> {

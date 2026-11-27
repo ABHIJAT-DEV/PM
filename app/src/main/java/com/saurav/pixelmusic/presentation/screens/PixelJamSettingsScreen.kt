@@ -1,24 +1,35 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,15 +39,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -50,7 +67,12 @@ import androidx.navigation.NavController
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.data.session.PixelJamConfig
 import com.saurav.pixelmusic.data.session.PixelJamManager
+import com.saurav.pixelmusic.data.session.PixelJamRoomMode
 import com.saurav.pixelmusic.presentation.components.CollapsibleCommonTopBar
+import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
+import com.saurav.pixelmusic.presentation.components.PixelToast
+import com.saurav.pixelmusic.presentation.components.ProfileAvatar
+import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.ui.modifiers.scrollMotionBlur
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -74,6 +96,10 @@ class PixelJamSettingsViewModel @Inject constructor(
     }
 
     val serverUrl: StateFlow<String> = pixelJamManager.serverUrl
+    val notifyJoinLeave: StateFlow<Boolean> = pixelJamManager.notifyJoinLeave
+    val notifyRoomAlerts: StateFlow<Boolean> = pixelJamManager.notifyRoomAlerts
+    val autoQueueOnLeave: StateFlow<Boolean> = pixelJamManager.autoQueueOnLeave
+    val defaultRoomMode: StateFlow<PixelJamRoomMode> = pixelJamManager.defaultRoomMode
 
     val userProfile: StateFlow<com.saurav.pixelmusic.data.model.UserProfile> =
         userPreferencesRepository.userProfileFlow
@@ -105,16 +131,24 @@ class PixelJamSettingsViewModel @Inject constructor(
         viewModelScope.launch { pixelJamManager.setServerUrl(PixelJamConfig.DEFAULT_SERVER_URL) }
     }
 
-    fun setDisplayName(name: String) {
-        val clean = name.trim().take(32)
-        viewModelScope.launch {
-            dataStore.edit { it[PixelJamManager.KEY_DISPLAY_NAME] = clean }
-            userPreferencesRepository.setProfileDisplayName(clean)
-        }
-    }
-
     fun setKeepAlive(value: Boolean) {
         viewModelScope.launch { dataStore.edit { it[Keys.KEEP_ALIVE] = value } }
+    }
+
+    fun setNotifyJoinLeave(value: Boolean) {
+        viewModelScope.launch { dataStore.edit { it[PixelJamManager.KEY_NOTIFY_JOIN_LEAVE] = value } }
+    }
+
+    fun setNotifyRoomAlerts(value: Boolean) {
+        viewModelScope.launch { dataStore.edit { it[PixelJamManager.KEY_NOTIFY_ROOM_ALERTS] = value } }
+    }
+
+    fun setAutoQueueOnLeave(value: Boolean) {
+        viewModelScope.launch { dataStore.edit { it[PixelJamManager.KEY_AUTO_QUEUE_ON_LEAVE] = value } }
+    }
+
+    fun setDefaultRoomMode(mode: PixelJamRoomMode) {
+        viewModelScope.launch { dataStore.edit { it[PixelJamManager.KEY_DEFAULT_MODE] = mode.wireValue } }
     }
 }
 
@@ -123,19 +157,25 @@ fun PixelJamSettingsScreen(
     navController: NavController,
     vm: PixelJamSettingsViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+    val colors = MaterialTheme.colorScheme
+
     val serverUrl by vm.serverUrl.collectAsStateWithLifecycle()
     val displayName by vm.displayName.collectAsStateWithLifecycle()
     val userProfile by vm.userProfile.collectAsStateWithLifecycle()
     val ytUsername by vm.ytUsername.collectAsStateWithLifecycle()
     val ytAvatarUrl by vm.ytAvatarUrl.collectAsStateWithLifecycle()
     val keepAlive by vm.keepAlive.collectAsStateWithLifecycle()
+    val notifyJoinLeave by vm.notifyJoinLeave.collectAsStateWithLifecycle()
+    val notifyRoomAlerts by vm.notifyRoomAlerts.collectAsStateWithLifecycle()
+    val autoQueueOnLeave by vm.autoQueueOnLeave.collectAsStateWithLifecycle()
+    val defaultRoomMode by vm.defaultRoomMode.collectAsStateWithLifecycle()
+
     val effectiveName = userProfile.effectiveDisplayName(ytUsername, displayName)
     val effectiveAvatar = userProfile.effectiveLocalAvatar(if (ytUsername.isNotEmpty()) ytAvatarUrl else "")
 
     var showServerDialog by remember { mutableStateOf(false) }
     var serverDraft by remember(serverUrl) { mutableStateOf(serverUrl) }
-    var showNameDialog by remember { mutableStateOf(false) }
-    var nameDraft by remember(displayName) { mutableStateOf(displayName) }
 
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
@@ -191,13 +231,15 @@ fun PixelJamSettingsScreen(
     if (showServerDialog) {
         AlertDialog(
             onDismissRequest = { showServerDialog = false },
-            title = { Text("PixelJam Server URL") },
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("PixelJam Server URL", fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = serverDraft,
                     onValueChange = { serverDraft = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    shape = RoundedCornerShape(18.dp),
                     label = { Text("Render / WebSocket Host") },
                     placeholder = { Text(PixelJamConfig.DEFAULT_SERVER_URL) }
                 )
@@ -206,38 +248,15 @@ fun PixelJamSettingsScreen(
                 TextButton(onClick = {
                     vm.setServerUrl(serverDraft)
                     showServerDialog = false
-                }) { Text("Save") }
+                    PixelToast.show(context, "PixelJam server URL saved")
+                }) { Text("Save", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     vm.resetServerUrl()
                     showServerDialog = false
+                    PixelToast.show(context, "Reset to default PixelJam server")
                 }) { Text("Reset Default") }
-            }
-        )
-    }
-
-    if (showNameDialog) {
-        AlertDialog(
-            onDismissRequest = { showNameDialog = false },
-            title = { Text("Default Display Name") },
-            text = {
-                OutlinedTextField(
-                    value = nameDraft,
-                    onValueChange = { nameDraft = it.take(32) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Your name in PixelJam rooms") }
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.setDisplayName(nameDraft)
-                    showNameDialog = false
-                }) { Text("Save") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showNameDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -248,78 +267,157 @@ fun PixelJamSettingsScreen(
             .fillMaxSize()
     ) {
         val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
+        val bottomInset = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 28.dp
 
         LazyColumn(
             state = lazyListState,
             modifier = Modifier
                 .fillMaxSize()
                 .scrollMotionBlur(lazyListState),
-            contentPadding = PaddingValues(top = currentTopBarHeightDp + 8.dp, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(top = currentTopBarHeightDp + 8.dp, bottom = bottomInset),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item {
+            // 1. Expressive Profile Hero Card
+            item(key = "jam_profile_hero") {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .clickable { navController.navigate(Screen.Profile.route) },
+                    shape = RoundedCornerShape(28.dp),
+                    color = colors.primaryContainer.copy(alpha = 0.55f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        colors.primaryContainer.copy(alpha = 0.75f),
+                                        colors.tertiaryContainer.copy(alpha = 0.45f)
+                                    )
+                                )
+                            )
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            ProfileAvatar(
+                                avatarSpec = effectiveAvatar,
+                                displayName = effectiveName.ifBlank { "P" },
+                                size = 54.dp,
+                                cacheKey = userProfile.updatedAt,
+                                fallbackInitial = "P"
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = effectiveName.ifBlank { "Set up your profile" },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.onPrimaryContainer,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Edit display name, photo & illustrated avatar",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colors.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                            Surface(
+                                shape = CircleShape,
+                                color = colors.primary
+                            ) {
+                                Text(
+                                    text = "Edit",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.onPrimary,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Notifications & Toasts Section
+            item(key = "jam_notifications") {
                 SettingsSection(
-                    title = "PixelJam Profile",
+                    title = "Notifications & Toasts",
                     icon = {
                         Icon(
-                            painter = painterResource(R.drawable.rounded_group_24),
+                            painter = painterResource(R.drawable.rounded_notifications_active_24),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = colors.primary
                         )
                     }
                 ) {
                     Column(
-                        modifier = Modifier.clip(shape = RoundedCornerShape(24.dp)),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                        modifier = Modifier.clip(RoundedCornerShape(24.dp)),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        SettingsItem(
-                            title = effectiveName.ifBlank { "Set up your profile" },
-                            subtitle = "Edit display name, photo & illustrated avatar",
+                        SwitchSettingItem(
+                            title = "Join & leave toasts",
+                            subtitle = "Show a toast when someone joins or leaves your PixelJam room",
+                            checked = notifyJoinLeave,
+                            onCheckedChange = { vm.setNotifyJoinLeave(it) },
                             leadingIcon = {
-                                com.saurav.pixelmusic.presentation.components.ProfileAvatar(
-                                    avatarSpec = effectiveAvatar,
-                                    displayName = effectiveName.ifBlank { "P" },
-                                    size = 32.dp,
-                                    cacheKey = userProfile.updatedAt,
-                                    fallbackInitial = "P"
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_group_24),
+                                    contentDescription = null,
+                                    tint = colors.primary
                                 )
-                            },
-                            onClick = {
-                                navController.navigate(com.saurav.pixelmusic.presentation.navigation.Screen.Profile.route)
+                            }
+                        )
+                        SwitchSettingItem(
+                            title = "Host & suggestion alerts",
+                            subtitle = "Show toasts for co-host promotions and incoming song suggestions",
+                            checked = notifyRoomAlerts,
+                            onCheckedChange = { vm.setNotifyRoomAlerts(it) },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_forum_24),
+                                    contentDescription = null,
+                                    tint = colors.primary
+                                )
                             }
                         )
                     }
                 }
             }
 
-            item {
+            // 3. Playback & Room Defaults Section
+            item(key = "jam_playback_behavior") {
                 SettingsSection(
-                    title = "Sync Server & Connection",
+                    title = "Playback & Room Defaults",
                     icon = {
                         Icon(
-                            painter = painterResource(R.drawable.rounded_cloud_sync_24),
+                            painter = painterResource(R.drawable.rounded_music_note_24),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = colors.primary
                         )
                     }
                 ) {
                     Column(
-                        modifier = Modifier.clip(shape = RoundedCornerShape(24.dp)),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                        modifier = Modifier.clip(RoundedCornerShape(24.dp)),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        SettingsItem(
-                            title = "Sync server URL",
-                            subtitle = serverUrl,
+                        SwitchSettingItem(
+                            title = "Auto-continue queue on leave",
+                            subtitle = "Automatically queue related tracks when you leave a PixelJam room",
+                            checked = autoQueueOnLeave,
+                            onCheckedChange = { vm.setAutoQueueOnLeave(it) },
                             leadingIcon = {
                                 Icon(
-                                    painter = painterResource(R.drawable.rounded_cloud_sync_24),
+                                    painter = painterResource(R.drawable.rounded_queue_music_24),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = colors.primary
                                 )
-                            },
-                            onClick = {
-                                serverDraft = serverUrl
-                                showServerDialog = true
                             }
                         )
                         SwitchSettingItem(
@@ -329,10 +427,103 @@ fun PixelJamSettingsScreen(
                             onCheckedChange = { vm.setKeepAlive(it) },
                             leadingIcon = {
                                 Icon(
-                                    painter = painterResource(R.drawable.rounded_music_note_24),
+                                    painter = painterResource(R.drawable.rounded_sync_24),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = colors.primary
                                 )
+                            }
+                        )
+                        // Expressive Default Room Mode Selector
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = colors.surfaceContainer
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    text = "Default room mode when hosting",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colors.onSurface
+                                )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = colors.surfaceContainerHigh,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        PixelJamRoomMode.entries.forEach { mode ->
+                                            val selected = mode == defaultRoomMode
+                                            val bg by animateColorAsState(
+                                                targetValue = if (selected) colors.primary else Color.Transparent,
+                                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                                label = "defaultModeBg"
+                                            )
+                                            val fg by animateColorAsState(
+                                                targetValue = if (selected) colors.onPrimary else colors.onSurfaceVariant,
+                                                label = "defaultModeFg"
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(40.dp)
+                                                    .clip(CircleShape)
+                                                    .background(bg)
+                                                    .clickable { vm.setDefaultRoomMode(mode) },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = mode.label,
+                                                    style = MaterialTheme.typography.labelLarge,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = fg
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Sync Server Section
+            item(key = "jam_server") {
+                SettingsSection(
+                    title = "Sync Server",
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_cloud_sync_24),
+                            contentDescription = null,
+                            tint = colors.primary
+                        )
+                    }
+                ) {
+                    Column(
+                        modifier = Modifier.clip(RoundedCornerShape(24.dp)),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        SettingsItem(
+                            title = "Sync server URL",
+                            subtitle = serverUrl,
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_cloud_sync_24),
+                                    contentDescription = null,
+                                    tint = colors.primary
+                                )
+                            },
+                            onClick = {
+                                serverDraft = serverUrl
+                                showServerDialog = true
                             }
                         )
                     }
