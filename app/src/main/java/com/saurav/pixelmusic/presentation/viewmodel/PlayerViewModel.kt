@@ -172,7 +172,8 @@ import coil.memory.MemoryCache
 import dagger.Lazy
 
 private const val CAST_LOG_TAG = "PlayerCastTransfer"
-private const val PIXELJAM_DRIFT_THRESHOLD_MS = 750L
+private const val PIXELJAM_DRIFT_THRESHOLD_MS = 1_800L
+private const val PIXELJAM_SEEK_COOLDOWN_MS = 4_000L
 private const val ENABLE_FOLDERS_SOURCE_SWITCHING = true
 private const val MAX_ALBUM_BATCH_SELECTION = 6
 private const val SONG_ID_QUERY_CHUNK_SIZE = 900
@@ -893,6 +894,7 @@ class PlayerViewModel @Inject constructor(
     private var lastPublishedVideoId: String? = null
     private var lastPublishedIsPlaying: Boolean? = null
     private var lastPublishedQueueIds: List<String> = emptyList()
+    private var lastPixelJamSeekAtMs: Long = 0L
 
     fun openPixelJamSheet() { _showPixelJamSheet.value = true }
     fun closePixelJamSheet() { _showPixelJamSheet.value = false }
@@ -1045,12 +1047,14 @@ class PlayerViewModel @Inject constructor(
                     }
                 }
             }
+            var tick = 0
             while (isActive) {
                 delay(1_200)
+                tick++
                 if (pixelJamManager.isActive()) {
                     if (pixelJamManager.canControlPlayback()) {
                         publishCurrentTrackIfHost()
-                    } else {
+                    } else if (tick % 3 == 0) {
                         val snap = pixelJamManager.playbackState.value
                         if (snap != null) {
                             convergeToPixelJamSnapshot(snap)
@@ -1137,23 +1141,32 @@ class PlayerViewModel @Inject constructor(
 
         sessionSyncBypass = true
         try {
-            val expected = if (snap.isPlaying) {
+            val rawExpected = if (snap.isPlaying) {
                 val elapsed = (pixelJamManager.estimatedServerNowMs() - snap.serverTimeMs)
-                    .coerceIn(0L, 15_000L)
+                    .coerceAtLeast(0L)
                 snap.positionMs + elapsed
             } else {
                 snap.positionMs
             }.coerceAtLeast(0L)
+            val expected = if (remoteTrack.durationMs > 0L) {
+                rawExpected.coerceAtMost(remoteTrack.durationMs)
+            } else {
+                rawExpected
+            }
             val drift = abs(expected - playbackStateHolder.currentPosition.value)
             _pixelJamSyncDriftMs.value = drift
+            val nowMs = System.currentTimeMillis()
+            val canSeek = (nowMs - lastPixelJamSeekAtMs) >= PIXELJAM_SEEK_COOLDOWN_MS
             if (playbackStateHolder.stablePlayerState.value.isPlaying != snap.isPlaying) {
-                if (drift > PIXELJAM_DRIFT_THRESHOLD_MS) {
+                if (drift > PIXELJAM_DRIFT_THRESHOLD_MS && canSeek) {
+                    lastPixelJamSeekAtMs = nowMs
                     seekTo(expected)
                 }
                 playPause()
                 return
             }
-            if (drift > PIXELJAM_DRIFT_THRESHOLD_MS) {
+            if (drift > PIXELJAM_DRIFT_THRESHOLD_MS && canSeek) {
+                lastPixelJamSeekAtMs = nowMs
                 seekTo(expected)
             }
         } finally {
