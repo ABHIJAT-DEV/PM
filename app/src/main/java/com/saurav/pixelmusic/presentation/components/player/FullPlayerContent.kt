@@ -2884,7 +2884,7 @@ private fun FullPlayerLandscapeContent(
                 .navigationBarsPadding()
                 .padding(horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom)
         ) {
             singleLineLyricsSection()
             songMetadataSection()
