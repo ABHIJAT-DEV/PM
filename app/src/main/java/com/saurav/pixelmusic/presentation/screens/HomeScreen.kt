@@ -10,6 +10,7 @@ import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.blur.rememberGlassState
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.compose.ReportDrawnWhen
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -728,6 +729,60 @@ fun HomeScreen(
                                 )
                             }
                         }
+                    } else if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                        item(
+                            key = "your_mix_landscape_row",
+                            contentType = "your_mix_landscape_row"
+                        ) {
+                            val onAiCreateMixClick = {
+                                if (localModeEnabled) {
+                                    Toast.makeText(
+                                        context,
+                                        "AI Playlist requires YouTube Music integration. Turn off Local Mode to use it.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else if (hasActiveAiProviderApiKey) {
+                                    playerViewModel.clearAiPlaylistError()
+                                    showCreateAiPlaylistDialog = true
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.toast_set_ai_provider_api_key_first),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    navController.navigateSafely(Screen.SettingsCategory.createRoute("ai"))
+                                }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(20.dp)
+                            ) {
+                                Box(modifier = Modifier.weight(0.42f)) {
+                                    YourMixHeader(
+                                        subtitle = yourMixSong,
+                                        onAiCreateClick = onAiCreateMixClick,
+                                        horizontalPadding = 0.dp
+                                    )
+                                }
+                                AlbumArtCollage(
+                                    modifier = Modifier.weight(0.58f),
+                                    songs = filteredYourMixSongs,
+                                    padding = 4.dp,
+                                    height = 250.dp,
+                                    pattern = activeCollagePattern,
+                                    onSongClick = { song ->
+                                        if (usesFallbackHomeMix) {
+                                            playerViewModel.showAndPlaySongFromLibrary(song, queueName = "Your Mix")
+                                        } else {
+                                            playerViewModel.showAndPlaySong(song, filteredYourMixSongs, "Your Mix")
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     } else {
                         item(
                             key = "your_mix_header",
@@ -756,9 +811,7 @@ fun HomeScreen(
                                 }
                             )
                         }
-                    }
 
-                    if (filteredYourMixSongs.isNotEmpty()) {
                         item(
                             key = "album_art_collage",
                             contentType = "album_art_collage"
@@ -1345,7 +1398,8 @@ fun YourMixHeader(
     subtitle: String,
     featuredSong: Song? = null,
     onSongClick: (() -> Unit)? = null,
-    onAiCreateClick: (() -> Unit)? = null
+    onAiCreateClick: (() -> Unit)? = null,
+    horizontalPadding: Dp = 24.dp
 ) {
     val titleStyle = YourMixTitleStyle
 
@@ -1353,7 +1407,7 @@ fun YourMixHeader(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = horizontalPadding, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

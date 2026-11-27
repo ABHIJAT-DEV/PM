@@ -30,8 +30,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -320,5 +327,91 @@ fun PlayerInternalNavigationBar(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun PlayerInternalNavigationRail(
+    navController: NavHostController,
+    navItems: ImmutableList<BottomNavItem>,
+    currentRoute: String?,
+    modifier: Modifier = Modifier,
+    onSearchIconDoubleTap: () -> Unit = {}
+) {
+    val latestCurrentRoute by rememberUpdatedState(currentRoute)
+    val latestNavigationEnabled by rememberUpdatedState(currentRoute != null)
+    val haptic = LocalHapticFeedback.current
+
+    val railItems = remember(navItems) {
+        val base = navItems.filter { it.screen.route != Screen.Search.route }
+        val searchItem = navItems.firstOrNull { it.screen.route == Screen.Search.route }
+            ?: BottomNavItem(
+                label = "Search",
+                iconResId = R.drawable.rounded_search_24,
+                selectedIconResId = R.drawable.rounded_search_24,
+                screen = Screen.Search
+            )
+        (base + searchItem).toImmutableList()
+    }
+
+    NavigationRail(
+        modifier = modifier
+            .fillMaxHeight()
+            .windowInsetsPadding(
+                WindowInsets.displayCutout.only(WindowInsetsSides.Start)
+            )
+            .windowInsetsPadding(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Start)
+            )
+            .statusBarsPadding(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Spacer(modifier = Modifier.weight(1f))
+        railItems.forEach { item ->
+            val isSelected = latestCurrentRoute == item.screen.route
+            val iconRes = if (isSelected && item.selectedIconResId != null && item.selectedIconResId != 0) {
+                item.selectedIconResId
+            } else {
+                item.iconResId
+            }
+            NavigationRailItem(
+                selected = isSelected,
+                onClick = {
+                    if (!latestNavigationEnabled) return@NavigationRailItem
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    if (item.screen.route == Screen.Search.route && isSelected) {
+                        onSearchIconDoubleTap()
+                    } else if (!isSelected) {
+                        navController.navigateToTopLevelSafely(item.screen.route)
+                    }
+                },
+                icon = {
+                    Icon(
+                        painter = painterResource(id = iconRes),
+                        contentDescription = item.label,
+                        modifier = Modifier.size(22.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.label,
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1
+                    )
+                },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+        Spacer(modifier = Modifier.weight(1f))
     }
 }

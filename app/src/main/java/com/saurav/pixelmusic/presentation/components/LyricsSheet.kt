@@ -1,6 +1,8 @@
 package com.saurav.pixelmusic.presentation.components
 
+import android.content.res.Configuration
 import android.widget.Toast
+import androidx.compose.ui.platform.LocalConfiguration
 import com.saurav.pixelmusic.data.model.Song
 import com.saurav.pixelmusic.data.model.Lyrics
 import com.saurav.pixelmusic.R
@@ -674,36 +676,20 @@ fun LyricsSheet(
         contentColor = contentColor,
         // Removed TopBar and FAB
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = paddingValues.calculateTopPadding())
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    resetImmersiveTimer()
-                }
-        ) {
-            val initialSyncedLineIndex = remember(lyrics, playbackPositionFlow, lyricsSyncOffset) {
-                resolveCurrentLineIndex(
-                    lines = lyrics?.synced.orEmpty(),
-                    position = (playbackPositionFlow.value + lyricsSyncOffset).coerceAtLeast(0L)
-                ).coerceAtLeast(0)
-            }
-            val syncedListState = rememberLazyListState(
-                initialFirstVisibleItemIndex = initialSyncedLineIndex
-            )
-            val staticListState = rememberLazyListState()
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val initialSyncedLineIndex = remember(lyrics, playbackPositionFlow, lyricsSyncOffset) {
+            resolveCurrentLineIndex(
+                lines = lyrics?.synced.orEmpty(),
+                position = (playbackPositionFlow.value + lyricsSyncOffset).coerceAtLeast(0L)
+            ).coerceAtLeast(0)
+        }
+        val syncedListState = rememberLazyListState(
+            initialFirstVisibleItemIndex = initialSyncedLineIndex
+        )
+        val staticListState = rememberLazyListState()
 
-            // Lyrics Content (Weight 1)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Start)
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
+        val lyricsContentPane: @Composable (Modifier) -> Unit = { paneModifier ->
+            Box(modifier = paneModifier) {
                 // Track Info Header (Fixed at top)
                 AnimatedContent(
                     targetState = currentSong,
@@ -906,31 +892,27 @@ fun LyricsSheet(
                         )
                 )
             }
+        }
 
-            // Controls Section (Auto-hide in immersive mode)
-            AnimatedVisibility(
-                visible = !immersiveMode,
-                enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(containerColor)
-                        .padding(bottom = paddingValues.calculateBottomPadding() + 10.dp, end = 16.dp, start = 16.dp)
-                        .pointerInput(Unit) {
-                            awaitPointerEventScope {
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    // Reset timer on any touch down or move in this area
-                                    if (event.changes.any { it.pressed }) {
-                                         resetImmersiveTimer()
-                                    }
+        val controlsPaneContent: @Composable (Modifier) -> Unit = { controlsModifier ->
+            Column(
+                modifier = controlsModifier
+                    .background(containerColor)
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                // Reset timer on any touch down or move in this area
+                                if (event.changes.any { it.pressed }) {
+                                    resetImmersiveTimer()
                                 }
                             }
                         }
-                ) {
-                                AnimatedVisibility(
+                    },
+                verticalArrangement = if (isLandscape) Arrangement.Center else Arrangement.Top,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                AnimatedVisibility(
                     visible = showSyncedLyrics == true && lyrics?.synced != null && showSyncControls,
                     enter = expandVertically() + fadeIn(),
                     exit = shrinkVertically() + fadeOut()
@@ -1012,7 +994,7 @@ fun LyricsSheet(
                         songId = stablePlayerState.currentSong?.id ?: ""
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Floating Toolbar
@@ -1032,7 +1014,82 @@ fun LyricsSheet(
                     // Pass progress so the back button animates with the gesture (draw-phase).
                     backProgressProvider = { backProgressProvider.value },
                 )
-             }
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (isLandscape) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            top = paddingValues.calculateTopPadding(),
+                            bottom = paddingValues.calculateBottomPadding()
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            resetImmersiveTimer()
+                        }
+                ) {
+                    lyricsContentPane(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+
+                    AnimatedVisibility(
+                        visible = !immersiveMode,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        controlsPaneContent(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 24.dp, vertical = 16.dp)
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = paddingValues.calculateTopPadding())
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            resetImmersiveTimer()
+                        }
+                ) {
+                    lyricsContentPane(
+                        Modifier
+                            .align(Alignment.Start)
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
+
+                    // Controls Section (Auto-hide in immersive mode)
+                    AnimatedVisibility(
+                        visible = !immersiveMode,
+                        enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                        exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                    ) {
+                        controlsPaneContent(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    bottom = paddingValues.calculateBottomPadding() + 10.dp,
+                                    end = 16.dp,
+                                    start = 16.dp
+                                )
+                        )
+                    }
+                }
             }
         }
 

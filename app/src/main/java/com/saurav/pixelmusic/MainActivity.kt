@@ -9,6 +9,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ComponentName
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.os.Trace
@@ -52,7 +53,13 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import com.saurav.pixelmusic.presentation.components.PlayerInternalNavigationRail
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -971,12 +978,19 @@ class MainActivity : ComponentActivity() {
             },
             label = "NavBarVisibilityProgress"
         )
-        val visibleNavBarOccupiedHeight by remember(navBarOccupiedHeight, navBarVisibilityProgress) {
-            derivedStateOf { navBarOccupiedHeight * navBarVisibilityProgress }
-        }
-        val miniPlayerBottomMargin by remember(systemNavBarInset, visibleNavBarOccupiedHeight) {
+        val configuration = LocalConfiguration.current
+        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+        val visibleNavBarOccupiedHeight by remember(navBarOccupiedHeight, navBarVisibilityProgress, isLandscape) {
             derivedStateOf {
-                if (visibleNavBarOccupiedHeight > systemNavBarInset) {
+                if (isLandscape) 0.dp else navBarOccupiedHeight * navBarVisibilityProgress
+            }
+        }
+        val miniPlayerBottomMargin by remember(systemNavBarInset, visibleNavBarOccupiedHeight, isLandscape) {
+            derivedStateOf {
+                if (isLandscape) {
+                    systemNavBarInset
+                } else if (visibleNavBarOccupiedHeight > systemNavBarInset) {
                     visibleNavBarOccupiedHeight
                 } else {
                     systemNavBarInset
@@ -1068,12 +1082,47 @@ class MainActivity : ComponentActivity() {
                         }
                         .background(MaterialTheme.colorScheme.background)
                 ) {
+                    val onSearchIconDoubleTapRail = remember(playerViewModel) {
+                        { playerViewModel.onSearchNavIconDoubleTapped() }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                if (isLandscape && shouldRenderNavigationBar) {
+                                    MaterialTheme.colorScheme.surfaceContainerLow
+                                } else {
+                                    MaterialTheme.colorScheme.background
+                                }
+                            )
+                    ) {
+                        AnimatedVisibility(
+                            visible = isLandscape && shouldRenderNavigationBar,
+                            enter = fadeIn(animationSpec = tween(220)),
+                            exit = fadeOut(animationSpec = tween(180))
+                        ) {
+                            PlayerInternalNavigationRail(
+                                navController = navController,
+                                navItems = commonNavItems,
+                                currentRoute = currentRoute,
+                                onSearchIconDoubleTap = onSearchIconDoubleTapRail
+                            )
+                        }
                     // Background wallpaper is now scoped exclusively to the top half of Home & Explore screens
                     Scaffold(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .then(
+                                if (isLandscape && shouldRenderNavigationBar) {
+                                    Modifier.clip(RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp))
+                                } else {
+                                    Modifier
+                                }
+                            ),
                         containerColor = MaterialTheme.colorScheme.background,
                         bottomBar = {
-                    if (shouldRenderNavigationBar) {
+                    if (!isLandscape && shouldRenderNavigationBar) {
                         val currentSongId by remember {
                             playerViewModel.stablePlayerState
                                 .map { it.currentSong?.id }
@@ -1393,7 +1442,11 @@ class MainActivity : ComponentActivity() {
                         UnifiedPlayerSheetV2(
                             playerViewModel = playerViewModel,
                             sheetCollapsedTargetY = sheetCollapsedTargetY,
-                            collapsedStateHorizontalPadding = horizontalPadding + 16.dp,
+                            collapsedStateHorizontalPadding = if (isLandscape) {
+                                ((this.maxWidth - 400.dp) / 2f).coerceAtLeast(24.dp)
+                            } else {
+                                horizontalPadding + 16.dp
+                            },
                             hideMiniPlayer = shouldHideMiniPlayer,
                             containerHeight = containerHeight,
                             navController = navController,
@@ -1490,6 +1543,7 @@ class MainActivity : ComponentActivity() {
 
                     }
                 }
+                    }
 
                 // 3. Full-screen Music Recognition Overlay rendered above Scaffold & bottom navigation bar
                 AnimatedVisibility(
