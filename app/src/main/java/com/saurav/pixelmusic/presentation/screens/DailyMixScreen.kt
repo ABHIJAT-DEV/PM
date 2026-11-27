@@ -9,7 +9,12 @@ import com.saurav.pixelmusic.ui.blur.rememberGlassState
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import androidx.compose.material3.FloatingActionButtonDefaults
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -313,144 +318,177 @@ fun DailyMixScreen(
                 ContainedLoadingIndicator()
             }
         } else {
-            LazyColumn(
-                state = lazyListState,
-                modifier = Modifier.fillMaxSize().glassRoot(dailyMixGlassState).scrollMotionBlur(lazyListState = lazyListState),
-                contentPadding = PaddingValues(bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp),
-                verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
-            ) {
-                item(key = "daily_mix_header") {
-                    val parallaxOffset by remember {
-                        derivedStateOf {
-                            if (lazyListState.firstVisibleItemIndex == 0) lazyListState.firstVisibleItemScrollOffset * 0.45f else 0f
+            val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val dmStatusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+            val dmNavBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            val totalDuration = remember(dailyMixSongs) { dailyMixSongs.sumOf { it.duration } }
+            val dmSubtitle = if (dailyMixSongs.isNotEmpty()) {
+                "${dailyMixSongs.size} songs • ${formatDuration(totalDuration)}"
+            } else {
+                ""
+            }
+            val dmHeaderContent: @Composable (Dp, Float, Float) -> Unit = { headerH, pOffset, cAlpha ->
+                ExpressiveHeroCollageHeader(
+                    title = dailyMixTitle,
+                    subtitle = dmSubtitle,
+                    songs = dailyMixSongs,
+                    headerHeight = headerH,
+                    parallaxOffset = pOffset,
+                    collageAlpha = cAlpha,
+                    trailingAction = {
+                        val cookieShape = remember {
+                            RoundedStarShape(
+                                sides = 8,
+                                curve = 0.05,
+                                rotation = 0f
+                            )
+                        }
+                        FilledIconButton(
+                            onClick = { playerViewModel.showAiPlaylistSheet() },
+                            shape = cookieShape,
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier
+                                .padding(start = 6.dp)
+                                .size(50.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_instant_mix_24),
+                                contentDescription = "Daily Mix Generator",
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
-                    val collageAlpha by remember {
-                        derivedStateOf {
-                            (1f - (lazyListState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
-                        }
-                    }
-                    val totalDuration = remember(dailyMixSongs) { dailyMixSongs.sumOf { it.duration } }
-                    val subtitle = if (dailyMixSongs.isNotEmpty()) {
-                        "${dailyMixSongs.size} songs • ${formatDuration(totalDuration)}"
-                    } else {
-                        ""
-                    }
-                    ExpressiveHeroCollageHeader(
-                        title = dailyMixTitle,
-                        subtitle = subtitle,
-                        songs = dailyMixSongs,
-                        headerHeight = 330.dp,
-                        parallaxOffset = parallaxOffset,
-                        collageAlpha = collageAlpha,
-                        trailingAction = {
-                            val cookieShape = remember {
-                                RoundedStarShape(
-                                    sides = 8,
-                                    curve = 0.05,
-                                    rotation = 0f
-                                )
-                            }
-                            FilledIconButton(
-                                onClick = { playerViewModel.showAiPlaylistSheet() },
-                                shape = cookieShape,
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                ),
-                                modifier = Modifier
-                                    .padding(start = 6.dp)
-                                    .size(50.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_instant_mix_24),
-                                    contentDescription = "Daily Mix Generator",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
+                )
+            }
+            val dmActionsRow: @Composable () -> Unit = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(76.dp)
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val playShape = RoundedCornerShape(
+                        topStart = 60.dp,
+                        topEnd = 14.dp,
+                        bottomStart = 60.dp,
+                        bottomEnd = 14.dp
                     )
+                    val shuffleShape = RoundedCornerShape(
+                        topStart = 14.dp,
+                        topEnd = 60.dp,
+                        bottomStart = 14.dp,
+                        bottomEnd = 60.dp
+                    )
+                    Button(
+                        onClick = {
+                            if (dailyMixSongs.isNotEmpty()) {
+                                playerViewModel.playSongs(dailyMixSongs, dailyMixSongs.first(), dailyMixTitle)
+                                if (isShuffleEnabled) playerViewModel.toggleShuffle()
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(76.dp)
+                            .expressiveTapColorWave(
+                                waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                                shape = playShape,
+                                enabled = dailyMixSongs.isNotEmpty()
+                            ),
+                        enabled = dailyMixSongs.isNotEmpty(),
+                        shape = playShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        elevation = ButtonDefaults.buttonElevation()
+                    ) {
+                        Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = stringResource(R.string.cd_play), modifier = Modifier.size(
+                            ButtonDefaults.IconSize))
+                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                        Text(playItLabel)
+                    }
+                    FilledTonalButton(
+                        onClick = {
+                            if (dailyMixSongs.isNotEmpty()) {
+                                playerViewModel.playSongsShuffled(
+                                    songsToPlay = dailyMixSongs,
+                                    queueName = dailyMixTitle,
+                                    startAtZero = true
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(76.dp)
+                            .expressiveTapColorWave(
+                                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f),
+                                shape = shuffleShape,
+                                enabled = dailyMixSongs.isNotEmpty()
+                            ),
+                        enabled = dailyMixSongs.isNotEmpty(),
+                        shape = shuffleShape,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        ),
+                        elevation = ButtonDefaults.filledTonalButtonElevation()
+                    ) {
+                        Icon(painterResource(R.drawable.rounded_shuffle_24), contentDescription = shuffleLabel, modifier = Modifier.size(
+                            ButtonDefaults.IconSize))
+                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                        Text(shuffleLabel)
+                    }
+                }
+            }
+
+            Row(modifier = Modifier.fillMaxSize()) {
+                if (isLandscape) {
+                    Column(
+                        modifier = Modifier
+                            .weight(0.45f)
+                            .fillMaxHeight()
+                            .padding(bottom = MiniPlayerHeight + dmNavBottom + 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        dmHeaderContent(230.dp, 0f, 1f)
+                        dmActionsRow()
+                    }
                 }
 
-                item(key = "play_shuffle_buttons") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(76.dp)
-                            .padding(horizontal = 20.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val playShape = RoundedCornerShape(
-                            topStart = 60.dp,
-                            topEnd = 14.dp,
-                            bottomStart = 60.dp,
-                            bottomEnd = 14.dp
-                        )
-                        val shuffleShape = RoundedCornerShape(
-                            topStart = 14.dp,
-                            topEnd = 60.dp,
-                            bottomStart = 14.dp,
-                            bottomEnd = 60.dp
-                        )
-                        Button(
-                            onClick = {
-                                if (dailyMixSongs.isNotEmpty()) {
-                                    playerViewModel.playSongs(dailyMixSongs, dailyMixSongs.first(), dailyMixTitle)
-                                    if (isShuffleEnabled) playerViewModel.toggleShuffle()
+                LazyColumn(
+                    state = lazyListState,
+                    modifier = Modifier
+                        .weight(if (isLandscape) 0.55f else 1f)
+                        .fillMaxHeight()
+                        .glassRoot(dailyMixGlassState)
+                        .scrollMotionBlur(lazyListState = lazyListState),
+                    contentPadding = PaddingValues(
+                        top = if (isLandscape) dmStatusTop + 12.dp else 0.dp,
+                        bottom = MiniPlayerHeight + dmNavBottom + 16.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
+                ) {
+                    if (!isLandscape) {
+                        item(key = "daily_mix_header") {
+                            val parallaxOffset by remember {
+                                derivedStateOf {
+                                    if (lazyListState.firstVisibleItemIndex == 0) lazyListState.firstVisibleItemScrollOffset * 0.45f else 0f
                                 }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(76.dp)
-                                .expressiveTapColorWave(
-                                    waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
-                                    shape = playShape,
-                                    enabled = dailyMixSongs.isNotEmpty()
-                                ),
-                            enabled = dailyMixSongs.isNotEmpty(),
-                            shape = playShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            ),
-                            elevation = ButtonDefaults.buttonElevation()
-                        ) {
-                            Icon(painterResource(R.drawable.rounded_play_arrow_filled_24), contentDescription = stringResource(R.string.cd_play), modifier = Modifier.size(
-                                ButtonDefaults.IconSize))
-                            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                            Text(playItLabel)
+                            }
+                            val collageAlpha by remember {
+                                derivedStateOf {
+                                    (1f - (lazyListState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
+                                }
+                            }
+                            dmHeaderContent(330.dp, parallaxOffset, collageAlpha)
                         }
-                        FilledTonalButton(
-                            onClick = {
-                                if (dailyMixSongs.isNotEmpty()) {
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = dailyMixSongs,
-                                        queueName = dailyMixTitle,
-                                        startAtZero = true
-                                    )
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(76.dp)
-                                .expressiveTapColorWave(
-                                    waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f),
-                                    shape = shuffleShape,
-                                    enabled = dailyMixSongs.isNotEmpty()
-                                ),
-                            enabled = dailyMixSongs.isNotEmpty(),
-                            shape = shuffleShape,
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer
-                            ),
-                            elevation = ButtonDefaults.filledTonalButtonElevation()
-                        ) {
-                            Icon(painterResource(R.drawable.rounded_shuffle_24), contentDescription = shuffleLabel, modifier = Modifier.size(
-                                ButtonDefaults.IconSize))
-                            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                            Text(shuffleLabel)
+
+                        item(key = "play_shuffle_buttons") {
+                            dmActionsRow()
                         }
                     }
-                }
 
                 itemsIndexed(dailyMixSongs, key = { index, song -> "${song.id}_$index" }) { index, song ->
                     EnhancedSongListItem(
@@ -469,6 +507,7 @@ fun DailyMixScreen(
                         }
                     )
                 }
+            }
             }
         }
 

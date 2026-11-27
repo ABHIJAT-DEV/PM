@@ -8,8 +8,13 @@ import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
 import com.saurav.pixelmusic.ui.blur.glassRoot
 import com.saurav.pixelmusic.ui.blur.rememberGlassState
 
+import android.content.res.Configuration
 import com.saurav.pixelmusic.R
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
@@ -129,76 +134,109 @@ fun QuickPicksAllScreen(
     val backgroundBrush = androidx.compose.runtime.remember { Brush.verticalGradient(colors = bgColors, endY = 900f) }
     val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val statusBarTopPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val subtitleText = when {
+        isLoading -> "Fetching from YouTube..."
+        songs.isNotEmpty() -> "${songs.size} songs from YouTube"
+        else -> ""
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(backgroundBrush)
     ) {
         val quickPicksGlassState = rememberGlassState()
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .glassRoot(quickPicksGlassState)
-                .scrollMotionBlur(listState, enabled = isMotionBlurEnabled),
-            contentPadding = PaddingValues(
-                bottom = MiniPlayerHeight + navBarPadding + 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
-        ) {
-            // Expressive Hero Collage Header
-            item(key = "qp_header") {
-                val parallaxOffset by remember {
-                    derivedStateOf {
-                        if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset * 0.45f else 0f
+        val qpHeaderContent: @Composable (Dp, Float, Float) -> Unit = { headerH, pOffset, cAlpha ->
+            ExpressiveHeroCollageHeader(
+                title = "Quick Picks",
+                subtitle = subtitleText,
+                songs = songs,
+                headerHeight = headerH,
+                parallaxOffset = pOffset,
+                collageAlpha = cAlpha,
+                trailingAction = {
+                    IconButton(
+                        onClick = { quickPicksViewModel.refresh() },
+                        modifier = Modifier.size(34.dp),
+                        enabled = !isLoading
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
-                val collageAlpha by remember {
-                    derivedStateOf {
-                        (1f - (listState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
+            )
+        }
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (isLandscape) {
+                Column(
+                    modifier = Modifier
+                        .weight(0.45f)
+                        .fillMaxHeight()
+                        .padding(bottom = MiniPlayerHeight + navBarPadding + 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    qpHeaderContent(230.dp, 0f, 1f)
+                    if (songs.isNotEmpty()) {
+                        QuickPicksActions(
+                            onPlay = {
+                                val first = songs.firstOrNull() ?: return@QuickPicksActions
+                                playerViewModel.playSongs(songs, first, "Quick Picks")
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
                 }
-                val subtitleText = when {
-                    isLoading -> "Fetching from YouTube..."
-                    songs.isNotEmpty() -> "${songs.size} songs from YouTube"
-                    else -> ""
-                }
-                ExpressiveHeroCollageHeader(
-                    title = "Quick Picks",
-                    subtitle = subtitleText,
-                    songs = songs,
-                    headerHeight = 330.dp,
-                    parallaxOffset = parallaxOffset,
-                    collageAlpha = collageAlpha,
-                    trailingAction = {
-                        IconButton(
-                            onClick = { quickPicksViewModel.refresh() },
-                            modifier = Modifier.size(34.dp),
-                            enabled = !isLoading
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Refresh,
-                                contentDescription = "Refresh",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+            }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(if (isLandscape) 0.55f else 1f)
+                    .fillMaxHeight()
+                    .glassRoot(quickPicksGlassState)
+                    .scrollMotionBlur(listState, enabled = isMotionBlurEnabled),
+                contentPadding = PaddingValues(
+                    top = if (isLandscape) statusBarTopPadding + 12.dp else 0.dp,
+                    bottom = MiniPlayerHeight + navBarPadding + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
+            ) {
+                if (!isLandscape) {
+                    // Expressive Hero Collage Header
+                    item(key = "qp_header") {
+                        val parallaxOffset by remember {
+                            derivedStateOf {
+                                if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset * 0.45f else 0f
+                            }
+                        }
+                        val collageAlpha by remember {
+                            derivedStateOf {
+                                (1f - (listState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
+                            }
+                        }
+                        qpHeaderContent(330.dp, parallaxOffset, collageAlpha)
+                    }
+
+                    // Action buttons
+                    if (songs.isNotEmpty()) {
+                        item(key = "qp_actions") {
+                            QuickPicksActions(
+                                onPlay = {
+                                    val first = songs.firstOrNull() ?: return@QuickPicksActions
+                                    playerViewModel.playSongs(songs, first, "Quick Picks")
+                                },
+                                modifier = Modifier.padding(horizontal = 16.dp)
                             )
                         }
                     }
-                )
-            }
-
-            // Action buttons
-            if (songs.isNotEmpty()) {
-                item(key = "qp_actions") {
-                    QuickPicksActions(
-                        onPlay = {
-                            val first = songs.firstOrNull() ?: return@QuickPicksActions
-                            playerViewModel.playSongs(songs, first, "Quick Picks")
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
                 }
-            }
 
             // Category chips
             item(key = "qp_chips") {
@@ -276,6 +314,7 @@ fun QuickPicksAllScreen(
                         }
                     )
                 }
+            }
             }
         }
 

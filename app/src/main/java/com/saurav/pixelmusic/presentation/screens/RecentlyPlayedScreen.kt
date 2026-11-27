@@ -6,7 +6,11 @@ import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
 
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 
+import android.content.res.Configuration
 import android.os.Trace
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -264,66 +268,118 @@ fun RecentlyPlayedScreen(
                 ContainedLoadingIndicator()
             }
         } else {
-            LazyColumn(
-                state = lazyListState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .scrollMotionBlur(lazyListState, enabled = isMotionBlurEnabled),
-                contentPadding = PaddingValues(
-                    bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
-            ) {
-                item(key = "recently_played_header") {
-                    val parallaxOffset by remember {
-                        derivedStateOf {
-                            if (lazyListState.firstVisibleItemIndex == 0) lazyListState.firstVisibleItemScrollOffset * 0.45f else 0f
-                        }
-                    }
-                    val collageAlpha by remember {
-                        derivedStateOf {
-                            (1f - (lazyListState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
-                        }
-                    }
-                    ExpressiveHeroCollageHeader(
-                        title = stringResource(R.string.presentation_batch_b_recently_played_title),
-                        subtitle = "${recentlyPlayedSongs.size} songs • ${selectedRange.displayName}",
-                        songs = queueSongs,
-                        headerHeight = 320.dp,
-                        parallaxOffset = parallaxOffset,
-                        collageAlpha = collageAlpha
-                    )
-                }
+            val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val statusBarTopPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+            val rpNavBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-                item(key = "recently_played_range_selector") {
-                    RecentlyPlayedRangeSelector(
-                        selected = selectedRange,
-                        onRangeSelected = { selectedRange = it },
-                        modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
-                    )
-                }
-
-                if (recentlyPlayedSongs.isNotEmpty()) {
-                    item(key = "recently_played_actions") {
-                        RecentlyPlayedActions(
-                            onPlay = {
-                                val firstSong = queueSongs.firstOrNull() ?: return@RecentlyPlayedActions
-                                playerViewModel.playSongs(queueSongs, firstSong, queueRecentlyPlayed)
-                            },
-                            onShuffle = {
-                                if (queueSongs.isNotEmpty()) {
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = queueSongs,
-                                        queueName = queueRecentlyPlayed,
-                                        startAtZero = true
-                                    )
-                                }
-                            },
-                            shuffleLabel = shuffleLabel,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            Row(modifier = Modifier.fillMaxSize()) {
+                if (isLandscape) {
+                    Column(
+                        modifier = Modifier
+                            .weight(0.45f)
+                            .fillMaxHeight()
+                            .padding(bottom = MiniPlayerHeight + rpNavBottomPadding + 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        ExpressiveHeroCollageHeader(
+                            title = stringResource(R.string.presentation_batch_b_recently_played_title),
+                            subtitle = "${recentlyPlayedSongs.size} songs • ${selectedRange.displayName}",
+                            songs = queueSongs,
+                            headerHeight = 200.dp,
+                            parallaxOffset = 0f,
+                            collageAlpha = 1f
                         )
+                        RecentlyPlayedRangeSelector(
+                            selected = selectedRange,
+                            onRangeSelected = { selectedRange = it },
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                        if (recentlyPlayedSongs.isNotEmpty()) {
+                            RecentlyPlayedActions(
+                                onPlay = {
+                                    val firstSong = queueSongs.firstOrNull() ?: return@RecentlyPlayedActions
+                                    playerViewModel.playSongs(queueSongs, firstSong, queueRecentlyPlayed)
+                                },
+                                onShuffle = {
+                                    if (queueSongs.isNotEmpty()) {
+                                        playerViewModel.playSongsShuffled(
+                                            songsToPlay = queueSongs,
+                                            queueName = queueRecentlyPlayed,
+                                            startAtZero = true
+                                        )
+                                    }
+                                },
+                                shuffleLabel = shuffleLabel,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
+
+                LazyColumn(
+                    state = lazyListState,
+                    modifier = Modifier
+                        .weight(if (isLandscape) 0.55f else 1f)
+                        .fillMaxHeight()
+                        .scrollMotionBlur(lazyListState, enabled = isMotionBlurEnabled),
+                    contentPadding = PaddingValues(
+                        top = if (isLandscape) statusBarTopPadding + 12.dp else 0.dp,
+                        bottom = MiniPlayerHeight + rpNavBottomPadding + 16.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
+                ) {
+                    if (!isLandscape) {
+                        item(key = "recently_played_header") {
+                            val parallaxOffset by remember {
+                                derivedStateOf {
+                                    if (lazyListState.firstVisibleItemIndex == 0) lazyListState.firstVisibleItemScrollOffset * 0.45f else 0f
+                                }
+                            }
+                            val collageAlpha by remember {
+                                derivedStateOf {
+                                    (1f - (lazyListState.firstVisibleItemScrollOffset / 520f)).coerceIn(0f, 1f)
+                                }
+                            }
+                            ExpressiveHeroCollageHeader(
+                                title = stringResource(R.string.presentation_batch_b_recently_played_title),
+                                subtitle = "${recentlyPlayedSongs.size} songs • ${selectedRange.displayName}",
+                                songs = queueSongs,
+                                headerHeight = 320.dp,
+                                parallaxOffset = parallaxOffset,
+                                collageAlpha = collageAlpha
+                            )
+                        }
+
+                        item(key = "recently_played_range_selector") {
+                            RecentlyPlayedRangeSelector(
+                                selected = selectedRange,
+                                onRangeSelected = { selectedRange = it },
+                                modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
+                            )
+                        }
+
+                        if (recentlyPlayedSongs.isNotEmpty()) {
+                            item(key = "recently_played_actions") {
+                                RecentlyPlayedActions(
+                                    onPlay = {
+                                        val firstSong = queueSongs.firstOrNull() ?: return@RecentlyPlayedActions
+                                        playerViewModel.playSongs(queueSongs, firstSong, queueRecentlyPlayed)
+                                    },
+                                    onShuffle = {
+                                        if (queueSongs.isNotEmpty()) {
+                                            playerViewModel.playSongsShuffled(
+                                                songsToPlay = queueSongs,
+                                                queueName = queueRecentlyPlayed,
+                                                startAtZero = true
+                                            )
+                                        }
+                                    },
+                                    shuffleLabel = shuffleLabel,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
 
                 if (recentlyPlayedSongs.isEmpty()) {
                     item(key = "recently_played_empty") {
@@ -368,6 +424,7 @@ fun RecentlyPlayedScreen(
                         }
                     }
                 }
+            }
             }
         }
 

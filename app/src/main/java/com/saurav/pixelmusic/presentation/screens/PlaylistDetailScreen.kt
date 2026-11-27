@@ -6,7 +6,10 @@ import com.saurav.pixelmusic.ui.blur.ProgressiveStatusBarHeaderBackdrop
 
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.navigation.navigateSafelyReplacing
+import android.content.res.Configuration
 import android.widget.Toast
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.platform.LocalConfiguration
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -320,181 +323,258 @@ fun PlaylistDetailScreen(
         } else if (currentPlaylist == null) {
             Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
         } else {
-            Column(modifier = Modifier.fillMaxSize()) {
-                ExpressiveHeroCollageHeader(
-                    title = currentPlaylist.name,
-                    subtitle = stringResource(
-                        R.string.presentation_batch_f_status_bullet_step,
-                        formatSongCount(songsInPlaylist.size),
-                        formatTotalDuration(songsInPlaylist)
-                    ),
-                    songs = songsInPlaylist,
-                    headerHeight = heroHeight,
-                    showCollage = !isHeaderCollapsed
-                )
-                val actionButtonsHeight = 42.dp
-                val playbackControlBottomPadding = if (isFolderPlaylist) 8.dp else 6.dp
-
-                val playButtonShape = remember {
-                    AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = 60.dp,
-                        smoothnessAsPercentTR = 60,
-                        cornerRadiusTR = 14.dp,
-                        smoothnessAsPercentTL = 60,
-                        cornerRadiusBL = 60.dp,
-                        smoothnessAsPercentBR = 60,
-                        cornerRadiusBR = 14.dp,
-                        smoothnessAsPercentBL = 60
-                    )
-                }
-                val shuffleButtonShape = remember {
-                    AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = 14.dp,
-                        smoothnessAsPercentTR = 60,
-                        cornerRadiusTR = 60.dp,
-                        smoothnessAsPercentTL = 60,
-                        cornerRadiusBL = 14.dp,
-                        smoothnessAsPercentBR = 60,
-                        cornerRadiusBR = 60.dp,
-                        smoothnessAsPercentBL = 60
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(62.dp)
-                        .padding(horizontal = 20.dp)
-                        .padding(bottom = playbackControlBottomPadding),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            if (localReorderableSongs.isNotEmpty()) {
-                                playerViewModel.playSongs(
-                                    localReorderableSongs,
-                                    localReorderableSongs.first(),
-                                    currentPlaylist.name,
-                                    currentPlaylist.id
-                                )
-                                if (playlistIsShuffleEnabled) playerViewModel.toggleShuffle()
-                            } else if (currentPlaylist.source == "YOUTUBE") {
-                                playerViewModel.playRadio(
-                                    saurav.shru.pixelmusic.innertube.models.WatchEndpoint(playlistId = currentPlaylist.id),
-                                    currentPlaylist.name
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(76.dp)
-                            .expressiveTapColorWave(
-                                waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
-                                shape = playButtonShape,
-                                enabled = currentPlaylist.source == "YOUTUBE" || localReorderableSongs.isNotEmpty()
-                            ),
-                        enabled = currentPlaylist.source == "YOUTUBE" || localReorderableSongs.isNotEmpty(),
-                        shape = playButtonShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
+            val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val playlistHeaderAndActions: @Composable (Modifier) -> Unit = { headerModifier ->
+                Column(modifier = headerModifier) {
+                    ExpressiveHeroCollageHeader(
+                        title = currentPlaylist.name,
+                        subtitle = stringResource(
+                            R.string.presentation_batch_f_status_bullet_step,
+                            formatSongCount(songsInPlaylist.size),
+                            formatTotalDuration(songsInPlaylist)
                         ),
-                        elevation = ButtonDefaults.buttonElevation()
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
-                            contentDescription = stringResource(R.string.cd_play),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                        Text(playItLabel)
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            if (localReorderableSongs.isNotEmpty()) {
-                                playerViewModel.playSongsShuffled(
-                                    songsToPlay = localReorderableSongs,
-                                    queueName = currentPlaylist.name,
-                                    playlistId = currentPlaylist.id,
-                                    startAtZero = true
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(76.dp)
-                            .expressiveTapColorWave(
-                                waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f),
-                                shape = shuffleButtonShape,
-                                enabled = localReorderableSongs.isNotEmpty()
-                            ),
-                        enabled = localReorderableSongs.isNotEmpty(),
-                        shape = shuffleButtonShape,
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        ),
-                        elevation = ButtonDefaults.filledTonalButtonElevation()
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.rounded_shuffle_24),
-                            contentDescription = shuffleLabel,
-                            modifier = Modifier.size(ButtonDefaults.IconSize)
-                        )
-                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                        Text(shuffleLabel)
-                    }
-                }
+                        songs = songsInPlaylist,
+                        headerHeight = if (isLandscape) 230.dp else heroHeight,
+                        showCollage = if (isLandscape) true else !isHeaderCollapsed
+                    )
+                    val playbackControlBottomPadding = if (isFolderPlaylist) 8.dp else 6.dp
 
-                // Only show a compact exit pill when Remove or Reorder edit mode is active
-                if (!isFolderPlaylist && isSavedLocally && (isRemoveModeEnabled || isReorderModeEnabled)) {
+                    val playButtonShape = remember {
+                        AbsoluteSmoothCornerShape(
+                            cornerRadiusTL = 60.dp,
+                            smoothnessAsPercentTR = 60,
+                            cornerRadiusTR = 14.dp,
+                            smoothnessAsPercentTL = 60,
+                            cornerRadiusBL = 60.dp,
+                            smoothnessAsPercentBR = 60,
+                            cornerRadiusBR = 14.dp,
+                            smoothnessAsPercentBL = 60
+                        )
+                    }
+                    val shuffleButtonShape = remember {
+                        AbsoluteSmoothCornerShape(
+                            cornerRadiusTL = 14.dp,
+                            smoothnessAsPercentTR = 60,
+                            cornerRadiusTR = 60.dp,
+                            smoothnessAsPercentTL = 60,
+                            cornerRadiusBL = 14.dp,
+                            smoothnessAsPercentBR = 60,
+                            cornerRadiusBR = 60.dp,
+                            smoothnessAsPercentBL = 60
+                        )
+                    }
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .height(62.dp)
+                            .padding(horizontal = 20.dp)
+                            .padding(bottom = playbackControlBottomPadding),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (isRemoveModeEnabled) {
-                            Button(
-                                onClick = { isRemoveModeEnabled = false },
-                                shape = CircleShape,
-                                contentPadding = PaddingValues(horizontal = 14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiary,
-                                    contentColor = MaterialTheme.colorScheme.onTertiary
+                        Button(
+                            onClick = {
+                                if (localReorderableSongs.isNotEmpty()) {
+                                    playerViewModel.playSongs(
+                                        localReorderableSongs,
+                                        localReorderableSongs.first(),
+                                        currentPlaylist.name,
+                                        currentPlaylist.id
+                                    )
+                                    if (playlistIsShuffleEnabled) playerViewModel.toggleShuffle()
+                                } else if (currentPlaylist.source == "YOUTUBE") {
+                                    playerViewModel.playRadio(
+                                        saurav.shru.pixelmusic.innertube.models.WatchEndpoint(playlistId = currentPlaylist.id),
+                                        currentPlaylist.name
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(76.dp)
+                                .expressiveTapColorWave(
+                                    waveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                                    shape = playButtonShape,
+                                    enabled = currentPlaylist.source == "YOUTUBE" || localReorderableSongs.isNotEmpty()
                                 ),
-                                modifier = Modifier.height(38.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_remove_circle_outline_24),
-                                    contentDescription = removeSongsCd,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text("Done $removeLabel", style = MaterialTheme.typography.labelMedium)
-                            }
+                            enabled = currentPlaylist.source == "YOUTUBE" || localReorderableSongs.isNotEmpty(),
+                            shape = playButtonShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            ),
+                            elevation = ButtonDefaults.buttonElevation()
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
+                                contentDescription = stringResource(R.string.cd_play),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                            Text(playItLabel)
                         }
-                        if (isReorderModeEnabled) {
-                            Button(
-                                onClick = { isReorderModeEnabled = false },
-                                shape = CircleShape,
-                                contentPadding = PaddingValues(horizontal = 14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiary,
-                                    contentColor = MaterialTheme.colorScheme.onTertiary
+                        FilledTonalButton(
+                            onClick = {
+                                if (localReorderableSongs.isNotEmpty()) {
+                                    playerViewModel.playSongsShuffled(
+                                        songsToPlay = localReorderableSongs,
+                                        queueName = currentPlaylist.name,
+                                        playlistId = currentPlaylist.id,
+                                        startAtZero = true
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(76.dp)
+                                .expressiveTapColorWave(
+                                    waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f),
+                                    shape = shuffleButtonShape,
+                                    enabled = localReorderableSongs.isNotEmpty()
                                 ),
-                                modifier = Modifier.height(38.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.drag_order_icon),
-                                    contentDescription = reorderSongsCd,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text("Done $reorderLabel", style = MaterialTheme.typography.labelMedium)
+                            enabled = localReorderableSongs.isNotEmpty(),
+                            shape = shuffleButtonShape,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            ),
+                            elevation = ButtonDefaults.filledTonalButtonElevation()
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.rounded_shuffle_24),
+                                contentDescription = shuffleLabel,
+                                modifier = Modifier.size(ButtonDefaults.IconSize)
+                            )
+                            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                            Text(shuffleLabel)
+                        }
+                    }
+
+                    // Only show a compact exit pill when Remove or Reorder edit mode is active
+                    if (!isFolderPlaylist && isSavedLocally && (isRemoveModeEnabled || isReorderModeEnabled)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isRemoveModeEnabled) {
+                                Button(
+                                    onClick = { isRemoveModeEnabled = false },
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.tertiary,
+                                        contentColor = MaterialTheme.colorScheme.onTertiary
+                                    ),
+                                    modifier = Modifier.height(38.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_remove_circle_outline_24),
+                                        contentDescription = removeSongsCd,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Done $removeLabel", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                            if (isReorderModeEnabled) {
+                                Button(
+                                    onClick = { isReorderModeEnabled = false },
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.tertiary,
+                                        contentColor = MaterialTheme.colorScheme.onTertiary
+                                    ),
+                                    modifier = Modifier.height(38.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.drag_order_icon),
+                                        contentDescription = reorderSongsCd,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Done $reorderLabel", style = MaterialTheme.typography.labelMedium)
+                                }
                             }
                         }
                     }
                 }
+            }
+
+            if (isLandscape) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    playlistHeaderAndActions(
+                        Modifier
+                            .weight(0.45f)
+                            .fillMaxHeight()
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(0.55f)
+                            .fillMaxHeight()
+                            .statusBarsPadding()
+                            .padding(top = 8.dp)
+                    ) {
+                        if (localReorderableSongs.isEmpty()) {
+                            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                Text(playlistEmptyTitle, style = MaterialTheme.typography.titleMedium)
+                            }
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                LazyColumn(
+                                    state = listState,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp),
+                                    contentPadding = PaddingValues(
+                                        top = 8.dp,
+                                        bottom = MiniPlayerHeight + systemNavBarInset + 16.dp
+                                    ),
+                                    verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
+                                ) {
+                                    itemsIndexed(
+                                        items = localReorderableSongs,
+                                        key = { index, song -> "${song.id}_$index" }
+                                    ) { index, song ->
+                                        QueuePlaylistSongItem(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .expressiveListItemScrollAnimation(listState),
+                                            onClick = {
+                                                playerViewModel.playSongs(
+                                                    localReorderableSongs,
+                                                    song,
+                                                    currentPlaylist.name,
+                                                    currentPlaylist.id
+                                                )
+                                            },
+                                            song = song,
+                                            isCurrentSong = playlistCurrentSongId == song.id,
+                                            isPlaying = playlistIsPlaying,
+                                            isDragging = false,
+                                            onRemoveClick = {
+                                                if (!isFolderPlaylist) {
+                                                    songToRemoveFromPlaylist = song
+                                                }
+                                            },
+                                            customShape = com.saurav.pixelmusic.presentation.components.expressiveGroupedCardShape(index, localReorderableSongs.size),
+                                            isFromPlaylist = true,
+                                            isReorderModeEnabled = false,
+                                            isDragHandleVisible = false,
+                                            isRemoveButtonVisible = isRemoveModeEnabled,
+                                            onMoreOptionsClick = stableOnMoreOptionsClick,
+                                            dragHandle = {}
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+            Column(modifier = Modifier.fillMaxSize()) {
+                playlistHeaderAndActions(Modifier.fillMaxWidth())
 
                 if (localReorderableSongs.isEmpty()) {
                     Box(Modifier
@@ -637,6 +717,7 @@ fun PlaylistDetailScreen(
                         )
                     }
                 }
+            }
             }
         }
 
