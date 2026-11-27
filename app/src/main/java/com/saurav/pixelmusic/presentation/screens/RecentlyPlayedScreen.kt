@@ -329,8 +329,8 @@ fun RecentlyPlayedScreen(
                         )
                     }
 
-                    if (isLandscape && recentlyPlayedSongs.isNotEmpty()) {
-                        item(key = "recently_played_actions_landscape") {
+                    if (recentlyPlayedSongs.isNotEmpty()) {
+                        item(key = "recently_played_actions") {
                             RecentlyPlayedActions(
                                 onPlay = {
                                     val firstSong = queueSongs.firstOrNull() ?: return@RecentlyPlayedActions
@@ -348,29 +348,6 @@ fun RecentlyPlayedScreen(
                                 shuffleLabel = shuffleLabel,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                             )
-                        }
-                    }
-
-                        if (recentlyPlayedSongs.isNotEmpty()) {
-                            item(key = "recently_played_actions") {
-                                RecentlyPlayedActions(
-                                    onPlay = {
-                                        val firstSong = queueSongs.firstOrNull() ?: return@RecentlyPlayedActions
-                                        playerViewModel.playSongs(queueSongs, firstSong, queueRecentlyPlayed)
-                                    },
-                                    onShuffle = {
-                                        if (queueSongs.isNotEmpty()) {
-                                            playerViewModel.playSongsShuffled(
-                                                songsToPlay = queueSongs,
-                                                queueName = queueRecentlyPlayed,
-                                                startAtZero = true
-                                            )
-                                        }
-                                    },
-                                    shuffleLabel = shuffleLabel,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                                )
-                            }
                         }
                     }
 
