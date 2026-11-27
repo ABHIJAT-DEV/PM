@@ -394,7 +394,7 @@ fun PillarsPlayerLayout(
                     .fillMaxWidth(0.50f)
                     .fillMaxHeight()
                     .align(Alignment.CenterEnd)
-                    .padding(top = 12.dp, bottom = navBarBottomPadding + 12.dp)
+                    .padding(top = 8.dp, bottom = 6.dp)
             } else {
                 Modifier
                     .fillMaxWidth()
@@ -481,7 +481,7 @@ fun PillarsPlayerLayout(
                 playCornerPlaying = 28.dp,
                 playCornerPaused = 46.dp,
                 skipCorner = 46.dp,
-                height = if (isLandscape) 66.dp else 92.dp,
+                height = if (isLandscape) 82.dp else 92.dp,
                 spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,

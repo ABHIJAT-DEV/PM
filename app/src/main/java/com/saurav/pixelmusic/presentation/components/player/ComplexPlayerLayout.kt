@@ -511,7 +511,7 @@ fun ComplexPlayerLayout(
                 .layout { measurable, constraints ->
                     val sample = morphTracker.evaluate(expansionFractionProvider())
                     val fullW = if (isLandscape) {
-                        (constraints.maxWidth.toFloat() * 0.50f).takeIf { it > 0f } ?: (screenWidthPx * 0.50f)
+                        (constraints.maxWidth.toFloat() * 0.505f).takeIf { it > 0f } ?: (screenWidthPx * 0.505f)
                     } else {
                         constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
                     }
@@ -661,19 +661,22 @@ fun ComplexPlayerLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    bottom = (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp),
-                    start = if (isLandscape) (screenWidthDp * 0.50f + 16.dp) else 22.dp,
+                    bottom = if (isLandscape) 8.dp else (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp),
+                    start = if (isLandscape) 0.dp else 22.dp,
                     end = 20.dp
                 ),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = if (isLandscape) Alignment.CenterVertically else Alignment.Bottom
         ) {
+            if (isLandscape) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
             // LEFT AREA: Song Title / Artist + Glowing Word-by-Word Karaoke Lyrics
             Column(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(if (isLandscape) 0.72f else 1f)
                     .fillMaxHeight()
-                    .padding(top = leftColumnTopDp),
+                    .padding(top = leftColumnTopDp, start = if (isLandscape) 12.dp else 0.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // Song Title & Artist — morphs in-place via GPU graphicsLayer from MiniPlayer slot (66.dp, 13.5.dp)
@@ -880,7 +883,7 @@ fun ComplexPlayerLayout(
                     aodTransitionProgressProvider = aodTransitionProgressProvider,
                     modifier = Modifier
                         .width(68.dp)
-                        .height(if (isLandscape) 296.dp else 332.dp)
+                        .height(if (isLandscape) 316.dp else 332.dp)
                 )
             }
         }

@@ -690,44 +690,49 @@ fun LyricsSheet(
 
         val lyricsContentPane: @Composable (Modifier) -> Unit = { paneModifier ->
             Box(modifier = paneModifier) {
-                // Track Info Header (Fixed at top)
-                AnimatedContent(
-                    targetState = currentSong,
-                    transitionSpec = {
-                        (fadeIn(animationSpec = tween(300)) + 
-                         scaleIn(initialScale = 0.9f, animationSpec = tween(300)))
-                        .togetherWith(fadeOut(animationSpec = tween(300)))
-                    },
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .zIndex(2f)
-                        .wrapContentWidth(),
-                    label = "headerAnimation"
-                ) { song ->
-                    LyricsTrackInfo(
-                        song = song,
+                // Track Info Header (Fixed at top in portrait only; landscape moves it to the right pane)
+                if (!isLandscape) {
+                    AnimatedContent(
+                        targetState = currentSong,
+                        transitionSpec = {
+                            (fadeIn(animationSpec = tween(300)) +
+                             scaleIn(initialScale = 0.9f, animationSpec = tween(300)))
+                            .togetherWith(fadeOut(animationSpec = tween(300)))
+                        },
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(
-                                top = 4.dp, bottom = 24.dp, start = 18.dp, end = 18.dp
-                            )
-                            .background(
-                                color = backgroundColor,
-                                shape = CircleShape
-                            )
-                            .wrapContentWidth()
-                            .animateContentSize(), // Animate width changes
-                        backgroundColor = backgroundColor, // Distinct solid background
-                        contentColor = onBackgroundColor,
-                        isPlaying = isPlaying
-                    )
+                            .zIndex(2f)
+                            .wrapContentWidth(),
+                        label = "headerAnimation"
+                    ) { song ->
+                        LyricsTrackInfo(
+                            song = song,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(
+                                    top = 4.dp, bottom = 24.dp, start = 18.dp, end = 18.dp
+                                )
+                                .background(
+                                    color = backgroundColor,
+                                    shape = CircleShape
+                                )
+                                .wrapContentWidth()
+                                .animateContentSize(), // Animate width changes
+                            backgroundColor = backgroundColor, // Distinct solid background
+                            contentColor = onBackgroundColor,
+                            isPlaying = isPlaying
+                        )
+                    }
                 }
+
+                val lyricsTopPadding = if (isLandscape) 20.dp else 130.dp
+                val lyricsBottomPadding = if (isLandscape) 24.dp else 100.dp
 
                 when (showSyncedLyrics) {
                     null -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(top = 110.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
+                            contentPadding = PaddingValues(top = if (isLandscape) 20.dp else 110.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
                         ) {
                             item(key = "loader_or_empty") {
                                 Box(
@@ -766,7 +771,7 @@ fun LyricsSheet(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(horizontal = 24.dp),
-                                    contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
+                                    contentPadding = PaddingValues(top = lyricsTopPadding, bottom = lyricsBottomPadding),
                                     lines = synced,
                                     listState = syncedListState,
                                     playbackPositionFlow = playbackPositionFlow,
@@ -805,7 +810,7 @@ fun LyricsSheet(
                             } else {
                                 com.saurav.pixelmusic.presentation.components.lyrics.PixelMusicSyncedLyricsView(
                                     modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
+                                    contentPadding = PaddingValues(top = lyricsTopPadding, bottom = lyricsBottomPadding),
                                     lines = synced,
                                     listState = syncedListState,
                                     playbackPositionFlow = playbackPositionFlow,
@@ -843,7 +848,7 @@ fun LyricsSheet(
                                 contentPadding = PaddingValues(
                                     start = 24.dp,
                                     end = 24.dp,
-                                    top = 130.dp,
+                                    top = lyricsTopPadding,
                                     bottom = 24.dp
                                 )
                             ) {
@@ -1024,7 +1029,7 @@ fun LyricsSheet(
                         .fillMaxSize()
                         .padding(
                             top = paddingValues.calculateTopPadding(),
-                            bottom = paddingValues.calculateBottomPadding()
+                            bottom = 4.dp
                         )
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -1039,19 +1044,87 @@ fun LyricsSheet(
                             .fillMaxHeight()
                     )
 
-                    AnimatedVisibility(
-                        visible = !immersiveMode,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
+                    Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        controlsPaneContent(
-                            Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 24.dp, vertical = 16.dp)
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            AnimatedVisibility(
+                                visible = !immersiveMode,
+                                enter = fadeIn(),
+                                exit = fadeOut()
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    LyricsTrackInfo(
+                                        song = currentSong,
+                                        modifier = Modifier
+                                            .background(
+                                                color = backgroundColor,
+                                                shape = CircleShape
+                                            )
+                                            .wrapContentWidth()
+                                            .animateContentSize(),
+                                        backgroundColor = backgroundColor,
+                                        contentColor = onBackgroundColor,
+                                        isPlaying = isPlaying
+                                    )
+                                    controlsPaneContent(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 4.dp)
+                                    )
+                                }
+                            }
+
+                            AnimatedVisibility(
+                                visible = immersiveMode,
+                                enter = fadeIn(),
+                                exit = fadeOut()
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    LyricsTrackInfo(
+                                        song = currentSong,
+                                        modifier = Modifier
+                                            .background(
+                                                color = backgroundColor,
+                                                shape = CircleShape
+                                            )
+                                            .wrapContentWidth()
+                                            .animateContentSize(),
+                                        backgroundColor = backgroundColor,
+                                        contentColor = onBackgroundColor,
+                                        isPlaying = isPlaying
+                                    )
+                                    FilledIconButton(
+                                        onClick = { resetImmersiveTimer() },
+                                        modifier = Modifier.size(48.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = accentColor,
+                                            contentColor = onAccentColor
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.KeyboardArrowUp,
+                                            contentDescription = "Show Controls"
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             } else {
@@ -1181,14 +1254,14 @@ fun LyricsSheet(
             }
         }
 
-       // Show Controls Button (Overlay)
+       // Show Controls Button (Overlay — portrait only; landscape renders it in the right pane)
        AnimatedVisibility(
-            visible = immersiveMode,
+            visible = immersiveMode && !isLandscape,
             enter = fadeIn() + slideInVertically { it / 2 },
             exit = fadeOut() + slideOutVertically { it / 2 },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp)
+                .padding(bottom = 24.dp)
         ) {
             FilledIconButton(
                 onClick = { resetImmersiveTimer() },

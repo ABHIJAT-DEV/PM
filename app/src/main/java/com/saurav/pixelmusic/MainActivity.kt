@@ -1358,11 +1358,52 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        val isExpandedOrExpanding by remember {
+                            derivedStateOf {
+                                playerViewModel.playerContentExpansionFraction.value > 0.01f
+                            }
+                        }
+                        if (isExpandedOrExpanding) {
+                            val scrimColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        alpha = (playerViewModel.playerContentExpansionFraction.value * 0.6f).coerceIn(0f, 0.6f)
+                                    }
+                                    .background(scrimColor)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures {
+                                            playerViewModel.collapsePlayerSheet()
+                                        }
+                                    }
+                            )
+                        }
+
+                        UnifiedPlayerSheetV2(
+                            playerViewModel = playerViewModel,
+                            sheetCollapsedTargetY = sheetCollapsedTargetY,
+                            collapsedStateHorizontalPadding = if (isLandscape) {
+                                16.dp
+                            } else {
+                                horizontalPadding + 16.dp
+                            },
+                            collapsedStateHorizontalPaddingEnd = if (isLandscape) {
+                                (this.maxWidth - 380.dp - 16.dp).coerceAtLeast(16.dp)
+                            } else {
+                                horizontalPadding + 16.dp
+                            },
+                            hideMiniPlayer = shouldHideMiniPlayer,
+                            containerHeight = containerHeight,
+                            navController = navController,
+                            isNavBarHidden = isNavBarEffectivelyHidden
+                        )
+
                         val isLocalModeMain by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
                         val isHomeOrExploreRoute = currentRoute == Screen.Home.route ||
                             (currentRoute == Screen.Explore.route && !isLocalModeMain)
-                        val isFabVisible by remember(currentRoute, isSearchBarActive, isLocalModeMain) {
-                            derivedStateOf { isHomeOrExploreRoute && !isSearchBarActive }
+                        val isFabVisible by remember(currentRoute, isSearchBarActive, isLocalModeMain, isExpandedOrExpanding) {
+                            derivedStateOf { isHomeOrExploreRoute && !isSearchBarActive && !isExpandedOrExpanding }
                         }
                         androidx.compose.animation.AnimatedVisibility(
                             visible = isFabVisible,
@@ -1416,47 +1457,6 @@ class MainActivity : ComponentActivity() {
                                 onListenTogetherClick = if (isLocalModeMain) null else { { playerViewModel.openPixelJamSheet() } }
                             )
                         }
-                            
-                        val isExpandedOrExpanding by remember {
-                            derivedStateOf {
-                                playerViewModel.playerContentExpansionFraction.value > 0.01f
-                            }
-                        }
-                        if (isExpandedOrExpanding) {
-                            val scrimColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        alpha = (playerViewModel.playerContentExpansionFraction.value * 0.6f).coerceIn(0f, 0.6f)
-                                    }
-                                    .background(scrimColor)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures {
-                                            playerViewModel.collapsePlayerSheet()
-                                        }
-                                    }
-                            )
-                        }
-
-                        UnifiedPlayerSheetV2(
-                            playerViewModel = playerViewModel,
-                            sheetCollapsedTargetY = sheetCollapsedTargetY,
-                            collapsedStateHorizontalPadding = if (isLandscape) {
-                                16.dp
-                            } else {
-                                horizontalPadding + 16.dp
-                            },
-                            collapsedStateHorizontalPaddingEnd = if (isLandscape) {
-                                (this.maxWidth - 380.dp - 16.dp).coerceAtLeast(16.dp)
-                            } else {
-                                horizontalPadding + 16.dp
-                            },
-                            hideMiniPlayer = shouldHideMiniPlayer,
-                            containerHeight = containerHeight,
-                            navController = navController,
-                            isNavBarHidden = isNavBarEffectivelyHidden
-                        )
 
                         val dismissUndoBarSlice by remember {
                             playerViewModel.playerUiState

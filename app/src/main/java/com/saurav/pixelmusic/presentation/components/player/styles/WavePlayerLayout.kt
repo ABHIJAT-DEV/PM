@@ -524,7 +524,7 @@ fun WavePlayerLayout(
                     .fillMaxWidth(0.50f)
                     .fillMaxHeight()
                     .align(Alignment.CenterEnd)
-                    .padding(top = 12.dp, bottom = navBarBottomPadding + 12.dp)
+                    .padding(top = 8.dp, bottom = 6.dp)
             } else {
                 Modifier
                     .fillMaxWidth()
@@ -575,7 +575,7 @@ fun WavePlayerLayout(
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 14.dp))
 
             // Progress Slider + Timestamps + Optional Audio Meta
             StyleProgressSection(
@@ -593,7 +593,7 @@ fun WavePlayerLayout(
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 12.dp))
 
             // Taller (92dp) Neighbor-pushing Expressive Transport Row matching Expressive mode
             StyleMorphingTransportRow(
@@ -613,7 +613,7 @@ fun WavePlayerLayout(
                 playCornerPlaying = 28.dp,
                 playCornerPaused = 46.dp,
                 skipCorner = 46.dp,
-                height = if (isLandscape) 66.dp else 92.dp,
+                height = if (isLandscape) 82.dp else 92.dp,
                 spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,
@@ -621,7 +621,7 @@ fun WavePlayerLayout(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 12.dp))
 
             // Exact BottomToggleRow height + separated circular menu button
             StyleExpressiveBottomBarWithMenu(

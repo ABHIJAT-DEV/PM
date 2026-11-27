@@ -1851,6 +1851,7 @@ fun FullPlayerContent(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
                                 .padding(horizontal = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
@@ -2485,9 +2486,9 @@ private fun FullPlayerControlsSection(
     aodTransitionProgressProvider: () -> Float = { 0f }
 ) {
     val isLandscapeControls = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val controlsSectionHeight = if (isLandscapeControls) 144.dp else 182.dp
-    val transportHeight = if (isLandscapeControls) 64.dp else 80.dp
-    val controlsSpacerHeight = if (isLandscapeControls) 8.dp else 14.dp
+    val controlsSectionHeight = if (isLandscapeControls) 152.dp else 182.dp
+    val transportHeight = if (isLandscapeControls) 76.dp else 80.dp
+    val controlsSpacerHeight = if (isLandscapeControls) 6.dp else 14.dp
     val toggleMinHeight = if (isLandscapeControls) 56.dp else 66.dp
     val toggleMaxHeight = if (isLandscapeControls) 64.dp else 86.dp
 
