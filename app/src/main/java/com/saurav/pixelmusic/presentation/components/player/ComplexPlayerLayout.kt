@@ -516,7 +516,7 @@ fun ComplexPlayerLayout(
                         constraints.maxWidth.toFloat().takeIf { it > 0f } ?: screenWidthPx
                     }
                     val fullH = if (isLandscape) {
-                        constraints.maxHeight.toFloat().takeIf { it > 0f } ?: screenHeightPx
+                        constraints.maxHeight.toFloat().takeIf { it > 0f } ?: artHeightPx
                     } else {
                         (constraints.maxHeight.toFloat() * 0.52f).takeIf { it > 0f } ?: artHeightPx
                     }
