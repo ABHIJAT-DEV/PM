@@ -2282,7 +2282,7 @@ private fun FullPlayerAlbumCoverSection(
 
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .width(effectiveCarouselWidth)
                 .height(carouselHeight)
                 .then(artMorphModifier)
         ) {
@@ -2360,13 +2360,26 @@ private fun FullPlayerAlbumCoverSection(
     } else {
         // Stable width in portrait prevents BoxWithConstraints / HorizontalPager from
         // recomposing on every drag frame while the sheet horizontal padding animates.
+        // Cap width by available window height so PiP / floating windows don't clip bottom controls.
         val stablePortraitWidth = (configuration.screenWidthDp.dp - 48.dp).coerceAtLeast(1.dp)
+        val maxPortraitArtHeight = (configuration.screenHeightDp.dp - 396.dp).coerceAtLeast(72.dp)
+        val styleHeightRatio = when (carouselStyle) {
+            CarouselStyle.NO_PEEK -> 1f
+            CarouselStyle.ONE_PEEK -> 0.8f
+            CarouselStyle.TWO_PEEK -> 0.6f
+            else -> 0.8f
+        }
+        val effectivePortraitWidth = minOf(
+            stablePortraitWidth,
+            maxPortraitArtHeight / styleHeightRatio
+        ).coerceAtLeast(1.dp)
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp)
+                .padding(vertical = 8.dp),
+            contentAlignment = Alignment.Center
         ) {
-            renderAlbumCover(stablePortraitWidth)
+            renderAlbumCover(effectivePortraitWidth)
         }
     }
 }
@@ -2763,7 +2776,7 @@ private fun FullPlayerPortraitContent(
         if (isFullScreenArt) {
             Spacer(modifier = Modifier.weight(1f))
         } else {
-            albumCoverSection(Modifier)
+            albumCoverSection(Modifier.weight(1f, fill = false))
         }
 
         Column(
