@@ -19,7 +19,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -62,7 +64,8 @@ import kotlin.math.roundToInt
  * snap or sharp bottom corners during drag.
  */
 private class MorphingOrganicWaveShape(
-    private val morphProgressProvider: () -> Float
+    private val morphProgressProvider: () -> Float,
+    private val isLandscape: Boolean = false
 ) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val t = morphProgressProvider().coerceIn(0f, 1f)
@@ -71,6 +74,80 @@ private class MorphingOrganicWaveShape(
         if (w <= 1f || h <= 1f) return Outline.Rectangle(Rect(0f, 0f, w, h))
 
         val halfMin = minOf(w, h) * 0.5f
+
+        if (isLandscape) {
+            val leftCornerR = (halfMin * (1f - t).pow(1.15f)).coerceIn(0f, halfMin)
+            val rightCornerR = (halfMin * (1f - t).pow(1.35f)).coerceIn(0f, halfMin)
+            val waveT = t.pow(1.35f)
+            val waveAmp = w * 0.15f * waveT
+
+            val topX = w - waveAmp * 0.52f
+            val bottomX = w - waveAmp * 0.44f
+            val crestX = w - 2f
+
+            val clampedRightR = rightCornerR.coerceAtMost(
+                minOf(h * 0.49f, topX - leftCornerR, bottomX - leftCornerR).coerceAtLeast(0f)
+            )
+
+            val path = Path().apply {
+                if (leftCornerR > 0.5f) {
+                    moveTo(0f, leftCornerR)
+                    arcTo(Rect(0f, 0f, leftCornerR * 2f, leftCornerR * 2f), 180f, 90f, false)
+                } else {
+                    moveTo(0f, 0f)
+                }
+
+                if (clampedRightR > 0.5f) {
+                    lineTo(topX - clampedRightR, 0f)
+                    arcTo(
+                        Rect(topX - clampedRightR * 2f, 0f, topX, clampedRightR * 2f),
+                        270f,
+                        90f,
+                        false
+                    )
+                } else {
+                    lineTo(topX, 0f)
+                }
+
+                val topSpanY = clampedRightR
+                val bottomSpanY = h - clampedRightR
+                val spanH = (bottomSpanY - topSpanY).coerceAtLeast(1f)
+
+                if (waveT > 0.005f) {
+                    cubicTo(
+                        lerp(topX, w - waveAmp * 0.96f, waveT), topSpanY + spanH * 0.16f,
+                        lerp(topX, w - waveAmp * 1.02f, waveT), topSpanY + spanH * 0.34f,
+                        lerp((topX + bottomX) * 0.5f, w - waveAmp * 0.52f, waveT), topSpanY + spanH * 0.50f
+                    )
+                    cubicTo(
+                        lerp(bottomX, crestX, waveT), topSpanY + spanH * 0.66f,
+                        lerp(bottomX, crestX, waveT), topSpanY + spanH * 0.86f,
+                        bottomX, bottomSpanY
+                    )
+                } else {
+                    lineTo(bottomX, bottomSpanY)
+                }
+
+                if (clampedRightR > 0.5f) {
+                    arcTo(
+                        Rect(bottomX - clampedRightR * 2f, h - clampedRightR * 2f, bottomX, h),
+                        0f,
+                        90f,
+                        false
+                    )
+                }
+
+                if (leftCornerR > 0.5f) {
+                    lineTo(leftCornerR, h)
+                    arcTo(Rect(0f, h - leftCornerR * 2f, leftCornerR * 2f, h), 90f, 90f, false)
+                } else {
+                    lineTo(0f, h)
+                }
+                close()
+            }
+            return Outline.Generic(path)
+        }
+
         val topCornerR = (halfMin * (1f - t).pow(1.15f)).coerceIn(0f, halfMin)
         val bottomCornerR = (halfMin * (1f - t).pow(1.35f)).coerceIn(0f, halfMin)
 
@@ -193,11 +270,14 @@ fun WavePlayerLayout(
         bounds.topShadowMidAlpha = 0.10f
     }
 
-    val waveShape = remember(morphTracker, params.expansionFractionProvider) {
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    val waveShape = remember(morphTracker, params.expansionFractionProvider, isLandscape) {
         MorphingOrganicWaveShape(
             morphProgressProvider = {
                 morphTracker.evaluate(params.expansionFractionProvider()).sizeT
-            }
+            },
+            isLandscape = isLandscape
         )
     }
 
@@ -270,81 +350,160 @@ fun WavePlayerLayout(
         ) {
             val w = size.width
             val h = size.height
-            val artH = h * 0.48f
-            val waveAmp = artH * 0.16f
 
-            fun drawEdgeWaveRibbon(
-                dropPx: Float,
-                springVal: Float,
-                dragBouncePx: Float,
-                crestScale: Float,
-                color: Color
-            ) {
-                val dragShiftY = (1f - springVal) * dragBouncePx
-                val yOff = dropPx + dragShiftY
+            if (isLandscape) {
+                val artW = w * 0.50f
+                val waveAmp = artW * 0.15f
 
-                val leftY = artH - waveAmp * 0.52f * crestScale + yOff
-                val rightY = artH - waveAmp * 0.44f * crestScale + yOff
-                val troughY = artH - 2f + yOff
+                fun drawLandscapeEdgeWaveRibbon(
+                    pushPx: Float,
+                    springVal: Float,
+                    dragBouncePx: Float,
+                    crestScale: Float,
+                    color: Color
+                ) {
+                    val dragShiftX = (1f - springVal) * dragBouncePx
+                    val xOff = pushPx + dragShiftX
+                    val topX = artW - waveAmp * 0.52f * crestScale + xOff
+                    val bottomX = artW - waveAmp * 0.44f * crestScale + xOff
+                    val crestX = artW - 2f + xOff
 
-                val path = Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(w, 0f)
-                    lineTo(w, rightY)
-                    cubicTo(
-                        w * 0.86f, troughY,
-                        w * 0.64f, troughY,
-                        w * 0.48f, artH - waveAmp * 0.52f * crestScale + yOff
-                    )
-                    cubicTo(
-                        w * 0.32f, artH - waveAmp * 1.04f * crestScale + yOff,
-                        w * 0.14f, artH - waveAmp * 0.96f * crestScale + yOff,
-                        0f, leftY
-                    )
-                    close()
+                    val path = Path().apply {
+                        moveTo(0f, 0f)
+                        lineTo(topX, 0f)
+                        cubicTo(
+                            artW - waveAmp * 0.96f * crestScale + xOff, h * 0.16f,
+                            artW - waveAmp * 1.02f * crestScale + xOff, h * 0.34f,
+                            artW - waveAmp * 0.52f * crestScale + xOff, h * 0.50f
+                        )
+                        cubicTo(
+                            crestX, h * 0.66f,
+                            crestX, h * 0.86f,
+                            bottomX, h
+                        )
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(path = path, color = color)
                 }
-                drawPath(path = path, color = color)
+
+                // 5 layered vertical art-edge wave ribbons cascading rightward (back-to-front)
+                drawLandscapeEdgeWaveRibbon(
+                    pushPx = 56.dp.toPx(),
+                    springVal = edgeSpring1,
+                    dragBouncePx = 64.dp.toPx(),
+                    crestScale = 0.78f,
+                    color = baseTheme.tertiary.copy(alpha = 0.06f)
+                )
+                drawLandscapeEdgeWaveRibbon(
+                    pushPx = 43.dp.toPx(),
+                    springVal = edgeSpring2,
+                    dragBouncePx = 52.dp.toPx(),
+                    crestScale = 0.86f,
+                    color = accentColor.copy(alpha = 0.08f)
+                )
+                drawLandscapeEdgeWaveRibbon(
+                    pushPx = 30.dp.toPx(),
+                    springVal = edgeSpring3,
+                    dragBouncePx = 40.dp.toPx(),
+                    crestScale = 0.92f,
+                    color = baseTheme.secondary.copy(alpha = 0.10f)
+                )
+                drawLandscapeEdgeWaveRibbon(
+                    pushPx = 19.dp.toPx(),
+                    springVal = edgeSpring4,
+                    dragBouncePx = 30.dp.toPx(),
+                    crestScale = 0.97f,
+                    color = accentColor.copy(alpha = 0.12f)
+                )
+                drawLandscapeEdgeWaveRibbon(
+                    pushPx = 9.dp.toPx(),
+                    springVal = edgeSpring5,
+                    dragBouncePx = 20.dp.toPx(),
+                    crestScale = 1.0f,
+                    color = baseTheme.tertiary.copy(alpha = 0.15f)
+                )
+            } else {
+                val artH = h * 0.48f
+                val waveAmp = artH * 0.16f
+
+                fun drawEdgeWaveRibbon(
+                    dropPx: Float,
+                    springVal: Float,
+                    dragBouncePx: Float,
+                    crestScale: Float,
+                    color: Color
+                ) {
+                    val dragShiftY = (1f - springVal) * dragBouncePx
+                    val yOff = dropPx + dragShiftY
+
+                    val leftY = artH - waveAmp * 0.52f * crestScale + yOff
+                    val rightY = artH - waveAmp * 0.44f * crestScale + yOff
+                    val troughY = artH - 2f + yOff
+
+                    val path = Path().apply {
+                        moveTo(0f, 0f)
+                        lineTo(w, 0f)
+                        lineTo(w, rightY)
+                        cubicTo(
+                            w * 0.86f, troughY,
+                            w * 0.64f, troughY,
+                            w * 0.48f, artH - waveAmp * 0.52f * crestScale + yOff
+                        )
+                        cubicTo(
+                            w * 0.32f, artH - waveAmp * 1.04f * crestScale + yOff,
+                            w * 0.14f, artH - waveAmp * 0.96f * crestScale + yOff,
+                            0f, leftY
+                        )
+                        close()
+                    }
+                    drawPath(path = path, color = color)
+                }
+
+                // Top art-edge wave ribbons (back-to-front)
+                drawEdgeWaveRibbon(
+                    dropPx = 64.dp.toPx(),
+                    springVal = edgeSpring1,
+                    dragBouncePx = 74.dp.toPx(),
+                    crestScale = 0.78f,
+                    color = baseTheme.tertiary.copy(alpha = 0.07f)
+                )
+                drawEdgeWaveRibbon(
+                    dropPx = 49.dp.toPx(),
+                    springVal = edgeSpring2,
+                    dragBouncePx = 60.dp.toPx(),
+                    crestScale = 0.86f,
+                    color = accentColor.copy(alpha = 0.09f)
+                )
+                drawEdgeWaveRibbon(
+                    dropPx = 35.dp.toPx(),
+                    springVal = edgeSpring3,
+                    dragBouncePx = 48.dp.toPx(),
+                    crestScale = 0.92f,
+                    color = baseTheme.secondary.copy(alpha = 0.11f)
+                )
+                drawEdgeWaveRibbon(
+                    dropPx = 22.dp.toPx(),
+                    springVal = edgeSpring4,
+                    dragBouncePx = 36.dp.toPx(),
+                    crestScale = 0.97f,
+                    color = accentColor.copy(alpha = 0.13f)
+                )
+                drawEdgeWaveRibbon(
+                    dropPx = 10.dp.toPx(),
+                    springVal = edgeSpring5,
+                    dragBouncePx = 24.dp.toPx(),
+                    crestScale = 1.0f,
+                    color = baseTheme.tertiary.copy(alpha = 0.16f)
+                )
             }
 
-            // Top art-edge wave ribbons (back-to-front)
-            drawEdgeWaveRibbon(
-                dropPx = 64.dp.toPx(),
-                springVal = edgeSpring1,
-                dragBouncePx = 74.dp.toPx(),
-                crestScale = 0.78f,
-                color = baseTheme.tertiary.copy(alpha = 0.07f)
-            )
-            drawEdgeWaveRibbon(
-                dropPx = 49.dp.toPx(),
-                springVal = edgeSpring2,
-                dragBouncePx = 60.dp.toPx(),
-                crestScale = 0.86f,
-                color = accentColor.copy(alpha = 0.09f)
-            )
-            drawEdgeWaveRibbon(
-                dropPx = 35.dp.toPx(),
-                springVal = edgeSpring3,
-                dragBouncePx = 48.dp.toPx(),
-                crestScale = 0.92f,
-                color = baseTheme.secondary.copy(alpha = 0.11f)
-            )
-            drawEdgeWaveRibbon(
-                dropPx = 22.dp.toPx(),
-                springVal = edgeSpring4,
-                dragBouncePx = 36.dp.toPx(),
-                crestScale = 0.97f,
-                color = accentColor.copy(alpha = 0.13f)
-            )
-            drawEdgeWaveRibbon(
-                dropPx = 10.dp.toPx(),
-                springVal = edgeSpring5,
-                dragBouncePx = 24.dp.toPx(),
-                crestScale = 1.0f,
-                color = baseTheme.tertiary.copy(alpha = 0.16f)
-            )
-
             // Restored subtle layered waves in the bottom controls area (drag-spring only)
-            val bottomRegionH = 250.dp.toPx() + navBarBottomPadding.toPx()
+            val bottomRegionH = if (isLandscape) {
+                (h * 0.34f).coerceAtLeast(100.dp.toPx())
+            } else {
+                250.dp.toPx() + navBarBottomPadding.toPx()
+            }
             val bottomRegionTop = h - bottomRegionH
 
             fun drawBottomWaveLayer(
@@ -417,8 +576,6 @@ fun WavePlayerLayout(
             )
         }
 
-        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-
         // TOP (portrait) or LEFT 50% (landscape) LAYER: Continuous Morphing Organic Wave Artwork
         Box(
             modifier = Modifier
@@ -454,7 +611,7 @@ fun WavePlayerLayout(
                 .graphicsLayer {
                     alpha = if (params.aodTransitionProgressProvider() > 0.001f) 0f else 1f
                 }
-                .then(if (isLandscape) Modifier else Modifier.clip(waveShape))
+                .clip(waveShape)
                 .styleArtworkGestures(
                     aodScreenEnabled = params.aodScreenEnabled,
                     onEnterAodScreen = params.onEnterAodScreen
@@ -473,27 +630,7 @@ fun WavePlayerLayout(
                     }
             )
 
-            if (isLandscape) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .graphicsLayer {
-                            val aodFade = (1f - params.aodTransitionProgressProvider() * 2.2f).coerceIn(0f, 1f)
-                            alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
-                        }
-                        .background(
-                            Brush.horizontalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.Transparent,
-                                    0.62f to Color.Transparent,
-                                    0.86f to solidBackgroundColor.copy(alpha = 0.88f),
-                                    0.96f to solidBackgroundColor,
-                                    1.0f to solidBackgroundColor
-                                )
-                            )
-                        )
-                )
-            } else {
+            if (!isLandscape) {
                 // Top scrim for TopAppBar legibility
                 Box(
                     modifier = Modifier
@@ -524,7 +661,9 @@ fun WavePlayerLayout(
                     .fillMaxWidth(0.50f)
                     .fillMaxHeight()
                     .align(Alignment.CenterEnd)
-                    .padding(top = 8.dp, bottom = 6.dp)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(top = 8.dp, bottom = 8.dp)
             } else {
                 Modifier
                     .fillMaxWidth()
@@ -613,7 +752,7 @@ fun WavePlayerLayout(
                 playCornerPlaying = 28.dp,
                 playCornerPaused = 46.dp,
                 skipCorner = 46.dp,
-                height = if (isLandscape) 82.dp else 92.dp,
+                height = if (isLandscape) 76.dp else 92.dp,
                 spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,
@@ -621,7 +760,7 @@ fun WavePlayerLayout(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
             )
 
-            Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 12.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 6.dp else 12.dp))
 
             // Exact BottomToggleRow height + separated circular menu button
             StyleExpressiveBottomBarWithMenu(

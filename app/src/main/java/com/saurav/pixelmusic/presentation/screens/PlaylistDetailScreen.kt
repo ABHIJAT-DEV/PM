@@ -324,19 +324,13 @@ fun PlaylistDetailScreen(
             Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
         } else {
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-            val playlistHeaderAndActions: @Composable (Modifier) -> Unit = { headerModifier ->
-                Column(modifier = headerModifier) {
-                    ExpressiveHeroCollageHeader(
-                        title = currentPlaylist.name,
-                        subtitle = stringResource(
-                            R.string.presentation_batch_f_status_bullet_step,
-                            formatSongCount(songsInPlaylist.size),
-                            formatTotalDuration(songsInPlaylist)
-                        ),
-                        songs = songsInPlaylist,
-                        headerHeight = if (isLandscape) 230.dp else heroHeight,
-                        showCollage = if (isLandscape) true else !isHeaderCollapsed
-                    )
+            val playlistSubtitleText = stringResource(
+                R.string.presentation_batch_f_status_bullet_step,
+                formatSongCount(songsInPlaylist.size),
+                formatTotalDuration(songsInPlaylist)
+            )
+            val playlistActionsSection: @Composable () -> Unit = {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     val playbackControlBottomPadding = if (isFolderPlaylist) 8.dp else 6.dp
 
                     val playButtonShape = remember {
@@ -502,10 +496,29 @@ fun PlaylistDetailScreen(
                 }
             }
 
+            val playlistHeaderAndActions: @Composable (Modifier) -> Unit = { headerModifier ->
+                Column(modifier = headerModifier) {
+                    ExpressiveHeroCollageHeader(
+                        title = currentPlaylist.name,
+                        subtitle = playlistSubtitleText,
+                        songs = songsInPlaylist,
+                        headerHeight = heroHeight,
+                        showCollage = !isHeaderCollapsed
+                    )
+                    playlistActionsSection()
+                }
+            }
+
             if (isLandscape) {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    playlistHeaderAndActions(
-                        Modifier
+                    ExpressiveHeroCollageHeader(
+                        title = currentPlaylist.name,
+                        subtitle = playlistSubtitleText,
+                        songs = songsInPlaylist,
+                        isLandscapeFullHeight = true,
+                        bottomContentPadding = MiniPlayerHeight + systemNavBarInset + 20.dp,
+                        showCollage = true,
+                        modifier = Modifier
                             .weight(0.45f)
                             .fillMaxHeight()
                     )
@@ -517,6 +530,7 @@ fun PlaylistDetailScreen(
                             .padding(top = 8.dp)
                     ) {
                         if (localReorderableSongs.isEmpty()) {
+                            playlistActionsSection()
                             Box(Modifier.fillMaxSize(), Alignment.Center) {
                                 Text(playlistEmptyTitle, style = MaterialTheme.typography.titleMedium)
                             }
@@ -533,6 +547,9 @@ fun PlaylistDetailScreen(
                                     ),
                                     verticalArrangement = Arrangement.spacedBy(ExpressiveGroupedCardSpacing)
                                 ) {
+                                    item(key = "playlist_actions_landscape") {
+                                        playlistActionsSection()
+                                    }
                                     itemsIndexed(
                                         items = localReorderableSongs,
                                         key = { index, song -> "${song.id}_$index" }

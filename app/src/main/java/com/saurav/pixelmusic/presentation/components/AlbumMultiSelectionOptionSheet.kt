@@ -3,6 +3,8 @@ package com.saurav.pixelmusic.presentation.components
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +71,7 @@ fun AlbumMultiSelectionOptionSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .animateContentSize(animationSpec = tween(durationMillis = 200))
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {

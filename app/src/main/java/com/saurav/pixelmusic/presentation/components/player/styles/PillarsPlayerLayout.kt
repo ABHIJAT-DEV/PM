@@ -24,8 +24,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -271,6 +273,8 @@ fun PillarsPlayerLayout(
             .background(solidBackgroundColor)
             .captureRootCoords(rootCoordsHolder)
     ) {
+        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
         // Full-screen unclipped Canvas for decorative circles + live waveform
         Canvas(
             modifier = Modifier
@@ -280,9 +284,9 @@ fun PillarsPlayerLayout(
                     alpha = morphTracker.evaluate(params.expansionFractionProvider()).nonArtAlpha * aodFade
                 }
         ) {
-            val w = size.width
-            val topY = artTopOffsetPx
-            val h = artHeightPx
+            val w = if (isLandscape) size.width * 0.50f else size.width
+            val topY = if (isLandscape) size.height * 0.08f else artTopOffsetPx
+            val h = if (isLandscape) size.height * 0.84f else artHeightPx
 
             val circleScale = lerp(0.94f, 1.0f, pillar2Play)
             drawCircle(
@@ -324,8 +328,6 @@ fun PillarsPlayerLayout(
                 )
             }
         }
-
-        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
         // TOP (portrait) or LEFT 50% (landscape) LAYER: Morphing 3-Pillar Capsule Artwork
         Box(
@@ -394,7 +396,9 @@ fun PillarsPlayerLayout(
                     .fillMaxWidth(0.50f)
                     .fillMaxHeight()
                     .align(Alignment.CenterEnd)
-                    .padding(top = 8.dp, bottom = 6.dp)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(top = 8.dp, bottom = 8.dp)
             } else {
                 Modifier
                     .fillMaxWidth()
@@ -444,7 +448,7 @@ fun PillarsPlayerLayout(
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 14.dp))
 
             StyleProgressSection(
                 params = params,
@@ -461,7 +465,7 @@ fun PillarsPlayerLayout(
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 12.dp))
 
             // Taller (92dp) Neighbor-pushing Capsule Transport Row matching Wave & Expressive
             StyleMorphingTransportRow(
@@ -481,7 +485,7 @@ fun PillarsPlayerLayout(
                 playCornerPlaying = 28.dp,
                 playCornerPaused = 46.dp,
                 skipCorner = 46.dp,
-                height = if (isLandscape) 82.dp else 92.dp,
+                height = if (isLandscape) 76.dp else 92.dp,
                 spacing = 8.dp,
                 onPrevious = params.onPrevious,
                 onPlayPause = params.onPlayPause,
@@ -489,7 +493,7 @@ fun PillarsPlayerLayout(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 6.dp else 12.dp))
 
             // Exact BottomToggleRow height + separated circular menu button
             StyleExpressiveBottomBarWithMenu(

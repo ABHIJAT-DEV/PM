@@ -2317,7 +2317,8 @@ private fun FullPlayerAlbumCoverSection(
     val isLandscapeMode = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val renderAlbumCover: @Composable (Dp) -> Unit = { effectiveCarouselWidth ->
-        val carouselHeight = when (carouselStyle) {
+        val effectiveCarouselStyle = if (isLandscapeMode) CarouselStyle.NO_PEEK else carouselStyle
+        val carouselHeight = when (effectiveCarouselStyle) {
             CarouselStyle.NO_PEEK -> effectiveCarouselWidth
             CarouselStyle.ONE_PEEK -> effectiveCarouselWidth * 0.8f
             CarouselStyle.TWO_PEEK -> effectiveCarouselWidth * 0.6f
@@ -2379,7 +2380,7 @@ private fun FullPlayerAlbumCoverSection(
                     },
                     onAlbumClick = onAlbumClick,
                     onAlbumLongPress = { if (aodScreenEnabled) onEnterAodScreen() },
-                    carouselStyle = carouselStyle,
+                    carouselStyle = effectiveCarouselStyle,
                     modifier = Modifier
                         .height(carouselHeight)
                         .graphicsLayer {
@@ -2397,18 +2398,12 @@ private fun FullPlayerAlbumCoverSection(
         BoxWithConstraints(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 2.dp),
             contentAlignment = Alignment.Center
         ) {
-            val styleHeightRatio = when (carouselStyle) {
-                CarouselStyle.NO_PEEK -> 1f
-                CarouselStyle.ONE_PEEK -> 0.8f
-                CarouselStyle.TWO_PEEK -> 0.6f
-                else -> 0.8f
-            }
             val landscapeWidth = minOf(
                 maxWidth,
-                (maxHeight - 16.dp).coerceAtLeast(100.dp) / styleHeightRatio
+                (maxHeight - 4.dp).coerceAtLeast(120.dp)
             ).coerceAtLeast(1.dp)
             renderAlbumCover(landscapeWidth)
         }

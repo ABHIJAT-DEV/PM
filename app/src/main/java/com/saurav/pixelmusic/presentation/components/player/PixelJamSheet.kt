@@ -839,6 +839,7 @@ private fun PixelJamRoomStage(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
             .padding(bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)

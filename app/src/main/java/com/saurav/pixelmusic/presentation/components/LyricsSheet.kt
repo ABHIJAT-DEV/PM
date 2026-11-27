@@ -86,7 +86,9 @@ import androidx.compose.ui.input.pointer.consumePositionChange
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -607,6 +609,8 @@ fun LyricsSheet(
 
     
 
+    val isLandscapeRoot = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -623,8 +627,18 @@ fun LyricsSheet(
                 scaleX = scale
                 scaleY = scale
                 translationY = lerp(0f, size.height * 0.08f, p)
+                val cornerPx = if (isLandscapeRoot) {
+                    lerp(0f, 32.dp.toPx(), (p * 4f).coerceIn(0f, 1f))
+                } else {
+                    32.dp.toPx()
+                }
+                if (cornerPx > 0.5f) {
+                    shape = RoundedCornerShape(cornerPx)
+                    clip = true
+                } else {
+                    clip = false
+                }
             }
-            .clip(RoundedCornerShape(32.dp))
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
@@ -1051,16 +1065,86 @@ fun LyricsSheet(
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            AnimatedVisibility(
-                                visible = !immersiveMode,
-                                enter = fadeIn(),
-                                exit = fadeOut()
-                            ) {
+                        AnimatedContent(
+                            targetState = immersiveMode,
+                            transitionSpec = {
+                                val enter = fadeIn(
+                                    animationSpec = tween(
+                                        durationMillis = 280,
+                                        delayMillis = 170,
+                                        easing = FastOutSlowInEasing
+                                    )
+                                ) + slideInVertically(
+                                    animationSpec = tween(
+                                        durationMillis = 320,
+                                        delayMillis = 170,
+                                        easing = FastOutSlowInEasing
+                                    ),
+                                    initialOffsetY = { it / 5 }
+                                ) + scaleIn(
+                                    initialScale = 0.92f,
+                                    animationSpec = tween(
+                                        durationMillis = 300,
+                                        delayMillis = 170,
+                                        easing = FastOutSlowInEasing
+                                    )
+                                )
+                                val exit = fadeOut(
+                                    animationSpec = tween(
+                                        durationMillis = 170,
+                                        easing = FastOutSlowInEasing
+                                    )
+                                ) + slideOutVertically(
+                                    animationSpec = tween(
+                                        durationMillis = 190,
+                                        easing = FastOutSlowInEasing
+                                    ),
+                                    targetOffsetY = { -it / 6 }
+                                ) + scaleOut(
+                                    targetScale = 0.92f,
+                                    animationSpec = tween(
+                                        durationMillis = 180,
+                                        easing = FastOutSlowInEasing
+                                    )
+                                )
+                                enter togetherWith exit using SizeTransform(clip = false)
+                            },
+                            contentAlignment = Alignment.Center,
+                            label = "landscapeLyricsRightPaneTransition"
+                        ) { isImmersive ->
+                            if (isImmersive) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    LyricsTrackInfo(
+                                        song = currentSong,
+                                        modifier = Modifier
+                                            .background(
+                                                color = backgroundColor,
+                                                shape = RoundedCornerShape(48.dp)
+                                            )
+                                            .animateContentSize(),
+                                        backgroundColor = backgroundColor,
+                                        contentColor = onBackgroundColor,
+                                        isPlaying = isPlaying,
+                                        isVertical = true
+                                    )
+                                    FilledIconButton(
+                                        onClick = { resetImmersiveTimer() },
+                                        modifier = Modifier.size(48.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = accentColor,
+                                            contentColor = onAccentColor
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.KeyboardArrowUp,
+                                            contentDescription = "Show Controls"
+                                        )
+                                    }
+                                }
+                            } else {
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -1084,44 +1168,6 @@ fun LyricsSheet(
                                             .fillMaxWidth()
                                             .padding(bottom = 4.dp)
                                     )
-                                }
-                            }
-
-                            AnimatedVisibility(
-                                visible = immersiveMode,
-                                enter = fadeIn(),
-                                exit = fadeOut()
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    LyricsTrackInfo(
-                                        song = currentSong,
-                                        modifier = Modifier
-                                            .background(
-                                                color = backgroundColor,
-                                                shape = CircleShape
-                                            )
-                                            .wrapContentWidth()
-                                            .animateContentSize(),
-                                        backgroundColor = backgroundColor,
-                                        contentColor = onBackgroundColor,
-                                        isPlaying = isPlaying
-                                    )
-                                    FilledIconButton(
-                                        onClick = { resetImmersiveTimer() },
-                                        modifier = Modifier.size(48.dp),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = accentColor,
-                                            contentColor = onAccentColor
-                                        )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.KeyboardArrowUp,
-                                            contentDescription = "Show Controls"
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -2160,7 +2206,8 @@ private fun LyricsTrackInfo(
     modifier: Modifier = Modifier,
     backgroundColor: Color,
     contentColor: Color,
-    isPlaying: Boolean
+    isPlaying: Boolean,
+    isVertical: Boolean = false
 ) {
     if (song == null) return
 
@@ -2196,6 +2243,63 @@ private fun LyricsTrackInfo(
         } else {
              currentRotation.stop()
         }
+    }
+
+    if (isVertical) {
+        Column(
+            modifier = modifier
+                .widthIn(min = 108.dp, max = 148.dp)
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SmartImage(
+                model = song.albumArtUriString ?: R.drawable.rounded_album_24,
+                shape = albumShape,
+                contentDescription = "Cover Art",
+                modifier = Modifier
+                    .size(78.dp)
+                    .graphicsLayer {
+                        rotationZ = currentRotation.value % 360f
+                    }
+                    .clip(albumShape),
+                contentScale = ContentScale.Crop
+            )
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentColor
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = song.displayArtist,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = contentColor.copy(alpha = 0.7f)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            PlayingEqIcon(
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .size(width = 18.dp, height = 16.dp),
+                color = contentColor,
+                isPlaying = isPlaying
+            )
+        }
+        return
     }
 
     Row(

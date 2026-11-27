@@ -445,16 +445,42 @@ fun DailyMixScreen(
 
             Row(modifier = Modifier.fillMaxSize()) {
                 if (isLandscape) {
-                    Column(
+                    ExpressiveHeroCollageHeader(
+                        title = dailyMixTitle,
+                        subtitle = dmSubtitle,
+                        songs = dailyMixSongs,
+                        isLandscapeFullHeight = true,
+                        bottomContentPadding = MiniPlayerHeight + dmNavBottom + 20.dp,
                         modifier = Modifier
                             .weight(0.45f)
-                            .fillMaxHeight()
-                            .padding(bottom = MiniPlayerHeight + dmNavBottom + 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        dmHeaderContent(230.dp, 0f, 1f)
-                        dmActionsRow()
-                    }
+                            .fillMaxHeight(),
+                        trailingAction = {
+                            val cookieShape = remember {
+                                RoundedStarShape(
+                                    sides = 8,
+                                    curve = 0.05,
+                                    rotation = 0f
+                                )
+                            }
+                            FilledIconButton(
+                                onClick = { playerViewModel.showAiPlaylistSheet() },
+                                shape = cookieShape,
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                modifier = Modifier
+                                    .padding(start = 6.dp)
+                                    .size(50.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_instant_mix_24),
+                                    contentDescription = "Daily Mix Generator",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    )
                 }
 
                 LazyColumn(
@@ -470,7 +496,11 @@ fun DailyMixScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(com.saurav.pixelmusic.presentation.components.ExpressiveGroupedCardSpacing)
                 ) {
-                    if (!isLandscape) {
+                    if (isLandscape) {
+                        item(key = "daily_mix_actions_landscape") {
+                            dmActionsRow()
+                        }
+                    } else {
                         item(key = "daily_mix_header") {
                             val parallaxOffset by remember {
                                 derivedStateOf {

@@ -538,12 +538,26 @@ fun ComplexPlayerLayout(
                     }
                 }
         ) {
-            // Morphing Edge-to-Edge Artwork (scooped arch in portrait, full-height left 50% in landscape)
+            // Morphing Edge-to-Edge Artwork (scooped arch in portrait, smooth rounded morph to left 50% in landscape)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
                         alpha = if (aodTransitionProgressProvider() > 0.001f) 0f else 1f
+                        if (isLandscape) {
+                            val s = morphTracker.evaluate(expansionFractionProvider())
+                            val t = s.sizeT.coerceIn(0f, 1f)
+                            val maxR = minOf(size.width, size.height) * 0.5f
+                            val topCornerPx = (maxR * (1f - t).pow(1.15f)).coerceIn(0f, maxR)
+                            val bottomCornerPx = (maxR * (1f - t).pow(1.4f)).coerceIn(0f, maxR)
+                            shape = RoundedCornerShape(
+                                topStart = topCornerPx,
+                                topEnd = topCornerPx,
+                                bottomStart = bottomCornerPx,
+                                bottomEnd = bottomCornerPx
+                            )
+                            clip = true
+                        }
                     }
                     .then(if (isLandscape) Modifier else Modifier.clip(scoopedShape))
                     .combinedClickable(
@@ -645,14 +659,14 @@ fun ComplexPlayerLayout(
         // Right: Solid-Filled Vertical Stack (3-Dot Menu, Like, Previous, Play/Pause, Next)
         // =====================================================================
         val rightColumnTopDp = if (isLandscape) {
-            (statusBarTopPadding + 12.dp).coerceAtLeast(0.dp)
+            (statusBarTopPadding + 8.dp).coerceAtLeast(0.dp)
         } else {
             (artHeightDp - rightRiseDp + 24.dp)
                 .coerceAtLeast(statusBarTopPadding + 64.dp)
                 .coerceAtLeast(0.dp)
         }
         val leftColumnTopDp = if (isLandscape) {
-            (statusBarTopPadding + 16.dp).coerceAtLeast(0.dp)
+            (statusBarTopPadding + 8.dp).coerceAtLeast(0.dp)
         } else {
             (artHeightDp + 18.dp).coerceAtLeast(0.dp)
         }
@@ -661,7 +675,7 @@ fun ComplexPlayerLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    bottom = if (isLandscape) 8.dp else (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp),
+                    bottom = if (isLandscape) (navBarBottomPadding + 8.dp).coerceAtLeast(8.dp) else (navBarBottomPadding + 16.dp).coerceAtLeast(0.dp),
                     start = if (isLandscape) 0.dp else 22.dp,
                     end = 20.dp
                 ),

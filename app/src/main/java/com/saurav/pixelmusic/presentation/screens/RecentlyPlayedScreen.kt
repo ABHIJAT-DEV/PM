@@ -274,46 +274,16 @@ fun RecentlyPlayedScreen(
 
             Row(modifier = Modifier.fillMaxSize()) {
                 if (isLandscape) {
-                    Column(
+                    ExpressiveHeroCollageHeader(
+                        title = stringResource(R.string.presentation_batch_b_recently_played_title),
+                        subtitle = "${recentlyPlayedSongs.size} songs • ${selectedRange.displayName}",
+                        songs = queueSongs,
+                        isLandscapeFullHeight = true,
+                        bottomContentPadding = MiniPlayerHeight + rpNavBottomPadding + 20.dp,
                         modifier = Modifier
                             .weight(0.45f)
                             .fillMaxHeight()
-                            .padding(bottom = MiniPlayerHeight + rpNavBottomPadding + 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        ExpressiveHeroCollageHeader(
-                            title = stringResource(R.string.presentation_batch_b_recently_played_title),
-                            subtitle = "${recentlyPlayedSongs.size} songs • ${selectedRange.displayName}",
-                            songs = queueSongs,
-                            headerHeight = 200.dp,
-                            parallaxOffset = 0f,
-                            collageAlpha = 1f
-                        )
-                        RecentlyPlayedRangeSelector(
-                            selected = selectedRange,
-                            onRangeSelected = { selectedRange = it },
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        )
-                        if (recentlyPlayedSongs.isNotEmpty()) {
-                            RecentlyPlayedActions(
-                                onPlay = {
-                                    val firstSong = queueSongs.firstOrNull() ?: return@RecentlyPlayedActions
-                                    playerViewModel.playSongs(queueSongs, firstSong, queueRecentlyPlayed)
-                                },
-                                onShuffle = {
-                                    if (queueSongs.isNotEmpty()) {
-                                        playerViewModel.playSongsShuffled(
-                                            songsToPlay = queueSongs,
-                                            queueName = queueRecentlyPlayed,
-                                            startAtZero = true
-                                        )
-                                    }
-                                },
-                                shuffleLabel = shuffleLabel,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
+                    )
                 }
 
                 LazyColumn(
@@ -349,14 +319,37 @@ fun RecentlyPlayedScreen(
                                 collageAlpha = collageAlpha
                             )
                         }
+                    }
 
-                        item(key = "recently_played_range_selector") {
-                            RecentlyPlayedRangeSelector(
-                                selected = selectedRange,
-                                onRangeSelected = { selectedRange = it },
-                                modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
+                    item(key = "recently_played_range_selector") {
+                        RecentlyPlayedRangeSelector(
+                            selected = selectedRange,
+                            onRangeSelected = { selectedRange = it },
+                            modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
+                        )
+                    }
+
+                    if (isLandscape && recentlyPlayedSongs.isNotEmpty()) {
+                        item(key = "recently_played_actions_landscape") {
+                            RecentlyPlayedActions(
+                                onPlay = {
+                                    val firstSong = queueSongs.firstOrNull() ?: return@RecentlyPlayedActions
+                                    playerViewModel.playSongs(queueSongs, firstSong, queueRecentlyPlayed)
+                                },
+                                onShuffle = {
+                                    if (queueSongs.isNotEmpty()) {
+                                        playerViewModel.playSongsShuffled(
+                                            songsToPlay = queueSongs,
+                                            queueName = queueRecentlyPlayed,
+                                            startAtZero = true
+                                        )
+                                    }
+                                },
+                                shuffleLabel = shuffleLabel,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                             )
                         }
+                    }
 
                         if (recentlyPlayedSongs.isNotEmpty()) {
                             item(key = "recently_played_actions") {

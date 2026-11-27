@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,6 +42,8 @@ fun ExpressiveHeroCollageHeader(
     parallaxOffset: Float = 0f,
     collageAlpha: Float = 1f,
     showCollage: Boolean = true,
+    isLandscapeFullHeight: Boolean = false,
+    bottomContentPadding: Dp = 14.dp,
     trailingAction: (@Composable () -> Unit)? = null
 ) {
     val topAlbumArt = remember(songs) {
@@ -53,7 +56,7 @@ fun ExpressiveHeroCollageHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(headerHeight)
+            .then(if (isLandscapeFullHeight) Modifier.fillMaxHeight() else Modifier.height(headerHeight))
             .clipToBounds()
     ) {
         // Subtle fallback ambient gradient
@@ -103,30 +106,68 @@ fun ExpressiveHeroCollageHeader(
             }
         }
 
-        // Smooth iOS-style top legibility scrim & bottom fade into surface
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to surfaceColor.copy(alpha = 0.34f),
-                            0.22f to Color.Transparent,
-                            0.52f to surfaceColor.copy(alpha = 0.35f),
-                            0.78f to surfaceColor.copy(alpha = 0.86f),
-                            0.92f to surfaceColor,
-                            1.0f to surfaceColor
+        // Smooth iOS-style legibility scrim (vertical fade in portrait; soft bottom scrim + right-edge melt in landscape)
+        if (isLandscapeFullHeight) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to surfaceColor.copy(alpha = 0.28f),
+                                0.24f to Color.Transparent,
+                                0.56f to surfaceColor.copy(alpha = 0.28f),
+                                0.84f to surfaceColor.copy(alpha = 0.72f),
+                                1.0f to surfaceColor.copy(alpha = 0.82f)
+                            )
                         )
                     )
-                )
-        )
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0.0f to Color.Transparent,
+                                0.62f to Color.Transparent,
+                                0.86f to surfaceColor.copy(alpha = 0.88f),
+                                0.96f to surfaceColor,
+                                1.0f to surfaceColor
+                            )
+                        )
+                    )
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to surfaceColor.copy(alpha = 0.34f),
+                                0.22f to Color.Transparent,
+                                0.52f to surfaceColor.copy(alpha = 0.35f),
+                                0.78f to surfaceColor.copy(alpha = 0.86f),
+                                0.92f to surfaceColor,
+                                1.0f to surfaceColor
+                            )
+                        )
+                    )
+            )
+        }
 
-        // Centered Title + Subtitle anchored cleanly at the bottom of the hero
+        // Centered Title + Subtitle anchored cleanly at the bottom of the hero (above mini player in landscape)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 14.dp),
+                .padding(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = 14.dp,
+                    bottom = bottomContentPadding
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(

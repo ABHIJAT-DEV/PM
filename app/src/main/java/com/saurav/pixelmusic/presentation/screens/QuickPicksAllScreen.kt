@@ -175,24 +175,30 @@ fun QuickPicksAllScreen(
 
         Row(modifier = Modifier.fillMaxSize()) {
             if (isLandscape) {
-                Column(
+                ExpressiveHeroCollageHeader(
+                    title = "Quick Picks",
+                    subtitle = subtitleText,
+                    songs = songs,
+                    isLandscapeFullHeight = true,
+                    bottomContentPadding = MiniPlayerHeight + navBarPadding + 20.dp,
                     modifier = Modifier
                         .weight(0.45f)
-                        .fillMaxHeight()
-                        .padding(bottom = MiniPlayerHeight + navBarPadding + 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    qpHeaderContent(230.dp, 0f, 1f)
-                    if (songs.isNotEmpty()) {
-                        QuickPicksActions(
-                            onPlay = {
-                                val first = songs.firstOrNull() ?: return@QuickPicksActions
-                                playerViewModel.playSongs(songs, first, "Quick Picks")
-                            },
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
+                        .fillMaxHeight(),
+                    trailingAction = {
+                        IconButton(
+                            onClick = { quickPicksViewModel.refresh() },
+                            modifier = Modifier.size(34.dp),
+                            enabled = !isLoading
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = "Refresh",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
-                }
+                )
             }
 
             LazyColumn(
@@ -223,18 +229,18 @@ fun QuickPicksAllScreen(
                         }
                         qpHeaderContent(330.dp, parallaxOffset, collageAlpha)
                     }
+                }
 
-                    // Action buttons
-                    if (songs.isNotEmpty()) {
-                        item(key = "qp_actions") {
-                            QuickPicksActions(
-                                onPlay = {
-                                    val first = songs.firstOrNull() ?: return@QuickPicksActions
-                                    playerViewModel.playSongs(songs, first, "Quick Picks")
-                                },
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-                        }
+                // Master action pill (at top of right-side song list in landscape, below hero in portrait)
+                if (songs.isNotEmpty()) {
+                    item(key = "qp_actions") {
+                        QuickPicksActions(
+                            onPlay = {
+                                val first = songs.firstOrNull() ?: return@QuickPicksActions
+                                playerViewModel.playSongs(songs, first, "Quick Picks")
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
                 }
 
