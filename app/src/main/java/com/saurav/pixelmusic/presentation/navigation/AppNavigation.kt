@@ -78,6 +78,7 @@ import com.saurav.pixelmusic.presentation.screens.SettingsSearchScreen
 import com.saurav.pixelmusic.presentation.screens.StatsScreen
 import com.saurav.pixelmusic.presentation.screens.SettingsScreen
 import com.saurav.pixelmusic.presentation.screens.PixelJamSettingsScreen
+import com.saurav.pixelmusic.presentation.screens.ProfileScreen
 import com.saurav.pixelmusic.presentation.screens.SettingsCategoryScreen
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import com.saurav.pixelmusic.presentation.viewmodel.PlaylistViewModel
@@ -414,6 +415,17 @@ fun AppNavigation(
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
                     PixelJamSettingsScreen(navController = navController)
+                }
+            }
+            composable(
+                Screen.Profile.route,
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    ProfileScreen(navController = navController)
                 }
             }
             composable(

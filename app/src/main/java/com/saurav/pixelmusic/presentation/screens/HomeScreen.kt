@@ -218,28 +218,33 @@ fun HomeScreen(
     }
     val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val accountsUiState by accountsViewModel.uiState.collectAsStateWithLifecycle()
-    val userName = remember(accountsUiState) {
-        val rawName = accountsUiState.userName
-        if (!rawName.isNullOrBlank()) {
-            val cleanName = if (rawName.startsWith("@")) rawName.substring(1) else rawName
-            val baseName = if (!cleanName.contains("@")) {
-                cleanName
-            } else {
-                cleanName.substringBefore("@")
-            }
-            val formattedName = baseName.split(".", "_", "-")
-                .filter { it.isNotBlank() }
-                .joinToString(" ") { word ->
-                    word.replaceFirstChar { it.uppercase() }
-                }
-            val firstName = formattedName.split(" ").firstOrNull()?.trim().orEmpty()
-            if (firstName.length >= 3) {
-                formattedName.trim()
-            } else {
-                if (firstName.isNotEmpty()) firstName else formattedName.trim()
-            }
+    val userName = remember(settingsUiState.userProfile.displayName, accountsUiState) {
+        val customProfileName = settingsUiState.userProfile.displayName.trim()
+        if (customProfileName.isNotEmpty()) {
+            customProfileName
         } else {
-            null
+            val rawName = accountsUiState.userName
+            if (!rawName.isNullOrBlank()) {
+                val cleanName = if (rawName.startsWith("@")) rawName.substring(1) else rawName
+                val baseName = if (!cleanName.contains("@")) {
+                    cleanName
+                } else {
+                    cleanName.substringBefore("@")
+                }
+                val formattedName = baseName.split(".", "_", "-")
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ") { word ->
+                        word.replaceFirstChar { it.uppercase() }
+                    }
+                val firstName = formattedName.split(" ").firstOrNull()?.trim().orEmpty()
+                if (firstName.length >= 3) {
+                    formattedName.trim()
+                } else {
+                    if (firstName.isNotEmpty()) firstName else formattedName.trim()
+                }
+            } else {
+                null
+            }
         }
     }
     val dailyMixSongs by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
@@ -989,23 +994,53 @@ fun HomeScreen(
                 }
             }
 
-            Surface(
-                onClick = {
-                    if (homeTitleAlpha > 0.05f) {
-                        navController.navigateSafely(Screen.Settings.route)
-                    }
-                },
-                shape = CircleShape,
-                color = headerPillColor,
-                modifier = Modifier.size(48.dp)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(R.drawable.rounded_settings_24),
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                val homeAvatarName = userName ?: settingsUiState.ytUsername.ifBlank { "Guest" }
+                val homeAvatarSpec = settingsUiState.userProfile.effectiveLocalAvatar(
+                    if (settingsUiState.ytUsername.isNotEmpty()) settingsUiState.ytAvatarUrl else ""
+                )
+                Surface(
+                    onClick = {
+                        if (homeTitleAlpha > 0.05f) {
+                            navController.navigateSafely(Screen.Profile.route)
+                        }
+                    },
+                    shape = CircleShape,
+                    color = headerPillColor,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                            avatarSpec = homeAvatarSpec,
+                            displayName = homeAvatarName,
+                            size = 38.dp,
+                            cacheKey = settingsUiState.userProfile.updatedAt,
+                            fallbackInitial = "G"
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = {
+                        if (homeTitleAlpha > 0.05f) {
+                            navController.navigateSafely(Screen.Settings.route)
+                        }
+                    },
+                    shape = CircleShape,
+                    color = headerPillColor,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_settings_24),
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
         }

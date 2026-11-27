@@ -165,6 +165,7 @@ data class SettingsUiState(
     val ytHandle: String = "",
     val ytAvatarUrl: String = "",
     val ytIsProUser: Boolean = false,
+    val userProfile: com.saurav.pixelmusic.data.model.UserProfile = com.saurav.pixelmusic.data.model.UserProfile(),
     val performanceModeEnabled: Boolean = false,
     val audioOffloadEnabled: Boolean = false,
     val preferTelegramAlternative: Boolean = false,
@@ -1079,6 +1080,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             datastoreRepository.ytIsProUser.collect { value ->
                 _uiState.update { it.copy(ytIsProUser = value) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.userProfileFlow.collect { profile ->
+                _uiState.update { it.copy(userProfile = profile) }
             }
         }
     }

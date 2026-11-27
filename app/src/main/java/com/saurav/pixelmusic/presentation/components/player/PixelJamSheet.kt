@@ -159,7 +159,8 @@ fun PixelJamSheet(
     val syncDriftMs by viewModel.pixelJamSyncDriftMs.collectAsStateWithLifecycle()
     val pendingCode by viewModel.pendingPixelJamCode.collectAsStateWithLifecycle()
     val ytUsername by viewModel.currentYtUsername.collectAsStateWithLifecycle()
-    val userAvatarUrl by viewModel.currentUserAvatarUrl.collectAsStateWithLifecycle()
+    val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val userAvatarUrl by viewModel.currentUserLocalAvatar.collectAsStateWithLifecycle()
 
     val savedName by viewModel.pixelJamSavedDisplayName.collectAsStateWithLifecycle()
 
@@ -172,9 +173,9 @@ fun PixelJamSheet(
         viewModel.refreshPixelJamPublicRooms()
     }
 
-    LaunchedEffect(savedName, ytUsername) {
+    LaunchedEffect(userProfile.displayName, savedName, ytUsername) {
         if (displayName.isBlank()) {
-            displayName = savedName.ifBlank { ytUsername }
+            displayName = userProfile.displayName.ifBlank { savedName }.ifBlank { ytUsername }
         }
     }
 
@@ -232,6 +233,8 @@ fun PixelJamSheet(
                 if (isInRoom && inRoom != null) {
                     PixelJamRoomStage(
                         room = inRoom,
+                        myLocalAvatar = userAvatarUrl,
+                        myAvatarCacheKey = userProfile.updatedAt,
                         connectionState = connectionState,
                         playbackState = playbackState,
                         sharedQueue = sharedQueue,
@@ -269,6 +272,7 @@ fun PixelJamSheet(
                         uiState = uiState,
                         publicRooms = publicRooms,
                         userAvatarUrl = userAvatarUrl,
+                        userAvatarCacheKey = userProfile.updatedAt,
                         selectedTab = selectedLobbyTab,
                         onSelectTab = { selectedLobbyTab = it },
                         displayName = displayName,
@@ -300,6 +304,7 @@ private fun PixelJamLobbyStage(
     uiState: PixelJamUiState,
     publicRooms: List<PixelJamPublicRoom>,
     userAvatarUrl: String,
+    userAvatarCacheKey: Long,
     selectedTab: LobbyTab,
     onSelectTab: (LobbyTab) -> Unit,
     displayName: String,
@@ -599,18 +604,13 @@ private fun PixelJamLobbyStage(
             label = { Text("Display name") },
             placeholder = { Text("How friends see you") },
             leadingIcon = {
-                if (userAvatarUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = userAvatarUrl,
-                        contentDescription = "Profile photo",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                    )
-                } else {
-                    Icon(Icons.Rounded.Person, contentDescription = null)
-                }
+                com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                    avatarSpec = userAvatarUrl,
+                    displayName = displayName.ifBlank { "P" },
+                    size = 32.dp,
+                    cacheKey = userAvatarCacheKey,
+                    fallbackInitial = "P"
+                )
             },
             shape = RoundedCornerShape(20.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -789,6 +789,8 @@ private fun PixelJamLobbyStage(
 @Composable
 private fun PixelJamRoomStage(
     room: PixelJamUiState.InRoom,
+    myLocalAvatar: String,
+    myAvatarCacheKey: Long,
     connectionState: PixelJamConnectionState,
     playbackState: PixelJamPlaybackState?,
     sharedQueue: List<PixelJamTrack>,
@@ -1125,11 +1127,16 @@ private fun PixelJamRoomStage(
                 when (tab) {
                     RoomTab.PEOPLE -> PeopleTabContent(
                         room = room,
+                        myLocalAvatar = myLocalAvatar,
+                        myAvatarCacheKey = myAvatarCacheKey,
                         onGrantCoHost = onGrantCoHost,
                         onRevokeCoHost = onRevokeCoHost
                     )
                     RoomTab.CHAT -> ChatTabContent(
                         myUserId = room.userId,
+                        myDisplayName = room.displayName,
+                        myLocalAvatar = myLocalAvatar,
+                        myAvatarCacheKey = myAvatarCacheKey,
                         messages = chatMessages,
                         onSendChat = onSendChat
                     )
@@ -1181,6 +1188,8 @@ private fun PixelJamRoomStage(
 @Composable
 private fun PeopleTabContent(
     room: PixelJamUiState.InRoom,
+    myLocalAvatar: String,
+    myAvatarCacheKey: Long,
     onGrantCoHost: (String) -> Unit,
     onRevokeCoHost: (String) -> Unit
 ) {
@@ -1205,30 +1214,20 @@ private fun PeopleTabContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(if (participant.isHost) colors.primary else colors.surfaceContainerHighest),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (participant.avatarUrl.isNotBlank()) {
-                            AsyncImage(
-                                model = participant.avatarUrl,
-                                contentDescription = participant.name,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                            )
-                        } else {
-                            Text(
-                                text = participant.name.take(1).uppercase(),
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                                color = if (participant.isHost) colors.onPrimary else colors.onSurface
-                            )
-                        }
+                    val resolvedAvatar = if (isMe && myLocalAvatar.isNotBlank()) {
+                        myLocalAvatar
+                    } else {
+                        participant.avatarUrl
                     }
+                    com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                        avatarSpec = resolvedAvatar,
+                        displayName = participant.name,
+                        size = 40.dp,
+                        cacheKey = if (isMe) myAvatarCacheKey else 0L,
+                        fallbackContainerColor = if (participant.isHost) colors.primary else colors.surfaceContainerHighest,
+                        fallbackContentColor = if (participant.isHost) colors.onPrimary else colors.onSurface,
+                        fallbackInitial = "P"
+                    )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (isMe) "${participant.name} (You)" else participant.name,
@@ -1300,6 +1299,9 @@ private fun PeopleTabContent(
 @Composable
 private fun ChatTabContent(
     myUserId: String,
+    myDisplayName: String,
+    myLocalAvatar: String,
+    myAvatarCacheKey: Long,
     messages: List<PixelJamChatMessage>,
     onSendChat: (String, String?) -> Unit
 ) {
@@ -1346,19 +1348,20 @@ private fun ChatTabContent(
                         horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        if (!isMine && msg.avatarUrl.isNotBlank()) {
-                            AsyncImage(
-                                model = msg.avatarUrl,
-                                contentDescription = msg.userName,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(CircleShape)
+                        if (!isMine) {
+                            com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                                avatarSpec = msg.avatarUrl,
+                                displayName = msg.userName,
+                                size = 28.dp,
+                                fallbackContainerColor = if (msg.isHost) colors.primary else colors.surfaceContainerHighest,
+                                fallbackContentColor = if (msg.isHost) colors.onPrimary else colors.onSurface,
+                                fallbackInitial = "P"
                             )
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(8.dp))
                         }
                         Surface(
                             modifier = Modifier
+                                .weight(1f, fill = false)
                                 .clip(
                                     RoundedCornerShape(
                                         topStart = 20.dp,
@@ -1402,6 +1405,18 @@ private fun ChatTabContent(
                                     color = if (isMine) colors.onPrimaryContainer else colors.onSurface
                                 )
                             }
+                        }
+                        if (isMine) {
+                            Spacer(Modifier.width(8.dp))
+                            com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                                avatarSpec = myLocalAvatar.ifBlank { msg.avatarUrl },
+                                displayName = msg.userName.ifBlank { myDisplayName },
+                                size = 28.dp,
+                                cacheKey = myAvatarCacheKey,
+                                fallbackContainerColor = colors.primaryContainer,
+                                fallbackContentColor = colors.onPrimaryContainer,
+                                fallbackInitial = "P"
+                            )
                         }
                     }
                 }

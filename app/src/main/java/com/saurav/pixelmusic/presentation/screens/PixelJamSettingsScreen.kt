@@ -64,7 +64,9 @@ import kotlin.math.roundToInt
 @HiltViewModel
 class PixelJamSettingsViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    private val pixelJamManager: PixelJamManager
+    private val pixelJamManager: PixelJamManager,
+    private val userPreferencesRepository: com.saurav.pixelmusic.data.preferences.UserPreferencesRepository,
+    private val youtubeDatastoreRepository: com.saurav.pixelmusic.data.remote.youtube.DatastoreRepository
 ) : ViewModel() {
 
     object Keys {
@@ -72,6 +74,20 @@ class PixelJamSettingsViewModel @Inject constructor(
     }
 
     val serverUrl: StateFlow<String> = pixelJamManager.serverUrl
+
+    val userProfile: StateFlow<com.saurav.pixelmusic.data.model.UserProfile> =
+        userPreferencesRepository.userProfileFlow
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                com.saurav.pixelmusic.data.model.UserProfile()
+            )
+
+    val ytUsername: StateFlow<String> = youtubeDatastoreRepository.ytUsername
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val ytAvatarUrl: StateFlow<String> = youtubeDatastoreRepository.ytAvatarUrl
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
     val displayName: StateFlow<String> = dataStore.data
         .map { it[PixelJamManager.KEY_DISPLAY_NAME] ?: "" }
@@ -90,8 +106,10 @@ class PixelJamSettingsViewModel @Inject constructor(
     }
 
     fun setDisplayName(name: String) {
+        val clean = name.trim().take(32)
         viewModelScope.launch {
-            dataStore.edit { it[PixelJamManager.KEY_DISPLAY_NAME] = name.trim().take(32) }
+            dataStore.edit { it[PixelJamManager.KEY_DISPLAY_NAME] = clean }
+            userPreferencesRepository.setProfileDisplayName(clean)
         }
     }
 
@@ -107,7 +125,12 @@ fun PixelJamSettingsScreen(
 ) {
     val serverUrl by vm.serverUrl.collectAsStateWithLifecycle()
     val displayName by vm.displayName.collectAsStateWithLifecycle()
+    val userProfile by vm.userProfile.collectAsStateWithLifecycle()
+    val ytUsername by vm.ytUsername.collectAsStateWithLifecycle()
+    val ytAvatarUrl by vm.ytAvatarUrl.collectAsStateWithLifecycle()
     val keepAlive by vm.keepAlive.collectAsStateWithLifecycle()
+    val effectiveName = userProfile.effectiveDisplayName(ytUsername, displayName)
+    val effectiveAvatar = userProfile.effectiveLocalAvatar(if (ytUsername.isNotEmpty()) ytAvatarUrl else "")
 
     var showServerDialog by remember { mutableStateOf(false) }
     var serverDraft by remember(serverUrl) { mutableStateOf(serverUrl) }
@@ -250,18 +273,19 @@ fun PixelJamSettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         SettingsItem(
-                            title = "Display name",
-                            subtitle = displayName.ifBlank { "Not set — prompted when joining a room" },
+                            title = effectiveName.ifBlank { "Set up your profile" },
+                            subtitle = "Edit display name, photo & illustrated avatar",
                             leadingIcon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_groups_24),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                                    avatarSpec = effectiveAvatar,
+                                    displayName = effectiveName.ifBlank { "P" },
+                                    size = 32.dp,
+                                    cacheKey = userProfile.updatedAt,
+                                    fallbackInitial = "P"
                                 )
                             },
                             onClick = {
-                                nameDraft = displayName
-                                showNameDialog = true
+                                navController.navigate(com.saurav.pixelmusic.presentation.navigation.Screen.Profile.route)
                             }
                         )
                     }

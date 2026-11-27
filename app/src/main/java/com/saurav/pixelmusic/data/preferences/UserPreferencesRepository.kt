@@ -527,6 +527,12 @@ constructor(
         val MLW_ANIMATE_SHAPE_ON_TRACK_CHANGE = booleanPreferencesKey("mlw_animate_shape_on_track_change")
         val MLW_SLOW_ROTATE_WHILE_PLAYING = booleanPreferencesKey("mlw_slow_rotate_while_playing")
         val MLW_TAP_WALLPAPER_TO_CHANGE_SHAPE = booleanPreferencesKey("mlw_tap_wallpaper_to_change_shape")
+
+        // User Profile
+        val PROFILE_DISPLAY_NAME = stringPreferencesKey("user_profile_display_name")
+        val PROFILE_AVATAR_SPEC = stringPreferencesKey("user_profile_avatar_spec")
+        val PROFILE_AVATAR_WIRE_DATA = stringPreferencesKey("user_profile_avatar_wire_data")
+        val PROFILE_UPDATED_AT = longPreferencesKey("user_profile_updated_at")
     }
 
     val lastUpdatePromptTimeFlow: Flow<Long> =
@@ -2962,6 +2968,53 @@ constructor(
     suspend fun setMusicWallpaperTapToChangeShape(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.MLW_TAP_WALLPAPER_TO_CHANGE_SHAPE] = enabled
+        }
+    }
+
+    val userProfileFlow: Flow<com.saurav.pixelmusic.data.model.UserProfile> =
+        dataStore.data.map { prefs ->
+            com.saurav.pixelmusic.data.model.UserProfile(
+                displayName = prefs[PreferencesKeys.PROFILE_DISPLAY_NAME].orEmpty(),
+                avatarSpec = prefs[PreferencesKeys.PROFILE_AVATAR_SPEC].orEmpty(),
+                avatarWireData = prefs[PreferencesKeys.PROFILE_AVATAR_WIRE_DATA].orEmpty(),
+                updatedAt = prefs[PreferencesKeys.PROFILE_UPDATED_AT] ?: 0L
+            )
+        }.distinctUntilChanged()
+
+    suspend fun setProfileDisplayName(name: String) {
+        val clean = name.trim().take(32)
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.PROFILE_DISPLAY_NAME] = clean
+            prefs[PreferencesKeys.PROFILE_UPDATED_AT] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun setProfileBuiltInAvatar(avatarId: String, backgroundId: String) {
+        val spec = com.saurav.pixelmusic.data.model.ProfileAvatarCatalog.encodeBuiltIn(avatarId, backgroundId)
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.PROFILE_AVATAR_SPEC] = spec
+            prefs[PreferencesKeys.PROFILE_AVATAR_WIRE_DATA] = ""
+            prefs[PreferencesKeys.PROFILE_UPDATED_AT] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun setProfileCustomPhoto(localPath: String, wireDataUri: String) {
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.PROFILE_AVATAR_SPEC] = localPath
+            prefs[PreferencesKeys.PROFILE_AVATAR_WIRE_DATA] = wireDataUri
+            prefs[PreferencesKeys.PROFILE_UPDATED_AT] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun clearProfileAvatar(forceInitialOnly: Boolean = false) {
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.PROFILE_AVATAR_SPEC] = if (forceInitialOnly) {
+                com.saurav.pixelmusic.data.model.ProfileAvatarCatalog.INITIAL_ONLY
+            } else {
+                ""
+            }
+            prefs[PreferencesKeys.PROFILE_AVATAR_WIRE_DATA] = ""
+            prefs[PreferencesKeys.PROFILE_UPDATED_AT] = System.currentTimeMillis()
         }
     }
 }

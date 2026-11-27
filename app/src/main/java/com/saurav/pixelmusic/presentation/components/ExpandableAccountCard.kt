@@ -50,6 +50,7 @@ fun ExpandableAccountCard(
     onSwitchAccount: (Int) -> Unit,
     onRemoveAccount: (Int) -> Unit,
     onManageAccounts: () -> Unit,
+    onEditProfile: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -70,10 +71,16 @@ fun ExpandableAccountCard(
         label = "card_elevation"
     )
     
-    val hasProfile = uiState.ytUsername.isNotEmpty()
-    val nameText = if (hasProfile) uiState.ytUsername else "Guest User"
-    val handleText = if (hasProfile) uiState.ytHandle else "Sign in to sync"
-    val avatarUrl = if (hasProfile) uiState.ytAvatarUrl else ""
+    val userProfile = uiState.userProfile
+    val hasYtAccount = uiState.ytUsername.isNotEmpty()
+    val nameText = userProfile.effectiveDisplayName(uiState.ytUsername, "Guest User")
+    val avatarSpec = userProfile.effectiveLocalAvatar(if (hasYtAccount) uiState.ytAvatarUrl else "")
+    val hasProfile = hasYtAccount || userProfile.displayName.isNotBlank() || avatarSpec.isNotBlank()
+    val handleText = when {
+        hasYtAccount && uiState.ytHandle.isNotBlank() -> uiState.ytHandle
+        userProfile.displayName.isNotBlank() || avatarSpec.isNotBlank() -> "Tap to customize profile"
+        else -> "Sign in to sync"
+    }
 
     val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
 
@@ -105,37 +112,21 @@ fun ExpandableAccountCard(
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(68.dp) 
+                        .size(68.dp)
                         .then(
                             if (hasProfile) Modifier.border(BorderStroke(2.5.dp, dynamicGradient), CircleShape)
                             else Modifier
                         )
+                        .clip(CircleShape)
+                        .clickable { onEditProfile() }
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(56.dp) 
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                    ) {
-                        if (avatarUrl.isNotEmpty()) {
-                            AsyncImage(
-                                model = avatarUrl,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                contentScale = ContentScale.Crop,
-                                colorFilter = null
-                            )
-                        } else {
-                            val initial = nameText.firstOrNull()?.toString()?.uppercase() ?: "G"
-                            Text(
-                                text = initial,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
+                    ProfileAvatar(
+                        avatarSpec = avatarSpec,
+                        displayName = nameText,
+                        size = 56.dp,
+                        cacheKey = userProfile.updatedAt,
+                        fallbackInitial = "G"
+                    )
                 }
 
                 Column(
@@ -199,6 +190,43 @@ fun ExpandableAccountCard(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
+
+                    // 0. Edit Profile Button
+                    Surface(
+                        onClick = {
+                            expanded = false
+                            onEditProfile()
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_edit_24),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Edit profile",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "Name, photo & illustrated avatars",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
 
                     // 1. Account rows (active account first) — tap a row to switch
                     accounts.forEach { account ->

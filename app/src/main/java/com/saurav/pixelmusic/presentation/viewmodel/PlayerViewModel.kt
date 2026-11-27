@@ -882,8 +882,27 @@ class PlayerViewModel @Inject constructor(
     private val _pendingPixelJamCode = MutableStateFlow<String?>(null)
     val pendingPixelJamCode: StateFlow<String?> = _pendingPixelJamCode.asStateFlow()
 
-    val currentUserAvatarUrl: StateFlow<String> = youtubeDatastoreRepository.ytAvatarUrl
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val userProfile: StateFlow<com.saurav.pixelmusic.data.model.UserProfile> =
+        userPreferencesRepository.userProfileFlow
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                com.saurav.pixelmusic.data.model.UserProfile()
+            )
+
+    val currentUserAvatarUrl: StateFlow<String> = combine(
+        userPreferencesRepository.userProfileFlow,
+        youtubeDatastoreRepository.ytAvatarUrl
+    ) { profile, ytUrl ->
+        profile.effectiveWireAvatar(ytUrl)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val currentUserLocalAvatar: StateFlow<String> = combine(
+        userPreferencesRepository.userProfileFlow,
+        youtubeDatastoreRepository.ytAvatarUrl
+    ) { profile, ytUrl ->
+        profile.effectiveLocalAvatar(ytUrl)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
     val currentYtUsername: StateFlow<String> = youtubeDatastoreRepository.ytUsername
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
@@ -902,7 +921,15 @@ class PlayerViewModel @Inject constructor(
     fun openPixelJamSheet() { _showPixelJamSheet.value = true }
     fun closePixelJamSheet() { _showPixelJamSheet.value = false }
     fun setPendingPixelJamCode(code: String?) { _pendingPixelJamCode.value = code }
-    fun savePixelJamDisplayName(name: String) { pixelJamManager.saveDisplayName(name) }
+    fun savePixelJamDisplayName(name: String) {
+        pixelJamManager.saveDisplayName(name)
+        val trimmed = name.trim().take(32)
+        if (trimmed.isNotBlank()) {
+            viewModelScope.launch {
+                userPreferencesRepository.setProfileDisplayName(trimmed)
+            }
+        }
+    }
     fun refreshPixelJamPublicRooms() { pixelJamManager.refreshPublicRooms() }
     fun dismissPixelJamError() { pixelJamManager.dismissError() }
     fun getPixelJamInviteUrl(): String? = pixelJamManager.inviteUrlForCurrentRoom()

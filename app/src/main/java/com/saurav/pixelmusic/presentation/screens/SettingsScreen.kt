@@ -288,6 +288,7 @@ fun SettingsScreen(
             onSwitchAccount = { settingsViewModel.switchYtAccount(it) },
             onRemoveAccount = { settingsViewModel.removeYtAccount(it) },
             onManageAccounts = { navController.navigateSafely(Screen.Accounts.route) },
+            onEditProfile = { navController.navigateSafely(Screen.Profile.route) },
             modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
         )
     }
