@@ -159,6 +159,7 @@ fun PixelJamSheet(
     val syncDriftMs by viewModel.pixelJamSyncDriftMs.collectAsStateWithLifecycle()
     val pendingCode by viewModel.pendingPixelJamCode.collectAsStateWithLifecycle()
     val ytUsername by viewModel.currentYtUsername.collectAsStateWithLifecycle()
+    val userAvatarUrl by viewModel.currentUserAvatarUrl.collectAsStateWithLifecycle()
 
     val savedName by viewModel.pixelJamSavedDisplayName.collectAsStateWithLifecycle()
 
@@ -267,6 +268,7 @@ fun PixelJamSheet(
                     PixelJamLobbyStage(
                         uiState = uiState,
                         publicRooms = publicRooms,
+                        userAvatarUrl = userAvatarUrl,
                         selectedTab = selectedLobbyTab,
                         onSelectTab = { selectedLobbyTab = it },
                         displayName = displayName,
@@ -297,6 +299,7 @@ fun PixelJamSheet(
 private fun PixelJamLobbyStage(
     uiState: PixelJamUiState,
     publicRooms: List<PixelJamPublicRoom>,
+    userAvatarUrl: String,
     selectedTab: LobbyTab,
     onSelectTab: (LobbyTab) -> Unit,
     displayName: String,
@@ -361,10 +364,10 @@ private fun PixelJamLobbyStage(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.rounded_group_24),
-                            contentDescription = null,
+                            painter = painterResource(R.drawable.pixelmusic_base_monochrome),
+                            contentDescription = "PixelMusic",
                             tint = colors.onPrimary,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(34.dp)
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -496,15 +499,18 @@ private fun PixelJamLobbyStage(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(42.dp)
+                                    .size(44.dp)
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(colors.secondaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = if (room.code == "INDIA") "IN" else "GL",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
-                                    color = colors.onSecondaryContainer
+                                    text = when (room.code.uppercase()) {
+                                        "INDIA" -> "\uD83C\uDDEE\uD83C\uDDF3"
+                                        "WORLD" -> "\uD83C\uDF0D"
+                                        else -> "\uD83C\uDFB5"
+                                    },
+                                    fontSize = 22.sp
                                 )
                             }
                             Column(modifier = Modifier.weight(1f)) {
@@ -588,7 +594,20 @@ private fun PixelJamLobbyStage(
             singleLine = true,
             label = { Text("Display name") },
             placeholder = { Text("How friends see you") },
-            leadingIcon = { Icon(Icons.Rounded.Person, contentDescription = null) },
+            leadingIcon = {
+                if (userAvatarUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = userAvatarUrl,
+                        contentDescription = "Profile photo",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Icon(Icons.Rounded.Person, contentDescription = null)
+                }
+            },
             shape = RoundedCornerShape(20.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = colors.surfaceContainerHigh,
@@ -1171,16 +1190,27 @@ private fun PeopleTabContent(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
                             .background(if (participant.isHost) colors.primary else colors.surfaceContainerHighest),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = participant.name.take(1).uppercase(),
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                            color = if (participant.isHost) colors.onPrimary else colors.onSurface
-                        )
+                        if (participant.avatarUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = participant.avatarUrl,
+                                contentDescription = participant.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                            )
+                        } else {
+                            Text(
+                                text = participant.name.take(1).uppercase(),
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                color = if (participant.isHost) colors.onPrimary else colors.onSurface
+                            )
+                        }
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -1294,10 +1324,22 @@ private fun ChatTabContent(
             ) {
                 items(messages, key = { it.id }) { msg ->
                     val isMine = msg.userId == myUserId
-                    Column(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
+                        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
+                        verticalAlignment = Alignment.Bottom
                     ) {
+                        if (!isMine && msg.avatarUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = msg.avatarUrl,
+                                contentDescription = msg.userName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
                         Surface(
                             modifier = Modifier
                                 .clip(

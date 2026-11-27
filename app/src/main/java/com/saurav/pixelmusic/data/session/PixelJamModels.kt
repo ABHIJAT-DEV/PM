@@ -66,6 +66,7 @@ data class PixelJamTrack(
 data class PixelJamParticipant(
     val userId: String,
     val name: String,
+    val avatarUrl: String = "",
     val isHost: Boolean,
     val isCoHost: Boolean,
     val joinedAt: Long = 0L
@@ -84,6 +85,7 @@ data class PixelJamChatMessage(
     val id: String,
     val userId: String,
     val userName: String,
+    val avatarUrl: String = "",
     val isHost: Boolean,
     val text: String,
     val timestamp: Long,

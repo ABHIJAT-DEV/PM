@@ -116,6 +116,7 @@ class PixelJamManager @Inject constructor(
     private var pendingConnectAction: (() -> Unit)? = null
     private var activeRoomCode: String? = null
     private var activeDisplayName: String? = null
+    private var activeAvatarUrl: String = ""
     private var pingJob: Job? = null
     private var reconnectJob: Job? = null
     private var reconnectAttempt: Int = 0
@@ -184,25 +185,27 @@ class PixelJamManager @Inject constructor(
         }
     }
 
-    fun createRoom(name: String, mode: PixelJamRoomMode) {
+    fun createRoom(name: String, mode: PixelJamRoomMode, avatarUrl: String = "") {
         val cleanName = name.trim()
         if (cleanName.isBlank()) {
             _uiState.value = PixelJamUiState.Error("Enter a display name first.", "invalid_name")
             return
         }
         activeDisplayName = cleanName
+        activeAvatarUrl = avatarUrl.trim()
         activeRoomCode = null
         _uiState.value = PixelJamUiState.Creating
         connectAndSend {
             val payload = JSONObject().apply {
                 put("name", cleanName)
                 put("room_mode", mode.wireValue)
+                if (activeAvatarUrl.isNotBlank()) put("avatar_url", activeAvatarUrl)
             }
             sendEnvelope("create_room", payload)
         }
     }
 
-    fun joinRoom(roomCode: String, name: String) {
+    fun joinRoom(roomCode: String, name: String, avatarUrl: String = "") {
         val cleanCode = roomCode.trim().uppercase().replace(Regex("[^A-Z0-9]"), "")
         val cleanName = name.trim()
         if (cleanCode.length < 3) {
@@ -214,12 +217,14 @@ class PixelJamManager @Inject constructor(
             return
         }
         activeDisplayName = cleanName
+        activeAvatarUrl = avatarUrl.trim()
         activeRoomCode = cleanCode
         _uiState.value = PixelJamUiState.Joining(cleanCode)
         connectAndSend {
             val payload = JSONObject().apply {
                 put("room_code", cleanCode)
                 put("name", cleanName)
+                if (activeAvatarUrl.isNotBlank()) put("avatar_url", activeAvatarUrl)
             }
             sendEnvelope("join_room", payload)
         }
@@ -364,6 +369,7 @@ class PixelJamManager @Inject constructor(
                     JSONObject().apply {
                         put("room_code", code)
                         put("name", name)
+                        if (activeAvatarUrl.isNotBlank()) put("avatar_url", activeAvatarUrl)
                     }
                 )
             }
@@ -492,6 +498,7 @@ class PixelJamManager @Inject constructor(
                         PixelJamParticipant(
                             userId = userId,
                             name = name,
+                            avatarUrl = payload.optString("avatar_url", activeAvatarUrl),
                             isHost = true,
                             isCoHost = false,
                             joinedAt = System.currentTimeMillis()
@@ -550,6 +557,7 @@ class PixelJamManager @Inject constructor(
                 val updated = room.participants.filterNot { it.userId == uid } + PixelJamParticipant(
                     userId = uid,
                     name = name,
+                    avatarUrl = payload.optString("avatar_url", ""),
                     isHost = isHost,
                     isCoHost = room.coHostId == uid,
                     joinedAt = System.currentTimeMillis()
@@ -748,6 +756,7 @@ class PixelJamManager @Inject constructor(
                     PixelJamParticipant(
                         userId = obj.optString("user_id"),
                         name = obj.optString("name"),
+                        avatarUrl = obj.optString("avatar_url", ""),
                         isHost = obj.optBoolean("is_host", false),
                         isCoHost = obj.optBoolean("is_cohost", false),
                         joinedAt = obj.optLong("joined_at", 0L)
@@ -774,6 +783,7 @@ class PixelJamManager @Inject constructor(
             id = id.ifBlank { "${obj.optLong("timestamp")}_${obj.optString("user_id")}" },
             userId = obj.optString("user_id"),
             userName = obj.optString("user_name"),
+            avatarUrl = obj.optString("avatar_url", ""),
             isHost = obj.optBoolean("is_host", false),
             text = text,
             timestamp = obj.optLong("timestamp", System.currentTimeMillis()),

@@ -912,12 +912,12 @@ class PlayerViewModel @Inject constructor(
 
     fun createPixelJamRoom(name: String, mode: PixelJamRoomMode) {
         startPixelJamSyncLoop()
-        pixelJamManager.createRoom(name, mode)
+        pixelJamManager.createRoom(name, mode, currentUserAvatarUrl.value)
     }
 
     fun joinPixelJamRoom(code: String, name: String) {
         startPixelJamSyncLoop()
-        pixelJamManager.joinRoom(code, name)
+        pixelJamManager.joinRoom(code, name, currentUserAvatarUrl.value)
     }
 
     fun leavePixelJamRoom() {
