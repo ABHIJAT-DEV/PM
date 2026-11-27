@@ -46,7 +46,8 @@ class PixelJamManager @Inject constructor(
         val KEY_NOTIFY_ROOM_ALERTS = booleanPreferencesKey("pixeljam_notify_room_alerts")
         val KEY_AUTO_QUEUE_ON_LEAVE = booleanPreferencesKey("pixeljam_auto_queue_on_leave")
         private const val PING_INTERVAL_MS = 15_000L
-        private const val MAX_RECONNECT_ATTEMPTS = 5
+        private const val MAX_RECONNECT_ATTEMPTS = 2
+        private const val WS_CLOSE_GOING_AWAY = 1001
 
         @Volatile
         private var activeInstance: PixelJamManager? = null
@@ -141,12 +142,17 @@ class PixelJamManager @Inject constructor(
     private val _events = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val events: SharedFlow<String> = _events.asSharedFlow()
 
+    private val _serverRestartEvents = MutableSharedFlow<PixelJamServerRestartEvent>(extraBufferCapacity = 4)
+    val serverRestartEvents: SharedFlow<PixelJamServerRestartEvent> = _serverRestartEvents.asSharedFlow()
+
     @Volatile
     private var webSocket: WebSocket? = null
     @Volatile
     private var serverClockOffsetMs: Long = 0L
     @Volatile
     private var intentionalClose: Boolean = false
+    @Volatile
+    private var reconnectingActiveRoom: Boolean = false
 
     private var pendingConnectAction: (() -> Unit)? = null
     private var activeRoomCode: String? = null
@@ -155,6 +161,9 @@ class PixelJamManager @Inject constructor(
     private var pingJob: Job? = null
     private var reconnectJob: Job? = null
     private var reconnectAttempt: Int = 0
+
+    private fun isInOrReconnectingRoom(): Boolean =
+        _uiState.value is PixelJamUiState.InRoom || reconnectingActiveRoom
 
     fun isActive(): Boolean = _uiState.value is PixelJamUiState.InRoom
 
@@ -270,6 +279,9 @@ class PixelJamManager @Inject constructor(
 
     fun leaveRoom() {
         intentionalClose = true
+        reconnectingActiveRoom = false
+        reconnectAttempt = 0
+        pendingConnectAction = null
         reconnectJob?.cancel()
         reconnectJob = null
         pingJob?.cancel()
@@ -284,6 +296,33 @@ class PixelJamManager @Inject constructor(
         resetRoomData()
         _connectionState.value = PixelJamConnectionState.DISCONNECTED
         _uiState.value = PixelJamUiState.Idle
+    }
+
+    private fun handleServerRestartKick(reason: String = "server_restart") {
+        if (intentionalClose && !isInOrReconnectingRoom() && activeRoomCode == null) return
+        intentionalClose = true
+        reconnectingActiveRoom = false
+        reconnectAttempt = 0
+        pendingConnectAction = null
+        reconnectJob?.cancel()
+        reconnectJob = null
+        pingJob?.cancel()
+        pingJob = null
+        try {
+            webSocket?.close(1000, "Server restarting")
+        } catch (_: Throwable) {
+        }
+        webSocket = null
+        activeRoomCode = null
+        resetRoomData()
+        _connectionState.value = PixelJamConnectionState.DISCONNECTED
+        _uiState.value = PixelJamUiState.Idle
+        _serverRestartEvents.tryEmit(
+            PixelJamServerRestartEvent(
+                reason = reason.ifBlank { "server_restart" },
+                message = PixelJamServerRestartEvent.DEFAULT_MESSAGE
+            )
+        )
     }
 
     fun sendPlaybackAction(
@@ -366,6 +405,7 @@ class PixelJamManager @Inject constructor(
 
     private fun connectAndSend(onOpenAction: () -> Unit) {
         intentionalClose = true
+        reconnectingActiveRoom = false
         reconnectJob?.cancel()
         pingJob?.cancel()
         webSocket?.close(1000, "Reconnecting")
@@ -389,16 +429,16 @@ class PixelJamManager @Inject constructor(
         if (intentionalClose) return
         val code = activeRoomCode ?: return
         val name = activeDisplayName ?: return
+        reconnectingActiveRoom = true
         if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-            _connectionState.value = PixelJamConnectionState.DISCONNECTED
-            _uiState.value = PixelJamUiState.Error("Lost connection to PixelJam server.")
+            handleServerRestartKick(reason = "connection_lost")
             return
         }
         reconnectAttempt++
         _connectionState.value = PixelJamConnectionState.RECONNECTING
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
-            val backoffMs = (1_500L * reconnectAttempt).coerceAtMost(10_000L)
+            val backoffMs = (1_200L * reconnectAttempt).coerceAtMost(4_000L)
             delay(backoffMs)
             if (intentionalClose) return@launch
             pendingConnectAction = {
@@ -445,7 +485,6 @@ class PixelJamManager @Inject constructor(
     private val socketListener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             if (this@PixelJamManager.webSocket !== webSocket) return
-            reconnectAttempt = 0
             _connectionState.value = PixelJamConnectionState.CONNECTED
             startPingLoop()
             pendingConnectAction?.invoke()
@@ -462,18 +501,26 @@ class PixelJamManager @Inject constructor(
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            if (this@PixelJamManager.webSocket !== webSocket) return
+            if (!intentionalClose && code == WS_CLOSE_GOING_AWAY && isInOrReconnectingRoom()) {
+                handleServerRestartKick(reason = reason.ifBlank { "server_restart" })
+                return
+            }
             webSocket.close(1000, null)
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
             if (this@PixelJamManager.webSocket !== webSocket) return
             pingJob?.cancel()
-            if (!intentionalClose) {
-                if (activeRoomCode != null) {
-                    scheduleReconnect()
-                } else {
-                    _connectionState.value = PixelJamConnectionState.DISCONNECTED
-                }
+            if (intentionalClose) return
+            if (code == WS_CLOSE_GOING_AWAY && isInOrReconnectingRoom()) {
+                handleServerRestartKick(reason = reason.ifBlank { "server_restart" })
+                return
+            }
+            if (isInOrReconnectingRoom() && activeRoomCode != null) {
+                scheduleReconnect()
+            } else {
+                _connectionState.value = PixelJamConnectionState.DISCONNECTED
             }
         }
 
@@ -482,7 +529,7 @@ class PixelJamManager @Inject constructor(
             Timber.w(t, "PixelJam: websocket failure")
             pingJob?.cancel()
             if (intentionalClose) return
-            if (_uiState.value is PixelJamUiState.InRoom && activeRoomCode != null) {
+            if (isInOrReconnectingRoom() && activeRoomCode != null) {
                 scheduleReconnect()
             } else {
                 _connectionState.value = PixelJamConnectionState.DISCONNECTED
@@ -518,6 +565,8 @@ class PixelJamManager @Inject constructor(
                 val userId = payload.optString("user_id")
                 val name = payload.optString("name")
                 val mode = PixelJamRoomMode.fromWire(payload.optString("room_mode"))
+                reconnectAttempt = 0
+                reconnectingActiveRoom = false
                 activeRoomCode = code
                 activeDisplayName = name
                 resetRoomData()
@@ -558,6 +607,8 @@ class PixelJamManager @Inject constructor(
                 val roomName = payload.optString("room_name", "")
                 val mode = PixelJamRoomMode.fromWire(payload.optString("room_mode"))
 
+                reconnectAttempt = 0
+                reconnectingActiveRoom = false
                 activeRoomCode = code
                 activeDisplayName = name
 
@@ -721,12 +772,23 @@ class PixelJamManager @Inject constructor(
                 }
             }
 
+            "server_shutdown" -> {
+                if (isInOrReconnectingRoom() || activeRoomCode != null) {
+                    val reason = payload?.optString("reason").orEmpty().ifBlank { "server_restart" }
+                    handleServerRestartKick(reason = reason)
+                }
+            }
+
             "error" -> {
                 if (payload == null) return
                 val errCode = payload.optString("code")
                 val errMsg = payload.optString("message").ifBlank { "PixelJam error" }
                 val retryAt = payload.optLong("retry_at_ms", 0L)
                 if (retryAt > 0L) _cooldownUntilMs.value = retryAt
+                if ((errCode == "room_not_found" || errCode == "not_in_room") && isInOrReconnectingRoom()) {
+                    handleServerRestartKick(reason = "room_expired")
+                    return
+                }
                 if (_uiState.value is PixelJamUiState.InRoom) {
                     _events.tryEmit(errMsg)
                 } else {

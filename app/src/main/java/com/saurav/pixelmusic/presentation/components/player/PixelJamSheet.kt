@@ -213,9 +213,10 @@ fun PixelJamSheet(
         ) {
             val inRoom = uiState as? PixelJamUiState.InRoom
             AnimatedContent(
-                targetState = inRoom != null,
+                targetState = inRoom,
+                contentKey = { it != null },
                 transitionSpec = {
-                    if (targetState) {
+                    if (targetState != null) {
                         (fadeIn(tween(260)) + slideInVertically(
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioLowBouncy,
@@ -229,10 +230,10 @@ fun PixelJamSheet(
                     }
                 },
                 label = "pixelJamStageTransition"
-            ) { isInRoom ->
-                if (isInRoom && inRoom != null) {
+            ) { currentRoom ->
+                if (currentRoom != null) {
                     PixelJamRoomStage(
-                        room = inRoom,
+                        room = currentRoom,
                         myLocalAvatar = userAvatarUrl,
                         myAvatarCacheKey = userProfile.updatedAt,
                         connectionState = connectionState,

@@ -149,6 +149,16 @@ fun UnifiedPlayerSheetV2(
                 }
             }
             launch {
+                playerViewModel.pixelJamServerRestartEvents.collect { event ->
+                    PixelToast.show(
+                        context = latestContext,
+                        message = event.message,
+                        long = true,
+                        type = PixelToastType.INFO
+                    )
+                }
+            }
+            launch {
                 playerViewModel.showNoInternetDialog.collect {
                     showNoInternetDialog = true
                 }

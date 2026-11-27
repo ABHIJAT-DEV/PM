@@ -96,6 +96,7 @@ import com.saurav.pixelmusic.data.session.PixelJamManager
 import com.saurav.pixelmusic.data.session.PixelJamPlaybackState
 import com.saurav.pixelmusic.data.session.PixelJamPublicRoom
 import com.saurav.pixelmusic.data.session.PixelJamRoomMode
+import com.saurav.pixelmusic.data.session.PixelJamServerRestartEvent
 import com.saurav.pixelmusic.data.session.PixelJamSuggestion
 import com.saurav.pixelmusic.data.session.PixelJamTrack
 import com.saurav.pixelmusic.data.session.PixelJamUiState
@@ -875,6 +876,7 @@ class PlayerViewModel @Inject constructor(
     val pixelJamCooldownUntilMs: StateFlow<Long> = pixelJamManager.cooldownUntilMs
     val pixelJamRttMs: StateFlow<Long> = pixelJamManager.rttMs
     val pixelJamSavedDisplayName: StateFlow<String> = pixelJamManager.savedDisplayName
+    val pixelJamServerRestartEvents: SharedFlow<PixelJamServerRestartEvent> = pixelJamManager.serverRestartEvents
 
     private val _pixelJamSyncDriftMs = MutableStateFlow(0L)
     val pixelJamSyncDriftMs: StateFlow<Long> = _pixelJamSyncDriftMs.asStateFlow()
@@ -963,8 +965,20 @@ class PlayerViewModel @Inject constructor(
         stopPixelJamSyncLoop()
         pixelJamManager.leaveRoom()
         closePixelJamSheet()
+        refillAutoQueueAfterPixelJamExit(currentSong, queueSize)
+    }
 
-        // If user left a PixelJam room while playing a single-track queue,
+    private fun handlePixelJamServerRestart() {
+        val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
+        val queueSize = _playerUiState.value.currentPlaybackQueue.size
+        stopPixelJamSyncLoop()
+        _pixelJamSyncDriftMs.value = 0L
+        // Keep current playback running smoothly and refill AutoQueue so the next song plays automatically.
+        refillAutoQueueAfterPixelJamExit(currentSong, queueSize)
+    }
+
+    private fun refillAutoQueueAfterPixelJamExit(currentSong: Song?, queueSize: Int) {
+        // If user left or was smoothly exited from a PixelJam room while playing a single-track queue,
         // automatically seed AutoQueueManager so the next song plays seamlessly.
         if (pixelJamManager.autoQueueOnLeave.value && currentSong != null && queueSize <= 1) {
             val videoId = currentSong.youtubeId?.takeIf { it.isNotBlank() }
@@ -1070,6 +1084,7 @@ class PlayerViewModel @Inject constructor(
         lastPublishedIsPlaying = null
         lastPublishedQueueIds = emptyList()
         sessionSyncBypass = false
+        _pixelJamSyncDriftMs.value = 0L
         com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.isPaused = false
     }
 
@@ -1573,6 +1588,12 @@ class PlayerViewModel @Inject constructor(
         lyricsStateHolder.initialize(viewModelScope, lyricsLoadCallback, playbackStateHolder.stablePlayerState)
         playbackStateHolder.initialize(viewModelScope)
         themeStateHolder.initialize(viewModelScope)
+
+        viewModelScope.launch {
+            pixelJamManager.serverRestartEvents.collect {
+                handlePixelJamServerRestart()
+            }
+        }
 
         // On cold start, the MediaController connects asynchronously, leaving stablePlayerState.currentSong
         // null until that happens. Pre-load the palette from the persisted snapshot so the mini player

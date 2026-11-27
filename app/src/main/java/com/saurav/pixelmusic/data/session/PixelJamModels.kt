@@ -146,3 +146,14 @@ sealed interface PixelJamUiState {
 
     data class Error(val message: String, val code: String? = null) : PixelJamUiState
 }
+
+@Immutable
+data class PixelJamServerRestartEvent(
+    val reason: String = "server_restart",
+    val message: String = DEFAULT_MESSAGE
+) {
+    companion object {
+        const val DEFAULT_MESSAGE =
+            "PixelJam server needed a quick break — switched to solo playback. Rejoin in a few seconds!"
+    }
+}
