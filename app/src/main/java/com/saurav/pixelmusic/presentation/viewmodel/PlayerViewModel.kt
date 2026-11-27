@@ -90,14 +90,15 @@ import com.saurav.pixelmusic.data.service.MusicService
 import com.saurav.pixelmusic.data.service.player.CastPlayer
 import com.saurav.pixelmusic.data.service.http.MediaFileHttpServerService
 import com.saurav.pixelmusic.data.service.player.DualPlayerEngine
-import com.saurav.pixelmusic.data.session.ChatMessage
-import com.saurav.pixelmusic.data.session.ListenTogetherConnectionState
-import com.saurav.pixelmusic.data.session.ListenTogetherManager
-import com.saurav.pixelmusic.data.session.ListenTogetherUiState
-import com.saurav.pixelmusic.data.session.ReactionEvent
-import com.saurav.pixelmusic.data.session.SessionTrack
-import com.saurav.pixelmusic.data.session.SessionMember
-import com.saurav.pixelmusic.data.session.SongRequest
+import com.saurav.pixelmusic.data.session.PixelJamChatMessage
+import com.saurav.pixelmusic.data.session.PixelJamConnectionState
+import com.saurav.pixelmusic.data.session.PixelJamManager
+import com.saurav.pixelmusic.data.session.PixelJamPlaybackState
+import com.saurav.pixelmusic.data.session.PixelJamPublicRoom
+import com.saurav.pixelmusic.data.session.PixelJamRoomMode
+import com.saurav.pixelmusic.data.session.PixelJamSuggestion
+import com.saurav.pixelmusic.data.session.PixelJamTrack
+import com.saurav.pixelmusic.data.session.PixelJamUiState
 import com.saurav.pixelmusic.data.worker.SyncManager
 import com.saurav.pixelmusic.data.worker.YouTubeLibrarySyncManager
 import com.saurav.pixelmusic.utils.AppShortcutManager
@@ -171,7 +172,7 @@ import coil.memory.MemoryCache
 import dagger.Lazy
 
 private const val CAST_LOG_TAG = "PlayerCastTransfer"
-private const val LISTEN_TOGETHER_DRIFT_THRESHOLD_MS = 750L
+private const val PIXELJAM_DRIFT_THRESHOLD_MS = 750L
 private const val ENABLE_FOLDERS_SOURCE_SWITCHING = true
 private const val MAX_ALBUM_BATCH_SELECTION = 6
 private const val SONG_ID_QUERY_CHUNK_SIZE = 900
@@ -324,7 +325,7 @@ class PlayerViewModel @Inject constructor(
     val playlistSelectionStateHolder: PlaylistSelectionStateHolder,
     private val sessionToken: SessionToken,
     private val mediaControllerFactory: com.saurav.pixelmusic.data.media.MediaControllerFactory,
-    private val listenTogetherManager: ListenTogetherManager
+    private val pixelJamManager: PixelJamManager
 ) : ViewModel() {
 
     companion object {
@@ -855,67 +856,28 @@ class PlayerViewModel @Inject constructor(
     val toastEvents = _toastEvents.asSharedFlow()
 
     // ------------------------------------------------------------------
-    // Listen Together session integration
+    // PixelJam WebSocket session integration
     // ------------------------------------------------------------------
 
-    /** Whether the Listen Together bottom sheet is visible. */
-    private val _showListenTogetherSheet = MutableStateFlow(false)
-    val showListenTogetherSheet: StateFlow<Boolean> = _showListenTogetherSheet.asStateFlow()
+    private val _showPixelJamSheet = MutableStateFlow(false)
+    val showPixelJamSheet: StateFlow<Boolean> = _showPixelJamSheet.asStateFlow()
 
-    /** Session state machine — Idle / Creating / Joining / Hosting / Guest / Error. */
-    val listenTogetherUiState: StateFlow<ListenTogetherUiState> = listenTogetherManager.uiState
-    /** Local Firebase connection state; useful for a reconnecting/live-sync indicator. */
-    val listenTogetherConnectionState: StateFlow<ListenTogetherConnectionState> = listenTogetherManager.connectionState
-    val listenTogetherRemoteState: StateFlow<SessionTrack?> = listenTogetherManager.remoteState
-    val listenTogetherMembers: StateFlow<List<SessionMember>> = listenTogetherUiState
-        .map { state -> when (state) {
-            is ListenTogetherUiState.Hosting -> state.members
-            is ListenTogetherUiState.Guest -> state.members
-            else -> emptyList()
-        } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val listenTogetherRequests: StateFlow<List<SongRequest>> = listenTogetherManager.songRequests
-    private val _listenTogetherSyncDriftMs = MutableStateFlow(0L)
-    val listenTogetherSyncDriftMs: StateFlow<Long> = _listenTogetherSyncDriftMs.asStateFlow()
+    val pixelJamUiState: StateFlow<PixelJamUiState> = pixelJamManager.uiState
+    val pixelJamConnectionState: StateFlow<PixelJamConnectionState> = pixelJamManager.connectionState
+    val pixelJamPlaybackState: StateFlow<PixelJamPlaybackState?> = pixelJamManager.playbackState
+    val pixelJamSharedQueue: StateFlow<List<PixelJamTrack>> = pixelJamManager.sharedQueue
+    val pixelJamChatMessages: StateFlow<List<PixelJamChatMessage>> = pixelJamManager.chatMessages
+    val pixelJamSuggestions: StateFlow<List<PixelJamSuggestion>> = pixelJamManager.suggestions
+    val pixelJamPublicRooms: StateFlow<List<PixelJamPublicRoom>> = pixelJamManager.publicRooms
+    val pixelJamCooldownUntilMs: StateFlow<Long> = pixelJamManager.cooldownUntilMs
+    val pixelJamRttMs: StateFlow<Long> = pixelJamManager.rttMs
+    val pixelJamSavedDisplayName: StateFlow<String> = pixelJamManager.savedDisplayName
 
-    /**
-     * Set while guest-sync itself drives playback, so the guest transport
-     * lock ([blockTransportForGuest]) doesn't block it.
-     */
-    @Volatile
-    private var sessionSyncBypass = false
+    private val _pixelJamSyncDriftMs = MutableStateFlow(0L)
+    val pixelJamSyncDriftMs: StateFlow<Long> = _pixelJamSyncDriftMs.asStateFlow()
 
-    private var hostSyncJob: Job? = null
-    private var guestSyncJob: Job? = null
-    private var guestLoadWatchdog: Job? = null
-    private var guestBufferPauseJob: Job? = null
-    private var lastGuestVideoId: String? = null
-    private var savedGuestQueue: List<Song>? = null
-    private var savedGuestStartSong: Song? = null
-    private var savedGuestQueueName: String? = null
-
-    fun openListenTogetherSheet() { _showListenTogetherSheet.value = true }
-    fun closeListenTogetherSheet() { _showListenTogetherSheet.value = false }
-
-    /** Guests can't drive playback — the host is the DJ. */
-    private fun blockTransportForGuest(): Boolean {
-        if (listenTogetherManager.isGuestActive() && !sessionSyncBypass) {
-            sendToast(context.getString(R.string.listen_together_host_only))
-            return true
-        }
-        return false
-    }
-
-    /** Starts hosting a session, then begins publishing playback state. */
-    fun startHostingSession(hostName: String) {
-        viewModelScope.launch {
-            val photoUrl = youtubeDatastoreRepository.ytAvatarUrl.first().ifBlank { null }
-            if (listenTogetherManager.startHosting(hostName, photoUrl)) {
-                startHostSync()
-                sendToast(context.getString(R.string.listen_together_share_code))
-            }
-        }
-    }
+    private val _pendingPixelJamCode = MutableStateFlow<String?>(null)
+    val pendingPixelJamCode: StateFlow<String?> = _pendingPixelJamCode.asStateFlow()
 
     val currentUserAvatarUrl: StateFlow<String> = youtubeDatastoreRepository.ytAvatarUrl
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
@@ -923,373 +885,270 @@ class PlayerViewModel @Inject constructor(
     val currentYtUsername: StateFlow<String> = youtubeDatastoreRepository.ytUsername
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
-    /** The room's live reaction + message feeds. */
-    val listenTogetherReactions: StateFlow<List<ReactionEvent>> = listenTogetherManager.reactionEvents
-    val listenTogetherMessages: StateFlow<List<ChatMessage>> = listenTogetherManager.chatMessages
+    @Volatile
+    private var sessionSyncBypass = false
 
-    /** Sends an emoji reaction to the room. */
-    fun sendListenTogetherReaction(emoji: String) {
-        viewModelScope.launch {
-            listenTogetherManager.sendReaction(emoji)
+    private var pixelJamSyncJob: Job? = null
+    private var lastSyncedRemoteVideoId: String? = null
+    private var lastPublishedVideoId: String? = null
+    private var lastPublishedIsPlaying: Boolean? = null
+    private var lastPublishedQueueIds: List<String> = emptyList()
+
+    fun openPixelJamSheet() { _showPixelJamSheet.value = true }
+    fun closePixelJamSheet() { _showPixelJamSheet.value = false }
+    fun setPendingPixelJamCode(code: String?) { _pendingPixelJamCode.value = code }
+    fun savePixelJamDisplayName(name: String) { pixelJamManager.saveDisplayName(name) }
+    fun refreshPixelJamPublicRooms() { pixelJamManager.refreshPublicRooms() }
+    fun dismissPixelJamError() { pixelJamManager.dismissError() }
+    fun getPixelJamInviteUrl(): String? = pixelJamManager.inviteUrlForCurrentRoom()
+
+    private fun blockTransportForGuest(): Boolean {
+        if (pixelJamManager.isActive() && !pixelJamManager.canControlPlayback() && !sessionSyncBypass) {
+            sendToast(context.getString(R.string.listen_together_host_only))
+            return true
+        }
+        return false
+    }
+
+    fun createPixelJamRoom(name: String, mode: PixelJamRoomMode) {
+        startPixelJamSyncLoop()
+        pixelJamManager.createRoom(name, mode)
+    }
+
+    fun joinPixelJamRoom(code: String, name: String) {
+        startPixelJamSyncLoop()
+        pixelJamManager.joinRoom(code, name)
+    }
+
+    fun leavePixelJamRoom() {
+        stopPixelJamSyncLoop()
+        pixelJamManager.leaveRoom()
+        closePixelJamSheet()
+    }
+
+    fun sendPixelJamChat(text: String, replyToId: String? = null) {
+        pixelJamManager.sendChat(text, replyToId)
+    }
+
+    fun changePixelJamRoomMode(mode: PixelJamRoomMode) {
+        pixelJamManager.changeRoomMode(mode)
+    }
+
+    fun grantPixelJamCoHost(userId: String) {
+        pixelJamManager.grantCoHost(userId)
+    }
+
+    fun revokePixelJamCoHost(userId: String) {
+        pixelJamManager.revokeCoHost(userId)
+    }
+
+    fun approvePixelJamSuggestion(suggestionId: String) {
+        val sug = pixelJamManager.suggestions.value.firstOrNull { it.suggestionId == suggestionId }
+        pixelJamManager.approveSuggestion(suggestionId)
+        if (sug != null) {
+            viewModelScope.launch {
+                val nativeSong = com.saurav.pixelmusic.data.model.youtube.Song(
+                    youtubeId = sug.track.id,
+                    title = sug.track.title,
+                    artist = sug.track.artist,
+                    thumbnailHref = sug.track.artworkUrl
+                ).toNativeSong()
+                addSongNextToQueue(nativeSong)
+                sendToast("Approved & queued \"${sug.track.title}\"")
+            }
         }
     }
 
-    /** Sends the once-per-song "loved this" reaction. */
-    fun sendLovedReaction() {
-        val videoId = currentSessionVideoId() ?: return
-        viewModelScope.launch {
-            listenTogetherManager.sendLovedReaction(videoId)
-        }
+    fun rejectPixelJamSuggestion(suggestionId: String) {
+        pixelJamManager.rejectSuggestion(suggestionId)
     }
 
-    /** Sends a preset message to the room. */
-    fun sendListenTogetherMessage(text: String) {
-        viewModelScope.launch {
-            listenTogetherManager.sendPresetMessage(text)
-        }
-    }
-
-    /** Immediately re-align a guest with the latest host snapshot. */
-    fun syncListenTogetherNow() {
-        if (!listenTogetherManager.isGuestActive()) return
-        viewModelScope.launch { enforceGuestConvergence() }
-    }
-
-    fun sendListenTogetherSongRequest(text: String) {
-        viewModelScope.launch { listenTogetherManager.sendSongRequest(text) }
-    }
-
-    fun voteListenTogetherRequest(key: String) {
-        viewModelScope.launch { listenTogetherManager.voteSongRequest(key) }
-    }
-
-    fun dismissListenTogetherRequest(key: String) {
-        viewModelScope.launch { listenTogetherManager.dismissSongRequest(key) }
-    }
-
-    private val _pendingListenTogetherCode = MutableStateFlow<String?>(null)
-    val pendingListenTogetherCode: StateFlow<String?> = _pendingListenTogetherCode.asStateFlow()
-
-    fun setPendingListenTogetherCode(code: String?) {
-        _pendingListenTogetherCode.value = code
-    }
-
-    fun queueNextListenTogetherRequest(request: com.saurav.pixelmusic.data.session.SongRequest) {
+    fun suggestPixelJamTrack(query: String) {
         viewModelScope.launch {
             try {
-                val results = musicRepository.searchAllOnce(request.text, com.saurav.pixelmusic.data.model.SearchFilterType.SONGS)
-                val targetSong = results.filterIsInstance<com.saurav.pixelmusic.data.model.SearchResultItem.SongItem>().firstOrNull()?.song
-                if (targetSong != null) {
-                    addSongNextToQueue(targetSong)
-                    sendToast("Queued \"${targetSong.title}\" next")
+                val results = musicRepository.searchAllOnce(
+                    query,
+                    com.saurav.pixelmusic.data.model.SearchFilterType.SONGS
+                )
+                val song = results.filterIsInstance<com.saurav.pixelmusic.data.model.SearchResultItem.SongItem>()
+                    .firstOrNull()?.song
+                if (song != null && !song.youtubeId.isNullOrBlank()) {
+                    pixelJamManager.suggestTrack(song.toPixelJamTrack())
+                    sendToast("Suggested \"${song.title}\"")
                 } else {
-                    sendToast("Could not find track for \"${request.text}\"")
+                    sendToast("Could not find \"$query\"")
                 }
-            } catch (e: Exception) {
-                Timber.w(e, "Failed to queue song request: %s", request.text)
-                sendToast("Could not queue request: ${request.text}")
-            }
-            listenTogetherManager.dismissSongRequest(request.key)
-        }
-    }
-
-    /** The videoId of whatever the room is playing right now. */
-    private fun currentSessionVideoId(): String? {
-        return if (listenTogetherManager.isHostActive()) {
-            playbackStateHolder.stablePlayerState.value.currentSong?.youtubeId?.ifBlank { null }
-        } else {
-            listenTogetherManager.remoteState.value?.videoId?.ifBlank { null }
-        }
-    }
-
-    /** Joins a session by room code, then starts mirroring the host. */
-    fun joinListenTogetherSession(code: String, guestName: String) {
-        viewModelScope.launch {
-            if (savedGuestQueue == null) {
-                savedGuestQueue = _playerUiState.value.currentPlaybackQueue.toList()
-                savedGuestStartSong = playbackStateHolder.stablePlayerState.value.currentSong
-                savedGuestQueueName = _playerUiState.value.currentQueueSourceName
-            }
-            val photoUrl = youtubeDatastoreRepository.ytAvatarUrl.first().ifBlank { null }
-            if (listenTogetherManager.joinSession(code, guestName, photoUrl)) {
-                startGuestSync()
-            } else {
-                savedGuestQueue = null
-                savedGuestStartSong = null
-                savedGuestQueueName = null
+            } catch (t: Throwable) {
+                Timber.w(t, "PixelJam: suggestTrack search failed")
+                sendToast("Could not suggest \"$query\"")
             }
         }
     }
 
-    private fun restoreSavedGuestQueue() {
-        val prevQueue = savedGuestQueue ?: return
-        val prevSong = savedGuestStartSong ?: return
-        val prevQueueName = savedGuestQueueName ?: "None"
-        savedGuestQueue = null
-        savedGuestStartSong = null
-        savedGuestQueueName = null
-        viewModelScope.launch {
-            playSongs(prevQueue, prevSong, prevQueueName)
-            if (playbackStateHolder.stablePlayerState.value.isPlaying) {
-                playPause()
-            }
-        }
+    fun syncPixelJamNow() {
+        val snap = pixelJamManager.playbackState.value ?: return
+        viewModelScope.launch { applyPixelJamPlayback(snap, force = true) }
     }
 
-    /** Leaves the current session without ending a shared room. */
-    fun leaveListenTogetherSession() {
-        restoreSavedGuestQueue()
-        stopSessionSync()
-        listenTogetherManager.leaveSession()
-        closeListenTogetherSheet()
-    }
+    private fun Song.toPixelJamTrack(): PixelJamTrack = PixelJamTrack(
+        id = youtubeId?.ifBlank { id } ?: id,
+        title = title,
+        artist = artist,
+        album = album,
+        artworkUrl = albumArtUriString.orEmpty(),
+        durationMs = duration,
+        source = "youtube"
+    )
 
-    fun endListenTogetherSession() {
-        restoreSavedGuestQueue()
-        stopSessionSync()
-        listenTogetherManager.endSession()
-        closeListenTogetherSheet()
-    }
-
-    private fun stopSessionSync() {
-        hostSyncJob?.cancel()
-        hostSyncJob = null
-        guestSyncJob?.cancel()
-        guestSyncJob = null
-        guestLoadWatchdog?.cancel()
-        guestLoadWatchdog = null
-        guestBufferPauseJob?.cancel()
-        guestBufferPauseJob = null
-        lastGuestVideoId = null
+    private fun stopPixelJamSyncLoop() {
+        pixelJamSyncJob?.cancel()
+        pixelJamSyncJob = null
+        lastSyncedRemoteVideoId = null
+        lastPublishedVideoId = null
+        lastPublishedIsPlaying = null
+        lastPublishedQueueIds = emptyList()
         sessionSyncBypass = false
         com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.isPaused = false
     }
 
-    // ------------------------------------------------------------ host sync
-
-    /** Publishes the host's playback snapshot ~1/sec (manager throttles writes). */
-    private fun startHostSync() {
-        stopSessionSync()
-        hostSyncJob = viewModelScope.launch {
-            // Role watcher: if the room hands hosting to another device
-            // (we dropped and lost the election), become its guest.
+    private fun startPixelJamSyncLoop() {
+        if (pixelJamSyncJob?.isActive == true) return
+        pixelJamSyncJob = viewModelScope.launch {
             launch {
-                listenTogetherManager.uiState.collect { state ->
+                pixelJamManager.events.collect { msg -> sendToast(msg) }
+            }
+            launch {
+                pixelJamManager.uiState.collect { state ->
                     when (state) {
-                        is ListenTogetherUiState.Guest -> {
-                            viewModelScope.launch {
-                                stopSessionSync()
-                                startGuestSync()
+                        is PixelJamUiState.InRoom -> {
+                            com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.isPaused = !state.isHost
+                            if (state.isMainHost) {
+                                publishCurrentTrackIfHost()
                             }
                         }
-                        is ListenTogetherUiState.Idle, is ListenTogetherUiState.Error -> {
-                            viewModelScope.launch { stopSessionSync() }
+                        is PixelJamUiState.Idle -> {
+                            com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.isPaused = false
                         }
                         else -> Unit
                     }
                 }
             }
-            while (isActive) {
-                try {
-                    val snapshot = playbackStateHolder.stablePlayerState.value
-                    val song = snapshot.currentSong
-                    val videoId = song?.youtubeId
-                    if (song != null && !videoId.isNullOrBlank()) {
-                        listenTogetherManager.publishHostState(
-                            videoId = videoId,
-                            title = song.title,
-                            artist = song.artist,
-                            artworkUrl = song.albumArtUriString.orEmpty(),
-                            isPlaying = snapshot.isPlaying,
-                            positionMs = playbackStateHolder.currentPosition.value
-                        )
+            launch {
+                pixelJamManager.playbackState.collect { snap ->
+                    if (snap != null) {
+                        applyPixelJamPlayback(snap, force = false)
                     }
-                } catch (t: Throwable) {
-                    if (t is CancellationException) throw t
-                    Timber.w(t, "ListenTogether host sync tick failed")
                 }
-                delay(1_000)
+            }
+            while (isActive) {
+                delay(1_200)
+                if (pixelJamManager.isActive()) {
+                    if (pixelJamManager.canControlPlayback()) {
+                        publishCurrentTrackIfHost()
+                    } else {
+                        val snap = pixelJamManager.playbackState.value
+                        if (snap != null) {
+                            convergeToPixelJamSnapshot(snap)
+                        }
+                    }
+                }
             }
         }
     }
 
-    // ----------------------------------------------------------- guest sync
+    private fun publishCurrentTrackIfHost() {
+        if (!pixelJamManager.canControlPlayback() || sessionSyncBypass) return
+        val snapshot = playbackStateHolder.stablePlayerState.value
+        val song = snapshot.currentSong ?: return
+        val videoId = song.youtubeId?.ifBlank { null } ?: return
+        val pos = playbackStateHolder.currentPosition.value
 
-    /** Mirrors the host: track, play/pause and position, with drift correction. */
-    private fun startGuestSync() {
-        stopSessionSync()
-        lastGuestVideoId = null
-        com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.isPaused = true
-        com.saurav.pixelmusic.data.remote.youtube.AutoQueueManager.reset()
-        guestSyncJob = viewModelScope.launch {
-            // Fast path: react to host snapshots the moment they arrive.
-            launch {
-                listenTogetherManager.remoteState.collect { applyRemoteTrackSnapshot(it) }
+        if (videoId != lastPublishedVideoId) {
+            lastPublishedVideoId = videoId
+            lastPublishedIsPlaying = snapshot.isPlaying
+            pixelJamManager.sendPlaybackAction(
+                action = "change_track",
+                track = song.toPixelJamTrack(),
+                positionMs = pos,
+                isPlaying = snapshot.isPlaying
+            )
+        } else if (lastPublishedIsPlaying != snapshot.isPlaying) {
+            lastPublishedIsPlaying = snapshot.isPlaying
+            pixelJamManager.sendPlaybackAction(
+                action = if (snapshot.isPlaying) "play" else "pause",
+                track = song.toPixelJamTrack(),
+                positionMs = pos,
+                isPlaying = snapshot.isPlaying
+            )
+        }
+
+        if (pixelJamManager.isMainHost()) {
+            val queue = _playerUiState.value.currentPlaybackQueue
+            val curIdx = queue.indexOfFirst { it.id == song.id }
+            val upcoming = if (curIdx >= 0) {
+                queue.drop(curIdx + 1).filter { !it.youtubeId.isNullOrBlank() }.take(5)
+            } else {
+                emptyList()
             }
-            // Session ended (or errored) mid-sync: surface it and stop.
-            launch {
-                listenTogetherManager.uiState.collect { state ->
-                    when (state) {
-                        is ListenTogetherUiState.Error -> {
-                            sendToast(state.message)
-                            restoreSavedGuestQueue()
-                            stopSessionSync()
-                        }
-                        is ListenTogetherUiState.Idle -> {
-                            restoreSavedGuestQueue()
-                            stopSessionSync()
-                        }
-                        is ListenTogetherUiState.Hosting -> {
-                            // Won the host election: flip to publishing.
-                            viewModelScope.launch {
-                                stopSessionSync()
-                                startHostSync()
-                            }
-                        }
-                        else -> Unit
-                    }
-                }
-            }
-            // Slow path: enforce convergence (heals local interference,
-            // e.g. notification or media-button presses while guesting).
-            while (isActive) {
-                delay(3_000)
-                enforceGuestConvergence()
+            val ids = upcoming.map { it.youtubeId.orEmpty() }
+            if (ids != lastPublishedQueueIds) {
+                lastPublishedQueueIds = ids
+                pixelJamManager.publishQueue(upcoming.map { it.toPixelJamTrack() })
             }
         }
     }
 
-    private suspend fun applyRemoteTrackSnapshot(remote: SessionTrack?) {
-        if (remote == null || !listenTogetherManager.isGuestActive()) return
-        listenTogetherManager.updateLocalSyncStatus(remote.videoId, remote.revision)
-        // Coordinated buffering: preload the track, hold it paused and
-        // report ready — the go-signal (buffering=false) starts everyone.
-        if (remote.buffering) {
-            handleBufferingSnapshot(remote)
-            return
-        }
+    private suspend fun applyPixelJamPlayback(snap: PixelJamPlaybackState, force: Boolean) {
+        if (!pixelJamManager.isActive()) return
+        val myId = pixelJamManager.myUserId()
+        if (!force && snap.fromUserId.isNotBlank() && snap.fromUserId == myId) return
+        val remoteTrack = snap.currentTrack ?: return
         val localVideoId = playbackStateHolder.stablePlayerState.value.currentSong?.youtubeId
-        if (remote.videoId == localVideoId || remote.videoId == lastGuestVideoId) {
-            enforceGuestConvergence(remote)
-            return
-        }
-        lastGuestVideoId = remote.videoId
-        val song = com.saurav.pixelmusic.data.model.youtube.Song(
-            youtubeId = remote.videoId,
-            title = remote.title.ifBlank { "Unknown title" },
-            artist = remote.artist,
-            thumbnailHref = remote.artworkUrl
-        ).toNativeSong()
-        sessionSyncBypass = true
-        try {
-            playSongs(listOf(song), song, "Listen Together")
-        } finally {
-            sessionSyncBypass = false
-        }
-        // Watchdog: the host's track may not be playable on this device
-        // (region block, deleted video...).
-        guestLoadWatchdog?.cancel()
-        guestLoadWatchdog = viewModelScope.launch {
-            delay(10_000)
-            if (listenTogetherManager.isGuestActive()) {
-                val controller = playbackStateHolder.mediaController
-                val loadedVideoId = playbackStateHolder.stablePlayerState.value.currentSong?.youtubeId
-                if (loadedVideoId != remote.videoId || controller?.playerError != null) {
-                    sendToast(context.getString(R.string.listen_together_track_unavailable))
-                    Timber.w("ListenTogether: guest could not play host track %s", remote.videoId)
-                }
-            }
-        }
-        enforceGuestConvergence(remote)
-    }
 
-    /**
-     * Preloads the buffering track and holds it paused until the host's
-     * go-signal, then reports ready so the room can start together.
-     */
-    private fun handleBufferingSnapshot(remote: SessionTrack) {
-        if (!listenTogetherManager.isGuestActive()) return
-        lastGuestVideoId = remote.videoId
-        guestBufferPauseJob?.cancel()
-        guestBufferPauseJob = viewModelScope.launch {
+        if (remoteTrack.id != localVideoId && (force || remoteTrack.id != lastSyncedRemoteVideoId)) {
+            lastSyncedRemoteVideoId = remoteTrack.id
+            lastPublishedVideoId = remoteTrack.id
+            lastPublishedIsPlaying = snap.isPlaying
+            val song = com.saurav.pixelmusic.data.model.youtube.Song(
+                youtubeId = remoteTrack.id,
+                title = remoteTrack.title.ifBlank { "Unknown title" },
+                artist = remoteTrack.artist,
+                thumbnailHref = remoteTrack.artworkUrl
+            ).toNativeSong()
+            sessionSyncBypass = true
             try {
-                if (playbackStateHolder.stablePlayerState.value.currentSong?.youtubeId != remote.videoId) {
-                    val song = com.saurav.pixelmusic.data.model.youtube.Song(
-                        youtubeId = remote.videoId,
-                        title = remote.title.ifBlank { "Unknown title" },
-                        artist = remote.artist,
-                        thumbnailHref = remote.artworkUrl
-                    ).toNativeSong()
-                    sessionSyncBypass = true
-                    try {
-                        playSongs(listOf(song), song, "Listen Together")
-                    } finally {
-                        sessionSyncBypass = false
-                    }
-                }
-                // Wait for the track to finish loading, then hold it paused.
-                val deadline = System.currentTimeMillis() + 10_000L
-                var loaded = false
-                while (isActive && System.currentTimeMillis() < deadline) {
-                    val st = playbackStateHolder.stablePlayerState.value
-                    if (st.currentSong?.youtubeId == remote.videoId) {
-                        loaded = true
-                        if (st.isPlaying) {
-                            sessionSyncBypass = true
-                            try {
-                                playPause()
-                            } finally {
-                                sessionSyncBypass = false
-                            }
-                        }
-                        break
-                    }
-                    delay(200)
-                }
-                if (loaded) {
-                    listenTogetherManager.markBufferReady(remote.videoId, remote.revision)
-                } else if (listenTogetherManager.isGuestActive()) {
-                    sendToast(context.getString(R.string.listen_together_track_unavailable))
-                }
-            } catch (t: Throwable) {
-                if (t is CancellationException) throw t
-                Timber.w(t, "ListenTogether buffering preload failed")
+                playSongs(listOf(song), song, "PixelJam")
+            } finally {
+                sessionSyncBypass = false
             }
         }
+        convergeToPixelJamSnapshot(snap)
     }
 
-    private fun enforceGuestConvergence(remote: SessionTrack? = null) {
-        if (!listenTogetherManager.isGuestActive() || sessionSyncBypass) return
-        val snap = remote ?: listenTogetherManager.remoteState.value ?: return
-        listenTogetherManager.updateLocalSyncStatus(snap.videoId, snap.revision)
-        if (playbackStateHolder.stablePlayerState.value.currentSong?.youtubeId != snap.videoId) {
-            return // track switch still in flight
-        }
-        // Transport calls below go through the guest lock, so bypass it while
-        // the sync itself drives playback.
+    private fun convergeToPixelJamSnapshot(snap: PixelJamPlaybackState) {
+        if (!pixelJamManager.isActive() || sessionSyncBypass) return
+        val remoteTrack = snap.currentTrack ?: return
+        if (playbackStateHolder.stablePlayerState.value.currentSong?.youtubeId != remoteTrack.id) return
+
         sessionSyncBypass = true
         try {
             val expected = if (snap.isPlaying) {
-                val elapsed = (listenTogetherManager.estimatedServerNowMs() - snap.updatedAtMs)
+                val elapsed = (pixelJamManager.estimatedServerNowMs() - snap.serverTimeMs)
                     .coerceIn(0L, 15_000L)
                 snap.positionMs + elapsed
             } else {
                 snap.positionMs
             }.coerceAtLeast(0L)
             val drift = abs(expected - playbackStateHolder.currentPosition.value)
-            _listenTogetherSyncDriftMs.value = drift
+            _pixelJamSyncDriftMs.value = drift
             if (playbackStateHolder.stablePlayerState.value.isPlaying != snap.isPlaying) {
-                // Seek first when far off so the toggle lands in sync — this
-                // is what makes the buffering go-signal start everyone
-                // together instead of from 0.
-                if (drift > LISTEN_TOGETHER_DRIFT_THRESHOLD_MS) {
+                if (drift > PIXELJAM_DRIFT_THRESHOLD_MS) {
                     seekTo(expected)
                 }
-                // A single toggle always converges: the state is boolean.
                 playPause()
                 return
             }
-            if (drift > LISTEN_TOGETHER_DRIFT_THRESHOLD_MS) {
+            if (drift > PIXELJAM_DRIFT_THRESHOLD_MS) {
                 seekTo(expected)
             }
         } finally {
@@ -6313,6 +6172,15 @@ class PlayerViewModel @Inject constructor(
             checkAndReconnectMediaController { seekTo(position) }
         }
         playbackStateHolder.seekTo(position)
+        if (pixelJamManager.canControlPlayback() && !sessionSyncBypass) {
+            val st = playbackStateHolder.stablePlayerState.value
+            pixelJamManager.sendPlaybackAction(
+                action = "seek",
+                track = st.currentSong?.toPixelJamTrack(),
+                positionMs = position,
+                isPlaying = st.isPlaying
+            )
+        }
     }
 
     fun nextSong() {

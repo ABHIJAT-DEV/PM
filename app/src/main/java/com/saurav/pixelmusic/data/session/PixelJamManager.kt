@@ -58,6 +58,19 @@ class PixelJamManager @Inject constructor(
         .map { prefs -> PixelJamConfig.normalizeBaseUrl(prefs[KEY_SERVER_URL].orEmpty()) }
         .stateIn(scope, SharingStarted.Eagerly, PixelJamConfig.DEFAULT_SERVER_URL)
 
+    val savedDisplayName: StateFlow<String> = dataStore.data
+        .map { prefs -> prefs[KEY_DISPLAY_NAME].orEmpty() }
+        .stateIn(scope, SharingStarted.Eagerly, "")
+
+    fun saveDisplayName(name: String) {
+        val trimmed = name.trim().take(32)
+        if (trimmed.isNotBlank()) {
+            scope.launch {
+                dataStore.edit { it[KEY_DISPLAY_NAME] = trimmed }
+            }
+        }
+    }
+
     private val _uiState = MutableStateFlow<PixelJamUiState>(PixelJamUiState.Idle)
     val uiState: StateFlow<PixelJamUiState> = _uiState.asStateFlow()
 

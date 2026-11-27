@@ -105,7 +105,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.datastore.preferences.core.edit
+
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.saurav.pixelmusic.R
@@ -121,7 +121,6 @@ import com.saurav.pixelmusic.data.session.PixelJamTrack
 import com.saurav.pixelmusic.data.session.PixelJamUiState
 import com.saurav.pixelmusic.presentation.viewmodel.PlayerViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
@@ -161,9 +160,7 @@ fun PixelJamSheet(
     val pendingCode by viewModel.pendingPixelJamCode.collectAsStateWithLifecycle()
     val ytUsername by viewModel.currentYtUsername.collectAsStateWithLifecycle()
 
-    val savedName by remember {
-        viewModel.dataStore.data.map { it[PixelJamManager.KEY_DISPLAY_NAME] ?: "" }
-    }.collectAsStateWithLifecycle(initialValue = "")
+    val savedName by viewModel.pixelJamSavedDisplayName.collectAsStateWithLifecycle()
 
     var displayName by remember { mutableStateOf("") }
     var roomCodeInput by remember { mutableStateOf("") }
@@ -190,12 +187,7 @@ fun PixelJamSheet(
     }
 
     fun persistDisplayName(name: String) {
-        val trimmed = name.trim()
-        if (trimmed.isNotBlank()) {
-            scope.launch {
-                viewModel.dataStore.edit { it[PixelJamManager.KEY_DISPLAY_NAME] = trimmed }
-            }
-        }
+        viewModel.savePixelJamDisplayName(name)
     }
 
     ModalBottomSheet(
