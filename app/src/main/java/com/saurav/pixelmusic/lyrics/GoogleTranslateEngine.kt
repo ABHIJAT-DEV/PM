@@ -384,7 +384,8 @@ object GoogleTranslateEngine {
 
         for (line in lines) {
             for (ch in line) {
-                when (Character.UnicodeBlock.of(ch)) {
+                val block = Character.UnicodeBlock.of(ch) ?: continue
+                when (block) {
                     Character.UnicodeBlock.HIRAGANA,
                     Character.UnicodeBlock.KATAKANA -> hasKana = true
                     Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,

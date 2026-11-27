@@ -1390,7 +1390,7 @@ fun SyncedLyricsList(
                                 line
                             } else {
                                 line.copy(
-                                    line = if (swapRomanization) resolvedRom!! else line.line,
+                                    line = if (swapRomanization) resolvedRom else line.line,
                                     words = if (swapRomanization) null else line.words,
                                     romanization = if (swapRomanization) line.line else resolvedRom,
                                     translation = resolvedTranslation,

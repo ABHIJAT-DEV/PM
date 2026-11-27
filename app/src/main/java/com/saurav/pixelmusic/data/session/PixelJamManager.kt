@@ -215,7 +215,7 @@ class PixelJamManager @Inject constructor(
                     .build()
                 okHttpClient.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) return@use
-                    val body = resp.body?.string().orEmpty()
+                    val body = resp.body.string().orEmpty()
                     val root = JSONObject(body)
                     val arr = root.optJSONArray("rooms") ?: return@use
                     val list = buildList {
@@ -347,7 +347,7 @@ class PixelJamManager @Inject constructor(
                 .build()
             healthHttpClient.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) return null
-                val body = resp.body?.string().orEmpty()
+                val body = resp.body.string().orEmpty()
                 if (body.isBlank()) return null
                 val root = JSONObject(body)
                 root.optString("boot_id")

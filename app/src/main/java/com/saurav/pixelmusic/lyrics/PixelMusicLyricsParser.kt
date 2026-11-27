@@ -208,7 +208,8 @@ object PixelMusicRomanizer {
      */
     fun hasNonLatinScript(text: String): Boolean = text.any { ch ->
         if (!Character.isLetter(ch)) return@any false
-        when (Character.UnicodeBlock.of(ch)) {
+        val block = Character.UnicodeBlock.of(ch) ?: return@any true
+        when (block) {
             Character.UnicodeBlock.BASIC_LATIN,
             Character.UnicodeBlock.LATIN_1_SUPPLEMENT,
             Character.UnicodeBlock.LATIN_EXTENDED_A,

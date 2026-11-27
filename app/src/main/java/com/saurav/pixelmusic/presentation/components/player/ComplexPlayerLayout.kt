@@ -1506,12 +1506,12 @@ private fun ComplexKaraokeLyricsStage(
                         romanizedList.getOrNull(resolvedIdx)?.takeIf { it.isNotBlank() && it != line?.line }
                     } else null
                     val swap = romanizationAsMain && rom != null && line != null
-                    val effectiveSyncedLine = if (swap && line != null) {
+                    val effectiveSyncedLine = if (swap) {
                         line.copy(line = rom, words = null)
                     } else {
                         line
                     }
-                    val subRom = if (swap) line?.line?.let(::sanitizeLyricLineText) else rom?.let(::sanitizeLyricLineText)
+                    val subRom = if (swap) sanitizeLyricLineText(line.line) else rom?.let(::sanitizeLyricLineText)
                     val trans = if (autoTranslate) {
                         liveTranslations?.getOrNull(resolvedIdx)
                             ?.takeIf { it.isNotBlank() && !it.equals(line?.line, ignoreCase = true) }

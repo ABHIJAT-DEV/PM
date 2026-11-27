@@ -524,7 +524,7 @@ class MusicService : MediaLibraryService() {
                                         if (!p.isNullOrBlank() && java.io.File(p).exists()) true
                                         else {
                                             val dbSong = item.mediaId.toLongOrNull()?.let { musicDao.getSongByIdOnce(it) }
-                                            !dbSong?.filePath.isNullOrBlank() && java.io.File(dbSong!!.filePath).exists()
+                                            !dbSong?.filePath.isNullOrBlank() && java.io.File(dbSong.filePath).exists()
                                         }
                                     }.getOrDefault(false)
                                 }
