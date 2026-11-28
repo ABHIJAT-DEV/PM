@@ -1,3 +1,18 @@
+**Sub release 4.5.1**
+
+⚠️ **Hotfix Release** — Focused on full landscape mode fixes, InnerTube client stability, and important quality-of-life improvements.
+
+* 📱 **Landscape Mode Overhaul:** Redesigned the persistent Material 3 Expressive navigation rail with haptics and a detached Profile/Settings pill, fixed buggy tab and Settings back-stack routing, and added 50/50 split layouts across all Now Playing styles, Lyrics, Quick Picks, Recently Played, Playlist Detail, and Daily Mix.
+* 🎬 **Smooth Landscape Sheets & UI Fixes:** Bottom sheets now slide smoothly from the right side in landscape with zero animation stutter (including PIXELJAM), plus fixes for Music Recognition, Your Mix blob aspect ratios, bottom scrims, and PiP/compact window clipping.
+* 🔧 **InnerTube Client & Playback Fixes:** Fixed UI freezes, playback stalls, and stream failures caused by the `PoTokenWebView` recreation storm, updated PoToken length validation and timeout concurrency handling, and cleaned up repeated duration mismatch logs.
+* 🧭 **Default Startup Tab:** Added a new **Default Tab** option in **Settings → Appearance → App Navigation** to choose whether PixelMusic opens on ==Home==, ==Explore==, ==Library==, or ==Search==.
+* 📊 **Performance & Diagnostics Report:** Added a built-in diagnostics report with Health Score, automated bottleneck analysis, and a live frame-jank probe.
+* ⬇️ **In-App Updater Reliability:** Fixed R8 deserialization failures, improved error reporting, and hardened APK downloads in the in-app updater.
+
+---
+
+**Version 4.5.0**
+
 • Added Audio Lab, a full Audio FX studio replacing the old equalizer, with a parametric EQ, AutoEQ, 3D Stage, Spatial audio, Reverb, Loudness, 8D Audio with room reverb, whole-chain FX presets and a live visualizer.
 • Added a brand-new lyrics engine with 11 providers including BetterLyrics, Unison, YouLyPlus, Paxsenix, lrc.red, SimpMusic, LRCLIB, Deezer, NetEase, QQ Music and KuGou.
 • Word-by-word synced lyrics now get top priority when a lyrics source is picked.
