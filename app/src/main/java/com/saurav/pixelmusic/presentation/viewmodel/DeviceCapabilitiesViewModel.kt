@@ -21,6 +21,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
 import coil.imageLoader
 import com.saurav.pixelmusic.BuildConfig
+import com.saurav.pixelmusic.audiolab.AudioLabStore
 import com.saurav.pixelmusic.data.database.DeviceCapabilitySongRow
 import com.saurav.pixelmusic.data.database.MusicDao
 import com.saurav.pixelmusic.data.database.SourceType
@@ -171,7 +172,8 @@ class DeviceCapabilitiesViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val engine: DualPlayerEngine,
     private val musicDao: MusicDao,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val audioLabStore: AudioLabStore
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeviceCapabilitiesState())
@@ -596,6 +598,9 @@ class DeviceCapabilitiesViewModel @Inject constructor(
                     )
 
                     val motionBlur = runCatching { userPreferencesRepository.uiMotionBlurEnabledFlow.first() }.getOrDefault(false)
+                    val performanceMode = runCatching { userPreferencesRepository.performanceModeEnabledFlow.first() }.getOrDefault(false)
+                    val animatedLyricsBlur = runCatching { userPreferencesRepository.animatedLyricsBlurEnabledFlow.first() }.getOrDefault(false)
+                    val albumArtQuality = runCatching { userPreferencesRepository.albumArtQualityFlow.first().name }.getOrDefault("HIGH")
                     val designStyle = runCatching { userPreferencesRepository.playerDesignStyleFlow.first().name }.getOrDefault("DEFAULT")
                     val offloadEnabled = runCatching { userPreferencesRepository.audioOffloadEnabledFlow.first() }.getOrDefault(false)
                     val hiFiEnabled = runCatching { userPreferencesRepository.hiFiModeEnabledFlow.first() }.getOrDefault(false)
@@ -604,6 +609,7 @@ class DeviceCapabilitiesViewModel @Inject constructor(
                     val eqType = runCatching { userPreferencesRepository.equalizerTypeFlow.first().name }.getOrDefault("IN_APP")
                     val rgEnabled = runCatching { userPreferencesRepository.replayGainEnabledFlow.first() }.getOrDefault(false)
                     val rgAlbum = runCatching { userPreferencesRepository.replayGainUseAlbumGainFlow.first() }.getOrDefault(false)
+                    val audioLabEffectsActive = runCatching { audioLabStore.shapesSound.first() }.getOrDefault(false)
 
                     val appSection = AppGraphicsSection(
                         versionName = BuildConfig.VERSION_NAME,
@@ -615,7 +621,10 @@ class DeviceCapabilitiesViewModel @Inject constructor(
                         supportsAgslShaders = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
                         supportsSpatializer = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2,
                         motionBlurEnabled = motionBlur,
-                        playerDesignStyle = designStyle
+                        playerDesignStyle = designStyle,
+                        performanceModeEnabled = performanceMode,
+                        animatedLyricsBlurEnabled = animatedLyricsBlur,
+                        albumArtQuality = albumArtQuality
                     )
 
                     val mimeCounts = libraryRows
@@ -694,7 +703,8 @@ class DeviceCapabilitiesViewModel @Inject constructor(
                         crossfadeDurationMs = crossfadeMs,
                         equalizerType = eqType,
                         replayGainEnabled = rgEnabled,
-                        replayGainAlbumMode = rgAlbum
+                        replayGainAlbumMode = rgAlbum,
+                        audioLabEffectsActive = audioLabEffectsActive
                     )
 
                     val memCache = context.imageLoader.memoryCache
@@ -793,22 +803,33 @@ class DeviceCapabilitiesViewModel @Inject constructor(
         when (device.thermalStatus) {
             "SEVERE", "CRITICAL", "EMERGENCY", "SHUTDOWN" -> {
                 score -= 25
+                val severeRec = when {
+                    app.motionBlurEnabled -> "Let the device cool down; disable Motion Blur in Settings and avoid long video exports while charging."
+                    !app.performanceModeEnabled -> "Let the device cool down; enable Performance Mode in Settings and avoid long video exports while charging."
+                    else -> "Let the device cool down and avoid long video exports while charging (Motion Blur is off and Performance Mode is already active)."
+                }
                 findings += DiagnosticFinding(
                     severity = "CRITICAL",
                     category = "THERMAL",
                     title = "Heavy thermal throttling (${device.thermalStatus})",
                     detail = "Device CPU/GPU clocks are aggressively capped by the OS thermal daemon.",
-                    recommendation = "Let the device cool down; avoid heavy blur or long video exports while charging."
+                    recommendation = severeRec
                 )
             }
             "MODERATE" -> {
                 score -= 12
+                val moderateRec = when {
+                    app.motionBlurEnabled -> "Temporarily disable Motion Blur in Settings if UI animations feel slower."
+                    app.animatedLyricsBlurEnabled && !app.performanceModeEnabled -> "Motion Blur is already off; disable Animated Lyrics Blur or enable Performance Mode in Settings if animations feel slower."
+                    !app.performanceModeEnabled -> "Motion Blur is already off; enable Performance Mode in Settings or let the device cool down if animations feel slower."
+                    else -> "Motion Blur is off and Performance Mode is already active — let the device cool down (especially while charging) for best smoothness."
+                }
                 findings += DiagnosticFinding(
                     severity = "WARNING",
                     category = "THERMAL",
                     title = "Moderate thermal throttling",
                     detail = "Elevated device temperature may increase frame times during fast list scrolls.",
-                    recommendation = "Temporarily disable Motion Blur in Settings if UI animations feel slower."
+                    recommendation = moderateRec
                 )
             }
         }
@@ -837,12 +858,17 @@ class DeviceCapabilitiesViewModel @Inject constructor(
         }
         if (device.jvmHeapUsedPercent >= 80.0) {
             score -= 16
+            val heapRec = if (app.albumArtQuality == "LOW") {
+                "Frequent garbage collection can cause micro-stutters; restart the app to reclaim memory."
+            } else {
+                "Frequent garbage collection can cause micro-stutters; restart the app or lower Album Art Quality in Settings."
+            }
             findings += DiagnosticFinding(
                 severity = "WARNING",
                 category = "MEMORY",
                 title = "High JVM heap usage (${String.format(Locale.ROOT, "%.0f", device.jvmHeapUsedPercent)}%)",
                 detail = "${PerformanceReport.bytes(device.jvmHeapUsedBytes)} used of ${PerformanceReport.bytes(device.jvmHeapMaxBytes)} max heap.",
-                recommendation = "Frequent garbage collection can cause micro-stutters; restart app or lower album art quality."
+                recommendation = heapRec
             )
         }
 
@@ -853,8 +879,10 @@ class DeviceCapabilitiesViewModel @Inject constructor(
                     score -= 20
                     val uiRec = when {
                         app.motionBlurEnabled -> "Try turning off Motion Blur in Appearance settings to reduce GPU load."
-                        app.playerDesignStyle != "DEFAULT" -> "Try switching to the Default player design style or enabling Performance Mode to reduce GPU load."
-                        else -> "Enable Performance Mode in Settings and close background apps to reduce GPU/compositor load."
+                        !app.performanceModeEnabled && app.playerDesignStyle != "DEFAULT" -> "Try switching to the Default player design style or enabling Performance Mode to reduce GPU load."
+                        !app.performanceModeEnabled -> "Enable Performance Mode in Settings and close background apps to reduce GPU/compositor load."
+                        app.playerDesignStyle != "DEFAULT" -> "Performance Mode is already on; try switching to the Default player design style and closing background apps."
+                        else -> "Motion Blur is off and Performance Mode is already active — close background apps or let the device cool down to reduce GPU/compositor load."
                     }
                     findings += DiagnosticFinding(
                         severity = "CRITICAL",
@@ -875,11 +903,16 @@ class DeviceCapabilitiesViewModel @Inject constructor(
                     )
                 }
                 else -> {
+                    val pacingDetail = if (uiPerf.p95FrameMs <= uiPerf.targetFrameBudgetMs * 1.05) {
+                        "P95 ${String.format(Locale.ROOT, "%.1f", uiPerf.p95FrameMs)}ms within ${String.format(Locale.ROOT, "%.1f", uiPerf.targetFrameBudgetMs)}ms budget at ${String.format(Locale.ROOT, "%.0f", uiPerf.refreshRateHz)} Hz."
+                    } else {
+                        "P95 ${String.format(Locale.ROOT, "%.1f", uiPerf.p95FrameMs)}ms (${String.format(Locale.ROOT, "%.1f", uiPerf.jankPercent)}% jank) at ${String.format(Locale.ROOT, "%.0f", uiPerf.refreshRateHz)} Hz (${String.format(Locale.ROOT, "%.1f", uiPerf.targetFrameBudgetMs)}ms budget)."
+                    }
                     findings += DiagnosticFinding(
                         severity = "OK",
                         category = "UI",
                         title = "Silky frame pacing (${String.format(Locale.ROOT, "%.1f", uiPerf.avgFrameMs)}ms avg)",
-                        detail = "P95 ${String.format(Locale.ROOT, "%.1f", uiPerf.p95FrameMs)}ms within ${String.format(Locale.ROOT, "%.1f", uiPerf.targetFrameBudgetMs)}ms budget at ${String.format(Locale.ROOT, "%.0f", uiPerf.refreshRateHz)} Hz."
+                        detail = pacingDetail
                     )
                 }
             }
@@ -888,16 +921,23 @@ class DeviceCapabilitiesViewModel @Inject constructor(
         // 4. Audio Pipeline & Resampling
         if (audio.decoderHardware == false && audio.decoderName != null) {
             val offloadSupported = audio.offloadSupportedFormats.isNotEmpty()
-            val expectedSoftware = audio.currentMime in setOf("audio/opus", "audio/flac", "audio/vorbis", "audio/wav") ||
-                audio.equalizerType == "IN_APP" ||
+            val isSoftwareTypicalFormat = audio.currentMime in setOf("audio/opus", "audio/flac", "audio/vorbis", "audio/wav")
+            val expectedSoftware = isSoftwareTypicalFormat ||
+                audio.audioLabEffectsActive ||
+                audio.crossfadeEnabled ||
                 !offloadSupported
             if (!expectedSoftware) {
                 score -= 5
             }
             val audioRec = when {
                 !offloadSupported -> "Normal on this device (hardware audio offload is not advertised by the platform)."
-                audio.audioOffloadEnabled -> "Expected while using Opus/FLAC or the in-app equalizer."
-                else -> "Expected for FLAC/Opus/EQ paths; enable Audio Offload when not using EQ for lower battery use."
+                audio.audioOffloadEnabled && audio.audioLabEffectsActive -> "Audio Offload is already on, but active AudioLab EQ/DSP effects require software decoding."
+                audio.audioOffloadEnabled && audio.crossfadeEnabled -> "Audio Offload is already on, but Crossfade requires software mixing."
+                audio.audioOffloadEnabled -> "Audio Offload is already enabled; software decoding is normal for this track format."
+                audio.audioLabEffectsActive -> "Expected while AudioLab EQ/DSP effects are active; bypass effects and enable Audio Offload in Settings for lower battery use."
+                audio.crossfadeEnabled -> "Crossfade uses software mixing; disable Crossfade and enable Audio Offload in Settings for lower battery use."
+                isSoftwareTypicalFormat -> "Normal for FLAC/Opus tracks; enable Audio Offload in Settings for lower battery use on supported formats (MP3/AAC)."
+                else -> "Enable Audio Offload in Settings for lower battery use."
             }
             findings += DiagnosticFinding(
                 severity = "INFO",
@@ -909,12 +949,17 @@ class DeviceCapabilitiesViewModel @Inject constructor(
         }
         if (library.resampledCount > 0) {
             score -= 4
+            val resampleRec = if (audio.hiFiModeEnabled) {
+                "Hi-Fi mode is already enabled; connect a high-res USB DAC for bit-perfect playback."
+            } else {
+                "Enable Hi-Fi mode in Settings with a high-res USB DAC for bit-perfect playback."
+            }
             findings += DiagnosticFinding(
                 severity = "INFO",
                 category = "AUDIO",
                 title = "${library.resampledCount} local tracks exceed native ${audio.nativeOutputSampleRate} Hz output",
                 detail = "Android mixer resamples these tracks unless routed through a USB DAC supporting higher rates.",
-                recommendation = "Use Hi-Fi mode with a high-res USB DAC for bit-perfect playback."
+                recommendation = resampleRec
             )
         }
         if (library.unsupportedFormatCount > 0) {
@@ -965,11 +1010,14 @@ class DeviceCapabilitiesViewModel @Inject constructor(
             else -> "$warningOrCritCount potential bottlenecks detected — review the prioritized findings below."
         }
 
+        val severityRank = mapOf("CRITICAL" to 0, "WARNING" to 1, "INFO" to 2, "OK" to 3)
+        val sortedFindings = findings.sortedBy { severityRank[it.severity] ?: 4 }
+
         return PerformanceAnalysisSection(
             healthScore = finalScore,
             grade = grade,
             summary = summary,
-            findings = findings
+            findings = sortedFindings
         )
     }
 }

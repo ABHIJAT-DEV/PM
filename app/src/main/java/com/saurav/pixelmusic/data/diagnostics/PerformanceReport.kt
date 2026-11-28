@@ -82,6 +82,9 @@ data class PerformanceReport(
         kv("AGSL shaders (API 33+)", app.supportsAgslShaders.toString())
         kv("Spatializer (API 32+)", app.supportsSpatializer.toString())
         kv("Motion blur enabled", app.motionBlurEnabled.toString())
+        kv("Animated lyrics blur", app.animatedLyricsBlurEnabled.toString())
+        kv("Performance mode", app.performanceModeEnabled.toString())
+        kv("Album art quality", app.albumArtQuality)
         kv("Player design style", app.playerDesignStyle)
 
         section("UI FRAME PROBE")
@@ -139,6 +142,7 @@ data class PerformanceReport(
         kv("Hi-Fi mode", audio.hiFiModeEnabled.toString())
         kv("Crossfade", if (audio.crossfadeEnabled) "on (${audio.crossfadeDurationMs} ms)" else "off")
         kv("Equalizer", audio.equalizerType)
+        kv("AudioLab DSP / EQ active", audio.audioLabEffectsActive.toString())
         kv("ReplayGain", if (audio.replayGainEnabled) "on (${if (audio.replayGainAlbumMode) "album" else "track"})" else "off")
 
         section("IMAGE & CACHE")
@@ -294,7 +298,10 @@ data class AppGraphicsSection(
     val supportsAgslShaders: Boolean,
     val supportsSpatializer: Boolean,
     val motionBlurEnabled: Boolean,
-    val playerDesignStyle: String
+    val playerDesignStyle: String,
+    val performanceModeEnabled: Boolean = false,
+    val animatedLyricsBlurEnabled: Boolean = false,
+    val albumArtQuality: String = "HIGH"
 )
 
 @Serializable
@@ -348,7 +355,8 @@ data class AudioPlaybackSection(
     val crossfadeDurationMs: Int,
     val equalizerType: String,
     val replayGainEnabled: Boolean,
-    val replayGainAlbumMode: Boolean
+    val replayGainAlbumMode: Boolean,
+    val audioLabEffectsActive: Boolean = false
 )
 
 @Serializable

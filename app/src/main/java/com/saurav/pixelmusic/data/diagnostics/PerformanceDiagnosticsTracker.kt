@@ -155,6 +155,7 @@ object PerformanceDiagnosticsTracker {
             val choreographer = Choreographer.getInstance()
             val samples = ArrayList<Double>(180)
             var lastNanos = -1L
+            var warmupSkipped = 0
             val startNanos = System.nanoTime()
             val maxDurationNanos = durationMs * 1_000_000L
 
@@ -164,7 +165,11 @@ object PerformanceDiagnosticsTracker {
                     if (lastNanos > 0L) {
                         val deltaMs = (frameTimeNanos - lastNanos) / 1_000_000.0
                         if (deltaMs in 1.0..1000.0) {
-                            samples.add(deltaMs)
+                            if (warmupSkipped < 2) {
+                                warmupSkipped++
+                            } else {
+                                samples.add(deltaMs)
+                            }
                         }
                     }
                     lastNanos = frameTimeNanos
