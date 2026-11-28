@@ -102,120 +102,152 @@ fun FluidBlobCollage(
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Preserve natural ~0.90 width/height proportion so organic blobs never stretch horizontally in landscape
-        val totalWidth = minOf(maxWidth, maxHeight * 0.90f)
         val totalHeight = maxHeight
+        val isWide = maxWidth > totalHeight * 1.05f
+        // Keep each individual blob's natural ~0.90 aspect ratio while spreading positions across the wider landscape canvas
+        val canvasWidth = if (isWide) minOf(maxWidth, totalHeight * 1.32f) else maxWidth
+        val blobRefWidth = if (isWide) totalHeight * 0.90f else canvasWidth
+        val largeHalo = (totalHeight * 0.018f).coerceIn(5.dp, 8.dp)
+        val mediumHalo = (totalHeight * 0.015f).coerceIn(4.dp, 7.dp)
+        val smallHalo = (totalHeight * 0.013f).coerceIn(4.dp, 6.dp)
 
-        Box(modifier = Modifier.size(totalWidth, totalHeight)) {
+        Box(modifier = Modifier.size(canvasWidth, totalHeight)) {
 
         // 1. Top-Left Blob (Shape 1)
-        val tlWidth = totalWidth * 0.465f
-        val tlHeight = totalHeight * 0.365f
+        val tlWidth = blobRefWidth * if (isWide) 0.430f else 0.440f
+        val tlHeight = totalHeight * if (isWide) 0.340f else 0.350f
         FluidBlobItem(
             song = songsToShow.getOrNull(0),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_TOP_LEFT) },
             width = tlWidth,
             height = tlHeight,
-            haloPadding = 8.dp,
+            haloPadding = largeHalo,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.020f, y = totalHeight * 0.022f),
+                .offset(
+                    x = canvasWidth * if (isWide) 0.020f else 0.015f,
+                    y = totalHeight * 0.020f
+                ),
             onClick = { songsToShow.getOrNull(0)?.let(onSongClick) }
         )
 
         // 2. Top-Right Blob (Shape 2)
-        val trWidth = totalWidth * 0.385f
-        val trHeight = totalHeight * 0.332f
+        val trWidth = blobRefWidth * if (isWide) 0.370f else 0.365f
+        val trHeight = totalHeight * if (isWide) 0.310f else 0.318f
         FluidBlobItem(
             song = songsToShow.getOrNull(1),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_TOP_RIGHT) },
             width = trWidth,
             height = trHeight,
-            haloPadding = 7.dp,
+            haloPadding = mediumHalo,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.550f, y = totalHeight * 0.022f),
+                .offset(
+                    x = canvasWidth * if (isWide) 0.670f else 0.575f,
+                    y = totalHeight * if (isWide) 0.010f else 0.020f
+                ),
             onClick = { songsToShow.getOrNull(1)?.let(onSongClick) }
         )
 
         // 3. Center Blob (Shape 3)
-        val centerWidth = totalWidth * 0.385f
-        val centerHeight = totalHeight * 0.332f
+        val centerWidth = blobRefWidth * if (isWide) 0.370f else 0.365f
+        val centerHeight = totalHeight * if (isWide) 0.320f else 0.318f
         FluidBlobItem(
             song = songsToShow.getOrNull(2),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_CENTER) },
             width = centerWidth,
             height = centerHeight,
-            haloPadding = 7.dp,
+            haloPadding = mediumHalo,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.295f, y = totalHeight * 0.328f),
+                .offset(
+                    x = canvasWidth * if (isWide) 0.380f else 0.295f,
+                    y = totalHeight * if (isWide) 0.260f else 0.335f
+                ),
             onClick = { songsToShow.getOrNull(2)?.let(onSongClick) }
         )
 
         // 4. Right Circle (Shape 4)
-        val circleWidth = totalWidth * 0.225f
-        val circleHeight = totalHeight * 0.200f
+        val circleWidth = blobRefWidth * if (isWide) 0.220f else 0.215f
+        val circleHeight = totalHeight * if (isWide) 0.200f else 0.192f
         FluidBlobItem(
             song = songsToShow.getOrNull(3),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_RIGHT_CIRCLE) },
             width = circleWidth,
             height = circleHeight,
-            haloPadding = 6.dp,
+            haloPadding = smallHalo,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.720f, y = totalHeight * 0.422f),
+                .offset(
+                    x = canvasWidth * if (isWide) 0.770f else 0.745f,
+                    y = totalHeight * if (isWide) 0.400f else 0.425f
+                ),
             onClick = { songsToShow.getOrNull(3)?.let(onSongClick) }
         )
 
         // 5. Bottom-Left Blob (Shape 5)
-        val blWidth = totalWidth * 0.515f
-        val blHeight = totalHeight * 0.350f
+        val blWidth = blobRefWidth * if (isWide) 0.470f else 0.485f
+        val blHeight = totalHeight * if (isWide) 0.330f else 0.335f
         FluidBlobItem(
             song = songsToShow.getOrNull(4),
             shape = remember { FluidBlobShape(FluidBlobType.BLOB_BOTTOM_LEFT) },
             width = blWidth,
             height = blHeight,
-            haloPadding = 8.dp,
+            haloPadding = largeHalo,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.020f, y = totalHeight * 0.590f),
+                .offset(
+                    x = canvasWidth * if (isWide) 0.020f else 0.015f,
+                    y = totalHeight * if (isWide) 0.600f else 0.615f
+                ),
             onClick = { songsToShow.getOrNull(4)?.let(onSongClick) }
         )
 
         // 6. Bottom-Right Cookie (Shape 6)
-        val cookieWidth = totalWidth * 0.322f
-        val cookieHeight = totalHeight * 0.282f
+        val cookieWidth = blobRefWidth * if (isWide) 0.310f else 0.305f
+        val cookieHeight = totalHeight * if (isWide) 0.270f else 0.270f
         FluidBlobItem(
             song = songsToShow.getOrNull(5),
             shape = remember { FluidBlobShape(FluidBlobType.COOKIE_BOTTOM_RIGHT) },
             width = cookieWidth,
             height = cookieHeight,
-            haloPadding = 6.dp,
+            haloPadding = smallHalo,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.618f, y = totalHeight * 0.672f),
+                .offset(
+                    x = canvasWidth * if (isWide) 0.560f else 0.635f,
+                    y = totalHeight * if (isWide) 0.660f else 0.685f
+                ),
             onClick = { songsToShow.getOrNull(5)?.let(onSongClick) }
         )
 
         // Floating Dreamy Accent Orbs
         FloatingOrb(
-            size = 28.dp,
+            size = if (isWide) 22.dp else 28.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.92f, y = totalHeight * 0.04f)
+                .offset(
+                    x = canvasWidth * if (isWide) 0.94f else 0.92f,
+                    y = totalHeight * 0.04f
+                )
         )
         FloatingOrb(
-            size = 26.dp,
+            size = if (isWide) 20.dp else 26.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.22f, y = totalHeight * 0.45f)
+                .offset(
+                    x = canvasWidth * if (isWide) 0.24f else 0.22f,
+                    y = totalHeight * 0.45f
+                )
         )
         FloatingOrb(
-            size = 24.dp,
+            size = if (isWide) 18.dp else 24.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = totalWidth * 0.57f, y = totalHeight * 0.93f)
+                .offset(
+                    x = canvasWidth * if (isWide) 0.46f else 0.57f,
+                    y = totalHeight * if (isWide) 0.88f else 0.93f
+                )
         )
         }
     }

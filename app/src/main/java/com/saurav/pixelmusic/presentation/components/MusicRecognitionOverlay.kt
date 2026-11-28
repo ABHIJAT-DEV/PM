@@ -3,6 +3,7 @@ package com.saurav.pixelmusic.presentation.components
 import android.Manifest
 import com.saurav.pixelmusic.R
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -73,6 +74,9 @@ fun MusicRecognitionOverlay(
     val view = LocalView.current
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
+    val screenWidth = configuration.screenWidthDp.dp
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
+        configuration.screenWidthDp > configuration.screenHeightDp
 
     val screenCornerRadius = remember(view) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -274,7 +278,8 @@ fun MusicRecognitionOverlay(
             onClick = { triggerDismiss() },
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 16.dp, top = 44.dp)
+                .statusBarsPadding()
+                .padding(start = 16.dp, top = if (isLandscape) 12.dp else 16.dp)
         ) {
             Icon(
                 imageVector = Icons.Rounded.Close,
@@ -286,131 +291,256 @@ fun MusicRecognitionOverlay(
         when (val currentStatus = status) {
             is RecognitionStatus.Success -> {
                 val song = currentStatus.result
+                val cardModifier = Modifier
+                    .offset { IntOffset(0, cardDropOffsetY.value.roundToInt()) }
+                    .scale(cardScale.value)
+                    .alpha(cardAlpha.value)
+                    .blur(
+                        radiusX = 0.dp,
+                        radiusY = if (isExternalWindow && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            (abs(cardDropOffsetY.velocity) / 150f).coerceIn(0f, 24f).dp
+                        } else 0.dp
+                    )
+                    .then(
+                        if (isLandscape) {
+                            Modifier
+                                .widthIn(max = minOf(540.dp, (screenWidth - 64.dp).coerceAtLeast(320.dp)))
+                                .fillMaxWidth()
+                                .wrapContentHeight()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        } else {
+                            Modifier
+                                .width(330.dp)
+                                .heightIn(min = 520.dp)
+                                .padding(horizontal = 16.dp)
+                        }
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+
                 Surface(
-                    modifier = Modifier
-                        .offset { IntOffset(0, cardDropOffsetY.value.roundToInt()) }
-                        .scale(cardScale.value)
-                        .alpha(cardAlpha.value)
-                        .blur(
-                            radiusX = 0.dp,
-                            radiusY = if (isExternalWindow && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                (abs(cardDropOffsetY.velocity) / 150f).coerceIn(0f, 24f).dp
-                            } else 0.dp
-                        )
-                        .width(330.dp)
-                        .heightIn(min = 520.dp)
-                        .padding(horizontal = 16.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {}
-                        ),
+                    modifier = cardModifier,
                     shape = AbsoluteSmoothCornerShape(32.dp, 60),
                     color = Color(0xFF1E1E1E),
                     tonalElevation = 8.dp,
                     shadowElevation = 18.dp
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                    ) {
-                        AsyncImage(
-                            model = song.coverArtHqUrl ?: song.coverArtUrl,
-                            contentDescription = "Album Art",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(width = 210.dp, height = 265.dp)
-                                .clip(AbsoluteSmoothCornerShape(22.dp, 60))
-                                .background(Color(0xFF2C2C2C))
-                        )
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = song.title,
-                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
-                                fontFamily = GoogleSansRounded,
-                                fontWeight = FontWeight.Bold,
-                                color = textColor,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Text(
-                                text = song.artist,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = subTextColor,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(22.dp))
-
-                        Button(
-                            onClick = {
-                                if (!isOpeningApp) {
-                                    isOpeningApp = true
-                                    onPlayMusic(song)
-                                }
-                            },
+                    if (isLandscape) {
+                        val artSize = minOf(196.dp, (screenHeight * 0.56f).coerceAtLeast(140.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(22.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp),
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
+                                .padding(20.dp)
                         ) {
-                            AnimatedContent(
-                                targetState = isOpeningApp,
-                                label = "play_button_state"
-                            ) { loading ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
+                            AsyncImage(
+                                model = song.coverArtHqUrl ?: song.coverArtUrl,
+                                contentDescription = "Album Art",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(artSize)
+                                    .clip(AbsoluteSmoothCornerShape(22.dp, 60))
+                                    .background(Color(0xFF2C2C2C))
+                            )
+
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                horizontalAlignment = Alignment.Start,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.Start,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    if (loading) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            color = MaterialTheme.colorScheme.onPrimary,
-                                            strokeWidth = 2.5.dp
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Text(
-                                            text = "Loading...",
-                                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1
-                                        )
-                                    } else {
-                                        Icon(
-                                            painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Play on PixelMusic",
-                                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                    Text(
+                                        text = song.title,
+                                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textColor,
+                                        textAlign = TextAlign.Start,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Text(
+                                        text = song.artist,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = subTextColor,
+                                        textAlign = TextAlign.Start,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        if (!isOpeningApp) {
+                                            isOpeningApp = true
+                                            onPlayMusic(song)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                ) {
+                                    AnimatedContent(
+                                        targetState = isOpeningApp,
+                                        label = "play_button_state_landscape"
+                                    ) { loading ->
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            if (loading) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    color = MaterialTheme.colorScheme.onPrimary,
+                                                    strokeWidth = 2.5.dp
+                                                )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Text(
+                                                    text = "Loading...",
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1
+                                                )
+                                            } else {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "Play on PixelMusic",
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp)
+                        ) {
+                            AsyncImage(
+                                model = song.coverArtHqUrl ?: song.coverArtUrl,
+                                contentDescription = "Album Art",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(width = 210.dp, height = 265.dp)
+                                    .clip(AbsoluteSmoothCornerShape(22.dp, 60))
+                                    .background(Color(0xFF2C2C2C))
+                            )
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = song.title,
+                                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textColor,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Text(
+                                    text = song.artist,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = subTextColor,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(22.dp))
+
+                            Button(
+                                onClick = {
+                                    if (!isOpeningApp) {
+                                        isOpeningApp = true
+                                        onPlayMusic(song)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                AnimatedContent(
+                                    targetState = isOpeningApp,
+                                    label = "play_button_state"
+                                ) { loading ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        if (loading) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                                strokeWidth = 2.5.dp
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = "Loading...",
+                                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1
+                                            )
+                                        } else {
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_play_arrow_filled_24),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Play on PixelMusic",
+                                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
                                 }
                             }
