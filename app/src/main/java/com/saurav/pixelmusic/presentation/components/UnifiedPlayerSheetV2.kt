@@ -434,12 +434,17 @@ fun UnifiedPlayerSheetV2(
     )
 
     val hapticFeedback = LocalHapticFeedback.current
+    val miniPlayerSwipeToChangeTrack by playerViewModel.userPreferencesRepository.miniPlayerSwipeToChangeTrackFlow
+        .collectAsStateWithLifecycle(initialValue = false)
     val miniDismissGestureHandler = rememberMiniPlayerDismissGestureHandler(
         scope = scope,
         density = density,
         hapticFeedback = hapticFeedback,
         offsetAnimatable = offsetAnimatable,
         screenWidthPx = screenWidthPx,
+        swipeToChangeTrack = miniPlayerSwipeToChangeTrack,
+        onNextTrack = { playerViewModel.nextSong() },
+        onPreviousTrack = { playerViewModel.previousSong() },
         onDismissPlaylistAndShowUndo = { playerViewModel.dismissPlaylistAndShowUndo() },
         onDismissStarted = { playerViewModel.setMiniPlayerDismissing(true) }
     )

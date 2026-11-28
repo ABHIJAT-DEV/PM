@@ -1,6 +1,7 @@
 package com.saurav.pixelmusic.data.worker
 
 import android.content.Context
+import android.provider.MediaStore
 import android.util.Log
 import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkInfo
@@ -10,13 +11,17 @@ import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.saurav.pixelmusic.data.observer.MediaStoreObserver
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -74,7 +79,56 @@ class SyncManager @Inject constructor(
             )
 
     init {
-        // Ensure worker is not cancelled blindly on startup
+        // Auto-scan newly downloaded or modified audio files in real time (debounced 3s)
+        @OptIn(FlowPreview::class)
+        sharingScope.launch {
+            mediaStoreObserver.externalMediaStoreChanges
+                .debounce(AUTO_SYNC_DEBOUNCE_MS)
+                .collect {
+                    val setupDone = runCatching { userPreferencesRepository.initialSetupDoneFlow.first() }.getOrDefault(false)
+                    if (!setupDone) return@collect
+                    Log.i(TAG, "MediaStore change detected — scheduling automatic incremental sync")
+                    enqueueSyncWork(
+                        request = SyncWorker.incrementalSyncWork(),
+                        policy = ExistingWorkPolicy.KEEP,
+                        notifyObserver = false
+                    )
+                }
+        }
+
+        // Also catch files downloaded while the app was closed/backgrounded when returning to foreground
+        sharingScope.launch {
+            mediaStoreObserver.foregroundResumed.collect {
+                val setupDone = runCatching { userPreferencesRepository.initialSetupDoneFlow.first() }.getOrDefault(false)
+                if (!setupDone) return@collect
+                val lastSyncMs = runCatching { userPreferencesRepository.getLastSyncTimestamp() }.getOrDefault(0L)
+                if (lastSyncMs <= 0L) return@collect
+                val hasNewAudio = hasNewOrModifiedAudioSince(lastSyncMs)
+                if (hasNewAudio) {
+                    Log.i(TAG, "New/modified audio detected on foreground resume — scheduling automatic incremental sync")
+                    enqueueSyncWork(
+                        request = SyncWorker.incrementalSyncWork(),
+                        policy = ExistingWorkPolicy.KEEP,
+                        notifyObserver = false
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun hasNewOrModifiedAudioSince(lastSyncMs: Long): Boolean = withContext(Dispatchers.IO) {
+        val lastSyncSec = (lastSyncMs / 1000L).coerceAtLeast(0L)
+        runCatching {
+            context.contentResolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Audio.Media._ID),
+                "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND (${MediaStore.Audio.Media.DATE_ADDED} > ? OR ${MediaStore.Audio.Media.DATE_MODIFIED} > ?)",
+                arrayOf(lastSyncSec.toString(), lastSyncSec.toString()),
+                null
+            )?.use { cursor ->
+                cursor.moveToFirst()
+            } ?: false
+        }.getOrDefault(false)
     }
 
     /**
@@ -253,6 +307,7 @@ class SyncManager @Inject constructor(
     companion object {
         private const val TAG = "SyncManager"
         private const val MIN_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
+        private const val AUTO_SYNC_DEBOUNCE_MS = 3_000L
 
         private val CHANGE_PHASES = setOf(
             SyncProgress.SyncPhase.IDLE,

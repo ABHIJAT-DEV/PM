@@ -272,12 +272,27 @@ fun DeviceCapabilitiesScreen(
                 Toast.makeText(context, "Performance report copied to clipboard", Toast.LENGTH_SHORT).show()
             },
             onShare = {
-                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_SUBJECT, "PixelMusic Performance Report (${activeReport.analysis.healthScore}/100)")
-                    putExtra(Intent.EXTRA_TEXT, activeReport.toFullShareableReport())
+                runCatching {
+                    val reportFile = java.io.File(
+                        context.cacheDir,
+                        "pixelmusic_performance_report_${System.currentTimeMillis()}.log"
+                    )
+                    reportFile.writeText(activeReport.toFullShareableReport())
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        reportFile
+                    )
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, "PixelMusic Performance Report (${activeReport.analysis.healthScore}/100)")
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, "Share Performance Report"))
+                }.onFailure {
+                    Toast.makeText(context, "Failed to pack performance report file", Toast.LENGTH_SHORT).show()
                 }
-                context.startActivity(Intent.createChooser(sendIntent, "Share Performance Report"))
             }
         )
     }

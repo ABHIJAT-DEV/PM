@@ -35,16 +35,21 @@ internal class MiniPlayerDismissGestureHandler(
     private val hapticFeedback: HapticFeedback,
     private val offsetAnimatable: Animatable<Float, AnimationVector1D>,
     private val screenWidthPx: Float,
+    private val isSwipeToChangeTrackEnabled: () -> Boolean = { false },
+    private val onNextTrack: () -> Unit = {},
+    private val onPreviousTrack: () -> Unit = {},
     private val onDismissPlaylistAndShowUndo: () -> Unit,
     private val onDismissStarted: () -> Unit = {}
 ) {
     private var dragPhase: MiniDismissDragPhase = MiniDismissDragPhase.IDLE
     private var accumulatedDragX: Float = 0f
+    private var trackSkipHapticTriggered: Boolean = false
     private var offsetJob: Job? = null
 
     fun onDragStart() {
         dragPhase = MiniDismissDragPhase.TENSION
         accumulatedDragX = 0f
+        trackSkipHapticTriggered = false
         offsetJob?.cancel()
         offsetJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
             offsetAnimatable.stop()
@@ -53,6 +58,22 @@ internal class MiniPlayerDismissGestureHandler(
 
     fun onHorizontalDrag(dragAmount: Float) {
         accumulatedDragX += dragAmount
+
+        if (isSwipeToChangeTrackEnabled()) {
+            val triggerThresholdPx = 72f * density.density
+            val maxVisualOffsetPx = 44f * density.density
+            val dragFraction = (abs(accumulatedDragX) / (triggerThresholdPx * 1.4f)).coerceIn(0f, 1f)
+            val visualOffset = lerp(0f, maxVisualOffsetPx, dragFraction) * accumulatedDragX.sign
+            if (!trackSkipHapticTriggered && abs(accumulatedDragX) >= triggerThresholdPx) {
+                trackSkipHapticTriggered = true
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            offsetJob?.cancel()
+            offsetJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                offsetAnimatable.snapTo(visualOffset)
+            }
+            return
+        }
 
         when (dragPhase) {
             MiniDismissDragPhase.TENSION -> {
@@ -105,6 +126,26 @@ internal class MiniPlayerDismissGestureHandler(
     fun onDragEnd() {
         dragPhase = MiniDismissDragPhase.IDLE
         offsetJob?.cancel()
+
+        if (isSwipeToChangeTrackEnabled()) {
+            val triggerThresholdPx = 72f * density.density
+            if (accumulatedDragX <= -triggerThresholdPx) {
+                onNextTrack()
+            } else if (accumulatedDragX >= triggerThresholdPx) {
+                onPreviousTrack()
+            }
+            offsetJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                offsetAnimatable.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                )
+            }
+            return
+        }
+
         val dismissThreshold = screenWidthPx * 0.4f
         if (abs(accumulatedDragX) > dismissThreshold) {
             onDismissStarted()
@@ -141,9 +182,15 @@ internal fun rememberMiniPlayerDismissGestureHandler(
     hapticFeedback: HapticFeedback,
     offsetAnimatable: Animatable<Float, AnimationVector1D>,
     screenWidthPx: Float,
+    swipeToChangeTrack: Boolean = false,
+    onNextTrack: () -> Unit = {},
+    onPreviousTrack: () -> Unit = {},
     onDismissPlaylistAndShowUndo: () -> Unit,
     onDismissStarted: () -> Unit
 ): MiniPlayerDismissGestureHandler {
+    val swipeToChangeTrackState = rememberUpdatedState(swipeToChangeTrack)
+    val onNextTrackState = rememberUpdatedState(onNextTrack)
+    val onPreviousTrackState = rememberUpdatedState(onPreviousTrack)
     val onDismissPlaylistAndShowUndoState = rememberUpdatedState(onDismissPlaylistAndShowUndo)
     val onDismissStartedState = rememberUpdatedState(onDismissStarted)
     return remember(scope, density, hapticFeedback, offsetAnimatable, screenWidthPx) {
@@ -153,6 +200,9 @@ internal fun rememberMiniPlayerDismissGestureHandler(
             hapticFeedback = hapticFeedback,
             offsetAnimatable = offsetAnimatable,
             screenWidthPx = screenWidthPx,
+            isSwipeToChangeTrackEnabled = { swipeToChangeTrackState.value },
+            onNextTrack = { onNextTrackState.value() },
+            onPreviousTrack = { onPreviousTrackState.value() },
             onDismissPlaylistAndShowUndo = { onDismissPlaylistAndShowUndoState.value() },
             onDismissStarted = { onDismissStartedState.value() }
         )

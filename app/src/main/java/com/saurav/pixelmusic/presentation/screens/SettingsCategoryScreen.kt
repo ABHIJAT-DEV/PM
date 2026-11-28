@@ -955,6 +955,15 @@ fun SettingsCategoryScreen(
                                             Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
                                     )
+                                    SwitchSettingItem(
+                                        title = "Swipe to Change Track",
+                                        subtitle = "Swipe left or right on the mini player to skip to the next or previous track.",
+                                        checked = uiState.miniPlayerSwipeToChangeTrack,
+                                        onCheckedChange = { settingsViewModel.setMiniPlayerSwipeToChangeTrack(it) },
+                                        leadingIcon = {
+                                            Icon(painterResource(R.drawable.rounded_swap_horiz_24), null, tint = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    )
                                     if (AndroidVersionCompat.supportsMotionBlur) {
                                         SwitchSettingItem(
                                             title = "Motion Blur",

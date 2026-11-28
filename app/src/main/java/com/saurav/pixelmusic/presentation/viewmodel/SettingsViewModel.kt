@@ -113,6 +113,7 @@ data class SettingsUiState(
     val showPlayerFileInfo: Boolean = true,
     val isUiMotionBlurEnabled: Boolean = false,
     val uiMotionBlurIntensity: Float = 1f,
+    val miniPlayerSwipeToChangeTrack: Boolean = false,
     // Developer Options
     val albumArtQuality: AlbumArtQuality = AlbumArtQuality.HIGH,
     val albumArtCacheLimitMb: Int = 200,
@@ -854,6 +855,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.uiMotionBlurIntensityFlow.collect { intensity ->
                 _uiState.update { it.copy(uiMotionBlurIntensity = intensity) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.miniPlayerSwipeToChangeTrackFlow.collect { enabled ->
+                _uiState.update { it.copy(miniPlayerSwipeToChangeTrack = enabled) }
             }
         }
 
@@ -2006,6 +2013,12 @@ class SettingsViewModel @Inject constructor(
     fun setUiMotionBlurIntensity(intensity: Float) {
         viewModelScope.launch {
             userPreferencesRepository.setUiMotionBlurIntensity(intensity)
+        }
+    }
+
+    fun setMiniPlayerSwipeToChangeTrack(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setMiniPlayerSwipeToChangeTrack(enabled)
         }
     }
 

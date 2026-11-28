@@ -419,6 +419,16 @@ class SongMetadataEditor(
                     Timber.tag(TAG).e("METADATA_EDIT: File does not exist: $finalFilePath")
                     false
                 }
+            } else if (!isTelegramSong) {
+                // Always stage edits in cacheDir and write back via MediaStore ContentResolver FD
+                // so Android 11+ Scoped Storage (createWriteRequest grant) persists tags reliably
+                // across TagLib, JAudioTagger, and VorbisJava without EACCES on shared storage.
+                writeMetadataViaScopedStorageTempFile(
+                    songId = songId,
+                    originalPath = finalFilePath,
+                    effectiveExtension = effectiveExtension.ifBlank { extension.ifBlank { "mp3" } },
+                    writer = runPipeline
+                )
             } else if (needsExtensionSwap) {
                 writeMetadataViaExtensionSwap(finalFilePath, effectiveExtension, runPipeline)
             } else {
@@ -518,6 +528,95 @@ class SongMetadataEditor(
      * bytes back into the original location. The original filename/extension are preserved so
      * MediaStore URIs stay valid; only the file's byte content is replaced.
      */
+    /**
+     * Scoped-storage-safe tag writer: copies the track to a temp file in [context.cacheDir]
+     * (where TagLib, JAudioTagger, and VorbisJava have full read/write/rename access), runs
+     * [writer], verifies the result, and streams the updated bytes back through MediaStore's
+     * ContentResolver FD (honoring the MediaStore.createWriteRequest() grant), falling back
+     * to direct FileOutputStream only if ContentResolver cannot open the URI.
+     */
+    private fun writeMetadataViaScopedStorageTempFile(
+        songId: Long,
+        originalPath: String,
+        effectiveExtension: String,
+        writer: (String) -> Boolean
+    ): Boolean {
+        val originalFile = File(originalPath)
+        val mediaStoreUri = ContentUris.withAppendedId(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            songId
+        )
+        val tempFile = File(
+            context.cacheDir,
+            "metadata_edit_${songId}_${System.nanoTime()}.$effectiveExtension"
+        )
+        return try {
+            val copiedIn = runCatching {
+                context.contentResolver.openInputStream(mediaStoreUri)?.use { input ->
+                    FileOutputStream(tempFile).use { out -> input.copyTo(out) }
+                    true
+                } ?: false
+            }.getOrDefault(false)
+
+            if (!copiedIn) {
+                originalFile.inputStream().use { input ->
+                    FileOutputStream(tempFile).use { out -> input.copyTo(out) }
+                }
+            }
+
+            if (!tempFile.exists() || tempFile.length() == 0L) {
+                Timber.tag(TAG).e("METADATA_EDIT: Failed to stage temp file for songId=$songId")
+                return false
+            }
+
+            val writeOk = writer(tempFile.absolutePath)
+            if (!writeOk || tempFile.length() == 0L) {
+                Timber.tag(TAG).e("METADATA_EDIT: Tag writer failed on staged temp file ${tempFile.name}")
+                return false
+            }
+
+            val wroteViaContentResolver = runCatching {
+                val pfd = context.contentResolver.openFileDescriptor(mediaStoreUri, "rwt")
+                    ?: context.contentResolver.openFileDescriptor(mediaStoreUri, "wt")
+                    ?: context.contentResolver.openFileDescriptor(mediaStoreUri, "rw")
+                pfd?.use { descriptor ->
+                    FileOutputStream(descriptor.fileDescriptor).use { out ->
+                        out.channel.truncate(0L)
+                        out.channel.position(0L)
+                        tempFile.inputStream().use { input -> input.copyTo(out) }
+                        out.flush()
+                        out.fd.sync()
+                    }
+                    true
+                } ?: false
+            }.onFailure { e ->
+                Timber.tag(TAG).w(e, "METADATA_EDIT: ContentResolver write failed for songId=$songId, trying direct file write")
+            }.getOrDefault(false)
+
+            if (!wroteViaContentResolver) {
+                tempFile.inputStream().use { input ->
+                    FileOutputStream(originalFile, false).use { out ->
+                        input.copyTo(out)
+                        out.flush()
+                        out.fd.sync()
+                    }
+                }
+            }
+
+            Timber.tag(TAG).d(
+                "METADATA_EDIT: Persisted ${tempFile.length()} bytes to track (viaContentResolver=$wroteViaContentResolver): $originalPath"
+            )
+            true
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "METADATA_EDIT: Scoped-storage tag write failed for $originalPath")
+            false
+        } finally {
+            if (tempFile.exists() && !tempFile.delete()) {
+                Timber.tag(TAG).w("METADATA_EDIT: Could not delete temp file ${tempFile.absolutePath}")
+            }
+        }
+    }
+
     private fun writeMetadataViaExtensionSwap(
         originalPath: String,
         correctExtension: String,
