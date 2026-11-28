@@ -772,7 +772,7 @@ fun HomeScreen(
                                     modifier = Modifier.weight(0.58f),
                                     songs = filteredYourMixSongs,
                                     padding = 4.dp,
-                                    height = 250.dp,
+                                    height = 285.dp,
                                     pattern = activeCollagePattern,
                                     onSongClick = { song ->
                                         if (usesFallbackHomeMix) {

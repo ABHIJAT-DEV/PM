@@ -99,10 +99,14 @@ fun FluidBlobCollage(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .padding(horizontal = 4.dp)
+            .padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center
     ) {
-        val totalWidth = maxWidth
+        // Preserve natural ~0.90 width/height proportion so organic blobs never stretch horizontally in landscape
+        val totalWidth = minOf(maxWidth, maxHeight * 0.90f)
         val totalHeight = maxHeight
+
+        Box(modifier = Modifier.size(totalWidth, totalHeight)) {
 
         // 1. Top-Left Blob (Shape 1)
         val tlWidth = totalWidth * 0.465f
@@ -213,6 +217,7 @@ fun FluidBlobCollage(
                 .align(Alignment.TopStart)
                 .offset(x = totalWidth * 0.57f, y = totalHeight * 0.93f)
         )
+        }
     }
 }
 

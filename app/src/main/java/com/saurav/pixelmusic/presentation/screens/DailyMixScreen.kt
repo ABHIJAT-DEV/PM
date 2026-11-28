@@ -558,23 +558,25 @@ fun DailyMixScreen(
             )
         }
 
-        // Bottom Gradient
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .height(80.dp)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            MaterialTheme.colorScheme.surfaceContainerLowest.copy(0.5f),
-                            MaterialTheme.colorScheme.surfaceContainerLowest
+        // Bottom Gradient (portrait only)
+        if (LocalConfiguration.current.orientation != Configuration.ORIENTATION_LANDSCAPE) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .height(80.dp)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.surfaceContainerLowest.copy(0.5f),
+                                MaterialTheme.colorScheme.surfaceContainerLowest
+                            )
                         )
                     )
-                )
-        ) {
+            ) {
 
+            }
         }
 
         ProgressiveStatusBarHeaderBackdrop(

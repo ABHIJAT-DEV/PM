@@ -1324,29 +1324,31 @@ class MainActivity : ComponentActivity() {
                                     )
                             )
                             
-                            // Global Bottom Scrim
-                            val currentSongIdForScrim by remember { playerViewModel.stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
-                            val bottomPaddingForScrim = innerPadding.calculateBottomPadding() + (if(currentSongIdForScrim != null) MiniPlayerHeight else 0.dp)
-                            
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .align(Alignment.BottomCenter)
-                                    .height(bottomPaddingForScrim + 140.dp)
-                                    .background(
-                                        brush = Brush.verticalGradient(
-                                            colorStops = arrayOf(
-                                                0.00f to Color.Transparent,
-                                                0.12f to scrimBottomColor.copy(alpha = 0.11f),
-                                                0.28f to scrimBottomColor.copy(alpha = 0.28f),
-                                                0.46f to scrimBottomColor.copy(alpha = 0.48f),
-                                                0.64f to scrimBottomColor.copy(alpha = 0.68f),
-                                                0.82f to scrimBottomColor.copy(alpha = 0.86f),
-                                                1.00f to scrimBottomColor.copy(alpha = 0.95f)
+                            // Global Bottom Scrim (portrait only — hidden in landscape where nav is on the left rail)
+                            if (!isLandscape) {
+                                val currentSongIdForScrim by remember { playerViewModel.stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
+                                val bottomPaddingForScrim = innerPadding.calculateBottomPadding() + (if(currentSongIdForScrim != null) MiniPlayerHeight else 0.dp)
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .align(Alignment.BottomCenter)
+                                        .height(bottomPaddingForScrim + 140.dp)
+                                        .background(
+                                            brush = Brush.verticalGradient(
+                                                colorStops = arrayOf(
+                                                    0.00f to Color.Transparent,
+                                                    0.12f to scrimBottomColor.copy(alpha = 0.11f),
+                                                    0.28f to scrimBottomColor.copy(alpha = 0.28f),
+                                                    0.46f to scrimBottomColor.copy(alpha = 0.48f),
+                                                    0.64f to scrimBottomColor.copy(alpha = 0.68f),
+                                                    0.82f to scrimBottomColor.copy(alpha = 0.86f),
+                                                    1.00f to scrimBottomColor.copy(alpha = 0.95f)
+                                                )
                                             )
                                         )
-                                    )
-                            )
+                                )
+                            }
                             
                             AppNavigation(
                                 playerViewModel = playerViewModel,

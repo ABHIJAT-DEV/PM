@@ -1543,23 +1543,25 @@ onViewToggleChange = { isChecked ->
                     LibrarySyncOverlay(syncManager = syncManager)
                 }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .height(bottomGradientHeight)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color.Transparent,
-                                0.2f to Color.Transparent,
-                                0.8f to MaterialTheme.colorScheme.surfaceContainerLowest,
-                                1.0f to MaterialTheme.colorScheme.surfaceContainerLowest
+            if (androidx.compose.ui.platform.LocalConfiguration.current.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .height(bottomGradientHeight)
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.2f to Color.Transparent,
+                                    0.8f to MaterialTheme.colorScheme.surfaceContainerLowest,
+                                    1.0f to MaterialTheme.colorScheme.surfaceContainerLowest
+                                )
                             )
                         )
-                    )
-            ) {
+                ) {
 
+                }
             }
         }
     }
