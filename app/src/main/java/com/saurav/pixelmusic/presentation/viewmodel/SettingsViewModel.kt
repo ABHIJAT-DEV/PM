@@ -113,7 +113,7 @@ data class SettingsUiState(
     val showPlayerFileInfo: Boolean = true,
     val isUiMotionBlurEnabled: Boolean = false,
     val uiMotionBlurIntensity: Float = 1f,
-    val miniPlayerSwipeToChangeTrack: Boolean = false,
+    val nowPlayingSwipeToChangeTrack: Boolean = false,
     // Developer Options
     val albumArtQuality: AlbumArtQuality = AlbumArtQuality.HIGH,
     val albumArtCacheLimitMb: Int = 200,
@@ -859,8 +859,8 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.miniPlayerSwipeToChangeTrackFlow.collect { enabled ->
-                _uiState.update { it.copy(miniPlayerSwipeToChangeTrack = enabled) }
+            userPreferencesRepository.nowPlayingSwipeToChangeTrackFlow.collect { enabled ->
+                _uiState.update { it.copy(nowPlayingSwipeToChangeTrack = enabled) }
             }
         }
 
@@ -2016,9 +2016,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setMiniPlayerSwipeToChangeTrack(enabled: Boolean) {
+    fun setNowPlayingSwipeToChangeTrack(enabled: Boolean) {
         viewModelScope.launch {
-            userPreferencesRepository.setMiniPlayerSwipeToChangeTrack(enabled)
+            userPreferencesRepository.setNowPlayingSwipeToChangeTrack(enabled)
         }
     }
 

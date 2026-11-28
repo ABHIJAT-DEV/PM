@@ -866,12 +866,22 @@ fun FullPlayerContent(
     }
 
     val latestAodVisible by rememberUpdatedState(aodVisible)
+    val nowPlayingSwipeToChangeTrack by playerViewModel.userPreferencesRepository.nowPlayingSwipeToChangeTrackFlow
+        .collectAsStateWithLifecycle(initialValue = false)
+    val latestSwipeToChangeTrack by rememberUpdatedState(nowPlayingSwipeToChangeTrack)
+    val latestOnNextWithCarousel by rememberUpdatedState(onNextWithOptimisticCarousel)
+    val latestOnPreviousWithCarousel by rememberUpdatedState(onPreviousWithOptimisticCarousel)
+    val fullPlayerHaptics = LocalHapticFeedback.current
 
     Scaffold(
         containerColor = Color.Transparent,
         modifier = Modifier.pointerInput(currentSheetState, queueGestureBottomExclusionPx) {
             val queueDragActivationThresholdPx = maxOf(viewConfiguration.touchSlop, 18.dp.toPx())
+            val horizontalSkipActivationPx = maxOf(viewConfiguration.touchSlop, 24.dp.toPx())
+            val horizontalSkipTriggerPx = 72.dp.toPx()
+            val horizontalEdgeExclusionPx = 24.dp.toPx()
             val quickFlickVelocityThreshold = -520f
+            val horizontalFlickVelocityThreshold = 520f
 
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = true)
@@ -891,8 +901,13 @@ fun FullPlayerContent(
                     return@awaitEachGesture
                 }
 
+                val isWithinHorizontalSwipeZone =
+                    down.position.x > horizontalEdgeExclusionPx &&
+                        down.position.x < (size.width.toFloat() - horizontalEdgeExclusionPx)
+
                 // Proceed with gesture logic
                 var dragConsumedByQueue = false
+                var dragConsumedByTrackSkip = false
                 val velocityTracker = VelocityTracker()
                 var totalDrag = 0f
                 var totalHorizontalDrag = 0f
@@ -902,7 +917,7 @@ fun FullPlayerContent(
                     if (latestAodVisible) {
                         return@drag
                     }
-                    if (!dragConsumedByQueue && change.isConsumed) {
+                    if (!dragConsumedByQueue && !dragConsumedByTrackSkip && change.isConsumed) {
                         return@drag
                     }
                     val delta = change.positionChange()
@@ -910,31 +925,56 @@ fun FullPlayerContent(
                     totalDrag += dragAmount
                     totalHorizontalDrag += delta.x
                     velocityTracker.addPosition(change.uptimeMillis, change.position)
-                    val isVerticalDominant = kotlin.math.abs(totalDrag) > kotlin.math.abs(totalHorizontalDrag) * 1.15f
+                    val absY = kotlin.math.abs(totalDrag)
+                    val absX = kotlin.math.abs(totalHorizontalDrag)
+                    val isVerticalDominant = absY > absX * 1.15f
+                    val isHorizontalDominant = absX > absY * 1.25f
                     val isDraggingUp = isVerticalDominant && totalDrag < -queueDragActivationThresholdPx
 
-                    if (isDraggingUp && !dragConsumedByQueue) {
+                    if (!dragConsumedByTrackSkip && isDraggingUp && !dragConsumedByQueue) {
                         dragConsumedByQueue = true
                         onQueueDragStart()
+                    } else if (
+                        !dragConsumedByQueue &&
+                        !dragConsumedByTrackSkip &&
+                        latestSwipeToChangeTrack &&
+                        isWithinHorizontalSwipeZone &&
+                        isHorizontalDominant &&
+                        absX > horizontalSkipActivationPx
+                    ) {
+                        dragConsumedByTrackSkip = true
                     }
 
                     if (dragConsumedByQueue) {
                         change.consume()
                         onQueueDrag(dragAmount)
+                    } else if (dragConsumedByTrackSkip) {
+                        change.consume()
                     }
                 }
 
-                val velocity = velocityTracker.calculateVelocity().y
+                val velocity = velocityTracker.calculateVelocity()
                 if (dragConsumedByQueue) {
-                    onQueueRelease(totalDrag, velocity)
+                    onQueueRelease(totalDrag, velocity.y)
+                } else if (dragConsumedByTrackSkip && !latestAodVisible && latestSwipeToChangeTrack) {
+                    val absX = kotlin.math.abs(totalHorizontalDrag)
+                    val absVx = kotlin.math.abs(velocity.x)
+                    if (absX >= horizontalSkipTriggerPx || (absX >= horizontalSkipActivationPx && absVx >= horizontalFlickVelocityThreshold)) {
+                        fullPlayerHaptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (totalHorizontalDrag < 0f) {
+                            latestOnNextWithCarousel()
+                        } else {
+                            latestOnPreviousWithCarousel()
+                        }
+                    }
                 } else if (
                     !latestAodVisible &&
                     kotlin.math.abs(totalDrag) > kotlin.math.abs(totalHorizontalDrag) * 1.15f &&
                     totalDrag < -(queueDragActivationThresholdPx * 1.5f) &&
-                    velocity < quickFlickVelocityThreshold
+                    velocity.y < quickFlickVelocityThreshold
                 ) {
                     // Treat short/fast upward flick as queue-open intent.
-                    onQueueRelease(totalDrag, velocity)
+                    onQueueRelease(totalDrag, velocity.y)
                 }
             }
         },

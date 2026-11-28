@@ -441,7 +441,7 @@ constructor(
         val ALBUM_ART_CACHE_LIMIT_MB = intPreferencesKey("album_art_cache_limit_mb")
         val UI_MOTION_BLUR_ENABLED = booleanPreferencesKey("ui_motion_blur_enabled")
         val UI_MOTION_BLUR_INTENSITY = androidx.datastore.preferences.core.floatPreferencesKey("ui_motion_blur_intensity")
-        val MINI_PLAYER_SWIPE_TO_CHANGE_TRACK = booleanPreferencesKey("mini_player_swipe_to_change_track")
+        val NOW_PLAYING_SWIPE_TO_CHANGE_TRACK = booleanPreferencesKey("now_playing_swipe_to_change_track")
         val TAP_BACKGROUND_CLOSES_PLAYER = booleanPreferencesKey("tap_background_closes_player")
         val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
         val IMMERSIVE_LYRICS_ENABLED = booleanPreferencesKey("immersive_lyrics_enabled")
@@ -2274,14 +2274,14 @@ constructor(
         }
     }
 
-    val miniPlayerSwipeToChangeTrackFlow: Flow<Boolean> = dataStore.data
+    val nowPlayingSwipeToChangeTrackFlow: Flow<Boolean> = dataStore.data
         .map { preferences ->
-            preferences[PreferencesKeys.MINI_PLAYER_SWIPE_TO_CHANGE_TRACK] ?: false
+            preferences[PreferencesKeys.NOW_PLAYING_SWIPE_TO_CHANGE_TRACK] ?: false
         }
 
-    suspend fun setMiniPlayerSwipeToChangeTrack(enabled: Boolean) {
+    suspend fun setNowPlayingSwipeToChangeTrack(enabled: Boolean) {
         dataStore.edit { preferences ->
-            preferences[PreferencesKeys.MINI_PLAYER_SWIPE_TO_CHANGE_TRACK] = enabled
+            preferences[PreferencesKeys.NOW_PLAYING_SWIPE_TO_CHANGE_TRACK] = enabled
         }
     }
 

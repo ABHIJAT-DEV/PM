@@ -957,9 +957,9 @@ fun SettingsCategoryScreen(
                                     )
                                     SwitchSettingItem(
                                         title = "Swipe to Change Track",
-                                        subtitle = "Swipe left or right on the mini player to skip to the next or previous track.",
-                                        checked = uiState.miniPlayerSwipeToChangeTrack,
-                                        onCheckedChange = { settingsViewModel.setMiniPlayerSwipeToChangeTrack(it) },
+                                        subtitle = "Swipe left or right on the Now Playing screen to skip to the next or previous track.",
+                                        checked = uiState.nowPlayingSwipeToChangeTrack,
+                                        onCheckedChange = { settingsViewModel.setNowPlayingSwipeToChangeTrack(it) },
                                         leadingIcon = {
                                             Icon(painterResource(R.drawable.rounded_swap_horiz_24), null, tint = MaterialTheme.colorScheme.secondary)
                                         }
