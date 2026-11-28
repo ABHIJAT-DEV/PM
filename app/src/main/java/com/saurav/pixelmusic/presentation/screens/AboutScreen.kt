@@ -588,6 +588,58 @@ private fun AboutHeroCard(
                                     Text("Checking for updates...")
                                 }
                             }
+                            is UpdateState.Error -> {
+                                val errorMsg = state.message
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    FilledTonalButton(
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            updateState = UpdateState.Checking
+                                            coroutineScope.launch {
+                                                val startedAt = System.currentTimeMillis()
+                                                val result = InAppUpdater.checkForUpdate(versionName, forceRefresh = true)
+                                                val elapsed = System.currentTimeMillis() - startedAt
+                                                if (elapsed < 400L) {
+                                                    kotlinx.coroutines.delay(400L - elapsed)
+                                                }
+                                                updateState = result
+                                            }
+                                        },
+                                        shape = CircleShape,
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(48.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Refresh,
+                                            contentDescription = "Retry update check",
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            text = "Update check failed · Tap to retry",
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = errorMsg,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                             is UpdateState.UpToDate -> {
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     // If a download (e.g. downgrade) is active while sheet is closed, show live progress pill

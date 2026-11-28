@@ -160,6 +160,10 @@
 -dontwarn com.google.re2j.**
 -dontwarn java.beans.**
 
+# Gson / reflection keep rules for InAppUpdater release models
+-keep class com.saurav.pixelmusic.utils.GithubRelease { *; }
+-keep class com.saurav.pixelmusic.utils.GithubAsset { *; }
+
 # Gson serialization keep rules for Explore cache and InnerTube API models
 -keep class com.saurav.pixelmusic.presentation.viewmodel.ExploreCacheModel { *; }
 -keep class saurav.shru.pixelmusic.innertube.models.** { *; }
