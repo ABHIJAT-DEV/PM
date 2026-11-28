@@ -1098,8 +1098,11 @@ class MainActivity : ComponentActivity() {
                     val railAvatarSpec = remember(railUserProfile, railYtUsername, railYtAvatarUrl) {
                         railUserProfile.effectiveLocalAvatar(if (railYtUsername.isNotEmpty()) railYtAvatarUrl else "")
                     }
-                    val onRailProfileClick = remember(navController) {
-                        { navController.navigateSafely(Screen.Settings.route) }
+                    val onRailProfileClick: () -> Unit = remember(navController) {
+                        {
+                            navController.navigateSafely(Screen.Settings.route)
+                            Unit
+                        }
                     }
                     Row(
                         modifier = Modifier
