@@ -2134,7 +2134,10 @@ constructor(
         }
     }
 
-    val animatedLyricsBlurEnabledFlow: Flow<Boolean> = kotlinx.coroutines.flow.flowOf(true)
+    val animatedLyricsBlurEnabledFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.ANIMATED_LYRICS_BLUR_ENABLED] ?: false
+        }
 
     suspend fun setAnimatedLyricsBlurEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
@@ -2250,7 +2253,7 @@ constructor(
 
     val uiMotionBlurEnabledFlow: Flow<Boolean> = dataStore.data
         .map { preferences ->
-            preferences[PreferencesKeys.UI_MOTION_BLUR_ENABLED] ?: true
+            preferences[PreferencesKeys.UI_MOTION_BLUR_ENABLED] ?: false
         }
 
     suspend fun setUiMotionBlurEnabled(enabled: Boolean) {

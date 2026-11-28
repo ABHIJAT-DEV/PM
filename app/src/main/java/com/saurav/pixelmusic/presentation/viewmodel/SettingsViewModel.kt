@@ -111,7 +111,7 @@ data class SettingsUiState(
     val beta05CleanInstallDisclaimerDismissed: Boolean? = null,
     val fullPlayerLoadingTweaks: FullPlayerLoadingTweaks = FullPlayerLoadingTweaks(),
     val showPlayerFileInfo: Boolean = true,
-    val isUiMotionBlurEnabled: Boolean = true,
+    val isUiMotionBlurEnabled: Boolean = false,
     val uiMotionBlurIntensity: Float = 1f,
     // Developer Options
     val albumArtQuality: AlbumArtQuality = AlbumArtQuality.HIGH,
@@ -121,7 +121,7 @@ data class SettingsUiState(
     val immersiveLyricsEnabled: Boolean = true,
     val immersiveLyricsTimeout: Long = 4000L,
     val useAnimatedLyrics: Boolean = true,
-    val animatedLyricsBlurEnabled: Boolean = true,
+    val animatedLyricsBlurEnabled: Boolean = false,
     val animatedLyricsBlurStrength: Float = 2.5f,
     val backupInfoDismissed: Boolean = false,
     val isDataTransferInProgress: Boolean = false,

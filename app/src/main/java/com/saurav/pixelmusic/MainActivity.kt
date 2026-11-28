@@ -934,7 +934,7 @@ class MainActivity : ComponentActivity() {
             AppHapticsConfig(enabled = hapticsEnabled)
         }
         val motionBlurIntensity by userPreferencesRepository.uiMotionBlurIntensityFlow.collectAsStateWithLifecycle(initialValue = 1f)
-        val motionBlurEnabled by userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+        val motionBlurEnabled by userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
         val scopedHapticFeedback = remember(platformHapticFeedback, appHapticsConfig.enabled) {
             if (appHapticsConfig.enabled) platformHapticFeedback else NoOpHapticFeedback
         }

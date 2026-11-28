@@ -595,7 +595,7 @@ class DeviceCapabilitiesViewModel @Inject constructor(
                         nativeHeapAllocatedBytes = nativeHeap
                     )
 
-                    val motionBlur = runCatching { userPreferencesRepository.uiMotionBlurEnabledFlow.first() }.getOrDefault(true)
+                    val motionBlur = runCatching { userPreferencesRepository.uiMotionBlurEnabledFlow.first() }.getOrDefault(false)
                     val designStyle = runCatching { userPreferencesRepository.playerDesignStyleFlow.first().name }.getOrDefault("DEFAULT")
                     val offloadEnabled = runCatching { userPreferencesRepository.audioOffloadEnabledFlow.first() }.getOrDefault(false)
                     val hiFiEnabled = runCatching { userPreferencesRepository.hiFiModeEnabledFlow.first() }.getOrDefault(false)
@@ -851,12 +851,17 @@ class DeviceCapabilitiesViewModel @Inject constructor(
             when {
                 uiPerf.jankPercent >= 15.0 || uiPerf.worstFrameMs >= uiPerf.targetFrameBudgetMs * 4.0 -> {
                     score -= 20
+                    val uiRec = when {
+                        app.motionBlurEnabled -> "Try turning off Motion Blur in Appearance settings to reduce GPU load."
+                        app.playerDesignStyle != "DEFAULT" -> "Try switching to the Default player design style or enabling Performance Mode to reduce GPU load."
+                        else -> "Enable Performance Mode in Settings and close background apps to reduce GPU/compositor load."
+                    }
                     findings += DiagnosticFinding(
                         severity = "CRITICAL",
                         category = "UI",
                         title = "Elevated UI frame jank (${String.format(Locale.ROOT, "%.1f", uiPerf.jankPercent)}%)",
                         detail = "P95 frame ${String.format(Locale.ROOT, "%.1f", uiPerf.p95FrameMs)}ms, worst ${String.format(Locale.ROOT, "%.1f", uiPerf.worstFrameMs)}ms vs ${String.format(Locale.ROOT, "%.1f", uiPerf.targetFrameBudgetMs)}ms budget.",
-                        recommendation = "Try turning off Motion Blur or switching to Default player design style to isolate GPU load."
+                        recommendation = uiRec
                     )
                 }
                 uiPerf.jankPercent >= 5.0 -> {
@@ -882,13 +887,24 @@ class DeviceCapabilitiesViewModel @Inject constructor(
 
         // 4. Audio Pipeline & Resampling
         if (audio.decoderHardware == false && audio.decoderName != null) {
-            score -= 5
+            val offloadSupported = audio.offloadSupportedFormats.isNotEmpty()
+            val expectedSoftware = audio.currentMime in setOf("audio/opus", "audio/flac", "audio/vorbis", "audio/wav") ||
+                audio.equalizerType == "IN_APP" ||
+                !offloadSupported
+            if (!expectedSoftware) {
+                score -= 5
+            }
+            val audioRec = when {
+                !offloadSupported -> "Normal on this device (hardware audio offload is not advertised by the platform)."
+                audio.audioOffloadEnabled -> "Expected while using Opus/FLAC or the in-app equalizer."
+                else -> "Expected for FLAC/Opus/EQ paths; enable Audio Offload when not using EQ for lower battery use."
+            }
             findings += DiagnosticFinding(
                 severity = "INFO",
                 category = "AUDIO",
                 title = "Active track uses software decoder (${audio.decoderName})",
                 detail = "Software decoding uses slightly more CPU than hardware offload.",
-                recommendation = "Expected for FLAC/Opus/EQ paths; enable Audio Offload when not using EQ for lower battery use."
+                recommendation = audioRec
             )
         }
         if (library.resampledCount > 0) {
@@ -1025,6 +1041,7 @@ private fun normalizeMimeType(mimeType: String): String {
         "audio/qcelp", "audio/x-qcelp" -> "audio/qcelp"
         "audio/x-ima-adpcm", "audio/ima-adpcm" -> "audio/x-ima-adpcm"
         "audio/webm", "video/webm" -> "audio/webm"
+        "audio/x-matroska", "audio/matroska", "video/x-matroska" -> "audio/x-matroska"
         else -> mime
     }
 }
@@ -1047,6 +1064,7 @@ private fun compatibleMimeTypes(mimeType: String): Set<String> {
         "audio/qcelp" -> setOf("audio/qcelp", "audio/x-qcelp")
         "audio/x-ima-adpcm" -> setOf("audio/x-ima-adpcm", "audio/ima-adpcm", "audio/raw")
         "audio/webm" -> setOf("audio/webm", "audio/opus", "audio/vorbis")
+        "audio/x-matroska" -> setOf("audio/x-matroska", "audio/opus", "audio/vorbis", "audio/mp4a-latm", "audio/flac")
         else -> setOf(normalized)
     }
 }

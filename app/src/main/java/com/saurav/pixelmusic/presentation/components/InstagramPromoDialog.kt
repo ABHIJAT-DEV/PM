@@ -2,7 +2,7 @@ package com.saurav.pixelmusic.presentation.components
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.Image
+import coil.compose.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -40,9 +40,9 @@ fun InstagramPromoDialog(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Profile Image matching your drawable
-                Image(
-                    painter = painterResource(id = R.drawable.saurav_profile), 
+                // Load profile image asynchronously via Coil to avoid main-thread bitmap decode stalls on startup
+                AsyncImage(
+                    model = R.drawable.saurav_profile,
                     contentDescription = "Developer Profile",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier

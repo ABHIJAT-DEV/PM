@@ -129,7 +129,7 @@ fun DeviceCapabilitiesScreen(
     playerViewModel: PlayerViewModel
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val isMotionBlurEnabled by playerViewModel.userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    val isMotionBlurEnabled by playerViewModel.userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
     val isVideoEngineEnabled by playerViewModel.userPreferencesRepository.videoSharingEngineEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
     val context = LocalContext.current
     var showReportSheet by remember { mutableStateOf(false) }
@@ -238,7 +238,13 @@ fun DeviceCapabilitiesScreen(
                 },
                 modifier = Modifier
                     .fillMaxSize()
-                    .glassRoot(glassState)
+                    .glassRoot(
+                        glassState,
+                        isActive = {
+                            !state.isGeneratingReport &&
+                                (lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0)
+                        }
+                    )
                     .scrollMotionBlur(lazyListState, enabled = isMotionBlurEnabled)
             )
         }

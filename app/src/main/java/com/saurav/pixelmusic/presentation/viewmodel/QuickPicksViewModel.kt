@@ -67,9 +67,11 @@ class QuickPicksViewModel @Inject constructor(
     private var loadJob: Job? = null
 
     init {
-        // Immediately populate from cache so the UI shows something on relaunch
+        // Populate from cache off the Main thread so cold start never stalls UI rendering
         if (!UserPreferencesRepository.isLocalModeActive) {
-            loadFromCache()
+            viewModelScope.launch {
+                loadFromCache()
+            }
         }
         viewModelScope.launch {
             userPreferencesRepository.localModeEnabledFlow.collect { localMode ->
@@ -109,25 +111,32 @@ class QuickPicksViewModel @Inject constructor(
     // Cache helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private fun loadFromCache() {
+    private suspend fun loadFromCache() {
         try {
-            prefs.getString(KEY_SONGS, null) ?: return
-            val songsJson = prefs.getString(KEY_SONGS, null) ?: return
-            val categoriesJson = prefs.getString(KEY_CATEGORIES, null)
+            val cached = withContext(Dispatchers.IO) {
+                val songsJson = prefs.getString(KEY_SONGS, null) ?: return@withContext null
+                val categoriesJson = prefs.getString(KEY_CATEGORIES, null)
 
-            val songsArray = JSONArray(songsJson)
-            val songs = mutableListOf<Song>()
-            for (i in 0 until songsArray.length()) {
-                songs.add(songFromJson(songsArray.getJSONObject(i)))
-            }
-            if (songs.isNotEmpty()) _quickPicks.value = songs
+                val songsArray = JSONArray(songsJson)
+                val songs = ArrayList<Song>(songsArray.length())
+                for (i in 0 until songsArray.length()) {
+                    songs.add(songFromJson(songsArray.getJSONObject(i)))
+                }
 
-            if (categoriesJson != null) {
-                val catArray = JSONArray(categoriesJson)
-                val cats = mutableListOf<String>()
-                for (i in 0 until catArray.length()) cats.add(catArray.getString(i))
-                if (cats.isNotEmpty()) _categories.value = cats
-            }
+                val cats = if (categoriesJson != null) {
+                    val catArray = JSONArray(categoriesJson)
+                    ArrayList<String>(catArray.length()).apply {
+                        for (i in 0 until catArray.length()) add(catArray.getString(i))
+                    }
+                } else {
+                    emptyList()
+                }
+
+                songs to cats
+            } ?: return
+
+            if (cached.first.isNotEmpty()) _quickPicks.value = cached.first
+            if (cached.second.isNotEmpty()) _categories.value = cached.second
         } catch (e: Exception) {
             Timber.tag("QuickPicks").w(e, "Failed to load cache")
         }
