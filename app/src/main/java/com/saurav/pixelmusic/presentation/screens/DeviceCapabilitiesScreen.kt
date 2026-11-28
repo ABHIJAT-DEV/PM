@@ -1,6 +1,11 @@
 package com.saurav.pixelmusic.presentation.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.text.format.Formatter
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -29,14 +34,27 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.Switch
+import androidx.compose.ui.text.font.FontFamily
+import com.saurav.pixelmusic.data.diagnostics.PerformanceReport
+import com.saurav.pixelmusic.presentation.components.SmoothModalBottomSheet
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import androidx.compose.material3.FilledTonalButton
@@ -116,6 +134,8 @@ fun DeviceCapabilitiesScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isMotionBlurEnabled by playerViewModel.userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
     val isVideoEngineEnabled by playerViewModel.userPreferencesRepository.videoSharingEngineEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+    val context = LocalContext.current
+    var showReportSheet by remember { mutableStateOf(false) }
 
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
@@ -202,6 +222,23 @@ fun DeviceCapabilitiesScreen(
                 onNavigateToFeatureCompatibility = {
                     navController.navigateSafely(Screen.FeatureCompatibility.route)
                 },
+                onToggleDiagnosticsSession = { enabled ->
+                    viewModel.toggleDiagnosticsSession(enabled)
+                },
+                onMarkLagSpike = {
+                    viewModel.markLagSpike()
+                    Toast.makeText(context, "Lag spike marked in diagnostics session", Toast.LENGTH_SHORT).show()
+                },
+                onGeneratePerformanceReport = {
+                    viewModel.generatePerformanceReport {
+                        showReportSheet = true
+                    }
+                },
+                onOpenExistingReport = {
+                    if (state.performanceReport != null) {
+                        showReportSheet = true
+                    }
+                },
                 modifier = Modifier
                     .fillMaxSize()
                     .glassRoot(glassState)
@@ -220,6 +257,27 @@ fun DeviceCapabilitiesScreen(
         )
     }
     }
+
+    val activeReport = state.performanceReport
+    if (showReportSheet && activeReport != null) {
+        PerformanceReportBottomSheet(
+            report = activeReport,
+            onDismiss = { showReportSheet = false },
+            onCopy = {
+                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("PixelMusic Performance Report", activeReport.toFullShareableReport()))
+                Toast.makeText(context, "Performance report copied to clipboard", Toast.LENGTH_SHORT).show()
+            },
+            onShare = {
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "PixelMusic Performance Report (${activeReport.analysis.healthScore}/100)")
+                    putExtra(Intent.EXTRA_TEXT, activeReport.toFullShareableReport())
+                }
+                context.startActivity(Intent.createChooser(sendIntent, "Share Performance Report"))
+            }
+        )
+    }
 }
 
 @Composable
@@ -230,6 +288,10 @@ private fun DeviceCapabilitiesContent(
     isVideoEngineEnabled: Boolean = false,
     onToggleVideoEngine: (Boolean) -> Unit = {},
     onNavigateToFeatureCompatibility: () -> Unit = {},
+    onToggleDiagnosticsSession: (Boolean) -> Unit = {},
+    onMarkLagSpike: () -> Unit = {},
+    onGeneratePerformanceReport: () -> Unit = {},
+    onOpenExistingReport: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -249,6 +311,19 @@ private fun DeviceCapabilitiesContent(
                 audioCapabilities = state.audioCapabilities,
                 storageSummary = state.storageSummary,
                 playbackCompatibility = state.playbackCompatibility
+            )
+        }
+
+        item {
+            PerformanceDiagnosticsCard(
+                report = state.performanceReport,
+                isGenerating = state.isGeneratingReport,
+                diagnosticsEnabled = state.diagnosticsSessionEnabled,
+                diagnosticsEventCount = state.diagnosticsEventCount,
+                onToggleDiagnostics = onToggleDiagnosticsSession,
+                onMarkLag = onMarkLagSpike,
+                onGenerateReport = onGeneratePerformanceReport,
+                onViewReport = onOpenExistingReport
             )
         }
 
@@ -300,6 +375,391 @@ private fun DeviceCapabilitiesContent(
 
         item {
             DeviceInfoPanel(deviceInfo = state.deviceInfo)
+        }
+    }
+}
+
+@Composable
+private fun PerformanceDiagnosticsCard(
+    report: PerformanceReport?,
+    isGenerating: Boolean,
+    diagnosticsEnabled: Boolean,
+    diagnosticsEventCount: Int,
+    onToggleDiagnostics: (Boolean) -> Unit,
+    onMarkLag: () -> Unit,
+    onGenerateReport: () -> Unit,
+    onViewReport: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    CapabilityCard(
+        title = "Performance Report",
+        icon = rememberVectorPainter(Icons.Rounded.Speed),
+        modifier = modifier
+    ) {
+        Text(
+            text = "Run a live 1.5s UI frame probe and generate a privacy-safe diagnostic report with Health Score, memory/thermal telemetry, audio pipeline latency, and Coil cache analysis.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (report != null) {
+            val scoreColor = when (report.analysis.grade) {
+                "EXCELLENT", "GOOD" -> MaterialTheme.colorScheme.primaryContainer
+                "FAIR" -> MaterialTheme.colorScheme.tertiaryContainer
+                else -> MaterialTheme.colorScheme.errorContainer
+            }
+            val onScoreColor = when (report.analysis.grade) {
+                "EXCELLENT", "GOOD" -> MaterialTheme.colorScheme.onPrimaryContainer
+                "FAIR" -> MaterialTheme.colorScheme.onTertiaryContainer
+                else -> MaterialTheme.colorScheme.onErrorContainer
+            }
+
+            Surface(
+                onClick = onViewReport,
+                modifier = Modifier.fillMaxWidth(),
+                shape = AbsoluteSmoothCornerShape(18.dp, 60),
+                color = scoreColor
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Health Score: ${report.analysis.healthScore}/100 · ${report.analysis.grade}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = onScoreColor
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = report.analysis.summary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = onScoreColor.copy(alpha = 0.85f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = "View report",
+                        tint = onScoreColor
+                    )
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = AbsoluteSmoothCornerShape(18.dp, 60),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Live Lag Marker Session (24h)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (diagnosticsEnabled) {
+                            "Active · $diagnosticsEventCount event(s) captured"
+                        } else {
+                            "Opt-in session to timestamp lag spikes with heap & thermal state"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = diagnosticsEnabled,
+                    onCheckedChange = onToggleDiagnostics
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (diagnosticsEnabled) {
+                FilledTonalButton(
+                    onClick = onMarkLag,
+                    shape = CircleShape,
+                    modifier = Modifier.weight(0.9f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Flag,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Mark Lag", maxLines = 1)
+                }
+            }
+            Button(
+                onClick = onGenerateReport,
+                enabled = !isGenerating,
+                shape = CircleShape,
+                modifier = Modifier.weight(1.1f)
+            ) {
+                if (isGenerating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Probing…", maxLines = 1)
+                } else {
+                    Text(if (report == null) "Generate Report" else "Re-run Report", maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@androidx.compose.material3.ExperimentalMaterial3Api
+@Composable
+private fun PerformanceReportBottomSheet(
+    report: PerformanceReport,
+    onDismiss: () -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit
+) {
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabs = listOf("Analysis", "Plain Text", "JSON")
+
+    SmoothModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Performance Report",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Score ${report.analysis.healthScore}/100 · ${report.analysis.grade} · Schema v${report.schemaVersion}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(
+                        onClick = onCopy,
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Copy")
+                    }
+                    Button(
+                        onClick = onShare,
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Rounded.Share, contentDescription = "Share", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Share")
+                    }
+                }
+            }
+
+            // Segmented pill switcher: Analysis | Plain Text | JSON
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    tabs.forEachIndexed { index, label ->
+                        val isSelected = selectedTab == index
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                                )
+                                .clickable { selectedTab = index }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                when (selectedTab) {
+                    0 -> {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = AbsoluteSmoothCornerShape(18.dp, 60),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = report.analysis.summary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "Frame avg: ${"%.1f".format(java.util.Locale.ROOT, report.uiPerformance.avgFrameMs)}ms · " +
+                                        "P95: ${"%.1f".format(java.util.Locale.ROOT, report.uiPerformance.p95FrameMs)}ms · " +
+                                        "Thermal: ${report.device.thermalStatus} · " +
+                                        "Heap: ${"%.0f".format(java.util.Locale.ROOT, report.device.jvmHeapUsedPercent)}%",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+
+                        report.analysis.findings.forEach { finding ->
+                            val badgeBg = when (finding.severity) {
+                                "CRITICAL" -> MaterialTheme.colorScheme.errorContainer
+                                "WARNING" -> MaterialTheme.colorScheme.tertiaryContainer
+                                "OK" -> MaterialTheme.colorScheme.primaryContainer
+                                else -> MaterialTheme.colorScheme.secondaryContainer
+                            }
+                            val badgeFg = when (finding.severity) {
+                                "CRITICAL" -> MaterialTheme.colorScheme.onErrorContainer
+                                "WARNING" -> MaterialTheme.colorScheme.onTertiaryContainer
+                                "OK" -> MaterialTheme.colorScheme.onPrimaryContainer
+                                else -> MaterialTheme.colorScheme.onSecondaryContainer
+                            }
+
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = AbsoluteSmoothCornerShape(18.dp, 60),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Surface(shape = CircleShape, color = badgeBg) {
+                                            Text(
+                                                text = "${finding.severity} · ${finding.category}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = badgeFg,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = finding.title,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = finding.detail,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (finding.recommendation.isNotBlank()) {
+                                        Text(
+                                            text = "Tip: ${finding.recommendation}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    1 -> {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = AbsoluteSmoothCornerShape(18.dp, 60),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh
+                        ) {
+                            SelectionContainer {
+                                Text(
+                                    text = report.toPlainText(),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(14.dp)
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = AbsoluteSmoothCornerShape(18.dp, 60),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh
+                        ) {
+                            SelectionContainer {
+                                Text(
+                                    text = report.toJson(),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

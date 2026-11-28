@@ -7,17 +7,34 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.net.Uri
+import android.hardware.display.DisplayManager
 import android.os.Build
+import android.os.Debug
 import android.os.Environment
+import android.os.PowerManager
 import android.os.StatFs
 import android.provider.OpenableColumns
+import android.view.Display
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
+import coil.imageLoader
+import com.saurav.pixelmusic.BuildConfig
 import com.saurav.pixelmusic.data.database.DeviceCapabilitySongRow
 import com.saurav.pixelmusic.data.database.MusicDao
 import com.saurav.pixelmusic.data.database.SourceType
+import com.saurav.pixelmusic.data.diagnostics.AppGraphicsSection
+import com.saurav.pixelmusic.data.diagnostics.AudioPlaybackSection
+import com.saurav.pixelmusic.data.diagnostics.CacheSection
+import com.saurav.pixelmusic.data.diagnostics.DeviceRuntimeSection
+import com.saurav.pixelmusic.data.diagnostics.DiagnosticFinding
+import com.saurav.pixelmusic.data.diagnostics.LibraryHiResSection
+import com.saurav.pixelmusic.data.diagnostics.PerformanceAnalysisSection
+import com.saurav.pixelmusic.data.diagnostics.PerformanceDiagnosticsTracker
+import com.saurav.pixelmusic.data.diagnostics.PerformanceReport
+import com.saurav.pixelmusic.data.diagnostics.UiPerformanceSection
+import com.saurav.pixelmusic.data.preferences.UserPreferencesRepository
 import com.saurav.pixelmusic.data.service.player.ActiveDecoderInfo
 import com.saurav.pixelmusic.data.service.player.DualPlayerEngine
 import com.saurav.pixelmusic.data.service.player.HiFiCapabilityChecker
@@ -29,6 +46,8 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -134,7 +153,11 @@ data class DeviceCapabilitiesState(
     val formatSupport: List<FormatSupportInfo> = emptyList(),
     val memorySummary: MemorySummary? = null,
     val decoderInfo: ActiveDecoderInfo? = null,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val performanceReport: PerformanceReport? = null,
+    val isGeneratingReport: Boolean = false,
+    val diagnosticsSessionEnabled: Boolean = PerformanceDiagnosticsTracker.isEnabled(),
+    val diagnosticsEventCount: Int = PerformanceDiagnosticsTracker.eventCount()
 )
 
 private data class AudioFormatCandidate(
@@ -147,7 +170,8 @@ private data class AudioFormatCandidate(
 class DeviceCapabilitiesViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val engine: DualPlayerEngine,
-    private val musicDao: MusicDao
+    private val musicDao: MusicDao,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeviceCapabilitiesState())
@@ -472,6 +496,464 @@ class DeviceCapabilitiesViewModel @Inject constructor(
             version = version,
             renderers = renderers,
             decoderCounters = "N/A"
+        )
+    }
+
+    fun toggleDiagnosticsSession(enabled: Boolean) {
+        PerformanceDiagnosticsTracker.setEnabled(enabled)
+        _state.update {
+            it.copy(
+                diagnosticsSessionEnabled = PerformanceDiagnosticsTracker.isEnabled(),
+                diagnosticsEventCount = PerformanceDiagnosticsTracker.eventCount()
+            )
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    fun markLagSpike(note: String = "Marked from Device capabilities screen") {
+        val activeMime = runCatching {
+            (engine.masterPlayer as? androidx.media3.exoplayer.ExoPlayer)?.audioFormat?.sampleMimeType
+        }.getOrNull()
+        val count = PerformanceDiagnosticsTracker.markLag(
+            context = context,
+            note = note,
+            activeMime = activeMime
+        )
+        _state.update {
+            it.copy(
+                diagnosticsSessionEnabled = PerformanceDiagnosticsTracker.isEnabled(),
+                diagnosticsEventCount = count
+            )
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    fun generatePerformanceReport(onReady: (PerformanceReport) -> Unit = {}) {
+        if (_state.value.isGeneratingReport) return
+        viewModelScope.launch {
+            _state.update { it.copy(isGeneratingReport = true) }
+            try {
+                val refreshRateHz = readDisplayRefreshRateHz()
+                // Capture active playback format on Main thread (ExoPlayer thread contract)
+                val exoPlayer = engine.masterPlayer as? androidx.media3.exoplayer.ExoPlayer
+                val audioFormat = runCatching { exoPlayer?.audioFormat }.getOrNull()
+                val currentMime = audioFormat?.sampleMimeType
+                val currentSampleRate = audioFormat?.sampleRate?.takeIf { it > 0 }
+                val currentBitrate = audioFormat?.bitrate?.takeIf { it > 0 }
+                val currentChannels = audioFormat?.channelCount?.takeIf { it > 0 }
+                val currentPcmEncoding = audioFormat?.pcmEncoding?.takeIf { it > 0 }
+                val activeDecoder = engine.activeDecoderInfo.value
+
+                // Run a short real Choreographer frame probe (1.5s) on Main thread
+                val uiPerf = PerformanceDiagnosticsTracker.runFrameJankProbe(
+                    refreshRateHz = refreshRateHz,
+                    durationMs = 1_500L
+                )
+
+                val report = withContext(Dispatchers.IO) {
+                    val audioCaps = _state.value.audioCapabilities ?: getAudioCapabilities()
+                    val libraryRows = musicDao.getDeviceCapabilitySongRows()
+                    val storage = _state.value.storageSummary ?: getLocalMusicStorageSummary(libraryRows)
+                    val compat = _state.value.playbackCompatibility ?: getPlaybackCompatibilitySummary(libraryRows, audioCaps)
+                    val mem = getMemorySummary()
+
+                    val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                    val thermalStatus = PerformanceDiagnosticsTracker.readThermalStatus(context)
+                    val isPowerSave = pm?.isPowerSaveMode ?: false
+
+                    val runtime = Runtime.getRuntime()
+                    val jvmUsed = (runtime.totalMemory() - runtime.freeMemory()).coerceAtLeast(0L)
+                    val jvmMax = runtime.maxMemory().coerceAtLeast(1L)
+                    val jvmPct = (jvmUsed.toDouble() / jvmMax.toDouble()) * 100.0
+                    val nativeHeap = Debug.getNativeHeapAllocatedSize().coerceAtLeast(0L)
+                    val ramUsedPct = if (mem.totalRamBytes > 0L) {
+                        ((mem.totalRamBytes - mem.availableRamBytes).coerceAtLeast(0L).toDouble() / mem.totalRamBytes.toDouble()) * 100.0
+                    } else 0.0
+
+                    val deviceSection = DeviceRuntimeSection(
+                        manufacturer = Build.MANUFACTURER,
+                        model = Build.MODEL,
+                        brand = Build.BRAND,
+                        device = Build.DEVICE,
+                        hardware = Build.HARDWARE,
+                        androidVersion = Build.VERSION.RELEASE,
+                        sdkInt = Build.VERSION.SDK_INT,
+                        supportedAbis = Build.SUPPORTED_ABIS.toList(),
+                        cpuCores = runtime.availableProcessors(),
+                        displayRefreshRateHz = refreshRateHz,
+                        thermalStatus = thermalStatus,
+                        isPowerSaveMode = isPowerSave,
+                        memoryClassMb = mem.memoryClassMb,
+                        isLowRamDevice = mem.isLowRamDevice,
+                        isSystemLowMemory = mem.isSystemLowMemory,
+                        totalRamBytes = mem.totalRamBytes,
+                        availableRamBytes = mem.availableRamBytes,
+                        ramUsedPercent = ramUsedPct,
+                        jvmHeapUsedBytes = jvmUsed,
+                        jvmHeapMaxBytes = jvmMax,
+                        jvmHeapUsedPercent = jvmPct,
+                        nativeHeapAllocatedBytes = nativeHeap
+                    )
+
+                    val motionBlur = runCatching { userPreferencesRepository.uiMotionBlurEnabledFlow.first() }.getOrDefault(true)
+                    val designStyle = runCatching { userPreferencesRepository.playerDesignStyleFlow.first().name }.getOrDefault("DEFAULT")
+                    val offloadEnabled = runCatching { userPreferencesRepository.audioOffloadEnabledFlow.first() }.getOrDefault(false)
+                    val hiFiEnabled = runCatching { userPreferencesRepository.hiFiModeEnabledFlow.first() }.getOrDefault(false)
+                    val crossfadeEnabled = runCatching { userPreferencesRepository.isCrossfadeEnabledFlow.first() }.getOrDefault(false)
+                    val crossfadeMs = runCatching { userPreferencesRepository.crossfadeDurationFlow.first() }.getOrDefault(2000)
+                    val eqType = runCatching { userPreferencesRepository.equalizerTypeFlow.first().name }.getOrDefault("IN_APP")
+                    val rgEnabled = runCatching { userPreferencesRepository.replayGainEnabledFlow.first() }.getOrDefault(false)
+                    val rgAlbum = runCatching { userPreferencesRepository.replayGainUseAlbumGainFlow.first() }.getOrDefault(false)
+
+                    val appSection = AppGraphicsSection(
+                        versionName = BuildConfig.VERSION_NAME,
+                        versionCode = BuildConfig.VERSION_CODE.toLong(),
+                        buildType = BuildConfig.BUILD_TYPE,
+                        applicationId = BuildConfig.APPLICATION_ID,
+                        media3Version = androidx.media3.common.MediaLibraryInfo.VERSION,
+                        supportsHardwareBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                        supportsAgslShaders = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+                        supportsSpatializer = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2,
+                        motionBlurEnabled = motionBlur,
+                        playerDesignStyle = designStyle
+                    )
+
+                    val mimeCounts = libraryRows
+                        .mapNotNull { it.mimeType?.let(::normalizeMimeType) }
+                        .groupingBy { it }
+                        .eachCount()
+                    val sampleRates = libraryRows.mapNotNull { it.sampleRate }.filter { it > 0 }
+                    val bitrates = libraryRows.mapNotNull { it.bitrate }.filter { it > 0 }
+                    val estSizes = libraryRows.map { estimateFileSizeFromMetadata(it) }.filter { it > 0L }
+                    val losslessMimes = setOf("audio/flac", "audio/wav", "audio/alac", "audio/x-aiff")
+                    val losslessCount = libraryRows.count { row ->
+                        val m = row.mimeType?.let(::normalizeMimeType)
+                        m != null && m in losslessMimes
+                    }
+                    val hiResCount = sampleRates.count { it > 48_000 }
+                    val ultraHiResCount = sampleRates.count { it >= 176_400 }
+                    val expensiveCount = libraryRows.count { row ->
+                        val m = row.mimeType?.let(::normalizeMimeType)
+                        val isLossless = m != null && m in losslessMimes
+                        val isHiRes = (row.sampleRate ?: 0) > 48_000
+                        isLossless || isHiRes
+                    }
+
+                    val librarySection = LibraryHiResSection(
+                        totalSongs = libraryRows.size,
+                        localSongs = storage.localSongCount,
+                        cloudSongs = storage.cloudSongCount,
+                        knownLocalFiles = storage.knownLocalFileCount,
+                        unavailableLocalFiles = storage.unavailableLocalFileCount,
+                        localMusicBytes = storage.localMusicBytes,
+                        deviceAvailableBytes = storage.deviceAvailableBytes,
+                        deviceTotalBytes = storage.deviceTotalBytes,
+                        mimeCounts = mimeCounts,
+                        maxBitrate = bitrates.maxOrNull(),
+                        minSampleRate = sampleRates.minOrNull(),
+                        maxSampleRate = sampleRates.maxOrNull(),
+                        estFileSizeMinBytes = estSizes.minOrNull(),
+                        estFileSizeAvgBytes = if (estSizes.isNotEmpty()) estSizes.average() else null,
+                        estFileSizeMaxBytes = estSizes.maxOrNull(),
+                        hiResCount = hiResCount,
+                        ultraHiResCount = ultraHiResCount,
+                        resampledCount = compat.resampledLocalSongCount,
+                        losslessCodecCount = losslessCount,
+                        likelyExpensiveToDecodeCount = expensiveCount,
+                        unsupportedFormatCount = compat.unsupportedLibrarySongCount,
+                        unsupportedFormats = compat.unsupportedFormats
+                    )
+
+                    val hwCodecs = audioCaps.supportedCodecs.count { it.isHardwareAccelerated }
+                    val swCodecs = audioCaps.supportedCodecs.size - hwCodecs
+                    val nativeLatencyMs = if (audioCaps.outputSampleRate > 0) {
+                        (audioCaps.outputFramesPerBuffer.toDouble() / audioCaps.outputSampleRate.toDouble()) * 1000.0
+                    } else 0.0
+
+                    val audioSection = AudioPlaybackSection(
+                        nativeOutputSampleRate = audioCaps.outputSampleRate,
+                        nativeFramesPerBuffer = audioCaps.outputFramesPerBuffer,
+                        nativeBufferLatencyMs = nativeLatencyMs,
+                        isLowLatencySupported = audioCaps.isLowLatencySupported,
+                        isProAudioSupported = audioCaps.isProAudioSupported,
+                        isPcmFloatSupported = audioCaps.isPcmFloatSupported,
+                        hardwareCodecCount = hwCodecs,
+                        softwareCodecCount = swCodecs,
+                        outputRoutes = audioCaps.outputRoutes.map { "${it.name} (${it.category.name})" },
+                        offloadSupportedFormats = audioCaps.offloadSupportedFormats,
+                        currentMime = currentMime,
+                        sampleRate = currentSampleRate,
+                        bitrate = currentBitrate,
+                        channelCount = currentChannels,
+                        pcmEncoding = currentPcmEncoding,
+                        decoderName = activeDecoder?.name,
+                        decoderHardware = activeDecoder?.isHardware,
+                        audioOffloadEnabled = offloadEnabled,
+                        hiFiModeEnabled = hiFiEnabled,
+                        crossfadeEnabled = crossfadeEnabled,
+                        crossfadeDurationMs = crossfadeMs,
+                        equalizerType = eqType,
+                        replayGainEnabled = rgEnabled,
+                        replayGainAlbumMode = rgAlbum
+                    )
+
+                    val memCache = context.imageLoader.memoryCache
+                    val diskCache = context.imageLoader.diskCache
+                    val memCacheUsed = memCache?.size?.toLong() ?: 0L
+                    val memCacheMax = memCache?.maxSize?.toLong()?.coerceAtLeast(1L) ?: 1L
+                    val diskCacheUsed = diskCache?.size ?: 0L
+                    val diskCacheMax = diskCache?.maxSize?.coerceAtLeast(1L) ?: 1L
+                    val cacheDirBytes = computeDirBytes(context.cacheDir)
+
+                    val cacheSection = CacheSection(
+                        coilMemoryUsedBytes = memCacheUsed,
+                        coilMemoryMaxBytes = memCacheMax,
+                        coilMemoryFillPercent = (memCacheUsed.toDouble() / memCacheMax.toDouble()) * 100.0,
+                        coilDiskUsedBytes = diskCacheUsed,
+                        coilDiskMaxBytes = diskCacheMax,
+                        coilDiskFillPercent = (diskCacheUsed.toDouble() / diskCacheMax.toDouble()) * 100.0,
+                        appCacheDirBytes = cacheDirBytes
+                    )
+
+                    val analysis = buildAutomatedAnalysis(
+                        device = deviceSection,
+                        app = appSection,
+                        library = librarySection,
+                        audio = audioSection,
+                        cache = cacheSection,
+                        uiPerf = uiPerf
+                    )
+
+                    PerformanceReport(
+                        generatedAtIso = PerformanceDiagnosticsTracker.formatIsoUtc(System.currentTimeMillis()),
+                        analysis = analysis,
+                        device = deviceSection,
+                        app = appSection,
+                        library = librarySection,
+                        audio = audioSection,
+                        cache = cacheSection,
+                        uiPerformance = uiPerf,
+                        advancedDiagnostics = PerformanceDiagnosticsTracker.snapshot()
+                    )
+                }
+
+                _state.update {
+                    it.copy(
+                        performanceReport = report,
+                        isGeneratingReport = false,
+                        diagnosticsSessionEnabled = PerformanceDiagnosticsTracker.isEnabled(),
+                        diagnosticsEventCount = PerformanceDiagnosticsTracker.eventCount()
+                    )
+                }
+                onReady(report)
+            } catch (_: Throwable) {
+                _state.update { it.copy(isGeneratingReport = false) }
+            }
+        }
+    }
+
+    private fun readDisplayRefreshRateHz(): Double {
+        return runCatching {
+            val dm = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+            val display = dm?.getDisplay(Display.DEFAULT_DISPLAY)
+            display?.refreshRate?.toDouble()?.takeIf { it > 0.0 } ?: 60.0
+        }.getOrDefault(60.0)
+    }
+
+    private fun computeDirBytes(dir: File?): Long {
+        if (dir == null || !dir.exists()) return 0L
+        var total = 0L
+        var visited = 0
+        val stack = ArrayDeque<File>()
+        stack.addLast(dir)
+        while (stack.isNotEmpty() && visited < 4000) {
+            val current = stack.removeLast()
+            visited++
+            if (current.isFile) {
+                total += current.length()
+            } else if (current.isDirectory) {
+                current.listFiles()?.forEach { stack.addLast(it) }
+            }
+        }
+        return total
+    }
+
+    private fun buildAutomatedAnalysis(
+        device: DeviceRuntimeSection,
+        app: AppGraphicsSection,
+        library: LibraryHiResSection,
+        audio: AudioPlaybackSection,
+        cache: CacheSection,
+        uiPerf: UiPerformanceSection
+    ): PerformanceAnalysisSection {
+        var score = 100
+        val findings = mutableListOf<DiagnosticFinding>()
+
+        // 1. Thermal & Power throttling
+        when (device.thermalStatus) {
+            "SEVERE", "CRITICAL", "EMERGENCY", "SHUTDOWN" -> {
+                score -= 25
+                findings += DiagnosticFinding(
+                    severity = "CRITICAL",
+                    category = "THERMAL",
+                    title = "Heavy thermal throttling (${device.thermalStatus})",
+                    detail = "Device CPU/GPU clocks are aggressively capped by the OS thermal daemon.",
+                    recommendation = "Let the device cool down; avoid heavy blur or long video exports while charging."
+                )
+            }
+            "MODERATE" -> {
+                score -= 12
+                findings += DiagnosticFinding(
+                    severity = "WARNING",
+                    category = "THERMAL",
+                    title = "Moderate thermal throttling",
+                    detail = "Elevated device temperature may increase frame times during fast list scrolls.",
+                    recommendation = "Temporarily disable Motion Blur in Settings if UI animations feel slower."
+                )
+            }
+        }
+
+        if (device.isPowerSaveMode) {
+            score -= 8
+            findings += DiagnosticFinding(
+                severity = "INFO",
+                category = "THERMAL",
+                title = "Battery Saver is active",
+                detail = "Android Power Save mode limits background threads and may cap display refresh rate.",
+                recommendation = "Disable Battery Saver if testing peak animation smoothness."
+            )
+        }
+
+        // 2. Memory & JVM Heap pressure
+        if (device.isSystemLowMemory || device.ramUsedPercent >= 88.0) {
+            score -= 18
+            findings += DiagnosticFinding(
+                severity = "WARNING",
+                category = "MEMORY",
+                title = "High system RAM pressure (${String.format(Locale.ROOT, "%.0f", device.ramUsedPercent)}% used)",
+                detail = "Only ${PerformanceReport.bytes(device.availableRamBytes)} RAM free out of ${PerformanceReport.bytes(device.totalRamBytes)}.",
+                recommendation = "Close background apps; low RAM causes aggressive image cache evictions and GC pauses."
+            )
+        }
+        if (device.jvmHeapUsedPercent >= 80.0) {
+            score -= 16
+            findings += DiagnosticFinding(
+                severity = "WARNING",
+                category = "MEMORY",
+                title = "High JVM heap usage (${String.format(Locale.ROOT, "%.0f", device.jvmHeapUsedPercent)}%)",
+                detail = "${PerformanceReport.bytes(device.jvmHeapUsedBytes)} used of ${PerformanceReport.bytes(device.jvmHeapMaxBytes)} max heap.",
+                recommendation = "Frequent garbage collection can cause micro-stutters; restart app or lower album art quality."
+            )
+        }
+
+        // 3. UI Frame Probe jank
+        if (uiPerf.sampledFrames >= 10) {
+            when {
+                uiPerf.jankPercent >= 15.0 || uiPerf.worstFrameMs >= uiPerf.targetFrameBudgetMs * 4.0 -> {
+                    score -= 20
+                    findings += DiagnosticFinding(
+                        severity = "CRITICAL",
+                        category = "UI",
+                        title = "Elevated UI frame jank (${String.format(Locale.ROOT, "%.1f", uiPerf.jankPercent)}%)",
+                        detail = "P95 frame ${String.format(Locale.ROOT, "%.1f", uiPerf.p95FrameMs)}ms, worst ${String.format(Locale.ROOT, "%.1f", uiPerf.worstFrameMs)}ms vs ${String.format(Locale.ROOT, "%.1f", uiPerf.targetFrameBudgetMs)}ms budget.",
+                        recommendation = "Try turning off Motion Blur or switching to Default player design style to isolate GPU load."
+                    )
+                }
+                uiPerf.jankPercent >= 5.0 -> {
+                    score -= 8
+                    findings += DiagnosticFinding(
+                        severity = "WARNING",
+                        category = "UI",
+                        title = "Mild UI frame drops (${String.format(Locale.ROOT, "%.1f", uiPerf.jankPercent)}%)",
+                        detail = "${uiPerf.jankFrames}/${uiPerf.sampledFrames} frames exceeded ${String.format(Locale.ROOT, "%.1f", uiPerf.targetFrameBudgetMs * 1.35)}ms.",
+                        recommendation = "Normal during initial screen settle; re-run while scrolling if investigating lag."
+                    )
+                }
+                else -> {
+                    findings += DiagnosticFinding(
+                        severity = "OK",
+                        category = "UI",
+                        title = "Silky frame pacing (${String.format(Locale.ROOT, "%.1f", uiPerf.avgFrameMs)}ms avg)",
+                        detail = "P95 ${String.format(Locale.ROOT, "%.1f", uiPerf.p95FrameMs)}ms within ${String.format(Locale.ROOT, "%.1f", uiPerf.targetFrameBudgetMs)}ms budget at ${String.format(Locale.ROOT, "%.0f", uiPerf.refreshRateHz)} Hz."
+                    )
+                }
+            }
+        }
+
+        // 4. Audio Pipeline & Resampling
+        if (audio.decoderHardware == false && audio.decoderName != null) {
+            score -= 5
+            findings += DiagnosticFinding(
+                severity = "INFO",
+                category = "AUDIO",
+                title = "Active track uses software decoder (${audio.decoderName})",
+                detail = "Software decoding uses slightly more CPU than hardware offload.",
+                recommendation = "Expected for FLAC/Opus/EQ paths; enable Audio Offload when not using EQ for lower battery use."
+            )
+        }
+        if (library.resampledCount > 0) {
+            score -= 4
+            findings += DiagnosticFinding(
+                severity = "INFO",
+                category = "AUDIO",
+                title = "${library.resampledCount} local tracks exceed native ${audio.nativeOutputSampleRate} Hz output",
+                detail = "Android mixer resamples these tracks unless routed through a USB DAC supporting higher rates.",
+                recommendation = "Use Hi-Fi mode with a high-res USB DAC for bit-perfect playback."
+            )
+        }
+        if (library.unsupportedFormatCount > 0) {
+            score -= 8
+            findings += DiagnosticFinding(
+                severity = "WARNING",
+                category = "LIBRARY",
+                title = "${library.unsupportedFormatCount} tracks use unsupported formats",
+                detail = "Missing decoders for: ${library.unsupportedFormats.joinToString(", ")}.",
+                recommendation = "Convert or re-download these files in FLAC, AAC, Opus, or MP3."
+            )
+        }
+        if (library.unavailableLocalFiles > 0) {
+            score -= 6
+            findings += DiagnosticFinding(
+                severity = "WARNING",
+                category = "LIBRARY",
+                title = "${library.unavailableLocalFiles} local files could not be accessed",
+                detail = "Indexed files may have been moved, deleted, or blocked by scoped storage permissions.",
+                recommendation = "Run a library rescan in Settings to clean up stale entries."
+            )
+        }
+
+        // 5. Cache Health
+        if (cache.appCacheDirBytes >= 500_000_000L) {
+            score -= 4
+            findings += DiagnosticFinding(
+                severity = "INFO",
+                category = "CACHE",
+                title = "Large app cache (${PerformanceReport.bytes(cache.appCacheDirBytes)})",
+                detail = "Coil disk cache holds ${PerformanceReport.bytes(cache.coilDiskUsedBytes)} of ${PerformanceReport.bytes(cache.coilDiskMaxBytes)}.",
+                recommendation = "Clear cache in Settings if device storage is tight."
+            )
+        }
+
+        val finalScore = score.coerceIn(0, 100)
+        val grade = when {
+            finalScore >= 90 -> "EXCELLENT"
+            finalScore >= 75 -> "GOOD"
+            finalScore >= 55 -> "FAIR"
+            else -> "DEGRADED"
+        }
+
+        val warningOrCritCount = findings.count { it.severity == "WARNING" || it.severity == "CRITICAL" }
+        val summary = when {
+            warningOrCritCount == 0 -> "No performance bottlenecks detected — device, audio pipeline, and UI pacing look healthy."
+            warningOrCritCount == 1 -> "1 potential bottleneck detected — review the highlighted finding below."
+            else -> "$warningOrCritCount potential bottlenecks detected — review the prioritized findings below."
+        }
+
+        return PerformanceAnalysisSection(
+            healthScore = finalScore,
+            grade = grade,
+            summary = summary,
+            findings = findings
         )
     }
 }
