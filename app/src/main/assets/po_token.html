@@ -196,11 +196,11 @@
         throw new Error('ODM:Invalid - result is not Uint8Array, got: ' + Object.prototype.toString.call(result));
       }
 
-      if (result.length < 100) {
-        throw new Error('POT:InvalidLength - Token size ' + result.length + ' bytes is below valid minimum (100 bytes)');
+      if (result.length < 32) {
+        throw new Error('POT:InvalidLength - Token size ' + result.length + ' bytes is below valid minimum (32 bytes)');
       }
-      if (result.length > 140) {
-        console.warn('[obtainPoToken] Token size ' + result.length + ' bytes may be outside expected range (110-128)');
+      if (result.length > 1024) {
+        console.warn('[obtainPoToken] Token size ' + result.length + ' bytes is unexpectedly large');
       }
 
       return result;

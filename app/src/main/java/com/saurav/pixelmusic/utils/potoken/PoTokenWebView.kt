@@ -345,8 +345,9 @@ class PoTokenWebView private constructor(
     @MainThread
     private fun destroyWebView() {
         runCatching {
+            webView.stopLoading()
             webView.clearHistory()
-            webView.clearCache(true)
+            webView.clearCache(false)
             webView.loadUrl("about:blank")
             webView.onPause()
             webView.removeAllViews()
@@ -363,8 +364,8 @@ class PoTokenWebView private constructor(
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.3"
         private const val JS_INTERFACE = "PoTokenWebView"
 
-        private const val INIT_TIMEOUT_MS = 45_000L
-        private const val GENERATE_TIMEOUT_MS = 15_000L
+        private const val INIT_TIMEOUT_MS = 15_000L
+        private const val GENERATE_TIMEOUT_MS = 10_000L
 
         private val httpClient: OkHttpClient by lazy {
             OkHttpClient.Builder()

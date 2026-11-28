@@ -46,6 +46,7 @@ object InnerTubeXPlayer {
     private const val TAG = "InnerTubeXPlayer"
     private const val STREAM_CLIENT_FAILURE_TTL_MS = 5 * 60 * 1000L
     private const val DEFAULT_STREAM_TTL_SECONDS = 5 * 60
+    private const val SESSION_REFRESH_COOLDOWN_MS = 15_000L
 
     @Volatile
     private var applicationContext: Context? = null
@@ -55,6 +56,7 @@ object InnerTubeXPlayer {
 
     private val bundleMutex = Mutex()
     private val streamClientFailures = java.util.concurrent.ConcurrentHashMap<String, FailedStreamClients>()
+    private val lastSessionRefreshElapsedMs = java.util.concurrent.atomic.AtomicLong(0L)
 
     private var httpClient = createHttpClient()
     private var innerTubeX = com.metrolist.innertubex.InnerTube(httpClient)
@@ -204,6 +206,15 @@ object InnerTubeXPlayer {
             streamClientFailures.remove(videoId)
         } else {
             streamClientFailures.clear()
+        }
+        val nowMs = android.os.SystemClock.elapsedRealtime()
+        val prevMs = lastSessionRefreshElapsedMs.get()
+        if (prevMs != 0L && nowMs - prevMs < SESSION_REFRESH_COOLDOWN_MS) {
+            Timber.tag(TAG).d("Skipping duplicate session refresh within cooldown")
+            return
+        }
+        if (!lastSessionRefreshElapsedMs.compareAndSet(prevMs, nowMs)) {
+            return
         }
         runCatching { poTokenGenerator.reset() }
         runCatching { currentBundle?.cipherService?.refreshAfterStreamRejection() }
