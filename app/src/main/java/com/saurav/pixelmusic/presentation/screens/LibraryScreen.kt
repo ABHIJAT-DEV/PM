@@ -789,11 +789,25 @@ fun LibraryScreen(
                             ) {
                                 val isLocalModeSmartMix by playerViewModel.localModeEnabled.collectAsStateWithLifecycle()
                                 if (!isLocalModeSmartMix) {
-                                    AnimatedSparklesIconButton(
+                                    Surface(
                                         onClick = {
                                             navController.navigateSafely(Screen.SmartMix.route)
+                                        },
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        tonalElevation = 0.dp,
+                                        shadowElevation = 0.dp,
+                                        modifier = Modifier.size(44.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_auto_awesome_24),
+                                                contentDescription = "Smart Mix",
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.size(22.dp)
+                                            )
                                         }
-                                    )
+                                    }
                                 }
                                 Surface(
                                     onClick = {

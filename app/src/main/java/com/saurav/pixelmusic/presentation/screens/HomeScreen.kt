@@ -133,7 +133,6 @@ import com.saurav.pixelmusic.presentation.components.DailyMixSection
 import com.saurav.pixelmusic.presentation.components.FavoriteArtistReleasesSection
 import com.saurav.pixelmusic.presentation.components.HomeOptionsBottomSheet
 import com.saurav.pixelmusic.presentation.components.HomeShuffleFab
-import com.saurav.pixelmusic.presentation.components.InstagramPromoDialog
 import com.saurav.pixelmusic.presentation.components.MiniPlayerHeight
 import com.saurav.pixelmusic.presentation.components.MusicRecognitionOverlay
 import androidx.compose.foundation.layout.navigationBars
@@ -349,7 +348,6 @@ fun HomeScreen(
     var showBetaInfoBottomSheet by remember { mutableStateOf(false) }
     var showStreamingProviderSheet by remember { mutableStateOf(false) }
     var showRecognitionDialog by remember { mutableStateOf(false) }
-    var cleanInstallDisclaimerDismissedThisSession by rememberSaveable { mutableStateOf(false) }
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     val betaSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     val scope = rememberCoroutineScope()
@@ -559,9 +557,6 @@ fun HomeScreen(
         }
     }
 
-    val shouldShowCleanInstallDisclaimer =
-        settingsUiState.beta05CleanInstallDisclaimerDismissed == false &&
-            !cleanInstallDisclaimerDismissedThisSession
 
     // Drive the cold launch sweep animation once per process lifetime
     var triggerColdLaunchSweep by remember { mutableStateOf(false) }
@@ -1092,7 +1087,7 @@ fun HomeScreen(
         }
     }
 
-    if (showUpdateSheet && !shouldShowCleanInstallDisclaimer) {
+    if (showUpdateSheet) {
         UpdateNotificationSheet(
             isUpdateAvailable = isUpdateAvailableState,
             versionName = sheetVersionName,
@@ -1222,14 +1217,6 @@ fun HomeScreen(
             onDismiss = { showPlaylistBottomSheet = false },
             bottomBarHeight = systemNavBarInset,
             playerViewModel = playerViewModel,
-        )
-    }
-    if (shouldShowCleanInstallDisclaimer) {
-        InstagramPromoDialog(
-            onDismiss = {
-                cleanInstallDisclaimerDismissedThisSession = true
-                settingsViewModel.setBeta05CleanInstallDisclaimerDismissed(true)
-            }
         )
     }
 
