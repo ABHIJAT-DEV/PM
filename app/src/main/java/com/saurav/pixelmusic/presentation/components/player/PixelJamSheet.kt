@@ -168,6 +168,8 @@ fun PixelJamSheet(
     var selectedRoomMode by remember { mutableStateOf(PixelJamRoomMode.HOST_ONLY) }
 
     LaunchedEffect(Unit) {
+        // Let the sheet open animation finish cleanly before fetching public rooms
+        delay(280L)
         viewModel.refreshPixelJamPublicRooms()
     }
 
@@ -203,12 +205,6 @@ fun PixelJamSheet(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .imePadding()
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    )
-                )
         ) {
             val inRoom = uiState as? PixelJamUiState.InRoom
             AnimatedContent(
