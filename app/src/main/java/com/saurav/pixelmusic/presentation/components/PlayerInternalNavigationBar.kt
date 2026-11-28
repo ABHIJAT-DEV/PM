@@ -1,6 +1,7 @@
 package com.saurav.pixelmusic.presentation.components
 
 import android.os.SystemClock
+import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -86,13 +87,17 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.PlatformTextStyle
 import kotlinx.coroutines.launch
 import androidx.navigation.NavHostController
 import com.saurav.pixelmusic.BottomNavItem
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.navigation.Screen
+import com.saurav.pixelmusic.presentation.navigation.navigateSafely
 import com.saurav.pixelmusic.presentation.navigation.navigateToTopLevelSafely
+import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.foundation.border
@@ -336,11 +341,17 @@ fun PlayerInternalNavigationRail(
     navItems: ImmutableList<BottomNavItem>,
     currentRoute: String?,
     modifier: Modifier = Modifier,
+    profileAvatarSpec: String = "",
+    profileDisplayName: String = "Guest",
+    profileAvatarCacheKey: Long = 0L,
+    onProfileClick: () -> Unit = { navController.navigateSafely(Screen.Settings.route) },
     onSearchIconDoubleTap: () -> Unit = {}
 ) {
     val latestCurrentRoute by rememberUpdatedState(currentRoute)
     val latestNavigationEnabled by rememberUpdatedState(currentRoute != null)
     val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
+    val coroutineScope = rememberCoroutineScope()
 
     val railItems = remember(navItems) {
         val base = navItems.filter { it.screen.route != Screen.Search.route }
@@ -354,7 +365,27 @@ fun PlayerInternalNavigationRail(
         (base + searchItem).toImmutableList()
     }
 
-    NavigationRail(
+    val isSettingsSelected = latestCurrentRoute == Screen.Settings.route ||
+        latestCurrentRoute?.startsWith("settings") == true
+
+    val performExpressiveHaptic: (Boolean) -> Unit = remember(view, haptic) {
+        { isPrimaryAction ->
+            val constant = if (isPrimaryAction) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    HapticFeedbackConstants.CONFIRM
+                } else {
+                    HapticFeedbackConstants.VIRTUAL_KEY
+                }
+            } else {
+                HapticFeedbackConstants.CLOCK_TICK
+            }
+            if (!view.performHapticFeedback(constant)) {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+        }
+    }
+
+    Column(
         modifier = modifier
             .fillMaxHeight()
             .windowInsetsPadding(
@@ -363,55 +394,269 @@ fun PlayerInternalNavigationRail(
             .windowInsetsPadding(
                 WindowInsets.navigationBars.only(WindowInsetsSides.Start)
             )
-            .statusBarsPadding(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        contentColor = MaterialTheme.colorScheme.onSurface
+            .statusBarsPadding()
+            .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.weight(1f))
-        railItems.forEach { item ->
-            val isSelected = latestCurrentRoute == item.screen.route
-            val iconRes = if (isSelected && item.selectedIconResId != null && item.selectedIconResId != 0) {
-                item.selectedIconResId
-            } else {
-                item.iconResId
-            }
-            NavigationRailItem(
-                selected = isSelected,
-                onClick = {
-                    if (!latestNavigationEnabled) return@NavigationRailItem
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    if (item.screen.route == Screen.Search.route && isSelected) {
-                        onSearchIconDoubleTap()
-                    } else if (!isSelected) {
-                        navController.navigateToTopLevelSafely(item.screen.route)
+        // Main Floating Material 3 Expressive Navigation Capsule
+        Surface(
+            shape = AbsoluteSmoothCornerShape(30.dp, 60),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 4.dp,
+            shadowElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .width(68.dp)
+                    .padding(vertical = 8.dp, horizontal = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                railItems.forEach { item ->
+                    val isSelected = latestCurrentRoute == item.screen.route
+                    val iconRes = if (isSelected && item.selectedIconResId != null && item.selectedIconResId != 0) {
+                        item.selectedIconResId
+                    } else {
+                        item.iconResId
                     }
-                },
-                icon = {
-                    Icon(
-                        painter = painterResource(id = iconRes),
-                        contentDescription = item.label,
-                        modifier = Modifier.size(22.dp)
+
+                    ExpressiveNavigationRailItem(
+                        label = item.label,
+                        iconRes = iconRes,
+                        isSelected = isSelected,
+                        onClick = {
+                            if (!latestNavigationEnabled) return@ExpressiveNavigationRailItem
+                            performExpressiveHaptic(!isSelected)
+                            if (item.screen.route == Screen.Search.route && isSelected) {
+                                onSearchIconDoubleTap()
+                            } else if (!isSelected) {
+                                navController.navigateToTopLevelSafely(item.screen.route)
+                            }
+                        }
                     )
-                },
-                label = {
-                    Text(
-                        text = item.label,
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1
-                    )
-                },
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
         }
-        Spacer(modifier = Modifier.weight(1f))
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Detached Profile / Settings Expressive Pill
+        val profileInteractionSource = remember { MutableInteractionSource() }
+        val isProfilePressed by profileInteractionSource.collectIsPressedAsState()
+        val profilePressScale by animateFloatAsState(
+            targetValue = if (isProfilePressed) 0.88f else 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            ),
+            label = "rail_profile_press_scale"
+        )
+        val profileTapBounce = remember { Animatable(1f) }
+        val profileCorner by animateDpAsState(
+            targetValue = when {
+                isProfilePressed -> 18.dp
+                isSettingsSelected -> 18.dp
+                else -> 27.dp
+            },
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            ),
+            label = "rail_profile_corner"
+        )
+        val profileContainerColor by animateColorAsState(
+            targetValue = if (isSettingsSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+            animationSpec = tween(220),
+            label = "rail_profile_container_color"
+        )
+
+        Surface(
+            onClick = {
+                if (!latestNavigationEnabled) return@Surface
+                performExpressiveHaptic(!isSettingsSelected)
+                coroutineScope.launch {
+                    profileTapBounce.snapTo(0.86f)
+                    profileTapBounce.animateTo(
+                        targetValue = 1f,
+                        animationSpec = spring(
+                            dampingRatio = 0.48f,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    )
+                }
+                if (!isSettingsSelected) {
+                    onProfileClick()
+                }
+            },
+            interactionSource = profileInteractionSource,
+            shape = AbsoluteSmoothCornerShape(profileCorner, 60),
+            color = profileContainerColor,
+            tonalElevation = 4.dp,
+            shadowElevation = 6.dp,
+            modifier = Modifier
+                .size(54.dp)
+                .graphicsLayer {
+                    val combinedScale = profilePressScale * profileTapBounce.value
+                    scaleX = combinedScale
+                    scaleY = combinedScale
+                }
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                ProfileAvatar(
+                    avatarSpec = profileAvatarSpec,
+                    displayName = profileDisplayName,
+                    size = 42.dp,
+                    cacheKey = profileAvatarCacheKey,
+                    fallbackInitial = "G"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpressiveNavigationRailItem(
+    label: String,
+    iconRes: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val coroutineScope = rememberCoroutineScope()
+
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "rail_item_press_scale_$label"
+    )
+    val tapBounce = remember { Animatable(1f) }
+
+    val indicatorWidth by animateDpAsState(
+        targetValue = if (isSelected) 52.dp else 0.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "rail_item_indicator_width_$label"
+    )
+    val indicatorCorner by animateDpAsState(
+        targetValue = when {
+            isPressed -> 13.dp
+            isSelected -> 17.dp
+            else -> 24.dp
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "rail_item_indicator_corner_$label"
+    )
+    val indicatorColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            Color.Transparent
+        },
+        animationSpec = tween(220),
+        label = "rail_item_indicator_color_$label"
+    )
+    val iconTint by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(200),
+        label = "rail_item_icon_tint_$label"
+    )
+    val labelColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.80f)
+        },
+        animationSpec = tween(200),
+        label = "rail_item_label_color_$label"
+    )
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .clip(AbsoluteSmoothCornerShape(20.dp, 60))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    coroutineScope.launch {
+                        tapBounce.snapTo(0.84f)
+                        tapBounce.animateTo(
+                            targetValue = 1f,
+                            animationSpec = spring(
+                                dampingRatio = 0.45f,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        )
+                    }
+                    onClick()
+                }
+            )
+            .padding(vertical = 3.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(width = 52.dp, height = 34.dp)
+        ) {
+            if (indicatorWidth > 1.dp) {
+                Box(
+                    modifier = Modifier
+                        .size(width = indicatorWidth, height = 34.dp)
+                        .clip(AbsoluteSmoothCornerShape(indicatorCorner, 60))
+                        .background(indicatorColor)
+                )
+            }
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = label,
+                tint = iconTint,
+                modifier = Modifier
+                    .size(21.dp)
+                    .graphicsLayer {
+                        scaleX = tapBounce.value
+                        scaleY = tapBounce.value
+                    }
+            )
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = label,
+            fontFamily = GoogleSansRounded,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 10.5.sp,
+            lineHeight = 12.sp,
+            color = labelColor,
+            maxLines = 1,
+            softWrap = false,
+            style = MaterialTheme.typography.labelSmall.copy(
+                platformStyle = PlatformTextStyle(includeFontPadding = false)
+            )
+        )
     }
 }

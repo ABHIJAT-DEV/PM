@@ -228,6 +228,8 @@ class MainActivity : ComponentActivity() {
     lateinit var themePreferencesRepository: ThemePreferencesRepository
     @Inject
     lateinit var syncManager: SyncManager
+    @Inject
+    lateinit var datastoreRepository: com.saurav.pixelmusic.data.remote.youtube.DatastoreRepository
     // For handling shortcut navigation - using StateFlow so composables can observe changes
     private val _pendingPlaylistNavigation = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     private val _pendingRouteNavigation = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
@@ -1085,6 +1087,20 @@ class MainActivity : ComponentActivity() {
                     val onSearchIconDoubleTapRail = remember(playerViewModel) {
                         { playerViewModel.onSearchNavIconDoubleTapped() }
                     }
+                    val railUserProfile by userPreferencesRepository.userProfileFlow.collectAsStateWithLifecycle(
+                        initialValue = com.saurav.pixelmusic.data.model.UserProfile()
+                    )
+                    val railYtUsername by datastoreRepository.ytUsername.collectAsStateWithLifecycle(initialValue = "")
+                    val railYtAvatarUrl by datastoreRepository.ytAvatarUrl.collectAsStateWithLifecycle(initialValue = "")
+                    val railAvatarName = remember(railUserProfile.displayName, railYtUsername) {
+                        railUserProfile.displayName.trim().ifEmpty { railYtUsername.ifBlank { "Guest" } }
+                    }
+                    val railAvatarSpec = remember(railUserProfile, railYtUsername, railYtAvatarUrl) {
+                        railUserProfile.effectiveLocalAvatar(if (railYtUsername.isNotEmpty()) railYtAvatarUrl else "")
+                    }
+                    val onRailProfileClick = remember(navController) {
+                        { navController.navigateSafely(Screen.Settings.route) }
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1105,6 +1121,10 @@ class MainActivity : ComponentActivity() {
                                 navController = navController,
                                 navItems = commonNavItems,
                                 currentRoute = currentRoute,
+                                profileAvatarSpec = railAvatarSpec,
+                                profileDisplayName = railAvatarName,
+                                profileAvatarCacheKey = railUserProfile.updatedAt,
+                                onProfileClick = onRailProfileClick,
                                 onSearchIconDoubleTap = onSearchIconDoubleTapRail
                             )
                         }
