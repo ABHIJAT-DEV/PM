@@ -43,12 +43,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Switch
@@ -393,7 +390,7 @@ private fun PerformanceDiagnosticsCard(
 ) {
     CapabilityCard(
         title = "Performance Report",
-        icon = rememberVectorPainter(Icons.Rounded.Speed),
+        icon = painterResource(R.drawable.rounded_speed_24),
         modifier = modifier
     ) {
         Text(
@@ -498,7 +495,7 @@ private fun PerformanceDiagnosticsCard(
                     modifier = Modifier.weight(0.9f)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Flag,
+                        painter = painterResource(R.drawable.rounded_bug_report_24),
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -575,7 +572,7 @@ private fun PerformanceReportBottomSheet(
                         shape = CircleShape,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(16.dp))
+                        Icon(painter = painterResource(R.drawable.rounded_content_copy_24), contentDescription = "Copy", modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Copy")
                     }
