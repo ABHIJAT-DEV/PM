@@ -181,6 +181,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.positionChange
+import com.saurav.pixelmusic.presentation.navigation.navigateToSettingsSafely
 import com.saurav.pixelmusic.presentation.navigation.navigateToTopLevelSafely
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -895,6 +896,12 @@ class MainActivity : ComponentActivity() {
         val currentRoute = navBackStackEntry?.destination?.route
         var isSearchBarActive by remember { mutableStateOf(false) }
 
+        LaunchedEffect(currentRoute) {
+            if (currentRoute != Screen.Search.route && isSearchBarActive) {
+                isSearchBarActive = false
+            }
+        }
+
         val mainRoutesWithNavigationBar = remember {
             setOf(
                 Screen.Home.route,
@@ -1100,7 +1107,7 @@ class MainActivity : ComponentActivity() {
                     }
                     val onRailProfileClick: () -> Unit = remember(navController) {
                         {
-                            navController.navigateSafely(Screen.Settings.route)
+                            navController.navigateToSettingsSafely()
                             Unit
                         }
                     }

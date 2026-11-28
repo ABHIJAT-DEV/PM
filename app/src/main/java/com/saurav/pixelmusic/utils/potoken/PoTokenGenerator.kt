@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicLong
 
 class PoTokenGenerator(context: Context) {
     private val TAG = "PoTokenGenerator"
@@ -21,6 +22,7 @@ class PoTokenGenerator(context: Context) {
     private var webViewBadImpl = false // whether the system has a bad WebView implementation
 
     private val webPoTokenGenLock = Mutex()
+    private val generatorGeneration = AtomicLong(0L)
     private var webPoTokenSessionId: String? = null
     private var webPoTokenStreamingPot: String? = null
     private var webPoTokenGenerator: PoTokenWebView? = null
@@ -47,6 +49,7 @@ class PoTokenGenerator(context: Context) {
             return null
         }
 
+        val startGen = generatorGeneration.get()
         return try {
             withTimeout(POTOKEN_TIMEOUT_MS) {
                 getWebClientPoToken(videoId, effectiveSessionId, forceRecreate = false)
@@ -56,8 +59,11 @@ class PoTokenGenerator(context: Context) {
             }
         } catch (e: TimeoutCancellationException) {
             Timber.tag(TAG).w("poToken generation timed out after ${POTOKEN_TIMEOUT_MS}ms; proceeding without PoToken")
-            recordFailure()
-            clearGenerator()
+            // Only tear down if no newer healthy WebView was created while this caller waited.
+            if (generatorGeneration.get() == startGen) {
+                recordFailure()
+                clearGeneratorIfGeneration(startGen)
+            }
             null
         } catch (e: CancellationException) {
             throw e
@@ -68,7 +74,7 @@ class PoTokenGenerator(context: Context) {
         } catch (e: Exception) {
             Timber.tag(TAG).w("PO token generation failed (${e::class.simpleName ?: "unknown"}: ${e.message}); resetting WebView generator and continuing without PoToken")
             recordFailure()
-            clearGenerator()
+            clearGeneratorIfGeneration(generatorGeneration.get())
             null
         }
     }
@@ -92,6 +98,25 @@ class PoTokenGenerator(context: Context) {
         clearGenerator()
     }
 
+    private suspend fun clearGeneratorIfGeneration(expectedGen: Long) {
+        withContext(NonCancellable) {
+            webPoTokenGenLock.withLock {
+                if (generatorGeneration.get() != expectedGen) return@withLock
+                try {
+                    withContext(Dispatchers.Main) {
+                        webPoTokenGenerator?.close()
+                    }
+                } catch (error: Exception) {
+                    Timber.tag(TAG).e("PO token WebView cleanup failed type=${error::class.simpleName ?: "unknown"}")
+                }
+                webPoTokenGenerator = null
+                webPoTokenStreamingPot = null
+                webPoTokenSessionId = null
+                generatorGeneration.incrementAndGet()
+            }
+        }
+    }
+
     private suspend fun clearGenerator() {
         withContext(NonCancellable) {
             webPoTokenGenLock.withLock {
@@ -105,12 +130,13 @@ class PoTokenGenerator(context: Context) {
                 webPoTokenGenerator = null
                 webPoTokenStreamingPot = null
                 webPoTokenSessionId = null
+                generatorGeneration.incrementAndGet()
             }
         }
     }
 
     private companion object {
-        const val POTOKEN_TIMEOUT_MS = 10_000L
+        const val POTOKEN_TIMEOUT_MS = 20_000L
     }
 
     private suspend fun getWebClientPoToken(videoId: String, sessionId: String, forceRecreate: Boolean): PoTokenResult {
@@ -150,6 +176,7 @@ class PoTokenGenerator(context: Context) {
                     webPoTokenGenerator = newGenerator
                     webPoTokenStreamingPot = newStreamingPot
                     webPoTokenSessionId = sessionId
+                    generatorGeneration.incrementAndGet()
 
                     Triple(newGenerator, newStreamingPot, true)
                 } else {

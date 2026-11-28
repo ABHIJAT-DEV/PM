@@ -64,13 +64,59 @@ fun NavController.navigateSafelyReplacing(
 }
 
 fun NavController.navigateToTopLevelSafely(route: String): Boolean {
+    if (!isReadyForNavigation()) return false
+    val currentRoute = currentBackStackEntry?.destination?.route
+    if (currentRoute == route) return true
+
+    val now = System.currentTimeMillis()
+    if (route == lastNavRoute && now - lastNavTime < 250L) {
+        return false
+    }
+    lastNavTime = now
+    lastNavRoute = route
+
     val startDestinationId = runCatching { graph.startDestinationId }.getOrNull() ?: return false
+    val targetNodeId = runCatching { graph.findNode(route)?.id }.getOrNull()
+
+    // When returning to the graph's start destination (e.g. from Settings or any detail screen),
+    // pop everything stacked above it instead of saving/restoring stale nested back stacks.
+    if (targetNodeId != null && targetNodeId == startDestinationId) {
+        if (popBackStack(startDestinationId, inclusive = false)) {
+            return true
+        }
+    }
+
     navigate(route) {
         popUpTo(startDestinationId) {
-            saveState = true
+            inclusive = false
+            saveState = false
         }
         launchSingleTop = true
-        restoreState = true
+        restoreState = false
+    }
+    return true
+}
+
+fun NavController.navigateToSettingsSafely(): Boolean {
+    if (!isReadyForNavigation()) return false
+    val currentRoute = currentBackStackEntry?.destination?.route
+    if (currentRoute == Screen.Settings.route) return true
+
+    val now = System.currentTimeMillis()
+    if (Screen.Settings.route == lastNavRoute && now - lastNavTime < 250L) {
+        return false
+    }
+    lastNavTime = now
+    lastNavRoute = Screen.Settings.route
+
+    // If Settings is already in the back stack (e.g. user is inside a Settings sub-screen),
+    // pop cleanly back to Settings root instead of stacking a duplicate Settings entry.
+    if (popBackStack(Screen.Settings.route, inclusive = false)) {
+        return true
+    }
+
+    navigate(Screen.Settings.route) {
+        launchSingleTop = true
     }
     return true
 }

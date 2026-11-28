@@ -230,6 +230,9 @@ class PoTokenWebView private constructor(
             suspendCancellableCoroutine { cont ->
                 Timber.tag(TAG).d("PO-token generation requested")
                 addPoTokenEmitter(requestKey, cont)
+                cont.invokeOnCancellation {
+                    popPoTokenContinuation(requestKey)
+                }
                 webView.evaluateJavascript(
                     """(function() {
                         var requestKey = "$requestKey"

@@ -72,6 +72,12 @@ class PlaybackStateHolder @Inject constructor(
     var mediaController: MediaController? = null
         private set
 
+    @Volatile
+    private var lastLoggedMismatchReportedMs: Long = -1L
+
+    @Volatile
+    private var lastLoggedMismatchHintMs: Long = -1L
+
     private var onMediaItemMismatch: ((Player) -> Unit)? = null
 
     fun setOnMediaItemMismatchListener(listener: ((Player) -> Unit)?) {
@@ -629,10 +635,17 @@ class PlaybackStateHolder @Inject constructor(
         // Otherwise prefer the shorter duration to avoid stale longer values after swaps.
         val resolved = minOf(reported, hint)
         if (diff > 10_000L) {
-            Timber.tag(TAG).w(
-                "Duration mismatch resolved (reported=%dms, hint=%dms, pos=%dms, resolved=%dms)",
-                reported, hint, position, resolved
-            )
+            if (lastLoggedMismatchReportedMs != reported || lastLoggedMismatchHintMs != hint) {
+                lastLoggedMismatchReportedMs = reported
+                lastLoggedMismatchHintMs = hint
+                Timber.tag(TAG).w(
+                    "Duration mismatch resolved (reported=%dms, hint=%dms, pos=%dms, resolved=%dms)",
+                    reported, hint, position, resolved
+                )
+            }
+        } else {
+            lastLoggedMismatchReportedMs = -1L
+            lastLoggedMismatchHintMs = -1L
         }
         return resolved
     }

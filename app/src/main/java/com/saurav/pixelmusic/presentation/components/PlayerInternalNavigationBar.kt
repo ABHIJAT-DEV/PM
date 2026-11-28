@@ -96,12 +96,15 @@ import com.saurav.pixelmusic.BottomNavItem
 import com.saurav.pixelmusic.R
 import com.saurav.pixelmusic.presentation.navigation.Screen
 import com.saurav.pixelmusic.presentation.navigation.navigateSafely
+import com.saurav.pixelmusic.presentation.navigation.navigateToSettingsSafely
 import com.saurav.pixelmusic.presentation.navigation.navigateToTopLevelSafely
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import kotlinx.collections.immutable.ImmutableList
@@ -344,7 +347,7 @@ fun PlayerInternalNavigationRail(
     profileAvatarSpec: String = "",
     profileDisplayName: String = "Guest",
     profileAvatarCacheKey: Long = 0L,
-    onProfileClick: () -> Unit = { navController.navigateSafely(Screen.Settings.route) },
+    onProfileClick: () -> Unit = { navController.navigateToSettingsSafely() },
     onSearchIconDoubleTap: () -> Unit = {}
 ) {
     val latestCurrentRoute by rememberUpdatedState(currentRoute)
@@ -352,6 +355,8 @@ fun PlayerInternalNavigationRail(
     val haptic = LocalHapticFeedback.current
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
+    val isCompactHeight = configuration.screenHeightDp < 400
 
     val railItems = remember(navItems) {
         val base = navItems.filter { it.screen.route != Screen.Search.route }
@@ -365,8 +370,25 @@ fun PlayerInternalNavigationRail(
         (base + searchItem).toImmutableList()
     }
 
-    val isSettingsSelected = latestCurrentRoute == Screen.Settings.route ||
-        latestCurrentRoute?.startsWith("settings") == true
+    val isSettingsSelected = remember(latestCurrentRoute) {
+        val route = latestCurrentRoute ?: return@remember false
+        route == Screen.Settings.route ||
+            route.startsWith("settings") ||
+            route == Screen.Profile.route ||
+            route == Screen.Accounts.route ||
+            route == Screen.About.route ||
+            route == Screen.PixelJamSettings.route ||
+            route == Screen.PaletteStyle.route ||
+            route == Screen.NavBarCrRad.route ||
+            route == Screen.Experimental.route ||
+            route == Screen.ArtistSettings.route ||
+            route == Screen.MusicLiveWallpaper.route ||
+            route == Screen.DelimiterConfig.route ||
+            route == Screen.WordDelimiterConfig.route ||
+            route == Screen.DeviceCapabilities.route ||
+            route == Screen.FeatureCompatibility.route
+    }
+    val isAtSettingsRoot = latestCurrentRoute == Screen.Settings.route
 
     val performExpressiveHaptic: (Boolean) -> Unit = remember(view, haptic) {
         { isPrimaryAction ->
@@ -385,6 +407,12 @@ fun PlayerInternalNavigationRail(
         }
     }
 
+    val capsuleSpacing = if (isCompactHeight) 2.dp else 4.dp
+    val capsuleVerticalPadding = if (isCompactHeight) 6.dp else 8.dp
+    val profileSpacing = if (isCompactHeight) 8.dp else 12.dp
+    val profileButtonSize = if (isCompactHeight) 48.dp else 54.dp
+    val profileAvatarSize = if (isCompactHeight) 38.dp else 42.dp
+
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -395,7 +423,8 @@ fun PlayerInternalNavigationRail(
                 WindowInsets.navigationBars.only(WindowInsetsSides.Start)
             )
             .statusBarsPadding()
-            .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 10.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(start = 10.dp, end = 8.dp, top = 6.dp, bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -409,9 +438,9 @@ fun PlayerInternalNavigationRail(
             Column(
                 modifier = Modifier
                     .width(68.dp)
-                    .padding(vertical = 8.dp, horizontal = 6.dp),
+                    .padding(vertical = capsuleVerticalPadding, horizontal = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(capsuleSpacing)
             ) {
                 railItems.forEach { item ->
                     val isSelected = latestCurrentRoute == item.screen.route
@@ -425,6 +454,7 @@ fun PlayerInternalNavigationRail(
                         label = item.label,
                         iconRes = iconRes,
                         isSelected = isSelected,
+                        compact = isCompactHeight,
                         onClick = {
                             if (!latestNavigationEnabled) return@ExpressiveNavigationRailItem
                             performExpressiveHaptic(!isSelected)
@@ -439,7 +469,7 @@ fun PlayerInternalNavigationRail(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(profileSpacing))
 
         // Detached Profile / Settings Expressive Pill
         val profileInteractionSource = remember { MutableInteractionSource() }
@@ -455,9 +485,9 @@ fun PlayerInternalNavigationRail(
         val profileTapBounce = remember { Animatable(1f) }
         val profileCorner by animateDpAsState(
             targetValue = when {
-                isProfilePressed -> 18.dp
+                isProfilePressed -> 16.dp
                 isSettingsSelected -> 18.dp
-                else -> 27.dp
+                else -> profileButtonSize / 2
             },
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -478,7 +508,7 @@ fun PlayerInternalNavigationRail(
         Surface(
             onClick = {
                 if (!latestNavigationEnabled) return@Surface
-                performExpressiveHaptic(!isSettingsSelected)
+                performExpressiveHaptic(!isAtSettingsRoot)
                 coroutineScope.launch {
                     profileTapBounce.snapTo(0.86f)
                     profileTapBounce.animateTo(
@@ -489,7 +519,9 @@ fun PlayerInternalNavigationRail(
                         )
                     )
                 }
-                if (!isSettingsSelected) {
+                // Tapping while on a Settings sub-screen pops back to Settings root;
+                // tapping from any other screen opens Settings cleanly.
+                if (!isAtSettingsRoot) {
                     onProfileClick()
                 }
             },
@@ -499,7 +531,7 @@ fun PlayerInternalNavigationRail(
             tonalElevation = 4.dp,
             shadowElevation = 6.dp,
             modifier = Modifier
-                .size(54.dp)
+                .size(profileButtonSize)
                 .graphicsLayer {
                     val combinedScale = profilePressScale * profileTapBounce.value
                     scaleX = combinedScale
@@ -513,7 +545,7 @@ fun PlayerInternalNavigationRail(
                 ProfileAvatar(
                     avatarSpec = profileAvatarSpec,
                     displayName = profileDisplayName,
-                    size = 42.dp,
+                    size = profileAvatarSize,
                     cacheKey = profileAvatarCacheKey,
                     fallbackInitial = "G"
                 )
@@ -527,6 +559,7 @@ private fun ExpressiveNavigationRailItem(
     label: String,
     iconRes: Int,
     isSelected: Boolean,
+    compact: Boolean = false,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -534,7 +567,7 @@ private fun ExpressiveNavigationRailItem(
     val coroutineScope = rememberCoroutineScope()
 
     val pressScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.88f else 1f,
+        targetValue = if (isPressed) 0.90f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -543,8 +576,13 @@ private fun ExpressiveNavigationRailItem(
     )
     val tapBounce = remember { Animatable(1f) }
 
+    val indicatorHeight = if (compact) 30.dp else 34.dp
     val indicatorWidth by animateDpAsState(
-        targetValue = if (isSelected) 52.dp else 0.dp,
+        targetValue = when {
+            isSelected -> 52.dp
+            isPressed -> 44.dp
+            else -> 0.dp
+        },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMediumLow
@@ -564,12 +602,12 @@ private fun ExpressiveNavigationRailItem(
         label = "rail_item_indicator_corner_$label"
     )
     val indicatorColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            Color.Transparent
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.primary
+            isPressed -> MaterialTheme.colorScheme.surfaceContainerHighest
+            else -> Color.Transparent
         },
-        animationSpec = tween(220),
+        animationSpec = tween(180),
         label = "rail_item_indicator_color_$label"
     )
     val iconTint by animateColorAsState(
@@ -585,7 +623,7 @@ private fun ExpressiveNavigationRailItem(
         targetValue = if (isSelected) {
             MaterialTheme.colorScheme.primary
         } else {
-            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.80f)
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f)
         },
         animationSpec = tween(200),
         label = "rail_item_label_color_$label"
@@ -618,16 +656,16 @@ private fun ExpressiveNavigationRailItem(
                     onClick()
                 }
             )
-            .padding(vertical = 3.dp)
+            .padding(vertical = if (compact) 2.dp else 3.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(width = 52.dp, height = 34.dp)
+            modifier = Modifier.size(width = 52.dp, height = indicatorHeight)
         ) {
             if (indicatorWidth > 1.dp) {
                 Box(
                     modifier = Modifier
-                        .size(width = indicatorWidth, height = 34.dp)
+                        .size(width = indicatorWidth, height = indicatorHeight)
                         .clip(AbsoluteSmoothCornerShape(indicatorCorner, 60))
                         .background(indicatorColor)
                 )
@@ -637,19 +675,19 @@ private fun ExpressiveNavigationRailItem(
                 contentDescription = label,
                 tint = iconTint,
                 modifier = Modifier
-                    .size(21.dp)
+                    .size(if (compact) 20.dp else 21.dp)
                     .graphicsLayer {
                         scaleX = tapBounce.value
                         scaleY = tapBounce.value
                     }
             )
         }
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(if (compact) 1.dp else 2.dp))
         Text(
             text = label,
             fontFamily = GoogleSansRounded,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 10.5.sp,
+            fontSize = if (compact) 10.sp else 10.5.sp,
             lineHeight = 12.sp,
             color = labelColor,
             maxLines = 1,

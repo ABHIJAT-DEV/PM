@@ -914,6 +914,10 @@ fun SettingsCategoryScreen(
                                     title = stringResource(R.string.setcat_app_navigation_section),
                                     addBottomSpace = false
                                 ) {
+                                    DefaultTabSelectorCard(
+                                        selectedTab = uiState.launchTab,
+                                        onTabSelected = { settingsViewModel.setLaunchTab(it) }
+                                    )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_library_navigation_label),
                                         description = stringResource(R.string.setcat_library_navigation_desc),
