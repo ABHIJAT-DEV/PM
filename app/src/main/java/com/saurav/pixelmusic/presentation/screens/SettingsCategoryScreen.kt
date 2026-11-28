@@ -914,9 +914,33 @@ fun SettingsCategoryScreen(
                                     title = stringResource(R.string.setcat_app_navigation_section),
                                     addBottomSpace = false
                                 ) {
-                                    DefaultTabSelectorCard(
-                                        selectedTab = uiState.launchTab,
-                                        onTabSelected = { settingsViewModel.setLaunchTab(it) }
+                                    val defaultTabIconRes = when (uiState.launchTab) {
+                                        LaunchTab.EXPLORE -> R.drawable.rounded_album_24
+                                        LaunchTab.LIBRARY -> R.drawable.rounded_library_music_24
+                                        LaunchTab.SEARCH -> R.drawable.rounded_search_24
+                                        else -> R.drawable.rounded_home_24
+                                    }
+                                    ThemeSelectorItem(
+                                        label = "Default Tab",
+                                        description = "Choose which tab opens when PixelMusic starts",
+                                        options = linkedMapOf(
+                                            LaunchTab.HOME to "Home",
+                                            LaunchTab.EXPLORE to "Explore",
+                                            LaunchTab.LIBRARY to "Library",
+                                            LaunchTab.SEARCH to "Search"
+                                        ),
+                                        selectedKey = when (uiState.launchTab) {
+                                            LaunchTab.EXPLORE, LaunchTab.LIBRARY, LaunchTab.SEARCH -> uiState.launchTab
+                                            else -> LaunchTab.HOME
+                                        },
+                                        onSelectionChanged = { settingsViewModel.setLaunchTab(it) },
+                                        leadingIcon = {
+                                            Icon(
+                                                painterResource(defaultTabIconRes),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
                                     )
                                     ThemeSelectorItem(
                                         label = stringResource(R.string.setcat_library_navigation_label),
