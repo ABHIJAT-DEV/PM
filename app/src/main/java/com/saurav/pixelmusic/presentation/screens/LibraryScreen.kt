@@ -345,7 +345,10 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val isMotionBlurEnabled by playerViewModel.userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    val isMotionBlurEnabled by playerViewModel.userPreferencesRepository.uiMotionBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+    val userProfile by playerViewModel.userProfile.collectAsStateWithLifecycle()
+    val userLocalAvatar by playerViewModel.currentUserLocalAvatar.collectAsStateWithLifecycle()
+    val ytUsername by playerViewModel.currentYtUsername.collectAsStateWithLifecycle()
     val lastTabIndex by playerViewModel.lastLibraryTabIndexFlow.collectAsStateWithLifecycle()
     val folderArtworkPreference by playerViewModel.userPreferencesRepository.folderArtworkPreferenceFlow.collectAsStateWithLifecycle(initialValue = "recently_added")
     val favoriteIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle()
@@ -809,6 +812,7 @@ fun LibraryScreen(
                                         }
                                     }
                                 }
+                                val libraryAvatarName = userProfile.effectiveDisplayName(ytUsername, "Guest")
                                 Surface(
                                     onClick = {
                                         navController.navigateSafely(Screen.Settings.route)
@@ -820,11 +824,12 @@ fun LibraryScreen(
                                     modifier = Modifier.size(44.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.rounded_settings_24),
-                                            contentDescription = stringResource(R.string.presentation_batch_d_open_settings_cd),
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(24.dp)
+                                        com.saurav.pixelmusic.presentation.components.ProfileAvatar(
+                                            avatarSpec = userLocalAvatar,
+                                            displayName = libraryAvatarName,
+                                            size = 38.dp,
+                                            cacheKey = userProfile.updatedAt,
+                                            fallbackInitial = "G"
                                         )
                                     }
                                 }
@@ -3543,33 +3548,43 @@ fun LibraryFoldersTab(
                                     )
                                     .scrollMotionBlur(listState, enabled = isMotionBlurEnabled),
                                 state = listState,
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
                                 contentPadding = PaddingValues(
                                     bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap,
-                                    top = 0.dp                            )
+                                    top = 0.dp
+                                )
                             ) {
                                 if (showPlaylistCards) {
-                                    items(itemsToShow, key = { it.path }, contentType = { "folder_card" }) { folder ->
+                                    itemsIndexed(itemsToShow, key = { _, it -> it.path }, contentType = { _, _ -> "folder_card" }) { index, folder ->
                                         FolderPlaylistItem(
                                             folder = folder,
+                                            shape = expressiveFolderCardShape(index, itemsToShow.size),
                                             onClick = { onFolderAsPlaylistClick(folder) }
                                         )
                                     }
                                 } else {
-                                    items(itemsToShow, key = { it.path }, contentType = { "folder_list" }) { folder ->
+                                    itemsIndexed(itemsToShow, key = { _, it -> it.path }, contentType = { _, _ -> "folder_list" }) { index, folder ->
                                         FolderListItem(
                                             folder = folder,
                                             folderArtworkPreference = folderArtworkPreference,
+                                            shape = expressiveFolderCardShape(index, itemsToShow.size),
                                             onClick = { onFolderClick(folder.path) }
                                         )
                                     }
                                 }
 
-                                itemsIndexed(songsToShow, key = { index, song -> "${song.id}_$index" }, contentType = { _, _ -> "song" }) { _, song ->
+                                if (itemsToShow.isNotEmpty() && songsToShow.isNotEmpty()) {
+                                    item(key = "folder_songs_spacer", contentType = "spacer") {
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                    }
+                                }
+
+                                itemsIndexed(songsToShow, key = { index, song -> "${song.id}_$index" }, contentType = { _, _ -> "song" }) { index, song ->
                                     EnhancedSongListItem(
                                         song = song,
                                         isPlaying = currentSong?.id == song.id && isPlaying,
                                         isCurrentSong = currentSong?.id == song.id,
+                                        customShape = expressiveFolderCardShape(index, songsToShow.size),
                                         onMoreOptionsClick = { onMoreOptionsClick(song) },
                                         isSelected = selectedSongIds.contains(song.id),
                                         selectionIndex = if (isSelectionMode) getSelectionIndex(song.id) else null,
@@ -3606,13 +3621,27 @@ fun LibraryFoldersTab(
     }
 }
 
+private fun expressiveFolderCardShape(index: Int, count: Int): RoundedCornerShape {
+    return when {
+        count <= 1 -> RoundedCornerShape(24.dp)
+        index == 0 -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+        index == count - 1 -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+        else -> RoundedCornerShape(4.dp)
+    }
+}
+
 @Composable
-fun FolderPlaylistItem(folder: MusicFolder, onClick: () -> Unit) {
+fun FolderPlaylistItem(
+    folder: MusicFolder,
+    shape: RoundedCornerShape = RoundedCornerShape(20.dp),
+    onClick: () -> Unit
+) {
     val previewSongs = remember(folder) { folder.collectAllSongs().take(9) }
 
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
@@ -3650,55 +3679,57 @@ fun FolderPlaylistItem(folder: MusicFolder, onClick: () -> Unit) {
 fun FolderListItem(
     folder: MusicFolder,
     folderArtworkPreference: String = "recently_added",
+    shape: RoundedCornerShape = RoundedCornerShape(20.dp),
     onClick: () -> Unit
 ) {
-    val recentlyAddedSong = remember(folder, folderArtworkPreference) {
-        if (folderArtworkPreference == "recently_added") {
-            folder.collectAllSongs().maxByOrNull { it.dateAdded }
-        } else {
-            null
-        }
-    }
-    val albumArt = recentlyAddedSong?.albumArtUriString
-
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (albumArt != null) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                ) {
-                    SmartImage(
-                        model = albumArt,
-                        contentDescription = stringResource(R.string.presentation_batch_d_cd_folder),
-                        contentScale = ContentScale.Crop,
-                        targetSize = Size(256, 256),
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_folder),
+                    painter = painterResource(id = R.drawable.rounded_folder_24),
                     contentDescription = stringResource(R.string.presentation_batch_d_cd_folder),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                        .padding(8.dp),
+                    modifier = Modifier.size(26.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(folder.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(formatSongCount(folder.totalSongCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    folder.name,
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = GoogleSansRounded),
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    formatSongCount(folder.totalSongCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+            Icon(
+                painter = painterResource(id = R.drawable.rounded_chevron_right_24),
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
         }
     }
 }
